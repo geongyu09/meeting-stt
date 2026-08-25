@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
-import { readFile, rm } from 'node:fs/promises'
+import { readdir, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
+import path from 'node:path'
 import { assignSpeakers, mergeUtterances } from '@shared/merge'
 import type { PipelineStage, SpeakerSegment, SttSegment } from '@shared/types'
 import { diarizeBinPath, whisperBinPath } from '../bin/paths'
@@ -28,6 +29,22 @@ interface RunPipelineParams {
 }
 
 const threadCount = () => Math.max(1, os.cpus().length - RESERVED_CORES)
+
+const isPipelineArtifact = (fileName: string) =>
+  fileName.endsWith(NORMALIZED_SUFFIX) || fileName.endsWith(`${WHISPER_OUTPUT_SUFFIX}.json`)
+
+/**
+ * 잡 중간에 앱이 죽으면 finally가 돌지 않아 정규화본·whisper JSON이 남는다.
+ * 앱 시작 시 한 번 지운다. 원본 WAV는 건드리지 않는다 (references/architecture.md)
+ */
+export const removeStalePipelineArtifacts = async ({ dir }: { dir: string }) => {
+  if (!existsSync(dir)) return 0
+
+  const stale = (await readdir(dir)).filter(isPipelineArtifact)
+  await Promise.all(stale.map((fileName) => rm(path.join(dir, fileName), { force: true })))
+
+  return stale.length
+}
 
 /** 실행 파일·모델이 없으면 spawn 전에 한국어로 안내하고 멈춘다 */
 const ensureReady = () => {

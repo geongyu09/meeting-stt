@@ -18,7 +18,7 @@ const MIN_RECORDING_SEC = 1
 
 const writers = new Map<string, WavWriter>()
 
-const recordingsDir = () => path.join(app.getPath('userData'), 'recordings')
+export const recordingsDir = () => path.join(app.getPath('userData'), 'recordings')
 
 const pad2 = (value: number) => String(value).padStart(2, '0')
 

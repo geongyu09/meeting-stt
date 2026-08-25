@@ -4,11 +4,13 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import type { PipelineProgressEvent } from '@shared/ipc'
 import { IPC } from '@shared/ipc'
 import icon from '../../resources/icon.png?asset'
+import { recordingsDir } from './audio/session'
 import { closeDb } from './db/connection'
 import { failStaleMeetings } from './db/meetings'
 import { registerIpcHandlers } from './ipc/handlers'
-import { info } from './log'
+import { info, messageOf, warn } from './log'
 import { setPipelineProgressListener } from './pipeline/queue'
+import { removeStalePipelineArtifacts } from './pipeline/run'
 
 const WINDOW_WIDTH = 1000
 const WINDOW_HEIGHT = 720
@@ -55,7 +57,20 @@ const broadcastProgress = (event: PipelineProgressEvent) => {
   })
 }
 
-app.whenReady().then(() => {
+/** 이전 실행이 녹음·처리 중에 죽은 흔적을 정리한다. 실패해도 앱은 뜬다 */
+const cleanupPreviousRun = async () => {
+  const cleaned = failStaleMeetings()
+  if (cleaned) info(`비정상 종료로 남은 회의 ${cleaned}건을 오류로 정리했습니다`)
+
+  try {
+    const removed = await removeStalePipelineArtifacts({ dir: recordingsDir() })
+    if (removed) info(`남은 파이프라인 임시 파일 ${removed}개를 지웠습니다`)
+  } catch (caught) {
+    warn(`파이프라인 임시 파일 정리 실패: ${messageOf(caught)}`)
+  }
+}
+
+app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.meetingstt.app')
 
   app.on('browser-window-created', (_, window) => {
@@ -65,9 +80,7 @@ app.whenReady().then(() => {
   restrictPermissions()
   registerIpcHandlers()
   setPipelineProgressListener(broadcastProgress)
-
-  const cleaned = failStaleMeetings()
-  if (cleaned) info(`비정상 종료로 남은 회의 ${cleaned}건을 오류로 정리했습니다`)
+  await cleanupPreviousRun()
 
   createWindow()
 
