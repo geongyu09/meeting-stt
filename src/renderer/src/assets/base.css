@@ -1,67 +1,72 @@
 :root {
-  --ev-c-white: #ffffff;
-  --ev-c-white-soft: #f8f8f8;
-  --ev-c-white-mute: #f2f2f2;
+  --color-bg: #f6f6f7;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f0f1f3;
+  --color-border: #e2e2e6;
+  --color-text: #1b1b1f;
+  --color-text-muted: #6c6c76;
+  --color-accent: #2f6feb;
+  --color-accent-text: #ffffff;
+  --color-danger: #c8372d;
+  --color-success: #1f7a45;
 
-  --ev-c-black: #1b1b1f;
-  --ev-c-black-soft: #222222;
-  --ev-c-black-mute: #282828;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
 
-  --ev-c-gray-1: #515c67;
-  --ev-c-gray-2: #414853;
-  --ev-c-gray-3: #32363f;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-full: 999px;
 
-  --ev-c-text-1: rgba(255, 255, 245, 0.86);
-  --ev-c-text-2: rgba(235, 235, 245, 0.6);
-  --ev-c-text-3: rgba(235, 235, 245, 0.38);
-
-  --ev-button-alt-border: transparent;
-  --ev-button-alt-text: var(--ev-c-text-1);
-  --ev-button-alt-bg: var(--ev-c-gray-3);
-  --ev-button-alt-hover-border: transparent;
-  --ev-button-alt-hover-text: var(--ev-c-text-1);
-  --ev-button-alt-hover-bg: var(--ev-c-gray-2);
+  --font-sm: 13px;
+  --font-md: 15px;
+  --font-lg: 18px;
+  --font-xl: 22px;
+  --font-display: 40px;
 }
 
-:root {
-  --color-background: var(--ev-c-black);
-  --color-background-soft: var(--ev-c-black-soft);
-  --color-background-mute: var(--ev-c-black-mute);
-
-  --color-text: var(--ev-c-text-1);
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #17181b;
+    --color-surface: #202126;
+    --color-surface-hover: #292a30;
+    --color-border: #34353c;
+    --color-text: rgba(255, 255, 245, 0.88);
+    --color-text-muted: rgba(235, 235, 245, 0.55);
+    --color-accent: #4b86f0;
+    --color-danger: #e5675c;
+    --color-success: #4cb37a;
+  }
 }
 
 *,
 *::before,
 *::after {
   box-sizing: border-box;
-  margin: 0;
-  font-weight: normal;
-}
-
-ul {
-  list-style: none;
 }
 
 body {
-  min-height: 100vh;
+  margin: 0;
+  background: var(--color-bg);
   color: var(--color-text);
-  background: var(--color-background);
-  line-height: 1.6;
   font-family:
-    Inter,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    Oxygen,
-    Ubuntu,
-    Cantarell,
-    'Fira Sans',
-    'Droid Sans',
-    'Helvetica Neue',
-    sans-serif;
-  text-rendering: optimizeLegibility;
+    -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Pretendard', 'Segoe UI', sans-serif;
+  font-size: var(--font-md);
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+button {
+  font: inherit;
+}
+
+a {
+  color: inherit;
 }
