@@ -4,8 +4,11 @@ import type { SpeakerSegment } from '@shared/types'
 const SEGMENT_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*--\s*(\d+(?:\.\d+)?)\s+(\S+)\s*$/
 const PROGRESS_PATTERN = /^\s*progress\s+(\d+(?:\.\d+)?)%\s*$/
 
-/** 참석자 수를 모를 때 쓰는 군집 임계값. 값이 작을수록 화자를 많이 나눈다 */
-export const DEFAULT_CLUSTER_THRESHOLD = 0.6
+/**
+ * 참석자 수를 모를 때 쓰는 군집 임계값. 값이 작을수록 화자를 많이 나눈다.
+ * 실제 회의 녹음에서 0.6은 23명으로 과분할됐고 0.8부터 주요 화자 구성이 안정된다 (docs/phase1-results.md)
+ */
+export const DEFAULT_CLUSTER_THRESHOLD = 0.8
 
 /**
  * 화자 분리 stdout을 화자 구간으로 바꾼다.
