@@ -36,8 +36,9 @@ description: 프로세스 경계(main / preload / renderer / shared)와 전체 �
 ```
 src/
 ├── shared/                              # 프로세스 공용 순수 TS (플랫 파일, vitest)
-│   ├── types.ts                         # Meeting, Utterance, Speaker, SttSegment, SpeakerSegment
+│   ├── types.ts                         # Meeting, MeetingDetail, Utterance, Speaker, SttSegment
 │   ├── ipc.ts                           # IPC 채널 상수 + 요청/응답/이벤트 payload 타입
+│   ├── audio.ts                         # 샘플레이트·청크 크기 (renderer/main 공용)
 │   ├── merge.ts                         # assignSpeakers, mergeUtterances (순수 함수)
 │   ├── merge.test.ts                    # 단위 테스트
 │   ├── format.ts                        # 타임스탬프·복사용 텍스트 조립
@@ -45,10 +46,11 @@ src/
 │
 ├── main/                                # Node 프로세스 (플랫 파일, 역할별 폴더)
 │   ├── index.ts                         # 창 생성, 권한 요청, ipc 등록
+│   ├── log.ts                           # 운영 로그 (console 직접 호출 금지)
 │   ├── audio/wavWriter.ts
-│   ├── pipeline/{queue,vad,whisper,diarize,run}.ts
-│   ├── db/{connection,schema,migrations,meetings,utterances,speakers}.ts
-│   ├── models/{registry,download,paths}.ts
+│   ├── pipeline/{queue,run,whisper,diarize}.ts
+│   ├── db/{connection,migrations,meetings,utterances,speakers}.ts
+│   ├── models/paths.ts                  # registry/download는 Phase 4
 │   ├── bin/{paths,spawn}.ts
 │   └── ipc/handlers.ts
 │
@@ -61,7 +63,8 @@ src/
     └── src/
         ├── main.tsx
         ├── App.tsx
-        ├── assets/                      # 전역 css
+        ├── assets/                      # 전역 css (CSS 변수 토큰은 base.css)
+        ├── worklet/pcmRecorder.js       # AudioWorkletProcessor (`?url`로 import)
         │
         ├── pages/                       # 라우트 화면. widgets 배치만
         │   ├── Onboarding/index.tsx
@@ -72,6 +75,7 @@ src/
         ├── modules/                     # 도메인 로직을 가진 컴포넌트
         │   ├── widgets/{domain}/AComponent/
         │   │   ├── index.tsx
+        │   │   ├── index.module.css     # CSS Modules (세그먼트 아님, index.tsx 옆)
         │   │   ├── ui/
         │   │   │   ├── LoadingFallback.tsx
         │   │   │   └── ErrorFallback.tsx

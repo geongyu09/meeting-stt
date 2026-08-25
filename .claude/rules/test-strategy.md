@@ -35,6 +35,10 @@ AI로 기능 개발 시 검증 루프가 필요한데, 검증 루프를 테스�
 - renderer 통합 테스트에서 IPC는 **`@renderer/shared/api/{domain}` 모듈만** 모킹 (`vi.mock`). `window.api`나 `ipcRenderer`를 직접 모킹하지 않음 — 이것이 api 래퍼를 한 겹 두는 이유 중 하나.
 - main 단위 테스트에서 외부 바이너리는 실행하지 않음. `spawn` 래퍼(`src/main/bin/spawn.ts`)를 모킹하고, whisper/sherpa 출력은 `src/main/pipeline/fixtures/`에 커밋해 둔 **실제 출력 샘플**을 입력으로 사용 (직접 지어낸 문자열 금지 — 인코딩·타임스탬프 함정이 재현되지 않음). 샘플은 짧게 잘라 두고, 바이너리 버전을 파일 상단 주석이나 파일명에 남김. 이 폴더는 `.prettierignore`에 넣어 둠 — whisper 샘플은 유효한 UTF-8이 아니라 prettier가 다시 쓰면 내용이 깨진다.
 - 실제 오디오·모델 파일이 필요한 검증은 테스트가 아니라 `scripts/`의 Phase 1 검증 스크립트로 수행.
+- **`src/main/db/*`는 단위 테스트 대상이 아니다.** `better-sqlite3`는 `electron-builder install-app-deps`가 Electron ABI로 리빌드하므로
+  순수 Node에서 도는 vitest가 import하면 `NODE_MODULE_VERSION` 오류로 죽는다 (`references/pitfalls.md`). DB 동작은 `pnpm dev`로 확인.
+- 같은 이유로 `electron` 모듈을 import하는 파일(`src/main/index.ts`, `ipc/handlers.ts`, 경로 해석 모듈)도 테스트에서 import하지 않는다.
+  테스트가 필요한 로직은 electron 의존이 없는 순수 함수로 분리해 둔다.
 
 ## 작성 규칙
 

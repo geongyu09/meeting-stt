@@ -27,43 +27,45 @@ renderer 컴포넌트/훅
 - 여기서는 도메인 타입(`@shared/types`)만 import. `electron`·`react` 의존 금지.
 - 리턴 타입을 명시하지 않는 전역 규칙의 예외 — 양 프로세스의 계약이므로 타입을 명시.
 
+**채널은 그 Phase에서 실제로 쓰는 것만 정의한다.** 미리 선언해 두면 preload·renderer 래퍼까지 죽은 코드가 따라옴.
+채널 목록의 현재 상태는 `.claude/skills/meeting-stt-dev/references/architecture.md`의 IPC 규약 절이 기준.
+
 ```ts
 // src/shared/ipc.ts
-import type { Meeting, MeetingDetail } from './types'
+import type { Meeting, MeetingDetail, PipelineStage } from './types'
 
 export const IPC = {
-  recording: { start: 'recording:start', chunk: 'recording:chunk', stop: 'recording:stop' },
-  meetings: {
-    list: 'meetings:list',
-    get: 'meetings:get',
-    rename: 'meetings:rename',
-    delete: 'meetings:delete'
+  recording: {
+    requestPermission: 'recording:requestPermission',
+    start: 'recording:start',
+    chunk: 'recording:chunk',
+    stop: 'recording:stop'
   },
-  utterances: { updateText: 'utterances:updateText', reassign: 'utterances:reassignSpeaker' },
-  speakers: { rename: 'speakers:rename', merge: 'speakers:merge' },
-  models: { status: 'models:status', download: 'models:download' },
-  events: { progress: 'pipeline:progress', modelDownload: 'models:downloadProgress' }
+  meetings: { list: 'meetings:list', get: 'meetings:get' },
+  events: { progress: 'pipeline:progress' }
 } as const
 
 export type GetMeetingsResponse = Meeting[]
 
 export interface GetMeetingRequest {
-  meetingId: number
+  meetingId: string
 }
 export type GetMeetingResponse = MeetingDetail
 
 export interface RenameSpeakerRequest {
-  meetingId: number
+  meetingId: string
   label: string
   displayName: string
 }
 
 export interface PipelineProgressEvent {
-  meetingId: number
-  stage: 'vad' | 'stt' | 'diarize' | 'merge' | 'done' | 'error'
+  meetingId: string
+  stage: PipelineStage
   percent: number
 }
 ```
+
+- 식별자는 전부 uuid **문자열**이다 (`references/data-model.md`의 "식별자" 절).
 
 ## 2. `src/main/ipc/handlers.ts` — 핸들러 등록
 
@@ -81,7 +83,9 @@ import { getMeeting } from '../db/meetings'
 import { renameSpeaker } from '../db/speakers'
 
 export const registerIpcHandlers = () => {
-  ipcMain.handle(IPC.meetings.get, (_event, payload: GetMeetingRequest) => getMeeting(payload.meetingId))
+  ipcMain.handle(IPC.meetings.get, (_event, payload: GetMeetingRequest) =>
+    getMeeting({ meetingId: payload.meetingId })
+  )
   ipcMain.handle(IPC.speakers.rename, (_event, payload: RenameSpeakerRequest) => renameSpeaker(payload))
 }
 ```
@@ -147,7 +151,7 @@ import type { RenameSpeakerRequest } from '@shared/ipc'
  * @param displayName - 사용자가 지정한 이름
  * @returns 없음
  * @example
- * await renameSpeakerApi({ meetingId: 3, label: 'SPEAKER_00', displayName: '김팀장' })
+ * await renameSpeakerApi({ meetingId, label: 'SPEAKER_00', displayName: '김팀장' })
  */
 export const renameSpeakerApi = async ({ meetingId, label, displayName }: RenameSpeakerRequest) => {
   await window.api.speakers.rename({ meetingId, label, displayName })

@@ -46,6 +46,9 @@ domain 훅은 common 훅에 도메인만 붙인 형태 (`useAudioLevel` + record
 
 서버 상태 라이브러리를 쓰지 않으므로 요청 상태는 훅 안에서 직접 관리. 반환값은 도메인 개념(`meetings`, `isLoading`, `error`, `refetch`)만 담고, 특정 JSX용 props 묶음은 반환하지 않음.
 
+**첫 로드용 요청 함수는 `async/await`가 아니라 프로미스 체인으로 작성.** `react-hooks/set-state-in-effect`(eslint-plugin-react-hooks 7의 컴파일러 규칙)는 `await` 뒤의 `setState`도 effect 안의 동기 호출로 보기 때문에, effect에서 호출하는 `async` 함수는 린트에 걸림. `.then`/`.catch`/`.finally` 콜백 안의 `setState`는 통과.
+같은 이유로 `isLoading`을 다시 켜는 일은 요청 함수가 아니라 **사용자 액션에서 호출하는 `refetch`** 가 맡음 (첫 로드는 초기값 `true`로 충분).
+
 ```ts
 // src/renderer/src/shared/hooks/domain/meeting/useMeetings/index.ts
 import { useCallback, useEffect, useState } from 'react'
@@ -57,21 +60,30 @@ const useMeetings = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
-  const refetch = useCallback(async () => {
+  const fetchMeetings = useCallback(
+    () =>
+      getMeetingsApi()
+        .then((next) => {
+          setMeetings(next)
+          setError(null)
+        })
+        .catch((caught: unknown) =>
+          setError(caught instanceof Error ? caught : new Error('회의 목록을 불러오지 못했습니다'))
+        )
+        .finally(() => setIsLoading(false)),
+    []
+  )
+
+  /** 사용자가 다시 시도할 때만 로딩 상태를 다시 켠다 */
+  const refetch = useCallback(() => {
     setIsLoading(true)
-    try {
-      setMeetings(await getMeetingsApi())
-      setError(null)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught : new Error('회의 목록을 불러오지 못했습니다'))
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+
+    return fetchMeetings()
+  }, [fetchMeetings])
 
   useEffect(() => {
-    refetch()
-  }, [refetch])
+    fetchMeetings()
+  }, [fetchMeetings])
 
   return { meetings, isLoading, error, refetch }
 }
@@ -90,7 +102,7 @@ import type { PipelineProgressEvent } from '@shared/ipc'
 import { onPipelineProgress } from '@renderer/shared/api/events'
 
 interface UsePipelineProgressParams {
-  meetingId: number
+  meetingId: string
 }
 
 const usePipelineProgress = ({ meetingId }: UsePipelineProgressParams) => {

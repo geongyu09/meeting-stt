@@ -15,7 +15,7 @@ description: 모든 코드에 적용되는 전역 규칙(네이밍, 타입, 컴�
 
 - 폴더명: `camelCase` (도메인 폴더 `meeting`, `recording`). 컴포넌트·훅 폴더는 구현체 이름 그대로 (`MeetingListSection`, `useRecorder`)
 - 파일명: 컴포넌트는 `PascalCase.tsx`, 그 외는 `camelCase.ts`
-- 케밥 케이스 금지. 예외는 브라우저가 URL로 직접 로드하는 정적 파일뿐 (`resources/worklet/pcm-recorder.js`)
+- 케밥 케이스 금지. 정적 파일(AudioWorklet, css)도 카멜로 통일 (`src/renderer/src/worklet/pcmRecorder.js`)
 - renderer의 컴포넌트·훅·유틸은 폴더 + `index.ts(x)` 형태. 단, 컴포넌트 세그먼트 내부는 플랫 파일 (`.claude/rules/segment-pattern.md`)
 - `src/shared`, `src/main`, `src/preload`(Node 쪽)는 폴더 + `index.ts`를 쓰지 않고 역할별 플랫 파일 (`src/main/pipeline/whisper.ts`)
 - 타입 파일은 항상 `types/` 폴더 안에 내용을 나타내는 이름 (`types/meeting.ts`). `types.ts` 단일 파일·`types/index.ts` 금지 (프로세스 공용 `src/shared/types.ts`만 예외)
@@ -39,6 +39,15 @@ description: 모든 코드에 적용되는 전역 규칙(네이밍, 타입, 컴�
 
 - `Container`: **2개 이상**의 요소를 감쌀 때
 - `Wrapper`: **1개**의 요소를 감쌀 때 (`<LevelMeterWrapper />`)
+
+## 스타일
+
+- **CSS Modules**를 쓴다. 컴포넌트 폴더의 `index.tsx` 옆에 `index.module.css`를 두고 `import styles from './index.module.css'`로 가져옴.
+  UI 라이브러리·CSS-in-JS는 도입하지 않음 (의존성 없이 스코프가 격리되고, 코로케이션 규칙과도 맞기 때문).
+- `index.module.css`는 세그먼트가 아니라 `index.tsx` 옆의 플랫 파일. 세그먼트 안의 서브 컴포넌트(`ui/UtteranceRow.tsx`)가 자기 스타일이 필요하면
+  같은 이름의 `ui/UtteranceRow.module.css`를 옆에 둠.
+- 색·간격·반경 같은 값은 `src/renderer/src/assets/base.css`의 CSS 변수(`--color-*`, `--space-*`)로만 쓰고 컴포넌트에 하드코딩하지 않음.
+- 클래스명은 카멜 (`.utteranceRow`). 인라인 `style`은 값이 런타임에 계산되는 경우(레벨 미터 너비, 진행률 바)에만 사용.
 
 ## 상수
 
