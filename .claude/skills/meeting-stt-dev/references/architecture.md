@@ -179,4 +179,5 @@ spawn(binPath, args, { windowsHide: true })
 
 - 온보딩(`/onboarding`)은 Phase 4에서 모델 다운로더와 함께 추가한다. 미리 만들어 두지 않는다.
 - 흐름: 홈에서 "새 회의 녹음" → `/record` → 정지 → main이 잡을 큐에 넣고 `/meetings/:meetingId`로 이동 → 처리 중 상태를 보여주다가 `pipeline:progress`의 `done`을 받으면 회의록을 다시 불러온다.
+- 녹음 중에 `/record`를 벗어나면(뒤로 가기·창 닫기) 녹음을 정지해 WAV 헤더를 확정하고 잡을 큐에 넣는다. 헤더가 확정되지 않은 WAV는 파이프라인이 읽지 못한다.
 - Phase 2에서 진행률 **막대**는 만들지 않는다(Phase 3). 진행률 이벤트는 목록·디테일의 상태를 갱신하는 신호로만 쓴다.
