@@ -12,6 +12,12 @@ const MIN_UTTERANCE_SEC = 0.5
  */
 const NEAREST_SPEAKER_TOLERANCE_SEC = 1
 
+/**
+ * 총 발화 시간이 이보다 짧은 화자는 파편 클러스터로 보고 이웃 주요 화자에 흡수한다.
+ * cluster-threshold를 올려도 짧은 구간의 임베딩이 불안정해 1~8초짜리 화자가 남는다 (docs/phase1-results.md).
+ */
+const MINOR_SPEAKER_TOTAL_SEC = 10
+
 const joinText = (left: string, right: string) => [left, right].filter(Boolean).join(' ').trim()
 
 /** 화자 구간을 start 순으로 정렬하고, 이진 탐색 종료 조건용 누적 최대 end를 함께 만든다 */
@@ -82,6 +88,48 @@ const findNearestSpeaker = ({ sorted, start, end }: Omit<FindSpeakerParams, 'pre
   return bestSpeaker
 }
 
+const totalDurationBySpeaker = (speakerSegments: SpeakerSegment[]) =>
+  speakerSegments.reduce<Map<string, number>>((totals, segment) => {
+    const current = totals.get(segment.speaker) ?? 0
+    return new Map(totals).set(segment.speaker, current + segment.end - segment.start)
+  }, new Map())
+
+/** 시간상 가장 가까운(겹치면 0) 주요 화자 구간의 화자 */
+const nearestMajorSpeaker = ({
+  majors,
+  segment
+}: {
+  majors: SpeakerSegment[]
+  segment: SpeakerSegment
+}) =>
+  majors.reduce<{ gap: number; speaker: string }>(
+    (best, major) => {
+      const gap = gapTo({ segment: major, start: segment.start, end: segment.end })
+      return gap < best.gap ? { gap, speaker: major.speaker } : best
+    },
+    { gap: Infinity, speaker: segment.speaker }
+  ).speaker
+
+/**
+ * 총 발화 시간이 MINOR_SPEAKER_TOTAL_SEC 미만인 군소 화자의 구간을 가장 가까운 주요 화자에게 넘긴다.
+ * 주요 화자가 한 명도 없으면(아주 짧은 녹음) 그대로 둔다.
+ */
+export const absorbMinorSpeakers = (speakerSegments: SpeakerSegment[]) => {
+  const totals = totalDurationBySpeaker(speakerSegments)
+  const majorLabels = new Set(
+    [...totals].filter(([, total]) => total >= MINOR_SPEAKER_TOTAL_SEC).map(([label]) => label)
+  )
+  if (majorLabels.size === 0 || majorLabels.size === totals.size) return speakerSegments
+
+  const majors = speakerSegments.filter((segment) => majorLabels.has(segment.speaker))
+
+  return speakerSegments.map((segment) =>
+    majorLabels.has(segment.speaker)
+      ? segment
+      : { ...segment, speaker: nearestMajorSpeaker({ majors, segment }) }
+  )
+}
+
 const unitsOf = (segment: SttSegment): SttWord[] =>
   segment.words?.length
     ? segment.words
@@ -94,11 +142,11 @@ interface AssignSpeakersParams {
 
 /**
  * 전사 결과의 각 단어(단어 타임스탬프가 없으면 세그먼트)에 화자를 배정한다.
- * 겹치는 구간이 없으면 1초 이내의 가장 가까운 화자 구간, 그것도 없으면 직전 화자,
- * 마지막으로 UNKNOWN 순서로 정한다.
+ * 군소 화자를 먼저 흡수한 뒤, 겹치는 구간이 없으면 1초 이내의 가장 가까운 화자 구간,
+ * 그것도 없으면 직전 화자, 마지막으로 UNKNOWN 순서로 정한다.
  */
 export const assignSpeakers = ({ segments, speakerSegments }: AssignSpeakersParams) => {
-  const { sorted, prefixMaxEnd } = indexSpeakerSegments(speakerSegments)
+  const { sorted, prefixMaxEnd } = indexSpeakerSegments(absorbMinorSpeakers(speakerSegments))
   const pieces: SpeakerPiece[] = []
   let previousSpeaker: string | null = null
 

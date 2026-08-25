@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { assignSpeakers, mergeUtterances, UNKNOWN_SPEAKER } from './merge'
+import { absorbMinorSpeakers, assignSpeakers, mergeUtterances, UNKNOWN_SPEAKER } from './merge'
 import type { SpeakerSegment, SttSegment } from './types'
 
 const speakerSegments: SpeakerSegment[] = [
@@ -152,5 +152,46 @@ describe('mergeUtterances', () => {
 
   it('빈 입력이면 빈 배열을 반환한다', () => {
     expect(mergeUtterances([])).toEqual([])
+  })
+})
+
+describe('absorbMinorSpeakers', () => {
+  const majorSegments: SpeakerSegment[] = [
+    { start: 0, end: 20, speaker: 'speaker_00' },
+    { start: 25, end: 45, speaker: 'speaker_01' }
+  ]
+
+  it('총 발화가 짧은 화자의 구간을 시간상 가장 가까운 주요 화자에게 넘긴다', () => {
+    const fragments: SpeakerSegment[] = [
+      { start: 21, end: 23, speaker: 'speaker_07' },
+      { start: 46, end: 47, speaker: 'speaker_09' }
+    ]
+
+    const absorbed = absorbMinorSpeakers([...majorSegments, ...fragments])
+
+    expect(absorbed.map((segment) => segment.speaker)).toEqual([
+      'speaker_00',
+      'speaker_01',
+      'speaker_00',
+      'speaker_01'
+    ])
+  })
+
+  it('주요 화자가 한 명도 없으면 그대로 둔다', () => {
+    const shortOnly: SpeakerSegment[] = [
+      { start: 0, end: 3, speaker: 'speaker_00' },
+      { start: 3, end: 5, speaker: 'speaker_01' }
+    ]
+
+    expect(absorbMinorSpeakers(shortOnly)).toEqual(shortOnly)
+  })
+
+  it('assignSpeakers는 흡수된 라벨로 단어를 배정한다', () => {
+    const segments: SttSegment[] = [{ start: 21, end: 23, text: '네네' }]
+    const withFragment = [...majorSegments, { start: 21, end: 23, speaker: 'speaker_07' }]
+
+    const pieces = assignSpeakers({ segments, speakerSegments: withFragment })
+
+    expect(pieces[0].speaker).toBe('speaker_00')
   })
 })
