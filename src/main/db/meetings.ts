@@ -52,8 +52,7 @@ export const findMeeting = ({ meetingId }: { meetingId: string }) => {
 
 export const findAudioPath = ({ meetingId }: { meetingId: string }) => {
   const row = getDb().prepare('SELECT audio_path FROM meetings WHERE id = ?').get(meetingId) as
-    | Pick<MeetingRow, 'audio_path'>
-    | undefined
+    Pick<MeetingRow, 'audio_path'> | undefined
 
   return row?.audio_path ?? null
 }
@@ -70,7 +69,9 @@ export const updateMeetingStatus = ({
   errorMessage
 }: UpdateMeetingStatusParams) => {
   getDb()
-    .prepare('UPDATE meetings SET status = @status, error_message = @errorMessage WHERE id = @meetingId')
+    .prepare(
+      'UPDATE meetings SET status = @status, error_message = @errorMessage WHERE id = @meetingId'
+    )
     .run({ meetingId, status, errorMessage: errorMessage ?? null })
 }
 

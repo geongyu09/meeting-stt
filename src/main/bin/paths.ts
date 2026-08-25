@@ -15,5 +15,4 @@ const binDir = () =>
 
 export const whisperBinPath = () => path.join(binDir(), 'whisper-cli')
 
-export const diarizeBinPath = () =>
-  path.join(binDir(), 'sherpa-onnx-offline-speaker-diarization')
+export const diarizeBinPath = () => path.join(binDir(), 'sherpa-onnx-offline-speaker-diarization')

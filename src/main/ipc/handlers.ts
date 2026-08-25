@@ -43,12 +43,11 @@ const readPcm = (payload: unknown) => {
 }
 
 /** macOS만 명시적 요청이 필요하다. 그 외 플랫폼은 getUserMedia 실패로 처리한다 */
-const requestMicrophonePermission =
-  async (): Promise<RequestMicrophonePermissionResponse> => {
-    if (process.platform !== 'darwin') return { isGranted: true }
+const requestMicrophonePermission = async (): Promise<RequestMicrophonePermissionResponse> => {
+  if (process.platform !== 'darwin') return { isGranted: true }
 
-    return { isGranted: await systemPreferences.askForMediaAccess('microphone') }
-  }
+  return { isGranted: await systemPreferences.askForMediaAccess('microphone') }
+}
 
 const getMeetingDetail = ({ meetingId }: GetMeetingRequest): GetMeetingResponse => {
   const meeting = findMeeting({ meetingId })
