@@ -31,5 +31,12 @@ export default defineConfig(
       '@typescript-eslint/explicit-function-return-type': 'off'
     }
   },
+  {
+    // AudioWorklet은 번들과 분리된 브라우저 스코프에서 도는 순수 JS라 TS 전용 규칙을 적용하지 않는다
+    files: ['src/renderer/src/worklet/*.js'],
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': 'off'
+    }
+  },
   eslintConfigPrettier
 )
