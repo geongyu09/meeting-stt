@@ -62,6 +62,9 @@ export interface Utterance {
 
 export interface Speaker { meetingId: string; label: string; displayName: string | null }
 
+/** 디테일 화면이 한 번에 받는 묶음 (meetings:get 응답) */
+export interface MeetingDetail { meeting: Meeting; utterances: Utterance[]; speakers: Speaker[] }
+
 // 파이프라인 중간 산출물
 export interface SttWord    { start: number; end: number; text: string }
 export interface SttSegment { start: number; end: number; text: string; words?: SttWord[] }
@@ -69,9 +72,18 @@ export interface SpeakerSegment { start: number; end: number; speaker: string }
 export interface SpeakerPiece  { speaker: string; start: number; end: number; text: string }
 export type MergedUtterance = Omit<Utterance, 'id' | 'meetingId'>
 
-export type PipelineStage = 'vad' | 'stt' | 'diarize' | 'merge' | 'save'
-export interface PipelineProgress { meetingId: string; stage: PipelineStage; percent: number }
+// 'vad'는 whisper 내장이라 별도 단계가 없다. 'done'·'error'는 잡의 마지막에 한 번만 보낸다.
+export type PipelineStage = 'stt' | 'diarize' | 'merge' | 'save' | 'done' | 'error'
 ```
+
+진행률 이벤트 payload(`PipelineProgressEvent`)는 프로세스 간 계약이므로 `src/shared/types.ts`가 아니라
+`src/shared/ipc.ts`에 둔다 (`.claude/rules/ipc-api-guide.md`).
+
+## 식별자
+
+- `meetings.id`·`utterances.id`는 **uuid 문자열**(`node:crypto`의 `randomUUID`)이다. 정수 자동 증가를 쓰지 않는다 —
+  녹음 시작 시점(파일명 결정)에 main이 id를 먼저 정해야 하고, 나중에 파일 기반 내보내기·복구에서 충돌이 없어야 하기 때문이다.
+- 따라서 IPC payload의 `meetingId`·`utteranceId`도 전부 `string`이다.
 
 ## 병합 알고리즘 (`src/shared/merge.ts`, 순수 함수)
 

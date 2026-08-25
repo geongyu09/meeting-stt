@@ -15,18 +15,19 @@
 - [x] `scripts/setupBin.ts`: macOS(arm64) 용 `whisper-cli`(Metal 빌드)와 `sherpa-onnx-offline-speaker-diarization`을 `resources/bin/darwin-arm64/`에 배치 (git 커밋 안 함, `references/architecture.md` 참고)
 - [x] `scripts/setupModels.ts`: `ggml-large-v3-turbo-q5_0.bin`, `sherpa-onnx-pyannote-segmentation-3-0`, `3dspeaker_speech_eres2net_base_sv`, Silero VAD를 `scripts/fixtures/models/`에 다운로드 (Range 이어받기 + SHA256)
 - [x] 합성 픽스처: `scripts/makeFixture.ts`가 macOS `say`로 2~3인 한국어 대화 WAV를 만든다 → **배관(경로·파싱·병합) 검증 전용**
-- [ ] 실제 한국어 회의 WAV 픽스처(2~3인, 10분 내외) 확보 → 품질·`cluster_threshold` 튜닝은 이걸로만 판단한다
+- [x] 실제 한국어 회의 WAV 픽스처 확보 → 품질·`cluster_threshold` 튜닝은 이걸로만 판단한다 (2026-08-26, 음성 메모 71분 발표·Q&A 녹음 `scripts/fixtures/audio/geumtoro*.wav`, git 제외)
+- [x] 실제 녹음으로 재측정한 결론 반영: 음량 정규화 단계 추가(`src/main/pipeline/normalize.ts`), `cluster-threshold` 0.6 → 0.8, 군소 화자 흡수(`assignSpeakers`) → `docs/phase1-results.md`
 - [x] `scripts/pipeline.ts`: WAV → (VAD) → whisper JSON → diarization 출력 → `src/shared/merge.ts` → 회의록 텍스트 출력
 - [x] `src/shared/merge.ts`·`format.ts`·`main/pipeline/{whisper,diarize}.ts` 단위 테스트 통과 (`pnpm test`, 45개)
 - [x] 튜닝 결과 기록: 모델별(turbo-q5 / large-v3 / small) 처리 시간·체감 정확도, `cluster_threshold` 값, VAD 사용 유무 차이, 단어 타임스탬프 옵션 효과 → `docs/phase1-results.md`
-- [x] 결론: 기본 모델·파라미터 **잠정** 확정 후 SKILL.md 결정 표 갱신 (실제 회의 WAV로 재확인 필요)
+- [x] 결론: 기본 모델·파라미터 확정 후 SKILL.md 결정 표 갱신 (실제 회의 WAV로 재확인 완료)
 
 ## Phase 2: 앱 골격 (관통)
 - [ ] `src/shared/{types,ipc}.ts` 정의, preload에 타입 노출
 - [ ] 녹음: AudioWorklet PCM 수집 → IPC 청크 전송 → main WAV append → 정지 시 헤더 확정
 - [ ] macOS 마이크 권한 요청 및 거부 시 안내
 - [ ] SQLite 초기화·마이그레이션, meetings/utterances/speakers 리포지토리
-- [ ] 파이프라인 잡 큐(순차) + Phase 1 로직 이식, 완료 시 `status='done'`, 실패 시 `'error'`
+- [ ] 파이프라인 잡 큐(순차) + Phase 1 로직 이식(`normalize` → whisper/diarize → merge), 완료 시 `status='done'`, 실패 시 `'error'`
 - [ ] 홈(리스트, 상태 표시) → 디테일(발화 리스트) 라우팅
 - [ ] 완료 기준: 앱에서 녹음 → 정지 → 잠시 후 홈에서 회의록이 열린다
 

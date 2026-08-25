@@ -2,6 +2,15 @@
 
 ## STT / 화자 분리 품질
 - **무음 환각**: Whisper는 무음·잡음 구간에서 없는 문장을 만든다. VAD로 무음을 제거한 뒤 추론하고, VAD가 잘라낸 구간의 오프셋을 타임스탬프에 다시 더해야 한다.
+- **작은 음량에서 Whisper가 구간을 통째로 놓친다** (실제 71분 녹음, Phase 1). whisper.cpp는 입력 음량을 정규화하지 않는다.
+  원거리 마이크 녹음(발화 RMS −44 dBFS)에서 11초짜리 세그먼트가 "네네" 한 단어로 나오는 식으로 수십 초가 사라졌다.
+  대응: STT 전에 RMS 게인 정규화(`src/main/pipeline/normalize.ts`). 10분 발췌에서 글자수 2563 → 3494(+36%), ffmpeg `loudnorm`(3505)과 동등.
+  `dynaudnorm` 같은 구간별 가변 게인은 효과가 덜했다(3284). 화자 분리는 정규화해도 결과가 거의 같다.
+- **화자 분리 임계값을 올려도 파편 클러스터가 남는다.** `cluster-threshold` 0.6 → 0.8로 올리면 23명 → 12명이 되지만,
+  0.9까지 올려도 총 발화 1~8초짜리 화자가 8~9명 남는다(짧은 구간의 임베딩이 불안정). 임계값으로 해결하려 하지 말고
+  병합 단계에서 **총 발화 10초 미만 화자를 시간상 가장 가까운 주요 화자에 흡수**한다 (12명 → 3명). `--min-duration-on`을 올려도 큰 차이가 없다.
+- **`--embedding.provider=coreml`·`--segmentation.provider=coreml`은 CPU보다 훨씬 느리다** (10분 입력: CPU 141초 완료 vs CoreML 4분 경과에 18%). 프로바이더는 CPU로 고정한다.
+- **ffmpeg가 만든 WAV는 헤더가 44바이트가 아니다** (`LIST` 청크가 붙음). PCM을 직접 읽을 때는 `data` 청크를 찾아서 읽어야 한다. 앱이 직접 쓰는 WAV는 44바이트 고정이지만 외부 파일을 받는 경로가 생기면 주의.
 - **whisper.cpp `--vad`는 토큰 타임스탬프를 되돌리지 않는다** (whisper-cpp 1.8.4에서 확인, Phase 1).
   `--vad`를 켜면 세그먼트의 `offsets`는 원본 시간축으로 복원되지만, `--output-json-full`의 **토큰 `offsets`(및 `t_dtw`)는 무음이 제거된 압축 시간축 그대로** 남는다.
   무음이 쌓일수록 오차가 커진다(합성 픽스처 115초에서 0.9초 → 4.5초). VAD를 끄면 둘이 정확히 일치한다.
@@ -23,6 +32,10 @@
 
 ## 녹음
 - 장시간 녹음 PCM을 renderer 메모리에 누적하지 않는다. 청크 단위로 main에 보내 즉시 append.
+- **`AudioWorkletNode`를 destination까지 연결하지 않으면 `process()`가 호출되지 않는다.** 렌더링 그래프는 destination에서 역방향으로 순회하므로
+  마이크 → 워크릿만 이어 두면 청크가 한 번도 오지 않는다. 스피커로 소리가 되돌아가는 에코를 막으려면 `gain = 0`인 `GainNode`를 사이에 두고 destination에 연결한다.
+- **워크릿 파일이 `data:` URL로 인라인되면 프로덕션 빌드에서만 녹음이 죽는다.** Vite가 4KB 미만 에셋을 인라인하는데 renderer CSP는 `script-src 'self'`라
+  `audioWorklet.addModule('data:text/javascript;...')`가 차단된다. 개발 서버에서는 재현되지 않으므로 `pnpm build` 뒤 `out/renderer/assets/`에 워크릿 파일이 있는지 확인한다.
 - `AudioContext({ sampleRate: 16000 })`이 일부 장치에서 무시될 수 있다 → 실제 `context.sampleRate`를 확인하고 다르면 main에서 리샘플링하거나 오류 안내.
 - 녹음 중 앱 종료/크래시 대비: WAV 헤더는 정지 시 확정하지만, 청크는 이미 디스크에 있으므로 다음 실행 시 "미완료 녹음 복구" 처리를 고려한다 (Phase 3 이후).
 - macOS: `NSMicrophoneUsageDescription` 없으면 크래시. `systemPreferences.askForMediaAccess('microphone')`로 명시 요청. Windows: 설정 > 개인정보 > 마이크 꺼짐이면 `getUserMedia`가 실패하므로 안내 UI 필요.
@@ -31,9 +44,12 @@
 - main 프로세스에서 동기 IO·동기 spawn(`spawnSync`, `execSync`)은 UI를 멈춘다. 비동기 `spawn`만 사용.
 - STT와 화자 분리를 무조건 병렬로 돌리지 않는다. `os.cpus().length`가 8 미만이면 순차 실행.
 - 잡 큐는 한 번에 하나만 처리한다(여러 회의 동시 처리 금지). 큐 상태는 앱 재시작 시 `status='processing'`인 회의를 `error`로 정리하거나 재시도한다.
+- **renderer가 보낸 PCM 청크를 `await` 없이 파일에 쓰면 순서가 섞인다.** WAV writer는 append를 직렬화(이전 쓰기 Promise에 체이닝)하고, `recording:stop`은 그 큐가 비워진 뒤에 헤더를 확정해야 한다.
 - whisper 진행률은 stderr/stdout 포맷이 버전에 따라 달라질 수 있으므로 파싱 실패 시 진행률만 숨기고 작업은 계속한다.
 
 ## 빌드 / 배포
+- **`better-sqlite3`는 Electron ABI로 리빌드되므로 vitest(순수 Node)에서 import하면 `NODE_MODULE_VERSION` 오류로 죽는다.**
+  DB 계층(`src/main/db/*`)은 단위 테스트 대상에서 제외하고, 순수 함수(병합·포맷·파서·WAV 헤더)만 테스트한다. DB 동작은 `pnpm dev`로 확인한다.
 - 네이티브 애드온(`better-sqlite3`)은 Electron ABI로 리빌드가 필요하다. pnpm 10은 의존성의 install/postinstall 스크립트를 기본 차단하므로 `package.json`의 `pnpm.onlyBuiltDependencies`에 등록하고(`electron`, `esbuild`, `electron-winstaller` 포함) `pnpm install` 로그에 "Ignored build scripts" 경고가 없는지, `electron-builder install-app-deps`가 실행되는지 확인한다.
 - pnpm 기본 링커(isolated, 심볼릭 링크)는 electron-builder 패키징·네이티브 리빌드에서 문제를 일으킬 수 있다. `.npmrc`의 `node-linker=hoisted` / `shamefully-hoist=true`를 유지한다.
 - `src/main`, `src/preload`는 Node에서 실행된다. 테스트 러너는 vitest(`pnpm test`), TS 스크립트 실행은 tsx(`pnpm tsx scripts/x.ts`)를 쓴다. `bun test`, `bun:*` 모듈, `Bun.*` API는 사용하지 않는다.

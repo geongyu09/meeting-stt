@@ -28,11 +28,13 @@ description: 로컬 STT 회의록 데스크탑 앱(meeting-stt)의 개발 방향
 | 데스크탑 프레임워크 | **Electron** (electron-vite + React 19 + TS) | 이미 스캐폴드됨. Tauri로 전환하지 않는다 |
 | 패키지 매니저 / 스크립트 러너 | **pnpm 10** (`pnpm install`, `pnpm dev`, `pnpm test`, `pnpm tsx scripts/*.ts`) | 런타임은 **Node 22+**. 단위 테스트는 **vitest**, TS 스크립트 실행은 **tsx**. bun/npm/yarn 명령을 문서·스크립트에 섞지 않는다 |
 | STT 엔진 | **whisper.cpp** `whisper-cli` 바이너리를 `child_process`로 spawn (방식 A) | 기본 모델 `ggml-large-v3-turbo-q5_0.bin`, 고품질 옵션 `large-v3-q5_0`, 저사양 옵션 `small-q5_1`. `-l ko --output-json-full` + 토큰 타임스탬프. **`-dtw`는 끔** (Phase 1에서 이득 없음, `--no-flash-attn`을 강제해 느려짐) |
-| 화자 분리 | **sherpa-onnx** (pyannote segmentation-3.0 ONNX + 3D-Speaker ERes2Net 임베딩) | `sherpa-onnx-offline-speaker-diarization` CLI spawn (v1.13.6). 참석자 수를 모르면 `--clustering.cluster-threshold=0.6`(잠정), 알면 `--clustering.num-clusters` |
+| 화자 분리 | **sherpa-onnx** (pyannote segmentation-3.0 ONNX + 3D-Speaker ERes2Net 임베딩) | `sherpa-onnx-offline-speaker-diarization` CLI spawn (v1.13.6), **CPU 프로바이더** (`coreml`은 CPU보다 훨씬 느려 사용 안 함). 참석자 수를 모르면 `--clustering.cluster-threshold=0.8`(실제 회의 WAV로 확정), 알면 `--clustering.num-clusters`. 임계값을 올려도 1~8초짜리 파편 클러스터가 남으므로 병합 단계(`assignSpeakers`)에서 **총 발화 10초 미만 군소 화자를 가장 가까운 주요 화자에 흡수**한다 (`docs/phase1-results.md`) |
+| 음량 정규화 | STT·화자 분리 **전에** WAV 전체에 **순수 TS RMS 게인 정규화** (`src/main/pipeline/normalize.ts`) | ffmpeg를 동봉하지 않는다. 50ms 프레임 RMS의 90퍼센타일을 −20 dBFS로 맞추고 게인은 최대 +30 dB, 초과 샘플은 하드 클립. 원거리 마이크 녹음(발화 −44 dBFS)에서 Whisper가 수십 초를 통째로 놓치던 것을 복구한다 (글자수 +36%, ffmpeg `loudnorm`과 동등). 화자 분리에는 효과 없음. `docs/phase1-results.md` |
 | VAD | **whisper.cpp 내장 VAD** (`--vad --vad-model ggml-silero-v5.1.2.bin`) | 환각 억제뿐 아니라 **타임스탬프 정확도에도 필수**. 끄면 화자 경계 단어가 앞 화자에게 붙는다 (`docs/phase1-results.md`) |
 | 녹음 | `getUserMedia` + **AudioWorklet**으로 16kHz mono Float32 PCM 직접 수집 → WAV | MediaRecorder/ffmpeg 경로 사용 안 함. 주기적으로 디스크에 append |
 | 저장소 | **SQLite** via `better-sqlite3` (main 프로세스 전용) | 스키마는 `references/data-model.md` |
-| 라우팅 | React Router **메모리/해시 라우터** | URL 공유 없음 |
+| 라우팅 | **react-router v8**의 `createHashRouter` + `RouterProvider` | URL 공유가 없고 `file://`에서도 동작한다. `BrowserRouter` 금지. 경로 상수는 `@renderer/shared/routes`에서만 정의 |
+| 스타일 | **CSS Modules** (`index.module.css` 코로케이션) + `base.css`의 CSS 변수 토큰 | UI 라이브러리·CSS-in-JS 도입 안 함 |
 | 편집 | 발화 단위 인라인 편집(contentEditable/textarea, blur 시 UPDATE) | 에디터 라이브러리 도입 금지 (필요 생기면 그때 TipTap 검토) |
 | 모델 배포 | 설치 파일에 미동봉, **첫 실행 온보딩에서 다운로드** (Range 이어받기 + 체크섬) | 저장 위치 `app.getPath('userData')/models` |
 | 시스템 오디오 캡처 | **1차 범위 제외** (마이크만) | Phase 5 |
@@ -43,10 +45,11 @@ description: 로컬 STT 회의록 데스크탑 앱(meeting-stt)의 개발 방향
 ```
 [마이크 녹음 (AudioWorklet, 16kHz mono)]
   → [WAV 확정]
+  → [음량 정규화 (RMS 게인, 순수 TS)]
   → [VAD 무음 제거]
   → [whisper-cli → JSON 세그먼트(+단어 타임스탬프)]   ┐ 코어 수에 따라
   → [sherpa-onnx diarization → 화자 구간]              ┘ 병렬/순차 분기
-  → [병합: 타임스탬프 겹침 최대 화자 배정 → 동일 화자 연속 발화 문단화]
+  → [병합: 군소 화자 흡수 → 타임스탬프 겹침 최대 화자 배정 → 동일 화자 연속 발화 문단화]
   → [SQLite INSERT, status='done']
   → [(설정) 원본 WAV 삭제]
   → [홈 리스트 / 디테일 페이지: 조회·인라인 수정·화자 이름 지정·복사]
@@ -67,7 +70,9 @@ renderer는 IPC로 요청·진행률 수신만 한다. 렌더러 내 추론(tran
 4. **Phase 4 배포 품질** — 온보딩 모델 다운로드, 코드 사이닝/notarization, electron-updater, 저사양 폴백.
 5. **Phase 5 확장** — 로컬 LLM 요약(llama.cpp), 시스템 오디오 캡처.
 
-현재 위치: **Phase 1 진행 중** (2026-08-26). 합성 픽스처로 파이프라인 배관 검증·파라미터 잠정 확정 완료 (`docs/phase1-results.md`). 남은 것은 **실제 한국어 회의 WAV로 품질 재측정**. 작업 시작 시 `git log`/디렉터리 상태로 현재 Phase를 먼저 재확인한다.
+현재 위치: **Phase 2 진행 중** (2026-08-26). Phase 1은 합성 픽스처에 이어 **실제 한국어 발표·Q&A 녹음(71분, 음성 메모 m4a → 16kHz WAV)** 으로 재측정까지 마쳤고,
+그 결과 음량 정규화 단계 추가·`cluster-threshold 0.8`·군소 화자 흡수를 확정했다(`docs/phase1-results.md`). Phase 2의 `run.ts`는 이 세 가지를 반영해야 한다.
+작업 시작 시 `git log`/디렉터리 상태로 현재 Phase를 먼저 재확인한다.
 
 ## 4. 코드 구조와 규칙
 
@@ -86,6 +91,8 @@ renderer는 IPC로 요청·진행률 수신만 한다. 렌더러 내 추론(tran
 전체 목록은 `references/pitfalls.md`. 자주 걸리는 것:
 
 - Whisper는 무음에서 환각 텍스트를 만든다 → VAD 없이 추론 금지.
+- 음량이 작은 녹음(원거리 마이크)에서는 Whisper가 수십 초 구간을 한두 단어로 뭉갠다 → STT 전에 RMS 정규화 필수.
+- 화자 분리는 임계값을 올려도 1~8초 파편 클러스터를 남긴다 → 병합 단계에서 군소 화자 흡수.
 - Whisper 세그먼트 안에서 화자가 바뀔 수 있다 → 단어 단위 타임스탬프로 배정 후 재문장화.
 - 장시간 녹음 PCM을 메모리에 전부 들고 있지 않는다 → 청크 단위 디스크 append.
 - 저사양 CPU에서 STT+화자분리 병렬 실행은 오히려 느리다 → `os.cpus().length` 기준 분기.
