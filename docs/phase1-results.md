@@ -143,6 +143,6 @@ ONNX 그래프가 CoreML로 제대로 내려가지 않는 것으로 보인다. *
 
 ## 남은 것 (Phase 2 이후)
 
-- `src/main/pipeline/run.ts`에 정규화 단계 반영 (`normalizeWavFile` → 정규화본 경로를 whisper·diarization에 전달).
+- ~~`src/main/pipeline/run.ts`에 정규화 단계 반영~~ → 2026-08-26 반영 완료. `normalizeWavFile`이 `<meetingId>.wav.norm.wav`를 만들고 whisper·diarization이 그 파일을 읽으며, 잡이 끝나면 정규화본은 지운다 (`references/architecture.md` 잡 큐 절).
 - 회의실 테이블 위 마이크처럼 **가까운 거리의 2~3인 대화** 녹음으로 화자 분리 정확도 재확인 (이번 입력은 발표 형식이라 화자 교대가 적다).
 - 화자 분리 병목(RTF 0.24) 개선: 세그멘테이션/임베딩 스레드 배분, 더 작은 임베딩 모델 검토.

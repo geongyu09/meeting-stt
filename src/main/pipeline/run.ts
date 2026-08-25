@@ -5,14 +5,17 @@ import { assignSpeakers, mergeUtterances } from '@shared/merge'
 import type { PipelineStage, SpeakerSegment, SttSegment } from '@shared/types'
 import { diarizeBinPath, whisperBinPath } from '../bin/paths'
 import { runBinary } from '../bin/spawn'
+import { info } from '../log'
 import { missingModelLabels, modelPath } from '../models/paths'
 import { buildDiarizeArgs, parseDiarizeOutput, parseDiarizeProgress } from './diarize'
+import { normalizeWavFile } from './normalize'
 import { buildWhisperArgs, parseWhisperOutput, parseWhisperProgress } from './whisper'
 
 /** 코어가 적으면 STT와 화자 분리를 동시에 돌리는 게 오히려 느리다 (references/pitfalls.md) */
 const PARALLEL_MIN_CORES = 8
 const RESERVED_CORES = 2
 const WHISPER_OUTPUT_SUFFIX = '.whisper'
+const NORMALIZED_SUFFIX = '.norm.wav'
 
 interface ProgressParams {
   stage: PipelineStage
@@ -91,28 +94,55 @@ const runDiarization = async ({
   return parseDiarizeOutput(stdout)
 }
 
+interface TranscribeParams {
+  audioPath: string
+  outputPath: string
+  onProgress: (progress: ProgressParams) => void
+}
+
+/** 코어가 넉넉하면 STT와 화자 분리를 같이 돌린다 */
+const transcribeAndDiarize = async ({ audioPath, outputPath, onProgress }: TranscribeParams) =>
+  os.cpus().length >= PARALLEL_MIN_CORES
+    ? Promise.all([
+        runStt({ audioPath, outputPath, onProgress }),
+        runDiarization({ audioPath, onProgress })
+      ])
+    : ([
+        await runStt({ audioPath, outputPath, onProgress }),
+        await runDiarization({ audioPath, onProgress })
+      ] as const)
+
 /**
  * WAV 한 개를 회의록 발화 목록으로 바꾼다. Phase 1 검증 스크립트(scripts/pipeline.ts)와 같은 흐름이며,
- * 파라미터는 docs/phase1-results.md에서 확정한 기본값(turbo-q5 + VAD 켬 + DTW 끔)을 쓴다.
+ * 파라미터는 docs/phase1-results.md에서 확정한 기본값(정규화 + turbo-q5 + VAD 켬 + DTW 끔)을 쓴다.
  */
 export const runPipeline = async ({ audioPath, onProgress }: RunPipelineParams) => {
   ensureReady()
 
   const outputPath = `${audioPath}${WHISPER_OUTPUT_SUFFIX}`
-  const isParallel = os.cpus().length >= PARALLEL_MIN_CORES
+  const normalizedPath = `${audioPath}${NORMALIZED_SUFFIX}`
 
   onProgress({ stage: 'stt', percent: 0 })
-  const [segments, speakerSegments] = isParallel
-    ? await Promise.all([
-        runStt({ audioPath, outputPath, onProgress }),
-        runDiarization({ audioPath, onProgress })
-      ])
-    : [
-        await runStt({ audioPath, outputPath, onProgress }),
-        await runDiarization({ audioPath, onProgress })
-      ]
 
-  onProgress({ stage: 'merge', percent: 0 })
+  // whisper는 입력 음량을 정규화하지 않아 작게 녹음된 발화를 통째로 놓친다 (docs/phase1-results.md)
+  const { speechRmsDb, gainDb } = await normalizeWavFile({
+    inputPath: audioPath,
+    outputPath: normalizedPath
+  })
+  info(`음량 정규화: 발화 ${speechRmsDb.toFixed(1)}dBFS → 게인 ${gainDb.toFixed(1)}dB`)
 
-  return mergeUtterances(assignSpeakers({ segments, speakerSegments }))
+  try {
+    const [segments, speakerSegments] = await transcribeAndDiarize({
+      audioPath: normalizedPath,
+      outputPath,
+      onProgress
+    })
+
+    onProgress({ stage: 'merge', percent: 0 })
+
+    return mergeUtterances(assignSpeakers({ segments, speakerSegments }))
+  } finally {
+    // 원본에서 다시 만들 수 있는 파생물이라 실패해도 남기지 않는다 (references/architecture.md)
+    await rm(normalizedPath, { force: true })
+  }
 }
