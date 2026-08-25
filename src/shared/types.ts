@@ -26,6 +26,13 @@ export interface Speaker {
   displayName: string | null
 }
 
+/** 디테일 화면이 한 번에 받는 묶음 */
+export interface MeetingDetail {
+  meeting: Meeting
+  utterances: Utterance[]
+  speakers: Speaker[]
+}
+
 /** 파이프라인 중간 산출물 — 초 단위 시간, DB에 들어가기 전 형태 */
 export interface SttWord {
   start: number
@@ -56,10 +63,8 @@ export interface SpeakerPiece {
 
 export type MergedUtterance = Omit<Utterance, 'id' | 'meetingId'>
 
-export type PipelineStage = 'vad' | 'stt' | 'diarize' | 'merge' | 'save'
-
-export interface PipelineProgress {
-  meetingId: string
-  stage: PipelineStage
-  percent: number
-}
+/**
+ * 파이프라인 단계. VAD는 whisper에 내장돼 별도 단계가 없고,
+ * 'done'·'error'는 잡이 끝날 때 한 번만 보내는 종료 상태다.
+ */
+export type PipelineStage = 'stt' | 'diarize' | 'merge' | 'save' | 'done' | 'error'
