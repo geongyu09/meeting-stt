@@ -12,6 +12,7 @@ import {
   parseDiarizeOutput,
   parseDiarizeProgress
 } from '../src/main/pipeline/diarize'
+import { normalizeWavFile } from '../src/main/pipeline/normalize'
 import {
   buildWhisperArgs,
   parseWhisperOutput,
@@ -41,6 +42,7 @@ interface CliOptions {
   audioPath: string
   modelPath: string
   useVad: boolean
+  useNormalize: boolean
   dtwPreset?: string
   speakerCount?: number
   clusterThreshold?: number
@@ -59,6 +61,7 @@ const parseCliOptions = (argv: string[]): CliOptions => {
     audioPath: positional[0] ?? path.join(AUDIO_DIR, 'synthetic-meeting.wav'),
     modelPath: valueOf('model') ?? WHISPER_MODEL,
     useVad: !argv.includes('--no-vad'),
+    useNormalize: !argv.includes('--no-normalize'),
     dtwPreset: wantsDtw ? (valueOf('dtw') ?? DEFAULT_DTW_PRESET) : undefined,
     speakerCount: speakers ? Number(speakers) : undefined,
     clusterThreshold: threshold ? Number(threshold) : undefined
@@ -198,22 +201,53 @@ const writeReport = async ({
   info(`결과: ${outputPath}.transcript.txt, ${outputPath}.result.json`)
 }
 
+/** 원거리 마이크 녹음은 음량이 작아 whisper가 구간을 통째로 놓친다 → STT 전에 RMS 게인 정규화 */
+const normalizeInput = async ({
+  options,
+  outputPath
+}: {
+  options: CliOptions
+  outputPath: string
+}) => {
+  const normalizedPath = `${outputPath}.norm.wav`
+  const result = await normalizeWavFile({
+    inputPath: options.audioPath,
+    outputPath: normalizedPath
+  })
+  info(
+    `정규화: 발화 RMS ${result.speechRmsDb.toFixed(1)} dBFS → 게인 ${result.gainDb.toFixed(1)} dB · 클리핑 ${(result.clippedRatio * 100).toFixed(3)}%`
+  )
+  return { ...options, audioPath: normalizedPath }
+}
+
 const main = async () => {
-  const options = parseCliOptions(process.argv.slice(2))
-  ensureInputs(options)
+  const cliOptions = parseCliOptions(process.argv.slice(2))
+  ensureInputs(cliOptions)
   await mkdir(OUTPUT_DIR, { recursive: true })
 
-  const variant = [options.useVad ? 'vad' : 'novad', options.dtwPreset ? 'dtw' : 'nodtw'].join('-')
-  const outputPath = path.join(OUTPUT_DIR, `${path.basename(options.audioPath, '.wav')}.${variant}`)
+  const variant = [
+    cliOptions.useNormalize ? 'norm' : 'nonorm',
+    cliOptions.useVad ? 'vad' : 'novad',
+    cliOptions.dtwPreset ? 'dtw' : 'nodtw'
+  ].join('-')
+  const outputPath = path.join(
+    OUTPUT_DIR,
+    `${path.basename(cliOptions.audioPath, '.wav')}.${variant}`
+  )
   const isParallel = os.cpus().length >= PARALLEL_MIN_CORES
 
-  info(`입력: ${options.audioPath}`)
+  info(`입력: ${cliOptions.audioPath}`)
   info(
-    `모델: ${path.basename(options.modelPath)} · VAD ${options.useVad ? '사용' : '미사용'} · DTW ${options.dtwPreset ?? '미사용'} · ${isParallel ? '병렬' : '순차'} 실행 (코어 ${os.cpus().length})`
+    `모델: ${path.basename(cliOptions.modelPath)} · 정규화 ${cliOptions.useNormalize ? '사용' : '미사용'} · VAD ${cliOptions.useVad ? '사용' : '미사용'} · DTW ${cliOptions.dtwPreset ?? '미사용'} · ${isParallel ? '병렬' : '순차'} 실행 (코어 ${os.cpus().length})`
   )
-  if (!options.useVad) warn('VAD를 끄면 무음 구간에서 환각 문장이 생길 수 있습니다')
+  if (!cliOptions.useVad) warn('VAD를 끄면 무음 구간에서 환각 문장이 생길 수 있습니다')
+  if (!cliOptions.useNormalize)
+    warn('정규화를 끄면 작은 음량의 녹음에서 문장이 통째로 빠질 수 있습니다')
 
   const startedAt = performance.now()
+  const options = cliOptions.useNormalize
+    ? await normalizeInput({ options: cliOptions, outputPath })
+    : cliOptions
   const [stt, diarization] = isParallel
     ? await Promise.all([runStt({ options, outputPath }), runDiarization({ options })])
     : [await runStt({ options, outputPath }), await runDiarization({ options })]
