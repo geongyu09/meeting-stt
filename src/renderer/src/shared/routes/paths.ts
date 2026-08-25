@@ -1,0 +1,8 @@
+/** 라우트 경로의 단일 정의. 컴포넌트는 경로 문자열을 직접 쓰지 않고 여기서 가져온다 */
+export const PATHS = {
+  home: '/',
+  record: '/record',
+  meetingDetail: '/meetings/:meetingId'
+} as const
+
+export const meetingDetailPath = ({ meetingId }: { meetingId: string }) => `/meetings/${meetingId}`

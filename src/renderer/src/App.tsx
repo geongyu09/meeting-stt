@@ -1,5 +1,6 @@
-function App(): React.JSX.Element {
-  return <main>meeting-stt</main>
-}
+import { RouterProvider } from 'react-router'
+import { router } from '@renderer/shared/routes'
 
-export default App
+export default function App() {
+  return <RouterProvider router={router} />
+}
