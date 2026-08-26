@@ -36,14 +36,68 @@ CREATE TABLE IF NOT EXISTS speakers (
 );
 
 CREATE TABLE IF NOT EXISTS settings (
-  key   TEXT PRIMARY KEY,                   -- 'stt.model', 'keepAudio', 'diarize.threshold' ...
+  key   TEXT PRIMARY KEY,                   -- 'audio.keep' (Phase 3), 'stt.model' (Phase 4) ...
   value TEXT NOT NULL                       -- JSON 문자열
 );
 ```
 
 - 화자 이름은 반드시 `speakers` 매핑으로만 관리한다. `utterances.speaker_label`은 익명 라벨.
-- 화자 병합(A→B)은 `utterances.speaker_label` UPDATE + `speakers` 행 삭제로 처리한다.
+- 화자 병합(A→B)은 `utterances.speaker_label` UPDATE + `speakers` 행 삭제로 처리한다. 한 트랜잭션 안에서 함께 한다.
 - 마이그레이션은 `PRAGMA user_version` 정수로 관리하고 `src/main/db/migrations.ts`에 순차 배열로 둔다.
+
+## 편집 동작 (Phase 3)
+
+| 동작 | SQL |
+| --- | --- |
+| 발화 텍스트 수정 | `UPDATE utterances SET text = ? WHERE id = ? AND meeting_id = ?` |
+| 발화 화자 재배정 | `UPDATE utterances SET speaker_label = ? WHERE id = ? AND meeting_id = ?` (대상 라벨이 같은 회의의 `speakers`에 있어야 한다) |
+| 화자 이름 지정 | `UPDATE speakers SET display_name = ? WHERE meeting_id = ? AND label = ?` |
+| 화자 병합 A→B | 트랜잭션: `UPDATE utterances SET speaker_label = B …` + `DELETE FROM speakers WHERE label = A` |
+| 회의 제목 변경 | `UPDATE meetings SET title = ? WHERE id = ?` |
+| 회의 삭제 | `DELETE FROM meetings WHERE id = ?` (발화·화자는 `ON DELETE CASCADE`) + 원본 WAV 파일 삭제 |
+
+- `ord`는 편집으로 바뀌지 않는다. 발화 순서를 사용자가 바꾸는 기능은 범위에 없다.
+- 화자 재배정으로 앞뒤 발화의 화자가 같아져도 발화를 자동으로 합치지 않는다 (`references/architecture.md` 편집 UI 규칙).
+- 이름을 지운(빈 문자열) 경우 `display_name`을 `NULL`로 되돌리지 않는다. 빈 값은 저장 자체를 막는다.
+
+## 요약 저장 (Phase 5)
+
+| 동작 | SQL |
+| --- | --- |
+| 요약 저장 | `UPDATE meetings SET summary = ? WHERE id = ?` |
+
+- `meetings.summary`는 **요약 잡이 성공했을 때만** 통째로 덮어쓴다. 부분 요약(map 결과)은 저장하지 않는다 —
+  회의록에서 언제든 다시 만들 수 있는 파생물이라 DB에 남길 이유가 없다.
+- **요약 실패는 `meetings.status`를 건드리지 않는다.** `status`는 파이프라인(STT·화자 분리) 소유다.
+  요약이 실패해도 회의록은 그대로 `'done'`이어야 하고, 실패는 `summary:progress`의 `'error'`로만 알린다.
+- 회의를 지우면 요약도 함께 사라진다 (같은 행이다). 요약만 지우는 동작은 범위에 없다 — 다시 요약하면 덮어쓴다.
+- 요약 중 임시 파일은 `userData/summaries/<meetingId>/`에 두고 **잡이 끝나면 실패해도 지운다**.
+- 요약은 자동 실행이 아니라 사용자가 버튼으로 요청한다. 잡 큐는 파이프라인과 공유하며 동시성은 1이다
+  (`{ kind: 'pipeline' | 'summary' }`). 같은 회의의 요약 잡이 이미 큐에 있으면 다시 넣지 않는다.
+
+## settings 테이블 키
+
+`settings`는 `key` → JSON 문자열 `value`다. 앱이 읽을 때는 `src/shared/types.ts`의 `AppSettings`로 모아서 다룬다.
+
+| 키 | 타입 | 기본값 | 뜻 |
+| --- | --- | --- | --- |
+| `audio.keep` | boolean | `false` | 파이프라인 성공 후 원본 WAV를 보관할지. 끄면 삭제하고 `meetings.audio_path`를 `NULL`로 만든다 |
+| `update.check` | boolean | `false` | 앱 시작 시 새 버전이 있는지 확인할지 (Phase 4). 꺼져 있으면 네트워크를 전혀 쓰지 않는다 |
+| `stt.model` | `WhisperModelId` | `'turbo-q5'` | 온보딩·설정에서 고른 음성 인식 모델 (Phase 4). 모르는 값이면 기본 모델로 읽는다 |
+
+```ts
+export interface AppSettings {
+  isAudioKept: boolean
+  isUpdateCheckEnabled: boolean
+}
+```
+
+- 키는 점 표기(`audio.keep`)로 두고 TS 필드명은 코드 컨벤션(`is` 접두 boolean)을 따른다. 둘 사이 변환은 `src/main/db/settings.ts` 한 곳에서만 한다.
+- 값이 없거나 JSON 파싱에 실패하면 기본값으로 읽는다 (설정 하나가 깨졌다고 앱이 뜨지 않으면 안 된다).
+- **`stt.model`은 `AppSettings`에 넣지 않는다.** 모델을 바꾸는 행위는 값 하나를 저장하는 게 아니라 **다운로드를 동반**하므로
+  `settings:update`가 아니라 `models:download`가 쓴다 (`references/distribution.md` 3절). 읽기는 앱 시작 시 한 번
+  `src/main/db/settings.ts`의 `getWhisperModelId()` → `src/main/models/paths.ts`의 `setSelectedWhisperModelId()`로 넘긴다.
+  renderer는 `models:status` 응답의 `selectedWhisperModelId`로 본다.
 
 ## 공유 타입 (`src/shared/types.ts`)
 
@@ -62,6 +116,13 @@ export interface Utterance {
 
 export interface Speaker { meetingId: string; label: string; displayName: string | null }
 
+export interface AppSettings { isAudioKept: boolean; isUpdateCheckEnabled: boolean }
+
+/** 사용자가 고를 수 있는 음성 인식 모델 (Phase 4). 목록·체크섬은 src/main/models/registry.ts */
+export type WhisperModelId = 'turbo-q5' | 'large-v3-q5' | 'small-q5_1'
+/** 모델 파일 종류. 'summary'만 선택 모델이고 나머지는 필수다 */
+export type ModelKey = 'whisper' | 'vad' | 'segmentation' | 'embedding' | 'summary'
+
 /** 디테일 화면이 한 번에 받는 묶음 (meetings:get 응답) */
 export interface MeetingDetail { meeting: Meeting; utterances: Utterance[]; speakers: Speaker[] }
 
@@ -74,6 +135,10 @@ export type MergedUtterance = Omit<Utterance, 'id' | 'meetingId'>
 
 // 'vad'는 whisper 내장이라 별도 단계가 없다. 'done'·'error'는 잡의 마지막에 한 번만 보낸다.
 export type PipelineStage = 'stt' | 'diarize' | 'merge' | 'save' | 'done' | 'error'
+
+// 요약 잡의 단계. 'summarize'는 구간별 부분 요약(map), 'reduce'는 합치기.
+// 회의록이 컨텍스트에 한 번에 들어가면 'reduce' 없이 'summarize' → 'done'으로 끝난다.
+export type SummaryStage = 'summarize' | 'reduce' | 'done' | 'error'
 ```
 
 진행률 이벤트 payload(`PipelineProgressEvent`)는 프로세스 간 계약이므로 `src/shared/types.ts`가 아니라

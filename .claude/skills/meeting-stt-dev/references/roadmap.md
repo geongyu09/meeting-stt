@@ -32,22 +32,85 @@
 - [ ] 완료 기준: 앱에서 녹음 → 정지 → 잠시 후 홈에서 회의록이 열린다 (**사용자 수동 확인 대기** — 마이크 권한과 실제 발화가 필요해 자동 검증 불가)
 
 ## Phase 3: 편집·복사·화자 관리
-- [ ] 발화 인라인 편집 (blur 시 저장)
-- [ ] 화자 라벨 클릭 → 이름 변경(전체 반영) / 다른 화자로 재배정 / 화자 병합
-- [ ] 전체 복사(플레인/마크다운), 발화 단위 복사
-- [ ] 처리 진행률 표시 (whisper `--print-progress` 파싱 → `pipeline:progress`)
-- [ ] 회의 제목 변경, 삭제
-- [ ] 원본 WAV 삭제/보관 설정
+
+계약(IPC 채널·응답 규약·편집 UI 규칙)은 `references/architecture.md`, SQL과 설정 키는 `references/data-model.md`에 먼저 정의해 두었다.
+남은 수동 확인·커밋 정리·Phase 4 인계 사항은 `docs/phase3-handoff.md`에 모아 두었다 (전부 처리되면 지운다).
+
+- [x] IPC 계약: `meetings.rename/delete`, `utterances.updateText/reassign`, `speakers.rename/merge`, `settings.get/update`, `clipboard.writeText` (뮤테이션 응답은 갱신된 `MeetingDetail`)
+- [x] main: `db/settings.ts` 신설, `db/{meetings,utterances,speakers}.ts`에 편집 함수 추가, 핸들러 payload 검증(길이 제한·회의 소속 확인), `audio/recordings.ts`로 원본 삭제 일원화
+- [x] 발화 인라인 편집 (blur·Enter 확정, Escape 취소, 빈 값 저장 금지) — `shared/components/composites/InlineEditableText`
+- [x] 화자 관리: 이름 변경(전체 반영) / 발화별 다른 화자로 재배정(`<select>`) / 화자 병합(2단계 인라인 확인)
+- [x] 전체 복사(플레인/마크다운), 발화 단위 복사 — main `electron.clipboard` 경유. 발화 하나만 복사해도 화자 번호가 유지된다
+- [x] 처리 진행률 표시 — `src/shared/progress.ts`(가중치·단조 증가, 단위 테스트 9개) + `modules/features/pipeline/PipelineProgress`를 홈 카드·상세가 공유
+- [x] 회의 제목 변경, 삭제(2단계 인라인 확인 + 원본 WAV 삭제)
+- [x] 원본 WAV 보관 설정(`audio.keep`, 기본 삭제) — `/settings` 화면, 잡 성공 시 적용
+- [x] 통합 테스트: TranscriptSection 19개, SettingsSection 4개, MeetingListSection 7개 (`pnpm test` 139개 통과)
+- [ ] 완료 기준: 회의록을 열어 텍스트·화자 이름·제목을 고치고 복사한 결과가 앱을 다시 켜도 그대로 남는다 (**사용자 수동 확인 대기** — 실제 회의록 데이터가 필요해 자동 검증 불가)
 
 ## Phase 4: 배포 품질
-- [ ] 온보딩: 모델 선택(권장 turbo-q5 / 고품질 large-v3 / 저사양 small) → 다운로드(Range 이어받기, SHA256 검증, 진행률)
-- [ ] "네트워크 사용은 모델 다운로드 한 번뿐" 문구 노출
-- [ ] Windows x64 바이너리(CUDA/Vulkan/CPU 폴백) 배치 및 런타임 감지
-- [ ] macOS Developer ID 서명 + notarization (동봉 바이너리 포함), Windows 코드 사이닝
-- [ ] electron-updater 설정 (`publish` URL 교체)
-- [ ] GitHub Actions: macOS/Windows 러너 분리 빌드
-- [ ] 저사양 감지 시 small 모델 안내
 
-## Phase 5: 확장 (별도 승인 후)
-- [ ] llama.cpp 기반 로컬 요약 → `meetings.summary`
-- [ ] 시스템 오디오 캡처 (Windows WASAPI loopback 우선, macOS ScreenCaptureKit 검토)
+결정과 계약은 `references/distribution.md`가 SSOT다.
+
+- [x] 모델 레지스트리(`src/main/models/registry.ts`, 스크립트와 공유) + 다운로더(Range 이어받기, SHA256, `tar -xf` 아카이브 해제, 동시성 1)
+- [x] 온보딩: 모델 선택(권장 turbo-q5 / 고품질 large-v3 / 저사양 small, 권장값 미리 선택) → 총 용량 → 항목별 진행률 → 완료 시 홈
+      (`modules/widgets/model/ModelDownloadSection`, `pages/Onboarding`, `shared/routes/guards.tsx`의 `RequireModels` 가드)
+- [x] "네트워크는 모델 다운로드 한 번뿐" 문구 노출 (온보딩·설정의 `ModelDownloadSection`)
+- [x] 저사양 감지(`recommend.ts`, 단위 테스트) + 저사양 장비에서 다른 모델을 고르면 "시간이 오래 걸릴 수 있다" 안내
+- [x] `/settings`에서 음성 인식 모델 변경(같은 위젯 재사용), 요약 모델 다운로드(`SummaryModelSection`), 업데이트 확인 옵션
+- [x] Windows x64 바이너리 배치 — **CPU(BLAS) 동봉 + CUDA는 선택**(공식 릴리스에 Vulkan 빌드가 없다) + `bin/paths.ts` 런타임 폴더 감지
+- [x] macOS 배포용 whisper 정적 빌드(`scripts/buildWhisper.ts`, v1.8.4, Metal 내장), 서명·notarization 설정(옵트인), Windows 서명 설정
+- [x] electron-updater — 기본 꺼짐, `update.check` 설정으로 켬, 새 버전은 알리기만(`features/update/UpdateBanner`) → 사용자가 받기·설치
+- [x] GitHub Actions: macOS/Windows 러너 분리 빌드, `v*` 태그에서만 드래프트 릴리스
+- [x] 단일 인스턴스 잠금(`app.requestSingleInstanceLock`)
+- [x] 통합 테스트: ModelDownloadSection, SummaryModelSection, UpdateBanner, SettingsSection(업데이트 옵션)
+- [ ] `electron-builder.yml`의 `publish.owner` 교체, 서명 자격 증명 등록, Windows 실기 검증 (**사용자만 할 수 있다** — `references/distribution.md` 10절)
+- [ ] 완료 기준: `userData/models/`가 빈 상태로 앱을 켜면 온보딩이 뜨고, 다운로드가 끝나면 홈에서 녹음할 수 있다
+      (**사용자 수동 확인 대기** — 개발 모드는 픽스처 폴백 때문에 픽스처 모델을 치워야 재현된다)
+
+## Phase 5: 확장
+
+사용자 지시로 Phase 3·4보다 먼저 착수했다(2026-08-26). 로드맵 순서를 건너뛴 예외라 여기 기록해 둔다.
+설계·계약은 `references/architecture.md`의 "로컬 LLM 요약 (Phase 5)" 절이 기준.
+
+### 5-1. llama.cpp 기반 로컬 요약 → `meetings.summary`
+
+끝난 것:
+
+- [x] `llama-cli` 호출 방식 확정 — `-sysf`/`-f`/`-o` 파일 입출력 + `-st --no-escape`, `-o` 출력에서 `\nAssistant:\n` 뒤만 취함
+- [x] 요약 모델 확정 — `Qwen3-4B-Instruct-2507-Q4_K_M.gguf` (Apache-2.0, 비사고형). **필수 모델 아님** — 없으면 요약만 막히고 STT는 그대로
+- [x] 순수 로직 `src/shared/summary.ts` (구간 분할·프롬프트 조립·출력 정리) + 단위 테스트
+- [x] main `src/main/summary/{llama,run,paths,transcript}.ts` — map-reduce, 임시 파일은 잡이 끝나면 실패해도 삭제
+- [x] 잡 큐 통합 — `pipeline/queue.ts`를 `{ kind: 'pipeline' | 'summary' }`로 일반화(동시성 1 유지). 요약 실패는 회의 상태를 건드리지 않음
+- [x] IPC 계약 `summary:create` + `summary:progress`, preload·renderer api·`useSummary` 훅
+- [x] `modules/widgets/meeting/SummarySection` + 통합 테스트 10개, `/meetings/:meetingId`에 배치
+- [x] `scripts/summarize.ts` 검증 스크립트, `setupBin.ts`(llama-cli), `setupModels.ts --summary`
+- [x] 실제 71분 회의록(40,089자 / 28,004토큰)으로 측정 — 5구간 map + reduce
+- [x] 결함 두 개 수정 후 재측정 — 최대 생성 토큰 900 → 1200(최종 요약이 문장 중간에서 잘렸음),
+      익명 라벨(`화자 7`)을 담당자로 쓰지 말라는 지시 추가. **324초 → 240초**, 잘림·라벨 나열 모두 사라짐
+
+- [x] `docs/phase5-results.md` — 측정치와 확인된 함정 기록
+- [x] `references/pitfalls.md`·`data-model.md`에 Phase 5 절 추가
+- [x] 포매팅 경고 정리 (`pnpm exec prettier --check .` 통과)
+- [x] **온보딩과의 연결 결정** — 요약 모델은 온보딩에서 받지 않고 `/settings`의 `SummaryModelSection`에서 따로 받는다.
+      `SummarySection`은 모델이 없으면 버튼을 막고 설정 링크를 보여준다 (`references/distribution.md` 1절)
+
+- [x] **STT 오인식을 요약 단계에서 고치지 않기로 결정** — 원문 회의록에 이미 "증본 문서"(changeset)·"타볼"(tarball)로
+      적혀 있고 요약 모델은 충실히 옮긴 것뿐이다. 교정 지시는 "없는 내용을 만들지 마라"와 충돌해 이름·숫자까지 바꾼다.
+      Phase 3 인라인 편집으로 회의록을 고친 뒤 "다시 요약"하는 경로를 쓴다 (`docs/phase5-results.md`)
+
+남은 것:
+- [ ] 회의별 용어 사전(whisper `--prompt`) 검토 — STT 단계 과제. VAD로 잘린 구간마다 효과가 유지되는지와
+      초기 프롬프트가 환각을 부르지 않는지 확인이 필요해 Phase 4 이후로 미룬다
+- [ ] **`pnpm dev`로 실제 앱에서 관통 확인** — 회의 상세에서 "요약 만들기" → 진행률 → 본문 표시 → 앱 재시작 후에도 남아 있는지 (사용자 수동 확인 필요)
+- [ ] **Windows용 llama.cpp 자산 — 실기 검증만 남음.** `LLAMA_ENTRIES`에 `win32-x64`(CPU 빌드 18.1MB)를 넣었고
+      필요한 파일 23개는 PE 임포트 테이블로 확정했다(닫힘 집합 9개 + `ggml-cpu-*.dll` 14개, `ggml-rpc.dll`은 불필요).
+      `ensureArchiveAsset`로 추출까지 확인했다. 실제 Windows에서 `llama-cli.exe`가 뜨는지는 확인하지 못했다
+      (`references/distribution.md` 10.2절)
+- [ ] **동봉 dylib의 서명·공증 확인 — 자격 증명 대기.** rpath가 `@loader_path`인 것과 내려받은 상태가
+      adhoc(linker-signed)인 것은 확인했다(`docs/phase5-results.md`). `asarUnpack: resources/**`도 걸려 있다.
+      electron-builder가 Developer ID로 재서명한 결과 확인은 인증서가 있어야 가능하다 (`references/distribution.md` 6절)
+- [ ] 저사양 폴백 모델 검토 (Qwen3-1.7B 등) — Phase 4 저사양 안내와 함께
+
+### 5-2. 시스템 오디오 캡처
+
+- [ ] 아직 시작하지 않음. Windows WASAPI loopback 우선, macOS ScreenCaptureKit 검토 (plan.md 6.2절: 난이도가 높아 2차 과제 권장)

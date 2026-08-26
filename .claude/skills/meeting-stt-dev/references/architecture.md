@@ -39,12 +39,13 @@ src/
     audio.ts                  # 샘플레이트·청크 크기 등 renderer/main 공용 오디오 상수
     merge.ts                  # assignSpeakers(군소 화자 흡수 포함), mergeUtterances (순수 함수, vitest)
     format.ts                 # 타임스탬프 [hh:mm:ss], 복사용 텍스트/마크다운 조립
+    progress.ts               # 단계별 퍼센트 → 전체 진행률 (가중치, 순수 함수, vitest)
   main/
     index.ts                  # 창 생성, 권한 요청, ipc 등록
     log.ts                    # 운영 로그 (console 직접 호출 금지)
     audio/wavWriter.ts        # Float32 청크 → Int16 append, 종료 시 헤더 확정
     pipeline/{queue,run,normalize,whisper,diarize}.ts   # normalize는 RMS 게인 정규화(순수 TS), vad는 whisper 내장이라 별도 단계 없음
-    db/{connection,migrations,meetings,utterances,speakers}.ts
+    db/{connection,migrations,meetings,utterances,speakers,settings}.ts
     models/paths.ts           # 모델 경로 해석 (registry/download는 Phase 4)
     bin/{paths,spawn}.ts
     ipc/handlers.ts
@@ -52,9 +53,9 @@ src/
   renderer/src/
     main.tsx, App.tsx
     worklet/pcmRecorder.js    # AudioWorkletProcessor (Vite `?url` import로 로드)
-    pages/{Onboarding,Home,Record,MeetingDetail}/index.tsx   # widgets 배치만
-    modules/widgets/{domain}/…    # section 단위 도메인 컴포넌트 (TranscriptSection 등)
-    modules/features/{domain}/…   # 작은 도메인 컴포넌트 (RecordButton, SpeakerRenameField)
+    pages/{Onboarding,Home,Record,MeetingDetail,Settings}/index.tsx   # widgets 배치만
+    modules/widgets/{domain}/…    # section 단위 도메인 컴포넌트 (TranscriptSection, SettingsSection 등)
+    modules/features/{domain}/…   # 작은 도메인 컴포넌트 (PipelineProgress 등)
     shared/api/{domain}/index.ts  # window.api 래퍼 (유일한 window.api 접점)
     shared/components/{primitives,composites}/…
     shared/hooks/{common,domain}/…   # useRecorder, useMeetings, usePipelineProgress
@@ -77,13 +78,32 @@ export const IPC = {
   },
   meetings:  { list: 'meetings:list', get: 'meetings:get' },
   events:    { progress: 'pipeline:progress' },
-  // Phase 3 이후에 추가한다 (미리 정의해 두지 않는다)
-  // meetings.delete / meetings.rename
-  // utterances.updateText / utterances.reassign
-  // speakers.rename / speakers.merge
-  // models.status / models.download, events.modelDownload
+  // Phase 3
+  //   meetings.rename / meetings.delete
+  //   utterances.updateText / utterances.reassign
+  //   speakers.rename / speakers.merge
+  //   settings.get / settings.update
+  //   clipboard.writeText
+  // Phase 4 (references/distribution.md 3·7절)
+  //   models.status / models.download / models.downloadSummary, events.modelDownload
+  //   update.download / update.install, events.updateAvailable
+  // Phase 5
+  //   summary.create, events.summary
 } as const
 ```
+
+### 편집 채널의 응답 규약 (Phase 3)
+
+**회의 상세를 바꾸는 모든 뮤테이션 채널은 갱신된 `MeetingDetail`을 그대로 돌려준다** (`meetings:get`과 같은 모양).
+`meetings:delete`만 예외로 아무것도 돌려주지 않는다 — 지운 회의의 상세가 없기 때문이다.
+
+- 이유: 화자 병합·재배정처럼 여러 행이 한꺼번에 바뀌는 작업도 renderer가 응답 하나로 상태를 정확히 맞출 수 있다.
+  뮤테이션마다 "무엇이 바뀌었는지" 부분 응답을 설계하거나, 뮤테이션 뒤에 `meetings:get`을 한 번 더 부르는 왕복을 만들지 않는다.
+- renderer는 응답을 `useMeeting`의 상세 상태에 그대로 덮어쓴다. 낙관적 업데이트는 하지 않는다 (로컬 SQLite라 왕복이 짧다).
+- 요청 payload에는 대상 식별자와 함께 `meetingId`를 항상 넣는다. 응답을 만들 때 회의를 다시 찾지 않아도 되고, 핸들러가 "이 회의의 발화/화자인지"를 검증할 수 있다.
+
+- `clipboard:writeText`는 main의 `electron.clipboard`로 텍스트를 복사한다. renderer의 `navigator.clipboard`를 쓰지 않는다 —
+  패키징 빌드의 `file://` 문서와 `setPermissionRequestHandler`(마이크 외 전부 거부)에 걸릴 여지를 없애기 위해서다. 복사할 텍스트 조립은 renderer가 `@shared/format`으로 한다.
 
 - 채널은 **그 Phase에서 실제로 쓰는 것만** 정의한다. 쓰지 않는 채널을 미리 선언해 두면 preload·renderer 래퍼까지 죽은 코드가 따라온다.
 - `recording:requestPermission`은 마이크 권한 요청·확인 채널이다. renderer가 `getUserMedia`를 부르기 **전에** 호출하고,
@@ -148,10 +168,25 @@ spawn(binPath, args, { windowsHide: true })
 - 정규화본은 원본 옆에 `<meetingId>.wav.norm.wav`로 만들고 whisper·diarization이 그 파일을 읽는다. 잡이 끝나면 **실패해도 지운다** — 원본에서 다시 만들 수 있는 파생물이다.
   정규화에는 별도 `PipelineStage`를 두지 않고 `stt` 0%에 묶는다. 단계를 늘리면 `src/shared/ipc.ts` 계약과 Phase 3 진행률 UI가 함께 바뀌는데, 정규화는 spawn 없이 끝나는 짧은 단계다.
 - 실패하면 `status='error'`, `error_message`에 한국어 안내를 남기고 **원본 WAV는 지우지 않는다**(재시도용).
+- 잡이 **성공**하면 설정 `audio.keep`(기본 꺼짐)에 따라 원본 WAV를 지우고 `meetings.audio_path`를 `NULL`로 만든다 (Phase 3).
+  녹음본 재생은 요구사항이 아니고, 71분 16kHz mono WAV가 약 136MB라 기본값을 보관으로 두면 디스크가 빠르게 찬다.
+  대신 지운 회의는 재처리할 수 없다 — 그래서 실패한 잡에는 이 정책을 적용하지 않는다.
 - 진행률은 각 단계 시작·종료와 whisper/sherpa의 퍼센트 로그를 `pipeline:progress`로 push한다. 마지막에 `stage='done'` 또는 `'error'`를 한 번 보낸다.
+  `percent`는 **그 단계 안에서의 퍼센트**다. 여러 단계를 하나의 막대로 합치는 계산은 renderer가 `src/shared/progress.ts`로 한다.
 - 앱 시작 시 `status`가 `'recording'`·`'processing'`인 채로 남은 회의는 이전 실행이 비정상 종료된 것이므로 `'error'`로 정리한다. (미완료 녹음 복구는 Phase 3)
   같은 시점에 `recordings/`의 파생물(`*.norm.wav`, `*.whisper.json`)도 지운다 — 잡 중간에 앱이 죽으면 `finally`가 돌지 않아 남는다(2026-08-26 관통 검증에서 확인). 원본 `<meetingId>.wav`는 건드리지 않는다.
 - **앱 인스턴스는 한 번에 하나만 띄운다.** 두 인스턴스가 같은 `userData/meetings.db`를 공유하면 나중에 뜬 인스턴스의 시작 정리가 먼저 뜬 인스턴스의 처리 중 회의를 `'error'`로 덮어쓴다. 개발 중 `pnpm dev`를 겹쳐 실행하지 않는다 (단일 인스턴스 강제는 Phase 4에서 `app.requestSingleInstanceLock`으로).
+
+## 진행률 표시 (Phase 3)
+
+`PipelineProgressEvent`는 단계 하나의 퍼센트만 싣는다. 사용자에게 보여 줄 **하나의 진행률 막대**는 renderer가 만든다.
+
+- 계산은 `src/shared/progress.ts`의 순수 함수로 두고 vitest로 검증한다. 단계 가중치는
+  `stt 0.3 / diarize 0.6 / merge 0.05 / save 0.05` — Phase 1 측정에서 화자 분리가 병목(10분 발췌 기준 STT 35초 / 화자 분리 141초)이기 때문이다 (`docs/phase1-results.md`).
+  체감용 근사치이며, 코어 수에 따라 STT·화자 분리가 병렬로 돌기 때문에 경과 시간과 정확히 비례하지는 않는다.
+- 전체 퍼센트는 단계별 퍼센트의 가중합이고 **되돌아가지 않는다**(단계별로 최댓값 유지). `merge`·`save`·`done` 이벤트가 오면 그보다 앞선 단계는 100%로 본다 —
+  병렬 실행이라 `stt`와 `diarize` 사이에는 순서가 없지만, `merge`는 둘 다 끝나야 시작하기 때문이다.
+- 진행률 UI는 `modules/features/pipeline/PipelineProgress` 하나로 두고 홈 목록 카드와 회의 상세가 함께 쓴다.
 
 ## 녹음 (renderer)
 
@@ -180,8 +215,98 @@ spawn(binPath, args, { windowsHide: true })
 | `/` | `pages/Home` | `meeting/MeetingListSection` |
 | `/record` | `pages/Record` | `recording/RecorderSection` |
 | `/meetings/:meetingId` | `pages/MeetingDetail` | `meeting/TranscriptSection` |
+| `/settings` | `pages/Settings` | `setting/SettingsSection`, `model/ModelDownloadSection`, `model/SummaryModelSection` |
+| `/onboarding` | `pages/Onboarding` | `model/ModelDownloadSection` |
 
-- 온보딩(`/onboarding`)은 Phase 4에서 모델 다운로더와 함께 추가한다. 미리 만들어 두지 않는다.
+- `/settings`는 Phase 3에서 원본 WAV 보관 옵션과 함께 추가했다. Phase 4에서 업데이트 확인 옵션(`SettingsSection`),
+  음성 인식 모델 변경(`ModelDownloadSection`, 온보딩과 같은 위젯), 요약 모델 다운로드(`SummaryModelSection`)를 붙였다.
+- 온보딩(`/onboarding`)은 Phase 4에서 추가했다. **진입 가드**는 `shared/routes/guards.tsx`의 `RequireModels`가 맡는다 —
+  홈·녹음·상세·설정을 자식으로 갖는 경로 없는 레이아웃 라우트로, `models:status`의 `isReady`가 거짓이면 `/onboarding`으로 보낸다.
+  온보딩 페이지 자체는 가드 밖에 있고, 다운로드가 끝나면 홈으로 이동한다. 가드는 레이아웃이 처음 마운트될 때 한 번만 조회한다
+  (모델은 온보딩 밖에서 사라지지 않는다).
+- 홈 상단의 `features/update/UpdateBanner`는 `update:available` 이벤트를 받았을 때만 나타난다 (`references/distribution.md` 7절).
 - 흐름: 홈에서 "새 회의 녹음" → `/record` → 정지 → main이 잡을 큐에 넣고 `/meetings/:meetingId`로 이동 → 처리 중 상태를 보여주다가 `pipeline:progress`의 `done`을 받으면 회의록을 다시 불러온다.
 - 녹음 중에 `/record`를 벗어나면(뒤로 가기·창 닫기) 녹음을 정지해 WAV 헤더를 확정하고 잡을 큐에 넣는다. 헤더가 확정되지 않은 WAV는 파이프라인이 읽지 못한다.
-- Phase 2에서 진행률 **막대**는 만들지 않는다(Phase 3). 진행률 이벤트는 목록·디테일의 상태를 갱신하는 신호로만 쓴다.
+- Phase 2에서 진행률 **막대**는 만들지 않았다. Phase 3에서 `modules/features/pipeline/PipelineProgress`로 추가했다 (위 "진행률 표시" 절).
+
+## 편집 UI 규칙 (Phase 3)
+
+- **인라인 편집**은 `shared/components/composites/InlineEditableText` 하나로 통일한다 (회의 제목, 발화 텍스트, 화자 이름).
+  표시 상태는 `<button>`이라 키보드로 진입할 수 있고, blur·Enter로 확정, Escape로 취소한다.
+  빈 문자열은 저장하지 않고 원래 값으로 되돌린다 — 발화 텍스트나 화자 이름이 빈 채로 남으면 회의록이 읽히지 않기 때문이다.
+- **되돌릴 수 없는 동작(회의 삭제, 화자 병합)은 2단계로 만든다.** `window.confirm` 같은 모달 대화상자를 쓰지 않는다 —
+  renderer를 멈추지 않고, 스타일을 맞출 수 있고, happy-dom 통합 테스트에서 그대로 검증할 수 있기 때문이다.
+  - 회의 삭제: "삭제" → 안내 문구 + "삭제"/"취소"
+  - 화자 병합: "합치기" → 합칠 대상 화자 목록 → 대상 클릭 (대상을 고르는 행위 자체가 확인 단계)
+- **화자 재배정**은 발화 행의 `<select>`로 한다. 재배정 후 앞뒤 발화가 같은 화자가 되어도 자동으로 합치지 않는다 —
+  병합은 파이프라인 결과를 만들 때의 규칙이고, 사용자가 고친 뒤에 문단이 임의로 재구성되면 편집 위치를 잃는다.
+
+## 로컬 LLM 요약 (Phase 5)
+
+STT·화자 분리와 **같은 방식**(외부 바이너리 spawn)으로 붙인다. 서버·HTTP·추가 런타임을 들이지 않는다.
+
+- 엔진은 llama.cpp의 **`llama-cli`** 를 `child_process.spawn` 한다. `llama-server`(HTTP)는 쓰지 않는다 —
+  단발 요약에 상주 서버·포트·프로세스 수명 관리가 필요 없고, "네트워크를 쓰지 않는다"는 원칙을 코드로도 지키기 쉽다.
+- 호출 형태:
+
+  ```
+  llama-cli -m <gguf> -sysf <system.txt> -f <prompt.txt> -o <out.txt>
+            -st --no-display-prompt --no-escape --no-warmup
+            -c <ctxSize> -n <maxPredict> --temp <temp> -t <threads>
+  ```
+
+  - **프롬프트·시스템 프롬프트·출력은 전부 파일로 주고받는다.** 71분 회의록은 수만 자라 argv에 넣으면 길이 제한에 걸리고,
+    `-e`(escape)가 기본 켜져 있어 본문의 `\n`·`\t` 같은 문자열이 제어문자로 바뀐다. `--no-escape`를 함께 준다.
+  - `-st`(single-turn)로 한 턴만 돌고 종료한다. 대화 모드로 들어가면 프로세스가 stdin을 기다리며 끝나지 않는다.
+  - `--no-display-prompt` + `-o`로 **결과 파일만 읽는다**. stdout에는 로드 로그·타이밍이 섞이므로 파싱하지 않는다.
+  - 임시 파일은 `userData/summaries/<meetingId>/`에 만들고 잡이 끝나면 **실패해도 지운다** (정규화본과 같은 규칙).
+- **긴 회의록은 map-reduce로 나눈다.** `src/shared/summary.ts`가 회의록을 발화 줄 경계로 청크 예산만큼 자르고,
+  청크마다 부분 요약을 만든 뒤 부분 요약들을 이어 붙여 한 번 더 요약한다. 청크가 하나면 reduce 단계를 건너뛴다.
+  분할·출력 정리는 순수 함수라 vitest로 검증한다. 청크 예산은 컨텍스트를 통째로 채우지 않고 여유를 둔다(아래 상수 절).
+- **파이프라인이 자동으로 요약하지 않는다.** 디테일 화면의 "요약 만들기" 버튼이 `summary:create`를 보낸다.
+  요약 모델이 없거나 요약이 실패해도 회의록 자체는 이미 `status='done'`이어야 하기 때문이다.
+- 저장은 `meetings.summary` 한 컬럼. **진행 상태용 컬럼은 만들지 않는다** — 진행은 이벤트로만 알리고,
+  앱이 꺼져 진행 상태가 사라지면 사용자가 버튼을 다시 누르면 된다.
+
+### 잡 큐 통합
+
+요약도 STT와 같은 CPU·GPU를 쓰므로 **`src/main/pipeline/queue.ts`의 같은 큐(동시성 1)** 에 넣는다.
+요약 전용 큐를 따로 두면 STT와 요약이 동시에 돌아 둘 다 느려진다 (`references/pitfalls.md`).
+
+- 큐 항목은 `string`이 아니라 `{ kind: 'pipeline' | 'summary'; meetingId: string }`이고, `drain`이 종류에 따라
+  `runPipeline` 또는 `runSummary`를 부른다.
+- 실패 처리는 종류마다 다르다. 파이프라인 실패는 `meetings.status='error'`로 남기지만,
+  **요약 실패는 회의 상태를 건드리지 않는다** — 회의록은 멀쩡하고 요약만 없는 상태이므로 이벤트로만 알린다.
+
+### IPC (Phase 5)
+
+```ts
+summary: { create: 'summary:create' },
+events: { progress: 'pipeline:progress', summary: 'summary:progress' }
+```
+
+- `summary:create`는 큐에 넣기만 하고 즉시 반환한다(응답 없음). 요약은 수 분이 걸려 `invoke`를 매달아 둘 수 없다.
+  Phase 3의 "뮤테이션은 갱신된 `MeetingDetail`을 돌려준다" 규약의 예외다 — 이 채널은 값을 바꾸는 게 아니라 **잡을 예약**한다.
+- 진행은 `summary:progress`로 push한다: `{ meetingId, stage, percent, summary?, errorMessage? }`.
+  `stage='done'`일 때 **요약 텍스트를 함께 실어 보내** renderer가 다시 조회하지 않게 한다.
+- `stage='error'`이면 `errorMessage`(한국어)를 함께 보낸다. 회의 상태는 그대로 `done`이다.
+
+### 화면
+
+| 경로 | 페이지 | 추가되는 widget |
+| --- | --- | --- |
+| `/meetings/:meetingId` | `pages/MeetingDetail` | `meeting/SummarySection` (`TranscriptSection` 위) |
+
+- `SummarySection`은 회의가 `done`이고 발화가 있을 때만 버튼을 활성화한다. 요약이 이미 있으면 본문을 보여주고 "다시 만들기"를 제공한다.
+- 요약 텍스트는 마크다운으로 렌더링하지 않는다. 라이브러리를 들이지 않기 위해 **줄바꿈을 보존한 일반 텍스트**로 표시한다.
+
+### 바이너리·모델 확보 (Phase 5)
+
+| 대상 | 확보 방법 | 배치 위치 |
+| --- | --- | --- |
+| `llama-cli` + 의존 dylib | `ggml-org/llama.cpp` 릴리스의 `llama-<build>-bin-macos-arm64.tar.gz`를 받아 필요한 파일만 꺼낸다 | `resources/bin/darwin-arm64/` |
+| 요약 모델 | `Qwen3-4B-Instruct-2507-Q4_K_M.gguf` (Hugging Face, Apache-2.0) | `scripts/fixtures/models/` (Phase 1 규칙과 동일), 앱은 `userData/models/` |
+
+- llama.cpp 실행 파일의 rpath는 `@loader_path`라 **바이너리와 dylib을 같은 폴더에** 두면 그대로 동작한다 (sherpa-onnx와 같은 구조).
+- 아카이브가 `tar.gz`라 `scripts/shell.ts`의 `extractArchive`는 압축 방식을 고정하지 않고 `tar -xf`로 자동 판별한다.
+- 릴리스 빌드 번호(`b10622` 등)는 `scripts/assets.ts`에 상수로 고정한다. 최신 빌드를 자동 추적하면 체크섬이 매번 바뀐다.
