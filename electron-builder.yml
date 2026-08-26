@@ -7,24 +7,39 @@ files:
   - '!src/*'
   - '!scripts/*'
   - '!plan.md'
+  - '!docs/*'
+  - '!.github/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml,pnpm-workspace.yaml}'
-  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json,vitest.config.ts}'
+# whisper-cli·sherpa-onnx와 동적 라이브러리는 asar 안에서 실행할 수 없다
 asarUnpack:
   - resources/**
 win:
   executableName: meeting-stt
+  # 코드 사이닝은 CSC_LINK·CSC_KEY_PASSWORD 환경변수가 있을 때만 수행된다 (없으면 서명 없이 빌드)
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
+  # 하드닝 런타임에서 마이크 접근과 동봉 바이너리 실행에 entitlements가 필요하다
+  hardenedRuntime: true
+  gatekeeperAssess: false
   extendInfo:
     - NSMicrophoneUsageDescription: 회의를 녹음하여 회의록을 작성하려면 마이크 접근 권한이 필요합니다.
+  # 로컬 빌드 기본값은 공증 없음. 배포 빌드는 `pnpm run build:mac:release`가 켠다
+  # (APPLE_ID·APPLE_APP_SPECIFIC_PASSWORD·APPLE_TEAM_ID 필요, references/distribution.md)
   notarize: false
 dmg:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
+# TODO(Phase 4): 첫 릴리스 전에 실제 저장소로 교체한다. 원격 저장소가 아직 없다
+publish:
+  provider: github
+  owner: OWNER
+  repo: meeting-stt

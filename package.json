@@ -22,7 +22,10 @@
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "pnpm run build && electron-builder --dir",
     "build:win": "pnpm run build && electron-builder --win",
-    "build:mac": "pnpm run build && electron-builder --mac"
+    "build:mac": "pnpm run build && electron-builder --mac",
+    "build:mac:release": "pnpm run build && electron-builder --mac -c.mac.notarize=true",
+    "setup:bin": "tsx scripts/setupBin.ts",
+    "setup:models": "tsx scripts/setupModels.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -35,6 +38,7 @@
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
     "better-sqlite3": "^13.0.3",
+    "electron-updater": "^6.8.9",
     "react-router": "^8.3.0"
   },
   "devDependencies": {

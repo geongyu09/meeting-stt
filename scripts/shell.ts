@@ -10,8 +10,9 @@ export const extractArchive = async ({
   archivePath: string
   destDir: string
 }) => {
-  // bzip2는 Node 기본 모듈에 없다. macOS/Linux의 bsdtar를 그대로 쓴다.
-  await execFileAsync('tar', ['-xjf', archivePath, '-C', destDir])
+  // bzip2·zip 디코더를 의존성으로 들이지 않는다. bsdtar가 확장자로 압축 방식을 판별한다
+  // (macOS와 Windows 10 1803+ 기본 포함, references/distribution.md).
+  await execFileAsync('tar', ['-xf', archivePath, '-C', destDir])
 }
 
 export const which = async (command: string) => {

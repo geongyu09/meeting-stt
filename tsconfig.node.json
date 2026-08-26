@@ -8,6 +8,7 @@
     "src/shared/**/*",
     "scripts/**/*"
   ],
+  "exclude": ["scripts/fixtures/**"],
   "compilerOptions": {
     "composite": true,
     "types": ["electron-vite/node"],

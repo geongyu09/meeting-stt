@@ -1,5 +1,12 @@
 import path from 'node:path'
 
+import {
+  DEFAULT_WHISPER_MODEL_ID,
+  REQUIRED_MODEL_ASSETS,
+  whisperFileNameOf,
+  type ModelKey
+} from '../src/main/models/registry'
+
 const SCRIPTS_DIR = __dirname
 
 export const PROJECT_ROOT = path.resolve(SCRIPTS_DIR, '..')
@@ -12,18 +19,21 @@ export const OUTPUT_DIR = path.join(FIXTURES_DIR, 'output')
 export const DOWNLOAD_TMP_DIR = path.join(MODELS_DIR, 'tmp')
 
 export const PLATFORM_KEY = `${process.platform}-${process.arch}`
-export const BIN_DIR = path.join(PROJECT_ROOT, 'resources', 'bin', PLATFORM_KEY)
+
+/** CI에서 다른 플랫폼 자산을 미리 받을 수 있게 플랫폼 키를 인자로 받는다 */
+export const binDirOf = ({ platformKey }: { platformKey: string }) =>
+  path.join(PROJECT_ROOT, 'resources', 'bin', platformKey)
+
+export const BIN_DIR = binDirOf({ platformKey: PLATFORM_KEY })
 
 export const WHISPER_BIN = path.join(BIN_DIR, 'whisper-cli')
 export const DIARIZE_BIN = path.join(BIN_DIR, 'sherpa-onnx-offline-speaker-diarization')
 
-export const WHISPER_MODEL = path.join(MODELS_DIR, 'ggml-large-v3-turbo-q5_0.bin')
-export const VAD_MODEL = path.join(MODELS_DIR, 'ggml-silero-v5.1.2.bin')
-export const SEGMENTATION_MODEL = path.join(
-  MODELS_DIR,
-  'sherpa-onnx-pyannote-segmentation-3-0.onnx'
-)
-export const EMBEDDING_MODEL = path.join(
-  MODELS_DIR,
-  '3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx'
-)
+// 파일명은 앱과 같은 레지스트리에서 가져온다 (src/main/models/registry.ts)
+const requiredModelFileName = (key: ModelKey) =>
+  (REQUIRED_MODEL_ASSETS.find((asset) => asset.key === key) ?? REQUIRED_MODEL_ASSETS[0]).fileName
+
+export const WHISPER_MODEL = path.join(MODELS_DIR, whisperFileNameOf(DEFAULT_WHISPER_MODEL_ID))
+export const VAD_MODEL = path.join(MODELS_DIR, requiredModelFileName('vad'))
+export const SEGMENTATION_MODEL = path.join(MODELS_DIR, requiredModelFileName('segmentation'))
+export const EMBEDDING_MODEL = path.join(MODELS_DIR, requiredModelFileName('embedding'))
