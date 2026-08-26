@@ -1,4 +1,5 @@
 import { Link, Navigate, useParams } from 'react-router'
+import SummarySection from '@renderer/modules/widgets/meeting/SummarySection'
 import TranscriptSection from '@renderer/modules/widgets/meeting/TranscriptSection'
 import { PATHS } from '@renderer/shared/routes/paths'
 
@@ -14,6 +15,8 @@ export default function MeetingDetail() {
       <Link className={styles.back} to={PATHS.home}>
         ← 회의 목록
       </Link>
+      {/* 같은 라우트에서 회의만 바뀌면 요약 진행 상태가 남으므로 key로 초기화한다 */}
+      <SummarySection key={meetingId} meetingId={meetingId} />
       <TranscriptSection meetingId={meetingId} />
     </div>
   )
