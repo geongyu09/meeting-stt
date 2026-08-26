@@ -179,11 +179,6 @@ export const whisperWindowsBinaryAsset = ({ binDir }: { binDir: string }): Archi
 }
 
 /**
- * llama.cpp 실행 파일과 의존 라이브러리. macOS는 rpath가 `@loader_path`라 같은 폴더에 두면 그대로 동작한다.
- * 릴리스에는 도구가 60개 들어 있지만 요약에 필요한 `llama-cli`와 그 의존 라이브러리만 꺼낸다
- * (`references/architecture.md`).
- */
-/**
  * Windows CPU 빌드가 실행 시점에 골라 쓰는 ggml 백엔드. 임포트 테이블에 없어서
  * 의존성 추적으로는 안 잡히므로 whisper와 같이 전부 동봉한다.
  */
@@ -250,6 +245,11 @@ const LLAMA_ENTRIES: Record<
   }
 }
 
+/**
+ * llama.cpp 실행 파일과 의존 라이브러리. macOS는 rpath가 `@loader_path`라 같은 폴더에 두면 그대로 동작한다.
+ * 릴리스에는 도구가 60개 들어 있지만 요약에 필요한 `llama-cli`와 그 의존 라이브러리만 꺼낸다
+ * (`references/architecture.md`).
+ */
 export const llamaBinaryAsset = ({
   binDir,
   platformKey

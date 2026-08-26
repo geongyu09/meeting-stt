@@ -46,7 +46,9 @@ src/
     audio/wavWriter.ts        # Float32 청크 → Int16 append, 종료 시 헤더 확정
     pipeline/{queue,run,normalize,whisper,diarize}.ts   # normalize는 RMS 게인 정규화(순수 TS), vad는 whisper 내장이라 별도 단계 없음
     db/{connection,migrations,meetings,utterances,speakers,settings}.ts
-    models/paths.ts           # 모델 경로 해석 (registry/download는 Phase 4)
+    models/{registry,paths,download,recommend,service}.ts   # 레지스트리(스크립트와 공유)·경로 해석·다운로드·저사양 권장
+    summary/{llama,run,paths,transcript}.ts                 # 로컬 요약 (Phase 5)
+    updater.ts                # electron-updater, 기본 꺼짐 (references/distribution.md)
     bin/{paths,spawn}.ts
     ipc/handlers.ts
   preload/index.ts            # window.api 타입 노출
@@ -54,6 +56,7 @@ src/
     main.tsx, App.tsx
     worklet/pcmRecorder.js    # AudioWorkletProcessor (Vite `?url` import로 로드)
     pages/{Onboarding,Home,Record,MeetingDetail,Settings}/index.tsx   # widgets 배치만
+    shared/routes/{index.tsx,paths.ts,guards.tsx}   # 라우터·경로 상수·온보딩 진입 가드
     modules/widgets/{domain}/…    # section 단위 도메인 컴포넌트 (TranscriptSection, SettingsSection 등)
     modules/features/{domain}/…   # 작은 도메인 컴포넌트 (PipelineProgress 등)
     shared/api/{domain}/index.ts  # window.api 래퍼 (유일한 window.api 접점)

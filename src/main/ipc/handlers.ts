@@ -222,7 +222,11 @@ const handleWriteClipboardText = (payload: unknown) => {
 }
 
 /** 다운로드 진행률은 요청한 창이 아니라 모든 창에 보낸다 — 창이 하나뿐이고, 요청 창이 닫혀도 진행은 계속된다 */
-const broadcastModelDownloadProgress = ({ key, receivedBytes, totalBytes }: ModelDownloadProgress) => {
+const broadcastModelDownloadProgress = ({
+  key,
+  receivedBytes,
+  totalBytes
+}: ModelDownloadProgress) => {
   const event: ModelDownloadProgressEvent = {
     key,
     receivedBytes,
@@ -296,10 +300,8 @@ export const registerIpcHandlers = () => {
 
   ipcMain.handle(IPC.models.download, (_event, payload) => handleDownloadModels(payload))
 
-  ipcMain.handle(
-    IPC.models.downloadSummary,
-    (): Promise<DownloadModelsResponse> =>
-      downloadSummaryModel({ onProgress: broadcastModelDownloadProgress })
+  ipcMain.handle(IPC.models.downloadSummary, (): Promise<DownloadModelsResponse> =>
+    downloadSummaryModel({ onProgress: broadcastModelDownloadProgress })
   )
 
   ipcMain.handle(IPC.update.download, () => downloadUpdate())

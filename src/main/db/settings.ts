@@ -12,8 +12,7 @@ const DEFAULT_SETTINGS: AppSettings = { isAudioKept: false, isUpdateCheckEnabled
 /** 값이 없거나 JSON이 깨져도 undefined로 읽는다. 설정 하나 때문에 앱이 멈추면 안 된다 */
 const readValue = (key: string): unknown => {
   const row = getDb().prepare('SELECT value FROM settings WHERE key = ?').get(key) as
-    | { value: string }
-    | undefined
+    { value: string } | undefined
   if (!row) return undefined
 
   try {

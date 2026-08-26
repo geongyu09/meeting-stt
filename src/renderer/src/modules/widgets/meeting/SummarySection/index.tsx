@@ -70,10 +70,7 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
               {isCopied ? '복사됨' : '요약 복사'}
             </Button>
           )}
-          <Button
-            onClick={createSummary}
-            disabled={isRunning || !hasTranscript || isModelMissing}
-          >
+          <Button onClick={createSummary} disabled={isRunning || !hasTranscript || isModelMissing}>
             {summary ? '다시 요약' : '요약 만들기'}
           </Button>
         </div>

@@ -50,7 +50,9 @@ src/
 │   ├── audio/wavWriter.ts
 │   ├── pipeline/{queue,run,whisper,diarize}.ts
 │   ├── db/{connection,migrations,meetings,utterances,speakers}.ts
-│   ├── models/paths.ts                  # registry/download는 Phase 4
+│   ├── models/{registry,paths,download,recommend,service}.ts
+│   ├── summary/{llama,run,paths,transcript}.ts
+│   ├── updater.ts
 │   ├── bin/{paths,spawn}.ts
 │   └── ipc/handlers.ts
 │
@@ -112,7 +114,7 @@ src/
         │   ├── provider/
         │   │   ├── context/{name}Context/index.tsx
         │   │   └── themeProvider/index.tsx
-        │   ├── routes/index.tsx         # 라우터 정의, path 상수, 가드
+        │   ├── routes/{index.tsx,paths.ts,guards.tsx}   # 라우터 정의, path 상수, 가드
         │   ├── utils/
         │   │   └── formatDuration/
         │   │       ├── index.ts
