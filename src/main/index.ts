@@ -1,11 +1,7 @@
 import { join } from 'path'
 import { app, shell, BrowserWindow, session } from 'electron'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import type {
-  PipelineProgressEvent,
-  SummaryProgressEvent,
-  UpdateAvailableEvent
-} from '@shared/ipc'
+import type { PipelineProgressEvent, SummaryProgressEvent, UpdateAvailableEvent } from '@shared/ipc'
 import { IPC } from '@shared/ipc'
 import icon from '../../resources/icon.png?asset'
 import { recordingsDir } from './audio/session'
@@ -107,13 +103,15 @@ const cleanupPreviousRun = async () => {
 }
 
 // 두 인스턴스가 같은 DB를 열면 나중에 뜬 쪽의 시작 정리가 처리 중 회의를 오류로 덮어쓴다 (references/distribution.md 9절)
-if (!app.requestSingleInstanceLock()) {
-  app.quit()
-}
+const isPrimaryInstance = app.requestSingleInstanceLock()
+if (!isPrimaryInstance) app.quit()
 
 app.on('second-instance', focusExistingWindow)
 
 app.whenReady().then(async () => {
+  // quit()은 비동기라 ready가 먼저 올 수 있다. 두 번째 인스턴스는 DB를 열지 않는다
+  if (!isPrimaryInstance) return
+
   electronApp.setAppUserModelId('com.meetingstt.app')
 
   app.on('browser-window-created', (_, window) => {
