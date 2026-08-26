@@ -1,18 +1,15 @@
 .section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
-.heading {
+.list {
+  display: flex;
+  flex-direction: column;
   margin: 0;
-  font-size: var(--font-xl);
-}
-
-.meta {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-sm);
+  padding: 0;
+  list-style: none;
 }
 
 .message {
@@ -25,11 +22,12 @@
   color: var(--color-danger);
 }
 
-.list {
+.pending {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  margin: var(--space-2) 0 0;
-  padding: 0;
-  list-style: none;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
 }

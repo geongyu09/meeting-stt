@@ -1,0 +1,33 @@
+.display {
+  display: block;
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  white-space: pre-wrap;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: text;
+}
+
+.display:hover,
+.display:focus-visible {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border);
+}
+
+.editor {
+  display: block;
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  background: var(--color-surface);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+}

@@ -35,7 +35,7 @@ const useMeetings = () => {
     fetchMeetings()
   }, [fetchMeetings])
 
-  // 잡이 끝나면 status가 바뀌므로 목록을 다시 읽는다 (진행률 표시는 Phase 3)
+  // 잡이 끝나면 status가 바뀌므로 목록을 다시 읽는다 (진행 중 퍼센트는 카드의 PipelineProgress가 맡는다)
   useEffect(
     () =>
       onPipelineProgress(({ stage }) => {

@@ -17,6 +17,7 @@ const PARALLEL_MIN_CORES = 8
 const RESERVED_CORES = 2
 const WHISPER_OUTPUT_SUFFIX = '.whisper'
 const NORMALIZED_SUFFIX = '.norm.wav'
+const FULL_PERCENT = 100
 
 interface ProgressParams {
   stage: PipelineStage
@@ -86,6 +87,8 @@ const runStt = async ({ audioPath, outputPath, onProgress }: RunSttParams) => {
   const jsonPath = `${outputPath}.json`
   const segments: SttSegment[] = parseWhisperOutput(await readFile(jsonPath))
   await rm(jsonPath, { force: true })
+  // whisper가 마지막 진행률 로그를 남기지 않고 끝나는 경우가 있어 단계 종료를 직접 알린다
+  onProgress({ stage: 'stt', percent: FULL_PERCENT })
 
   return segments
 }
@@ -107,6 +110,8 @@ const runDiarization = async ({
       if (percent !== null) onProgress({ stage: 'diarize', percent })
     }
   })
+
+  onProgress({ stage: 'diarize', percent: FULL_PERCENT })
 
   return parseDiarizeOutput(stdout)
 }

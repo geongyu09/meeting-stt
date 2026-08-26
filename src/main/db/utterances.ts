@@ -28,6 +28,38 @@ export const listUtterances = ({ meetingId }: { meetingId: string }) =>
     .all(meetingId)
     .map((row) => toUtterance(row as UtteranceRow))
 
+interface UpdateUtteranceTextParams {
+  meetingId: string
+  utteranceId: string
+  text: string
+}
+
+/** meeting_id를 함께 걸어 다른 회의의 발화를 고치지 못하게 한다 */
+export const updateUtteranceText = ({ meetingId, utteranceId, text }: UpdateUtteranceTextParams) =>
+  getDb()
+    .prepare(
+      'UPDATE utterances SET text = @text WHERE id = @utteranceId AND meeting_id = @meetingId'
+    )
+    .run({ meetingId, utteranceId, text }).changes
+
+interface UpdateUtteranceSpeakerParams {
+  meetingId: string
+  utteranceId: string
+  speakerLabel: string
+}
+
+export const updateUtteranceSpeaker = ({
+  meetingId,
+  utteranceId,
+  speakerLabel
+}: UpdateUtteranceSpeakerParams) =>
+  getDb()
+    .prepare(
+      `UPDATE utterances SET speaker_label = @speakerLabel
+       WHERE id = @utteranceId AND meeting_id = @meetingId`
+    )
+    .run({ meetingId, utteranceId, speakerLabel }).changes
+
 interface ReplaceUtterancesParams {
   meetingId: string
   utterances: MergedUtterance[]

@@ -87,6 +87,34 @@ export const updateMeetingDuration = ({
     .run({ meetingId, durationSec })
 }
 
+/** 제목을 바꾼다. 대상 회의가 없으면 0을 돌려준다 */
+export const renameMeeting = ({ meetingId, title }: { meetingId: string; title: string }) =>
+  getDb().prepare('UPDATE meetings SET title = @title WHERE id = @meetingId').run({
+    meetingId,
+    title
+  }).changes
+
+/** 원본 WAV를 지운 뒤 경로를 비운다. 파일이 없는 회의는 재처리할 수 없다 */
+export const clearAudioPath = ({ meetingId }: { meetingId: string }) => {
+  getDb().prepare('UPDATE meetings SET audio_path = NULL WHERE id = ?').run(meetingId)
+}
+
+/** 발화·화자는 ON DELETE CASCADE로 함께 지워진다 (references/data-model.md) */
+export const deleteMeeting = ({ meetingId }: { meetingId: string }) =>
+  getDb().prepare('DELETE FROM meetings WHERE id = ?').run(meetingId).changes
+
+/** 로컬 LLM 요약 결과를 저장한다 (Phase 5). 다시 만들면 덮어쓴다 */
+export const updateMeetingSummary = ({
+  meetingId,
+  summary
+}: {
+  meetingId: string
+  summary: string
+}) =>
+  getDb()
+    .prepare('UPDATE meetings SET summary = @summary WHERE id = @meetingId')
+    .run({ meetingId, summary }).changes > 0
+
 /** 이전 실행이 녹음·처리 중에 죽은 경우 남는 행. 시작 시 한 번 정리한다 */
 export const failStaleMeetings = () =>
   getDb()

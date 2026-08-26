@@ -31,3 +31,19 @@
 .recordLink:hover {
   opacity: 0.85;
 }
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.settingsLink {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  text-decoration: none;
+}
+
+.settingsLink:hover {
+  color: var(--color-text);
+}

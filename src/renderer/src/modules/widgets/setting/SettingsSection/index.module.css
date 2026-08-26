@@ -1,0 +1,46 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--font-lg);
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.optionBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.optionTitle {
+  font-weight: 600;
+}
+
+.optionHint {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.message {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.error {
+  margin: 0;
+  color: var(--color-danger);
+}

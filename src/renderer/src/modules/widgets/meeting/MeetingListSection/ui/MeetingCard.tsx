@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
 import type { Meeting } from '@shared/types'
+import PipelineProgress from '@renderer/modules/features/pipeline/PipelineProgress'
 import Badge from '@renderer/shared/components/primitives/ui/Badge'
 import { meetingDetailPath } from '@renderer/shared/routes/paths'
 import { formatDuration } from '@renderer/shared/utils/formatDuration'
@@ -25,6 +26,7 @@ export default function MeetingCard({ meeting }: MeetingCardProps) {
         {formatMeetingDate({ epochMs: meeting.createdAt })} ·{' '}
         {formatDuration({ sec: meeting.durationSec })}
       </span>
+      {meeting.status === 'processing' ? <PipelineProgress meetingId={meeting.id} /> : null}
       {meeting.errorMessage ? <span className={styles.error}>{meeting.errorMessage}</span> : null}
     </Link>
   )

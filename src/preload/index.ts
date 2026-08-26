@@ -1,16 +1,34 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import {
   IPC,
+  type DeleteMeetingRequest,
+  type DownloadModelsRequest,
+  type DownloadModelsResponse,
   type GetMeetingRequest,
   type GetMeetingResponse,
   type GetMeetingsResponse,
+  type GetSettingsResponse,
+  type MergeSpeakersRequest,
+  type ModelDownloadProgressEvent,
+  type ModelStatusResponse,
+  type MutateMeetingResponse,
   type PipelineProgressEvent,
+  type CreateSummaryRequest,
+  type ReassignUtteranceRequest,
+  type RenameMeetingRequest,
+  type RenameSpeakerRequest,
   type RequestMicrophonePermissionResponse,
   type SendRecordingChunkRequest,
   type StartRecordingRequest,
   type StartRecordingResponse,
   type StopRecordingRequest,
-  type StopRecordingResponse
+  type StopRecordingResponse,
+  type SummaryProgressEvent,
+  type UpdateAvailableEvent,
+  type UpdateSettingsRequest,
+  type UpdateSettingsResponse,
+  type UpdateUtteranceTextRequest,
+  type WriteClipboardTextRequest
 } from '@shared/ipc'
 
 // renderer에 노출할 API. ipcRenderer 객체 자체는 노출하지 않고
@@ -29,7 +47,47 @@ const api = {
   meetings: {
     list: (): Promise<GetMeetingsResponse> => ipcRenderer.invoke(IPC.meetings.list),
     get: (payload: GetMeetingRequest): Promise<GetMeetingResponse> =>
-      ipcRenderer.invoke(IPC.meetings.get, payload)
+      ipcRenderer.invoke(IPC.meetings.get, payload),
+    rename: (payload: RenameMeetingRequest): Promise<MutateMeetingResponse> =>
+      ipcRenderer.invoke(IPC.meetings.rename, payload),
+    delete: (payload: DeleteMeetingRequest): Promise<void> =>
+      ipcRenderer.invoke(IPC.meetings.delete, payload)
+  },
+  utterances: {
+    updateText: (payload: UpdateUtteranceTextRequest): Promise<MutateMeetingResponse> =>
+      ipcRenderer.invoke(IPC.utterances.updateText, payload),
+    reassign: (payload: ReassignUtteranceRequest): Promise<MutateMeetingResponse> =>
+      ipcRenderer.invoke(IPC.utterances.reassign, payload)
+  },
+  speakers: {
+    rename: (payload: RenameSpeakerRequest): Promise<MutateMeetingResponse> =>
+      ipcRenderer.invoke(IPC.speakers.rename, payload),
+    merge: (payload: MergeSpeakersRequest): Promise<MutateMeetingResponse> =>
+      ipcRenderer.invoke(IPC.speakers.merge, payload)
+  },
+  settings: {
+    get: (): Promise<GetSettingsResponse> => ipcRenderer.invoke(IPC.settings.get),
+    update: (payload: UpdateSettingsRequest): Promise<UpdateSettingsResponse> =>
+      ipcRenderer.invoke(IPC.settings.update, payload)
+  },
+  clipboard: {
+    writeText: (payload: WriteClipboardTextRequest): Promise<void> =>
+      ipcRenderer.invoke(IPC.clipboard.writeText, payload)
+  },
+  summary: {
+    create: (payload: CreateSummaryRequest): Promise<void> =>
+      ipcRenderer.invoke(IPC.summary.create, payload)
+  },
+  models: {
+    status: (): Promise<ModelStatusResponse> => ipcRenderer.invoke(IPC.models.status),
+    download: (payload: DownloadModelsRequest): Promise<DownloadModelsResponse> =>
+      ipcRenderer.invoke(IPC.models.download, payload),
+    downloadSummary: (): Promise<DownloadModelsResponse> =>
+      ipcRenderer.invoke(IPC.models.downloadSummary)
+  },
+  update: {
+    download: (): Promise<void> => ipcRenderer.invoke(IPC.update.download),
+    install: (): Promise<void> => ipcRenderer.invoke(IPC.update.install)
   },
   events: {
     onPipelineProgress: (listener: (event: PipelineProgressEvent) => void) => {
@@ -38,6 +96,31 @@ const api = {
 
       return () => {
         ipcRenderer.removeListener(IPC.events.progress, handler)
+      }
+    },
+    onSummaryProgress: (listener: (event: SummaryProgressEvent) => void) => {
+      const handler = (_: IpcRendererEvent, payload: SummaryProgressEvent) => listener(payload)
+      ipcRenderer.on(IPC.events.summary, handler)
+
+      return () => {
+        ipcRenderer.removeListener(IPC.events.summary, handler)
+      }
+    },
+    onModelDownloadProgress: (listener: (event: ModelDownloadProgressEvent) => void) => {
+      const handler = (_: IpcRendererEvent, payload: ModelDownloadProgressEvent) =>
+        listener(payload)
+      ipcRenderer.on(IPC.events.modelDownload, handler)
+
+      return () => {
+        ipcRenderer.removeListener(IPC.events.modelDownload, handler)
+      }
+    },
+    onUpdateAvailable: (listener: (event: UpdateAvailableEvent) => void) => {
+      const handler = (_: IpcRendererEvent, payload: UpdateAvailableEvent) => listener(payload)
+      ipcRenderer.on(IPC.events.updateAvailable, handler)
+
+      return () => {
+        ipcRenderer.removeListener(IPC.events.updateAvailable, handler)
       }
     }
   }

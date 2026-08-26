@@ -1,36 +1,65 @@
-import { formatTimestamp, resolveSpeakerNames } from '@shared/format'
-import type { Meeting } from '@shared/types'
+import { useNavigate } from 'react-router'
+import PipelineProgress from '@renderer/modules/features/pipeline/PipelineProgress'
 import useMeeting from '@renderer/shared/hooks/domain/meeting/useMeeting'
-import { formatMeetingDate } from '@renderer/shared/utils/formatMeetingDate'
+import { PATHS } from '@renderer/shared/routes/paths'
 
+import useTranscriptCopy from './model/useTranscriptCopy'
+import SpeakerBar from './ui/SpeakerBar'
+import TranscriptHeader from './ui/TranscriptHeader'
 import UtteranceRow from './ui/UtteranceRow'
+import { toSpeakerOptions } from './utils/toSpeakerOptions'
 import styles from './index.module.css'
 
 interface TranscriptSectionProps {
   meetingId: string
 }
 
-const isPending = (meeting: Meeting) =>
-  meeting.status === 'recording' || meeting.status === 'processing'
-
 export default function TranscriptSection({ meetingId }: TranscriptSectionProps) {
-  const { meeting, utterances, speakers, isLoading, error } = useMeeting({ meetingId })
+  const navigate = useNavigate()
+  const {
+    meeting,
+    utterances,
+    speakers,
+    isLoading,
+    error,
+    saveError,
+    renameMeeting,
+    editUtteranceText,
+    reassignUtterance,
+    renameSpeaker,
+    mergeSpeakers,
+    removeMeeting
+  } = useMeeting({ meetingId })
+
+  const speakerOptions = toSpeakerOptions({ speakers, utterances })
+  const speakerNames = Object.fromEntries(speakerOptions.map(({ label, name }) => [label, name]))
+  const { copiedKey, copyError, copyAll, copyUtterance } = useTranscriptCopy({
+    utterances,
+    speakerNames
+  })
 
   if (isLoading && !meeting) return <p className={styles.message}>회의를 불러오는 중입니다</p>
   if (error) return <p className={styles.error}>{error.message}</p>
   if (!meeting) return <p className={styles.message}>회의를 찾을 수 없습니다</p>
 
-  const speakerNames = resolveSpeakerNames({
-    labels: utterances.map((utterance) => utterance.speakerLabel),
-    displayNames: Object.fromEntries(speakers.map(({ label, displayName }) => [label, displayName]))
-  })
+  const actionError = saveError ?? copyError
+
+  const handleDelete = async () => {
+    if (await removeMeeting()) navigate(PATHS.home)
+  }
 
   const renderBody = () => {
-    if (isPending(meeting)) {
+    if (meeting.status === 'recording')
+      return <p className={styles.message}>녹음이 진행 중입니다</p>
+
+    if (meeting.status === 'processing') {
       return (
-        <p className={styles.message}>
-          회의록을 만들고 있습니다. 시간이 걸릴 수 있으니 잠시만 기다려 주세요
-        </p>
+        <div className={styles.pending}>
+          <p className={styles.message}>
+            회의록을 만들고 있습니다. 시간이 걸릴 수 있으니 잠시만 기다려 주세요
+          </p>
+          <PipelineProgress meetingId={meetingId} />
+        </div>
       )
     }
 
@@ -41,25 +70,44 @@ export default function TranscriptSection({ meetingId }: TranscriptSectionProps)
     if (!utterances.length) return <p className={styles.message}>인식된 발화가 없습니다</p>
 
     return (
-      <ul className={styles.list}>
-        {utterances.map((utterance) => (
-          <UtteranceRow
-            key={utterance.id}
-            utterance={utterance}
-            speakerName={speakerNames[utterance.speakerLabel]}
-          />
-        ))}
-      </ul>
+      <>
+        <SpeakerBar
+          speakerOptions={speakerOptions}
+          onRenameSpeaker={renameSpeaker}
+          onMergeSpeakers={mergeSpeakers}
+        />
+        <ul className={styles.list}>
+          {utterances.map((utterance) => (
+            <UtteranceRow
+              key={utterance.id}
+              utterance={utterance}
+              speakerOptions={speakerOptions}
+              isCopied={copiedKey === utterance.id}
+              onChangeSpeaker={reassignUtterance}
+              onCommitText={editUtteranceText}
+              onCopy={copyUtterance}
+            />
+          ))}
+        </ul>
+      </>
     )
   }
 
   return (
     <section className={styles.section}>
-      <h2 className={styles.heading}>{meeting.title}</h2>
-      <p className={styles.meta}>
-        {formatMeetingDate({ epochMs: meeting.createdAt })} ·{' '}
-        {formatTimestamp({ sec: meeting.durationSec })}
-      </p>
+      <TranscriptHeader
+        meeting={meeting}
+        isCopyEnabled={utterances.length > 0}
+        copiedKey={copiedKey}
+        onRenameTitle={(title) => renameMeeting({ title })}
+        onCopy={copyAll}
+        onDelete={handleDelete}
+      />
+      {actionError ? (
+        <p className={styles.error} role="alert">
+          {actionError.message}
+        </p>
+      ) : null}
       {renderBody()}
     </section>
   )

@@ -48,11 +48,20 @@ describe('MeetingListSection', () => {
     expect(screen.getByText('완료')).toBeTruthy()
   })
 
-  it('처리 중인 회의는 처리 중 상태로 표시한다', async () => {
+  it('처리 중인 회의는 상태와 진행률을 함께 표시한다', async () => {
     vi.mocked(getMeetingsApi).mockResolvedValue([meetingOf({ status: 'processing' })])
     renderSection()
 
     expect(await screen.findByText('회의록 만드는 중')).toBeTruthy()
+    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('0')
+  })
+
+  it('완료된 회의에는 진행률을 보여주지 않는다', async () => {
+    vi.mocked(getMeetingsApi).mockResolvedValue([meetingOf()])
+    renderSection()
+
+    expect(await screen.findByText('완료')).toBeTruthy()
+    expect(screen.queryByRole('progressbar')).toBeNull()
   })
 
   it('실패한 회의는 오류 메시지를 함께 보여준다', async () => {
