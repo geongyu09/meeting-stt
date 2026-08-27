@@ -13,6 +13,7 @@ import {
   parseDiarizeProgress
 } from '../src/main/pipeline/diarize'
 import { normalizeWavFile } from '../src/main/pipeline/normalize'
+import { threadPlan } from '../src/main/bin/threads'
 import {
   buildWhisperArgs,
   parseWhisperOutput,
@@ -33,7 +34,6 @@ import { run } from './shell'
 
 /** 코어가 적으면 STT와 화자 분리를 동시에 돌리는 게 오히려 느리다 (references/pitfalls.md) */
 const PARALLEL_MIN_CORES = 8
-const RESERVED_CORES = 2
 const PROGRESS_STEP_PERCENT = 20
 /** --dtw 값을 생략했을 때 쓰는 정렬 헤드 프리셋 (기본 모델 기준) */
 const DEFAULT_DTW_PRESET = 'large.v3.turbo'
@@ -79,8 +79,6 @@ const makeProgressReporter = (label: string) => {
   }
 }
 
-const threadCount = () => Math.max(1, os.cpus().length - RESERVED_CORES)
-
 interface RunSttParams {
   options: CliOptions
   outputPath: string
@@ -88,11 +86,12 @@ interface RunSttParams {
 
 const runStt = async ({ options, outputPath }: RunSttParams) => {
   const report = makeProgressReporter('STT')
+  const { stt } = await threadPlan()
   const args = buildWhisperArgs({
     modelPath: options.modelPath,
     audioPath: options.audioPath,
     outputPath,
-    threads: threadCount(),
+    threads: stt,
     vadModelPath: options.useVad ? VAD_MODEL : undefined,
     dtwPreset: options.dtwPreset
   })
@@ -113,11 +112,12 @@ const runStt = async ({ options, outputPath }: RunSttParams) => {
 
 const runDiarization = async ({ options }: { options: CliOptions }) => {
   const report = makeProgressReporter('화자 분리')
+  const { diarize } = await threadPlan()
   const args = buildDiarizeArgs({
     segmentationModelPath: SEGMENTATION_MODEL,
     embeddingModelPath: EMBEDDING_MODEL,
     audioPath: options.audioPath,
-    threads: threadCount(),
+    threads: diarize,
     speakerCount: options.speakerCount,
     clusterThreshold: options.clusterThreshold
   })

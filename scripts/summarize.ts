@@ -1,6 +1,5 @@
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import os from 'node:os'
 import path from 'node:path'
 
 import {
@@ -11,6 +10,7 @@ import {
   SUMMARY_SYSTEM_PROMPT
 } from '@shared/summary'
 
+import { threadPlan } from '../src/main/bin/threads'
 import { buildSummaryArgs, parseSummaryOutput } from '../src/main/summary/llama'
 import { SUMMARY_MODEL_ASSET } from '../src/main/models/registry'
 import { fail, info } from './log'
@@ -24,12 +24,8 @@ import { run } from './shell'
  *
  * 사용법: pnpm tsx scripts/summarize.ts <회의록.txt>
  */
-const RESERVED_CORES = 2
-
 const LLAMA_BIN = path.join(BIN_DIR, 'llama-cli')
 const SUMMARY_MODEL = path.join(MODELS_DIR, SUMMARY_MODEL_ASSET.fileName)
-
-const threadCount = () => Math.max(1, os.cpus().length - RESERVED_CORES)
 
 const seconds = (startedAt: number) => ((performance.now() - startedAt) / 1000).toFixed(1)
 
@@ -46,6 +42,7 @@ const complete = async ({ workDir, systemPromptPath, prompt, label }: CompletePa
   await writeFile(promptPath, prompt, 'utf8')
 
   const startedAt = performance.now()
+  const { summary: threads } = await threadPlan()
   const { code, stderr } = await run({
     command: LLAMA_BIN,
     args: buildSummaryArgs({
@@ -53,7 +50,7 @@ const complete = async ({ workDir, systemPromptPath, prompt, label }: CompletePa
       systemPromptPath,
       promptPath,
       outputPath,
-      threads: threadCount()
+      threads
     })
   })
   if (code !== 0) fail(`llama-cli 비정상 종료 (코드 ${code})\n${stderr.slice(-800)}`)

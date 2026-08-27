@@ -1,6 +1,5 @@
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import os from 'node:os'
 import path from 'node:path'
 import {
   buildChunkPrompt,
@@ -12,13 +11,12 @@ import {
 import type { SummaryStage } from '@shared/types'
 import { llamaBinPath } from '../bin/paths'
 import { runBinary } from '../bin/spawn'
+import { threadPlan } from '../bin/threads'
 import { info } from '../log'
 import { isSummaryModelReady, modelPath, summaryModelLabel } from '../models/paths'
 
 import { buildSummaryArgs, parseSummaryOutput } from './llama'
 import { summaryWorkDir } from './paths'
-
-const RESERVED_CORES = 2
 
 /** 구간 요약(map)이 전체 진행률에서 차지하는 몫. 나머지는 합치기(reduce) */
 const MAP_PERCENT = 80
@@ -33,8 +31,6 @@ interface RunSummaryParams {
   transcript: string
   onProgress: (progress: ProgressParams) => void
 }
-
-const threadCount = () => Math.max(1, os.cpus().length - RESERVED_CORES)
 
 /** 실행 파일·모델이 없으면 spawn 전에 한국어로 안내하고 멈춘다 */
 const ensureReady = () => {
@@ -59,6 +55,7 @@ const complete = async ({ workDir, systemPromptPath, prompt, label }: CompletePa
   const promptPath = path.join(workDir, `${label}.prompt.txt`)
   const outputPath = path.join(workDir, `${label}.out.txt`)
   await writeFile(promptPath, prompt, 'utf8')
+  const { summary } = await threadPlan()
 
   await runBinary({
     command: llamaBinPath(),
@@ -67,7 +64,7 @@ const complete = async ({ workDir, systemPromptPath, prompt, label }: CompletePa
       systemPromptPath,
       promptPath,
       outputPath,
-      threads: threadCount()
+      threads: summary
     })
   })
 

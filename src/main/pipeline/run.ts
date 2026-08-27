@@ -6,6 +6,7 @@ import { assignSpeakers, mergeUtterances } from '@shared/merge'
 import type { PipelineStage, SpeakerSegment, SttSegment } from '@shared/types'
 import { diarizeBinPath, whisperBinPath } from '../bin/paths'
 import { runBinary } from '../bin/spawn'
+import { threadPlan } from '../bin/threads'
 import { info } from '../log'
 import { missingModelLabels, modelPath } from '../models/paths'
 import { buildDiarizeArgs, parseDiarizeOutput, parseDiarizeProgress } from './diarize'
@@ -14,7 +15,6 @@ import { buildWhisperArgs, parseWhisperOutput, parseWhisperProgress } from './wh
 
 /** 코어가 적으면 STT와 화자 분리를 동시에 돌리는 게 오히려 느리다 (references/pitfalls.md) */
 const PARALLEL_MIN_CORES = 8
-const RESERVED_CORES = 2
 const WHISPER_OUTPUT_SUFFIX = '.whisper'
 const NORMALIZED_SUFFIX = '.norm.wav'
 const FULL_PERCENT = 100
@@ -28,8 +28,6 @@ interface RunPipelineParams {
   audioPath: string
   onProgress: (progress: ProgressParams) => void
 }
-
-const threadCount = () => Math.max(1, os.cpus().length - RESERVED_CORES)
 
 const isPipelineArtifact = (fileName: string) =>
   fileName.endsWith(NORMALIZED_SUFFIX) || fileName.endsWith(`${WHISPER_OUTPUT_SUFFIX}.json`)
@@ -69,13 +67,15 @@ interface RunSttParams {
 }
 
 const runStt = async ({ audioPath, outputPath, onProgress }: RunSttParams) => {
+  const { stt } = await threadPlan()
+
   await runBinary({
     command: whisperBinPath(),
     args: buildWhisperArgs({
       modelPath: modelPath('whisper'),
       audioPath,
       outputPath,
-      threads: threadCount(),
+      threads: stt,
       vadModelPath: modelPath('vad')
     }),
     onStderrLine: (line) => {
@@ -97,13 +97,15 @@ const runDiarization = async ({
   audioPath,
   onProgress
 }: Omit<RunSttParams, 'outputPath'>): Promise<SpeakerSegment[]> => {
+  const { diarize } = await threadPlan()
+
   const { stdout } = await runBinary({
     command: diarizeBinPath(),
     args: buildDiarizeArgs({
       segmentationModelPath: modelPath('segmentation'),
       embeddingModelPath: modelPath('embedding'),
       audioPath,
-      threads: threadCount()
+      threads: diarize
     }),
     onStderrLine: (line) => {
       const percent = parseDiarizeProgress(line)
