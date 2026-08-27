@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS meetings (
   status        TEXT NOT NULL,              -- 'recording' | 'processing' | 'done' | 'error'
   error_message TEXT,
   audio_path    TEXT,                       -- 원본 WAV 경로 (삭제 후 NULL)
-  summary       TEXT                        -- Phase 5 로컬 LLM 요약용
+  summary       TEXT,                       -- Phase 5 로컬 LLM 요약용
+  speaker_count INTEGER                     -- 녹음 정지 시 입력한 참석자 수 → diarization num-clusters (NULL이면 임계값 폴백). 마이그레이션 2
 );
 
 CREATE TABLE IF NOT EXISTS utterances (
@@ -44,6 +45,7 @@ CREATE TABLE IF NOT EXISTS settings (
 - 화자 이름은 반드시 `speakers` 매핑으로만 관리한다. `utterances.speaker_label`은 익명 라벨.
 - 화자 병합(A→B)은 `utterances.speaker_label` UPDATE + `speakers` 행 삭제로 처리한다. 한 트랜잭션 안에서 함께 한다.
 - 마이그레이션은 `PRAGMA user_version` 정수로 관리하고 `src/main/db/migrations.ts`에 순차 배열로 둔다.
+  - 1: 초기 스키마. 2: `ALTER TABLE meetings ADD COLUMN speaker_count INTEGER` (2026-08-26, 참석자 수 → `num-clusters`).
 
 ## 편집 동작 (Phase 3)
 
@@ -107,6 +109,7 @@ export type MeetingStatus = 'recording' | 'processing' | 'done' | 'error'
 export interface Meeting {
   id: string; title: string; createdAt: number; durationSec: number
   status: MeetingStatus; errorMessage?: string; summary?: string
+  speakerCount?: number   // 녹음 정지 시 입력한 참석자 수. 없으면 임계값 폴백으로 처리된 회의
 }
 
 export interface Utterance {

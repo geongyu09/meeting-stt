@@ -30,8 +30,7 @@ scripts/                      # Phase 1 검증 스크립트 (`pnpm tsx scripts/<
   pipeline.ts                 # wav → normalize → whisper → diarize → merge → 콘솔/JSON 출력
   fixtures/                   # 테스트용 한국어 회의 WAV (git 제외)
 resources/
-  bin/darwin-arm64/whisper-cli, sherpa-onnx-offline-speaker-diarization
-  bin/win32-x64/...
+  bin/darwin-arm64/whisper-cli, sherpa-onnx-offline-speaker-diarization, llama-cli (+ dylib)
 src/
   shared/
     types.ts                  # Meeting, MeetingDetail, Utterance, Speaker, SttSegment, SpeakerSegment
@@ -147,8 +146,65 @@ spawn(binPath, args, { windowsHide: true })
 
 - 바이너리 경로: 개발 시 `resources/bin/...`, 패키징 시 `process.resourcesPath` 아래 `app.asar.unpacked/resources/bin/...`. 경로 해석은 `src/main/bin/paths.ts`에서만 한다.
 - whisper 호출 예: `whisper-cli -m <model> -f <wav> -l ko --output-json-full -of <out> --print-progress` (+ 단어 타임스탬프 옵션, VAD 옵션은 Phase 1 튜닝 결과 반영).
-- diarization 호출 파라미터: `--num-clusters`(참석자 수를 알면), `--cluster-threshold=0.8`(Phase 1에서 실제 회의 WAV로 확정). 최소 지속 시간은 pyannote 기본값 유지. 프로바이더는 CPU 고정(`coreml`은 훨씬 느림).
+- diarization 호출 파라미터: **`--clustering.num-clusters=<참석자 수>`가 기본 경로**(녹음 정지 시 사용자가 입력, `meetings.speaker_count`). 참석자 수가 없을 때만 `--clustering.cluster-threshold=0.8`로 폴백한다 — 임계값 군집은 녹음 길이에 비례해 화자가 늘어나므로(`docs/phase1-results.md` 6절) 참석자 수 입력을 UI에서 권장한다. 최소 지속 시간은 기본값 유지. 프로바이더는 CPU 고정(`coreml`은 훨씬 느림).
+- 참석자 수가 있으면 병합 단계의 군소 화자 흡수(`absorbMinorSpeakers`)를 건너뛴다 — k개로 자른 클러스터는 전부 실제 화자로 보고, 짧게 한 마디 한 참석자를 지우지 않기 위해서다.
+- 참석자 수를 실제보다 크게 넣어도 sherpa-onnx는 실패하지 않고 **k개 이하**로 나눈다(합성 3화자 115초에 `num-clusters=10` → 7개, 5초 녹음에 3 → 2개). 과분할은 Phase 3의 화자 병합 UI로 고칠 수 있으므로 main에서 따로 막지 않는다.
 - 음량 정규화: whisper·diarization을 spawn하기 **전에** `src/main/pipeline/normalize.ts`가 녹음 WAV의 PCM에 RMS 게인을 적용한 WAV를 만들고, 두 바이너리는 그 파일을 읽는다. 원본은 정규화본과 별개로 두며 삭제 정책은 원본에만 적용된다. 파라미터는 SKILL.md 결정 표 참고.
+
+## 가속·스레드 정책
+
+대상은 Apple Silicon 하나뿐이므로 플랫폼 분기를 두지 않는다.
+
+**GPU는 이미 쓰고 있다.** whisper.cpp는 Metal 백엔드가 기본으로 켜져 있고(`-ng`로 꺼야 CPU로 떨어진다),
+llama.cpp도 `-ngl` 없이 전 레이어를 Metal에 올린다(`load_tensors: offloaded 37/37 layers to GPU`).
+CPU만 쓰는 것은 sherpa-onnx 화자 분리뿐이다 — `coreml` 프로바이더가 CPU보다 훨씬 느려 CPU로 고정했다.
+
+**문제는 스레드 수였다.** 셋 다 `os.cpus().length - 2`를 받고 있었는데, `os.cpus()`는 성능 코어와 효율 코어를
+구분하지 않는다. M3 Pro(P6+E6)에서 10을 주면 효율 코어까지 잡아 **느려지면서 발열만 는다.**
+
+측정: 120초 16kHz mono WAV, M3 Pro, 2026-08-26.
+
+| 대상 | 설정 | 실행 시간 | CPU |
+| --- | --- | --- | --- |
+| whisper (turbo-q5, VAD 켬) | `-t 10` | 6.11초 | 44% |
+| whisper | `-t 4` | 6.11초 | 42% |
+| whisper | `-t 4 -ng` (GPU 끔) | 20.7초 | 294% |
+| 화자 분리 | `-t 10` | 18.2초 | 915% |
+| 화자 분리 | `-t 6` | **10.8초** | 593% |
+| 화자 분리 | `-t 4` | 13.8초 | 397% |
+| 요약 (Qwen3-4B-Q4_K_M, 4K 프롬프트·128토큰) | `-t 10` | 12.5초 (CPU 8.7초) | — |
+| 요약 | `-t 4` | 10.6초 (CPU 3.3초) | — |
+| 요약 | `-t 2` | 10.6초 (CPU 1.5초) | — |
+
+읽는 법:
+
+- **whisper는 스레드에 반응하지 않는다.** GPU가 일하고 CPU는 40%대에 머문다. 낮게 줘도 손해가 없고,
+  화자 분리와 병렬로 돌 때 코어 경합만 줄어든다.
+- **화자 분리가 유일한 열원이다.** 성능 코어 수(6)를 넘기면 그 순간부터 느려진다.
+- **요약도 GPU 추론이라 스레드는 Metal 커맨드 버퍼 인코딩·스핀 대기에만 쓰인다.** `-t 2`와 `-t 4`가 같은 속도인데
+  CPU 시간은 두 배 차이다.
+
+파이프라인의 병렬 구간(STT + 화자 분리 동시 실행)을 같은 WAV로 전후 비교한 결과:
+
+| 설정 | 실행 시간 | CPU | 누적 CPU 시간 |
+| --- | --- | --- | --- |
+| 이전 (`-t 10` / `-t 10`) | 18.0초 | 979% | 174.7초 |
+| 현재 (`-t 4` / `-t 6`) | **13.9초** | 608% | **82.9초** |
+
+정책 (`src/main/bin/threads.ts`가 단독으로 정한다):
+
+| 대상 | 스레드 | 이유 |
+| --- | --- | --- |
+| 화자 분리 (`sherpa-onnx`) | 성능 코어 수 | 실측 최적. 유일하게 CPU로 도는 단계다 |
+| STT (`whisper-cli`) | `min(4, 성능 코어 수)` | GPU가 일한다. 더 줘도 같은 속도라 화자 분리에 코어를 양보한다 |
+| 요약 (`llama-cli`) | `min(2, 성능 코어 수)` | 같은 속도에 CPU 시간 1/6 |
+
+- 성능 코어 수는 `sysctl -n hw.perflevel0.logicalcpu`로 얻고 프로세스 수명 동안 캐시한다.
+  **`execSync`는 쓰지 않는다** — main에서 동기 spawn은 UI를 멈춘다(`references/pitfalls.md`). 비동기로 한 번 부르고 결과를 재사용한다.
+  실패하면 `os.cpus().length`의 절반으로 떨어뜨린다 (Apple Silicon은 성능·효율 코어가 대체로 반반이다).
+- **QoS를 낮춰 효율 코어로 밀어내지 않는다.** `taskpolicy -b`로 화자 분리를 돌리면 10.8초 → 116.7초로 **10배 느려진다.**
+  조용해지는 대신 71분 회의의 화자 분리가 한 시간을 넘기므로 선택지가 아니다.
+- STT와 화자 분리의 병렬 분기(`os.cpus().length >= 8`)는 그대로 둔다. whisper가 CPU를 거의 쓰지 않아 겹쳐도 경합이 없다.
 
 ## 앱 런타임 경로 (Phase 2)
 
@@ -202,6 +258,8 @@ spawn(binPath, args, { windowsHide: true })
   `electron.vite.config.ts`의 renderer `build.assetsInlineLimit`에서 워크릿만 인라인 대상에서 빼 **항상 파일로 내보낸다**.
 - 레벨 미터는 별도 `AnalyserNode`를 붙이지 않고 renderer가 받은 청크의 RMS로 계산한다 (노드를 하나 덜 만든다).
 - 정지 시 `IPC.recording.stop` → main이 WAV 헤더를 확정하고 파이프라인 잡을 큐에 넣는다.
+  payload의 `speakerCount?`(1~`MAX_SPEAKER_COUNT`=20, 정수)는 `meetings.speaker_count`에 저장돼 화자 분리의 `num-clusters`가 된다.
+  녹음 화면의 "참석자 수" 숫자 입력은 녹음 전·중 언제든 바꿀 수 있고 정지 시점의 값을 보낸다. 비우면 임계값 폴백이며, 그 경우 화자가 과분할될 수 있다고 입력란 옆에 안내한다.
 - Float32 → Int16 PCM 변환은 main의 `audio/wavWriter.ts`에서 수행 (renderer는 원본 Float32 `ArrayBuffer`만 전달).
 - 샘플레이트·청크 크기 상수는 `src/shared/audio.ts`에 한 번만 정의해 renderer와 main이 함께 쓴다.
 - `AudioContext`가 16kHz 요청을 무시할 수 있으므로 실제 `context.sampleRate`를 확인해 다르면 녹음을 시작하지 않고 안내한다 (`references/pitfalls.md`).

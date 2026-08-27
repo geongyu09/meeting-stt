@@ -17,6 +17,7 @@
 - [x] 합성 픽스처: `scripts/makeFixture.ts`가 macOS `say`로 2~3인 한국어 대화 WAV를 만든다 → **배관(경로·파싱·병합) 검증 전용**
 - [x] 실제 한국어 회의 WAV 픽스처 확보 → 품질·`cluster_threshold` 튜닝은 이걸로만 판단한다 (2026-08-26, 음성 메모 71분 발표·Q&A 녹음 `scripts/fixtures/audio/geumtoro*.wav`, git 제외)
 - [x] 실제 녹음으로 재측정한 결론 반영: 음량 정규화 단계 추가(`src/main/pipeline/normalize.ts`), `cluster-threshold` 0.6 → 0.8, 군소 화자 흡수(`assignSpeakers`) → `docs/phase1-results.md`
+      → **2026-08-26 일부 뒤집힘**: 임계값 군집은 71분 전체·앱 26분 회의에서 화자가 115·129개로 늘어난다(6·7절). 참석자 수 `num-clusters`가 기본 경로로 바뀜
 - [x] `scripts/pipeline.ts`: WAV → (VAD) → whisper JSON → diarization 출력 → `src/shared/merge.ts` → 회의록 텍스트 출력
 - [x] `src/shared/merge.ts`·`format.ts`·`main/pipeline/{whisper,diarize}.ts` 단위 테스트 통과 (`pnpm test`, 45개)
 - [x] 튜닝 결과 기록: 모델별(turbo-q5 / large-v3 / small) 처리 시간·체감 정확도, `cluster_threshold` 값, VAD 사용 유무 차이, 단어 타임스탬프 옵션 효과 → `docs/phase1-results.md`
@@ -44,6 +45,7 @@
 - [x] 처리 진행률 표시 — `src/shared/progress.ts`(가중치·단조 증가, 단위 테스트 9개) + `modules/features/pipeline/PipelineProgress`를 홈 카드·상세가 공유
 - [x] 회의 제목 변경, 삭제(2단계 인라인 확인 + 원본 WAV 삭제)
 - [x] 원본 WAV 보관 설정(`audio.keep`, 기본 삭제) — `/settings` 화면, 잡 성공 시 적용
+- [x] 참석자 수 입력 → `num-clusters` (녹음 화면 숫자 입력, `recording:stop` payload `speakerCount`, `meetings.speaker_count`, 참석자 수가 있으면 군소 화자 흡수 생략) — 임계값 군집이 긴 녹음에서 파탄나는 문제 대응 (`docs/phase1-results.md` 6·7절)
 - [x] 통합 테스트: TranscriptSection 19개, SettingsSection 4개, MeetingListSection 7개 (`pnpm test` 139개 통과)
 - [ ] 완료 기준: 회의록을 열어 텍스트·화자 이름·제목을 고치고 복사한 결과가 앱을 다시 켜도 그대로 남는다 (**사용자 수동 확인 대기** — 실제 회의록 데이터가 필요해 자동 검증 불가)
 
@@ -57,13 +59,12 @@
 - [x] "네트워크는 모델 다운로드 한 번뿐" 문구 노출 (온보딩·설정의 `ModelDownloadSection`)
 - [x] 저사양 감지(`recommend.ts`, 단위 테스트) + 저사양 장비에서 다른 모델을 고르면 "시간이 오래 걸릴 수 있다" 안내
 - [x] `/settings`에서 음성 인식 모델 변경(같은 위젯 재사용), 요약 모델 다운로드(`SummaryModelSection`), 업데이트 확인 옵션
-- [x] Windows x64 바이너리 배치 — **CPU(BLAS) 동봉 + CUDA는 선택**(공식 릴리스에 Vulkan 빌드가 없다) + `bin/paths.ts` 런타임 폴더 감지
-- [x] macOS 배포용 whisper 정적 빌드(`scripts/buildWhisper.ts`, v1.8.4, Metal 내장), 서명·notarization 설정(옵트인), Windows 서명 설정
+- [x] macOS 배포용 whisper 정적 빌드(`scripts/buildWhisper.ts`, v1.8.4, Metal 내장), 서명·notarization 설정(옵트인)
 - [x] electron-updater — 기본 꺼짐, `update.check` 설정으로 켬, 새 버전은 알리기만(`features/update/UpdateBanner`) → 사용자가 받기·설치
-- [x] GitHub Actions: macOS/Windows 러너 분리 빌드, `v*` 태그에서만 드래프트 릴리스
+- [x] GitHub Actions: macOS(arm64) 빌드, `v*` 태그에서만 드래프트 릴리스
 - [x] 단일 인스턴스 잠금(`app.requestSingleInstanceLock`)
 - [x] 통합 테스트: ModelDownloadSection, SummaryModelSection, UpdateBanner, SettingsSection(업데이트 옵션)
-- [ ] `electron-builder.yml`의 `publish.owner` 교체, 서명 자격 증명 등록, Windows 실기 검증 (**사용자만 할 수 있다** — `references/distribution.md` 10절)
+- [ ] `electron-builder.yml`의 `publish.owner` 교체, 서명 자격 증명 등록 (**사용자만 할 수 있다** — `references/distribution.md` 10절)
 - [ ] 완료 기준: `userData/models/`가 빈 상태로 앱을 켜면 온보딩이 뜨고, 다운로드가 끝나면 홈에서 녹음할 수 있다
       (**사용자 수동 확인 대기** — 개발 모드는 픽스처 폴백 때문에 픽스처 모델을 치워야 재현된다)
 
@@ -102,10 +103,6 @@
 - [ ] 회의별 용어 사전(whisper `--prompt`) 검토 — STT 단계 과제. VAD로 잘린 구간마다 효과가 유지되는지와
       초기 프롬프트가 환각을 부르지 않는지 확인이 필요해 Phase 4 이후로 미룬다
 - [ ] **`pnpm dev`로 실제 앱에서 관통 확인** — 회의 상세에서 "요약 만들기" → 진행률 → 본문 표시 → 앱 재시작 후에도 남아 있는지 (사용자 수동 확인 필요)
-- [ ] **Windows용 llama.cpp 자산 — 실기 검증만 남음.** `LLAMA_ENTRIES`에 `win32-x64`(CPU 빌드 18.1MB)를 넣었고
-      필요한 파일 23개는 PE 임포트 테이블로 확정했다(닫힘 집합 9개 + `ggml-cpu-*.dll` 14개, `ggml-rpc.dll`은 불필요).
-      `ensureArchiveAsset`로 추출까지 확인했다. 실제 Windows에서 `llama-cli.exe`가 뜨는지는 확인하지 못했다
-      (`references/distribution.md` 10.2절)
 - [ ] **동봉 dylib의 서명·공증 확인 — 자격 증명 대기.** rpath가 `@loader_path`인 것과 내려받은 상태가
       adhoc(linker-signed)인 것은 확인했다(`docs/phase5-results.md`). `asarUnpack: resources/**`도 걸려 있다.
       electron-builder가 Developer ID로 재서명한 결과 확인은 인증서가 있어야 가능하다 (`references/distribution.md` 6절)
@@ -113,4 +110,4 @@
 
 ### 5-2. 시스템 오디오 캡처
 
-- [ ] 아직 시작하지 않음. Windows WASAPI loopback 우선, macOS ScreenCaptureKit 검토 (plan.md 6.2절: 난이도가 높아 2차 과제 권장)
+- [ ] 아직 시작하지 않음. macOS ScreenCaptureKit 검토 (plan.md 6.2절: 난이도가 높아 2차 과제 권장)

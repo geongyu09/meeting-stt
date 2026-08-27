@@ -9,6 +9,10 @@
 - **화자 분리 임계값을 올려도 파편 클러스터가 남는다.** `cluster-threshold` 0.6 → 0.8로 올리면 23명 → 12명이 되지만,
   0.9까지 올려도 총 발화 1~8초짜리 화자가 8~9명 남는다(짧은 구간의 임베딩이 불안정). 임계값으로 해결하려 하지 말고
   병합 단계에서 **총 발화 10초 미만 화자를 시간상 가장 가까운 주요 화자에 흡수**한다 (12명 → 3명). `--min-duration-on`을 올려도 큰 차이가 없다.
+- **임계값 군집은 긴 녹음에서 화자가 무한정 늘어난다.** sherpa-onnx `FastClustering`은 complete-linkage + 코사인 거리 고정 임계값이라
+  클러스터 수가 참석자 수가 아니라 녹음 길이·발화 교대에 비례한다. 71분 발표 녹음은 0.9에서 115개(10초 이상 38명), 앱 26분 회의는 0.8에서 129개(23명)였고
+  같은 사람이 800·600·360초짜리 큰 클러스터로 갈라져 군소 화자 흡수로도 못 막는다. 10분 발췌에서 맞춘 임계값을 전체 길이에 쓰지 않는다 —
+  참석자 수를 받아 `num-clusters`로 돌리는 것이 기본이고 임계값은 폴백이다 (`docs/phase1-results.md` 6·7절).
 - **`--embedding.provider=coreml`·`--segmentation.provider=coreml`은 CPU보다 훨씬 느리다** (10분 입력: CPU 141초 완료 vs CoreML 4분 경과에 18%). 프로바이더는 CPU로 고정한다.
 - **ffmpeg가 만든 WAV는 헤더가 44바이트가 아니다** (`LIST` 청크가 붙음). PCM을 직접 읽을 때는 `data` 청크를 찾아서 읽어야 한다. 앱이 직접 쓰는 WAV는 44바이트 고정이지만 외부 파일을 받는 경로가 생기면 주의.
 - **whisper.cpp `--vad`는 토큰 타임스탬프를 되돌리지 않는다** (whisper-cpp 1.8.4에서 확인, Phase 1).
@@ -38,11 +42,14 @@
   `audioWorklet.addModule('data:text/javascript;...')`가 차단된다. 개발 서버에서는 재현되지 않으므로 `pnpm build` 뒤 `out/renderer/assets/`에 워크릿 파일이 있는지 확인한다.
 - `AudioContext({ sampleRate: 16000 })`이 일부 장치에서 무시될 수 있다 → 실제 `context.sampleRate`를 확인하고 다르면 main에서 리샘플링하거나 오류 안내.
 - 녹음 중 앱 종료/크래시 대비: WAV 헤더는 정지 시 확정하지만, 청크는 이미 디스크에 있으므로 다음 실행 시 "미완료 녹음 복구" 처리를 고려한다 (Phase 3 이후).
-- macOS: `NSMicrophoneUsageDescription` 없으면 크래시. `systemPreferences.askForMediaAccess('microphone')`로 명시 요청. Windows: 설정 > 개인정보 > 마이크 꺼짐이면 `getUserMedia`가 실패하므로 안내 UI 필요.
+- macOS: `NSMicrophoneUsageDescription` 없으면 크래시. `systemPreferences.askForMediaAccess('microphone')`로 명시 요청.
 
 ## 프로세스 / 성능
 - main 프로세스에서 동기 IO·동기 spawn(`spawnSync`, `execSync`)은 UI를 멈춘다. 비동기 `spawn`만 사용.
 - STT와 화자 분리를 무조건 병렬로 돌리지 않는다. `os.cpus().length`가 8 미만이면 순차 실행.
+- **`os.cpus().length`는 성능 코어와 효율 코어를 구분하지 않는다.** 그 수만큼 스레드를 주면 효율 코어까지 잡아 느려지면서 팬만 돈다 (M3 Pro 실측: 화자 분리 `-t 10` 18.2초 → `-t 6` 10.8초, CPU 915% → 593%). 스레드 수는 `src/main/bin/threads.ts`가 성능 코어(`sysctl -n hw.perflevel0.logicalcpu`) 기준으로만 정한다.
+- **GPU로 도는 단계에 CPU 스레드를 많이 주지 않는다.** whisper·llama는 Metal이 일하고 남은 스레드는 스핀 대기만 한다 — 요약은 `-t 2`와 `-t 10`이 같은 속도인데 CPU 시간이 6배 차이났다.
+- **`taskpolicy -b`(background QoS)로 팬을 잡으려 하지 않는다.** 효율 코어로 밀려 화자 분리가 10.8초 → 116.7초로 10배 느려진다.
 - 잡 큐는 한 번에 하나만 처리한다(여러 회의 동시 처리 금지). 큐 상태는 앱 재시작 시 `status='processing'`인 회의를 `error`로 정리하거나 재시도한다.
 - **renderer가 보낸 PCM 청크를 `await` 없이 파일에 쓰면 순서가 섞인다.** WAV writer는 append를 직렬화(이전 쓰기 Promise에 체이닝)하고, `recording:stop`은 그 큐가 비워진 뒤에 헤더를 확정해야 한다.
 - whisper 진행률은 stderr/stdout 포맷이 버전에 따라 달라질 수 있으므로 파싱 실패 시 진행률만 숨기고 작업은 계속한다.
