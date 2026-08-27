@@ -39,7 +39,9 @@ const MIGRATIONS = [
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
-  `
+  `,
+  // 2: 녹음 정지 시 입력한 참석자 수. 화자 분리의 num-clusters가 된다 (references/data-model.md)
+  'ALTER TABLE meetings ADD COLUMN speaker_count INTEGER;'
 ]
 
 export const migrate = (db: Database) => {

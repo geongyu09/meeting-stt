@@ -10,6 +10,7 @@ interface MeetingRow {
   error_message: string | null
   audio_path: string | null
   summary: string | null
+  speaker_count: number | null
 }
 
 const toMeeting = (row: MeetingRow): Meeting => ({
@@ -19,7 +20,8 @@ const toMeeting = (row: MeetingRow): Meeting => ({
   durationSec: row.duration_sec,
   status: row.status,
   ...(row.error_message ? { errorMessage: row.error_message } : {}),
-  ...(row.summary ? { summary: row.summary } : {})
+  ...(row.summary ? { summary: row.summary } : {}),
+  ...(row.speaker_count ? { speakerCount: row.speaker_count } : {})
 })
 
 interface InsertMeetingParams {
@@ -85,6 +87,19 @@ export const updateMeetingDuration = ({
   getDb()
     .prepare('UPDATE meetings SET duration_sec = @durationSec WHERE id = @meetingId')
     .run({ meetingId, durationSec })
+}
+
+/** 녹음 정지 시 입력한 참석자 수. 파이프라인이 화자 분리 전에 읽는다 */
+export const updateMeetingSpeakerCount = ({
+  meetingId,
+  speakerCount
+}: {
+  meetingId: string
+  speakerCount: number
+}) => {
+  getDb()
+    .prepare('UPDATE meetings SET speaker_count = @speakerCount WHERE id = @meetingId')
+    .run({ meetingId, speakerCount })
 }
 
 /** 제목을 바꾼다. 대상 회의가 없으면 0을 돌려준다 */

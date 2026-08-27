@@ -194,4 +194,17 @@ describe('absorbMinorSpeakers', () => {
 
     expect(pieces[0].speaker).toBe('speaker_00')
   })
+
+  it('참석자 수로 군집한 결과(isMinorSpeakerAbsorbed=false)는 짧은 화자를 지우지 않는다', () => {
+    const segments: SttSegment[] = [{ start: 21, end: 23, text: '네네' }]
+    const withFragment = [...majorSegments, { start: 21, end: 23, speaker: 'speaker_07' }]
+
+    const pieces = assignSpeakers({
+      segments,
+      speakerSegments: withFragment,
+      isMinorSpeakerAbsorbed: false
+    })
+
+    expect(pieces[0].speaker).toBe('speaker_07')
+  })
 })

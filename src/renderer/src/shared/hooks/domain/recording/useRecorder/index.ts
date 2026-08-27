@@ -21,6 +21,11 @@ interface RecordingGraph {
   node: AudioWorkletNode
 }
 
+interface StopRecorderParams {
+  /** 참석자 수(선택). main이 화자 분리를 이 수로 고정한다. 검증은 입력 UI가 끝낸 값만 넘긴다 */
+  speakerCount?: number
+}
+
 const messageOf = (caught: unknown) =>
   caught instanceof Error ? caught.message : '녹음 중 알 수 없는 오류가 발생했습니다'
 
@@ -84,13 +89,16 @@ const useRecorder = () => {
     await graph.context.close()
   }, [])
 
-  const finalize = useCallback(async () => {
-    await teardownGraph()
-    const meetingId = meetingIdRef.current
-    meetingIdRef.current = null
+  const finalize = useCallback(
+    async ({ speakerCount }: StopRecorderParams = {}) => {
+      await teardownGraph()
+      const meetingId = meetingIdRef.current
+      meetingIdRef.current = null
 
-    return meetingId ? stopRecordingApi({ meetingId }) : null
-  }, [teardownGraph])
+      return meetingId ? stopRecordingApi({ meetingId, speakerCount }) : null
+    },
+    [teardownGraph]
+  )
 
   const start = useCallback(async () => {
     setError(null)
@@ -122,21 +130,24 @@ const useRecorder = () => {
   }, [])
 
   /** 정지된 회의를 반환한다. 호출한 쪽이 상세 화면으로 이동할 수 있도록 */
-  const stop = useCallback(async (): Promise<Meeting | null> => {
-    setIsBusy(true)
+  const stop = useCallback(
+    async ({ speakerCount }: StopRecorderParams = {}): Promise<Meeting | null> => {
+      setIsBusy(true)
 
-    try {
-      return await finalize()
-    } catch (caught) {
-      setError(messageOf(caught))
+      try {
+        return await finalize({ speakerCount })
+      } catch (caught) {
+        setError(messageOf(caught))
 
-      return null
-    } finally {
-      setIsRecording(false)
-      setLevel(0)
-      setIsBusy(false)
-    }
-  }, [finalize])
+        return null
+      } finally {
+        setIsRecording(false)
+        setLevel(0)
+        setIsBusy(false)
+      }
+    },
+    [finalize]
+  )
 
   useEffect(() => {
     if (!isRecording) return

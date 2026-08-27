@@ -1,7 +1,12 @@
 import type { PipelineProgressEvent, SummaryProgressEvent } from '@shared/ipc'
 import type { PipelineStage, SummaryStage } from '@shared/types'
 import { discardRecording } from '../audio/recordings'
-import { findAudioPath, updateMeetingStatus, updateMeetingSummary } from '../db/meetings'
+import {
+  findAudioPath,
+  findMeeting,
+  updateMeetingStatus,
+  updateMeetingSummary
+} from '../db/meetings'
 import { getAppSettings } from '../db/settings'
 import { ensureSpeakers } from '../db/speakers'
 import { replaceUtterances } from '../db/utterances'
@@ -70,6 +75,7 @@ const processMeeting = async (meetingId: string) => {
   updateMeetingStatus({ meetingId, status: 'processing' })
   const utterances = await runPipeline({
     audioPath,
+    speakerCount: findMeeting({ meetingId })?.speakerCount,
     onProgress: ({ stage, percent }) => report({ meetingId, stage, percent })
   })
 

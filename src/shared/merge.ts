@@ -138,15 +138,26 @@ const unitsOf = (segment: SttSegment): SttWord[] =>
 interface AssignSpeakersParams {
   segments: SttSegment[]
   speakerSegments: SpeakerSegment[]
+  /**
+   * 참석자 수(`num-clusters`)로 군집한 결과는 클러스터가 전부 실제 화자이므로 false로 준다.
+   * 흡수하면 짧게 한 마디 한 참석자가 사라진다 (references/architecture.md)
+   */
+  isMinorSpeakerAbsorbed?: boolean
 }
 
 /**
  * 전사 결과의 각 단어(단어 타임스탬프가 없으면 세그먼트)에 화자를 배정한다.
- * 군소 화자를 먼저 흡수한 뒤, 겹치는 구간이 없으면 1초 이내의 가장 가까운 화자 구간,
+ * (임계값 폴백이면) 군소 화자를 먼저 흡수한 뒤, 겹치는 구간이 없으면 1초 이내의 가장 가까운 화자 구간,
  * 그것도 없으면 직전 화자, 마지막으로 UNKNOWN 순서로 정한다.
  */
-export const assignSpeakers = ({ segments, speakerSegments }: AssignSpeakersParams) => {
-  const { sorted, prefixMaxEnd } = indexSpeakerSegments(absorbMinorSpeakers(speakerSegments))
+export const assignSpeakers = ({
+  segments,
+  speakerSegments,
+  isMinorSpeakerAbsorbed = true
+}: AssignSpeakersParams) => {
+  const { sorted, prefixMaxEnd } = indexSpeakerSegments(
+    isMinorSpeakerAbsorbed ? absorbMinorSpeakers(speakerSegments) : speakerSegments
+  )
   const pieces: SpeakerPiece[] = []
   let previousSpeaker: string | null = null
 

@@ -8,6 +8,8 @@ export interface Meeting {
   status: MeetingStatus
   errorMessage?: string
   summary?: string
+  /** 녹음 정지 시 입력한 참석자 수. 없으면 임계값 폴백으로 화자를 나눈 회의다 (references/data-model.md) */
+  speakerCount?: number
 }
 
 export interface Utterance {

@@ -64,6 +64,11 @@ export interface SendRecordingChunkRequest {
 
 export interface StopRecordingRequest {
   meetingId: string
+  /**
+   * 참석자 수(@shared/speakerCount 범위의 정수). 있으면 화자 분리를 `num-clusters`로 고정하고,
+   * 없으면 임계값 폴백으로 나눈다 — 폴백은 긴 녹음에서 과분할된다 (references/architecture.md)
+   */
+  speakerCount?: number
 }
 export type StopRecordingResponse = Meeting
 

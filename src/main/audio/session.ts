@@ -7,6 +7,7 @@ import {
   findMeeting,
   insertMeeting,
   updateMeetingDuration,
+  updateMeetingSpeakerCount,
   updateMeetingStatus
 } from '../db/meetings'
 import { info } from '../log'
@@ -66,12 +67,21 @@ export const appendRecordingChunk = async ({
   await writerOf(meetingId).appendChunk(new Float32Array(pcm))
 }
 
+interface StopRecordingParams {
+  meetingId: string
+  /** 있으면 화자 분리를 이 수로 고정한다. 검증은 핸들러가 끝냈다 */
+  speakerCount?: number
+}
+
 /** 헤더를 확정하고 파이프라인 잡을 큐에 넣는다 */
-export const stopRecording = async ({ meetingId }: { meetingId: string }) => {
+export const stopRecording = async ({ meetingId, speakerCount }: StopRecordingParams) => {
   const { durationSec } = await writerOf(meetingId).finalize()
   writers.delete(meetingId)
   updateMeetingDuration({ meetingId, durationSec })
-  info(`녹음 종료 ${meetingId} (${durationSec.toFixed(1)}초)`)
+  if (speakerCount) updateMeetingSpeakerCount({ meetingId, speakerCount })
+  info(
+    `녹음 종료 ${meetingId} (${durationSec.toFixed(1)}초${speakerCount ? `, 참석자 ${speakerCount}명` : ''})`
+  )
 
   if (durationSec < MIN_RECORDING_SEC) {
     updateMeetingStatus({

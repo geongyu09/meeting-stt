@@ -15,6 +15,7 @@ import {
   type StopRecordingResponse,
   type UpdateSettingsResponse
 } from '@shared/ipc'
+import { isValidSpeakerCount, MAX_SPEAKER_COUNT, MIN_SPEAKER_COUNT } from '@shared/speakerCount'
 import { deleteMeetingWithRecording } from '../audio/recordings'
 import { appendRecordingChunk, startRecording, stopRecording } from '../audio/session'
 import { findMeeting, listMeetings, renameMeeting } from '../db/meetings'
@@ -75,6 +76,18 @@ const readSampleRate = (payload: unknown) => {
   }
 
   return (payload as unknown as StartRecordingRequest).sampleRate
+}
+
+/** 비어 있으면 임계값 폴백. 값이 있는데 범위를 벗어나면 조용히 버리지 않고 거절한다 */
+const readSpeakerCount = (payload: unknown) => {
+  if (!isRecord(payload) || payload.speakerCount === undefined || payload.speakerCount === null) {
+    return undefined
+  }
+  if (!isValidSpeakerCount(payload.speakerCount)) {
+    throw new Error(`참석자 수는 ${MIN_SPEAKER_COUNT}~${MAX_SPEAKER_COUNT} 사이의 정수여야 합니다`)
+  }
+
+  return payload.speakerCount
 }
 
 const readPcm = (payload: unknown) => {
@@ -259,7 +272,7 @@ export const registerIpcHandlers = () => {
   )
 
   ipcMain.handle(IPC.recording.stop, (_event, payload): Promise<StopRecordingResponse> =>
-    stopRecording({ meetingId: readMeetingId(payload) })
+    stopRecording({ meetingId: readMeetingId(payload), speakerCount: readSpeakerCount(payload) })
   )
 
   ipcMain.handle(IPC.meetings.list, (): GetMeetingsResponse => listMeetings())

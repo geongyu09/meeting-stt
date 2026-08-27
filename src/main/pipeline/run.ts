@@ -26,6 +26,8 @@ interface ProgressParams {
 
 interface RunPipelineParams {
   audioPath: string
+  /** 있으면 화자 분리를 num-clusters로 고정한다. 없으면 임계값 폴백 (references/architecture.md) */
+  speakerCount?: number
   onProgress: (progress: ProgressParams) => void
 }
 
@@ -93,10 +95,17 @@ const runStt = async ({ audioPath, outputPath, onProgress }: RunSttParams) => {
   return segments
 }
 
+interface RunDiarizationParams {
+  audioPath: string
+  speakerCount?: number
+  onProgress: (progress: ProgressParams) => void
+}
+
 const runDiarization = async ({
   audioPath,
+  speakerCount,
   onProgress
-}: Omit<RunSttParams, 'outputPath'>): Promise<SpeakerSegment[]> => {
+}: RunDiarizationParams): Promise<SpeakerSegment[]> => {
   const { diarize } = await threadPlan()
 
   const { stdout } = await runBinary({
@@ -105,7 +114,8 @@ const runDiarization = async ({
       segmentationModelPath: modelPath('segmentation'),
       embeddingModelPath: modelPath('embedding'),
       audioPath,
-      threads: diarize
+      threads: diarize,
+      speakerCount
     }),
     onStderrLine: (line) => {
       const percent = parseDiarizeProgress(line)
@@ -121,26 +131,32 @@ const runDiarization = async ({
 interface TranscribeParams {
   audioPath: string
   outputPath: string
+  speakerCount?: number
   onProgress: (progress: ProgressParams) => void
 }
 
 /** 코어가 넉넉하면 STT와 화자 분리를 같이 돌린다 */
-const transcribeAndDiarize = async ({ audioPath, outputPath, onProgress }: TranscribeParams) =>
+const transcribeAndDiarize = async ({
+  audioPath,
+  outputPath,
+  speakerCount,
+  onProgress
+}: TranscribeParams) =>
   os.cpus().length >= PARALLEL_MIN_CORES
     ? Promise.all([
         runStt({ audioPath, outputPath, onProgress }),
-        runDiarization({ audioPath, onProgress })
+        runDiarization({ audioPath, speakerCount, onProgress })
       ])
     : ([
         await runStt({ audioPath, outputPath, onProgress }),
-        await runDiarization({ audioPath, onProgress })
+        await runDiarization({ audioPath, speakerCount, onProgress })
       ] as const)
 
 /**
  * WAV 한 개를 회의록 발화 목록으로 바꾼다. Phase 1 검증 스크립트(scripts/pipeline.ts)와 같은 흐름이며,
  * 파라미터는 docs/phase1-results.md에서 확정한 기본값(정규화 + turbo-q5 + VAD 켬 + DTW 끔)을 쓴다.
  */
-export const runPipeline = async ({ audioPath, onProgress }: RunPipelineParams) => {
+export const runPipeline = async ({ audioPath, speakerCount, onProgress }: RunPipelineParams) => {
   ensureReady()
 
   const outputPath = `${audioPath}${WHISPER_OUTPUT_SUFFIX}`
@@ -156,15 +172,20 @@ export const runPipeline = async ({ audioPath, onProgress }: RunPipelineParams) 
   info(`음량 정규화: 발화 ${speechRmsDb.toFixed(1)}dBFS → 게인 ${gainDb.toFixed(1)}dB`)
 
   try {
+    info(speakerCount ? `화자 분리: 참석자 ${speakerCount}명으로 고정` : '화자 분리: 임계값 폴백')
     const [segments, speakerSegments] = await transcribeAndDiarize({
       audioPath: normalizedPath,
       outputPath,
+      speakerCount,
       onProgress
     })
 
     onProgress({ stage: 'merge', percent: 0 })
 
-    return mergeUtterances(assignSpeakers({ segments, speakerSegments }))
+    // 참석자 수로 자른 클러스터는 전부 실제 화자다. 흡수하면 짧게 말한 참석자가 사라진다
+    return mergeUtterances(
+      assignSpeakers({ segments, speakerSegments, isMinorSpeakerAbsorbed: !speakerCount })
+    )
   } finally {
     // 원본에서 다시 만들 수 있는 파생물이라 실패해도 남기지 않는다 (references/architecture.md)
     await rm(normalizedPath, { force: true })

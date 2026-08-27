@@ -44,9 +44,10 @@ export const sendRecordingChunkApi = async ({ meetingId, pcm }: SendRecordingChu
 /**
  * @description 녹음을 정지합니다. main이 WAV 헤더를 확정하고 파이프라인 잡을 큐에 넣습니다.
  * @param meetingId - 회의 ID
+ * @param speakerCount - 참석자 수(선택). 있으면 화자 분리를 이 수로 고정하고, 없으면 자동으로 나눕니다
  * @returns 정지 직후의 회의 정보
  * @example
- * const meeting = await stopRecordingApi({ meetingId })
+ * const meeting = await stopRecordingApi({ meetingId, speakerCount: 4 })
  */
-export const stopRecordingApi = async ({ meetingId }: StopRecordingRequest) =>
-  window.api.recording.stop({ meetingId })
+export const stopRecordingApi = async ({ meetingId, speakerCount }: StopRecordingRequest) =>
+  window.api.recording.stop({ meetingId, speakerCount })
