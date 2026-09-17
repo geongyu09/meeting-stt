@@ -155,6 +155,22 @@ mac 앱에 딸려 들어가던 것을 `electron-builder.yml`의 `files`에서 `!
 4. `codesign --verify --deep --strict` / `spctl -a -t exec -vv`(`source=Notarized Developer ID`) / `xcrun stapler validate <app>`로 확인한다.
 5. 드래프트를 확인한 뒤 게시한다. `electron-updater`는 **게시된** 릴리스만 본다.
 
+#### 업로드가 자주 끊긴다 (2026-09-18 v0.1.0 실측)
+
+`uploads.github.com`으로 140MB짜리를 올리는 구간이 불안정하다. 빌드·공증이 다 끝난 뒤 여기서만 반복 실패했다.
+
+- **electron-builder의 병렬 업로드가 드래프트를 두 개 만든다.** dmg와 zip을 동시에 올리면서 "release doesn't exist"를 각각 판단해
+  같은 태그의 드래프트를 2개 만들고 파일이 나뉘어 올라갔다. 게다가 40분 넘게 끌다가 `504 Gateway Timeout`으로 끝났다.
+- 그래서 **큰 파일은 하나씩 따로 올린다.** `gh release upload`도 같은 엔드포인트라 `500 Error saving asset`으로 실패했고,
+  성공한 것은 `curl -4 -X POST -T <파일>`(스트리밍 전송)이었다 — 66초, 2.1MB/s.
+  `--data-binary`는 파일을 통째로 메모리에 올려 `curl: (55) Send failure: Result too large`로 죽는다.
+- 실패한 업로드는 릴리스에 `state=starter`인 껍데기 자산을 남긴다. 다시 올리기 전에 지운다.
+- 올린 뒤에는 자산을 다시 내려받아 `latest-mac.yml`의 sha512와 대조한다. 끊긴 연결이 조용히 손상된 파일을 남길 수 있다.
+- 업로드 자체가 계속 실패하면 브라우저에서 릴리스 편집 화면에 끌어다 놓는 경로가 남아 있다 (웹 업로드는 다른 서버를 쓴다).
+
+**v0.1.0에는 zip이 없다.** 12번 시도가 전부 실패해 dmg만 올렸다. 설치에는 지장이 없고, 0.1.0이 최신인 동안에는 업데이트 확인도 문제가 없다
+(자기 버전과 같으면 내려받지 않는다). 다만 **다음 릴리스에는 zip이 반드시 있어야** 0.1.0 사용자가 업데이트를 받을 수 있다 — mac용 electron-updater는 zip만 받는다.
+
 ## 7. 자동 업데이트 — 기본은 꺼 둔다
 
 `electron-updater`를 넣되 **기본값은 꺼짐**이고, 설정의 `update.check`(기본 `false`)가 켜져 있을 때만 확인한다.
@@ -216,7 +232,7 @@ macOS 배포용 whisper 정적 빌드(v1.8.4, Metal 내장), 저사양 권장 �
 
 - ~~원격 저장소~~: 2026-09-18 확인 — `origin`이 `github.com/geongyu09/meeting-stt`(공개)이고 `publish.owner`를 `geongyu09`로 바꿨다.
 - **공증 자격 증명**: Developer ID 인증서는 로그인 키체인에 있다(2026-09-18 확인, 2026-08-26 빌드가 이 인증서로 서명됐지만 공증은 안 됐다).
-  `notarytool` 키체인 프로필 `meeting-stt-notary`도 등록했다(2026-09-18). 남은 것은 첫 릴리스를 만들어 게시하는 것이다 (6절).
+  `notarytool` 키체인 프로필 `meeting-stt-notary`도 등록했고, 2026-09-18에 첫 릴리스 `v0.1.0`을 게시했다 (6절).
 - **온보딩·설정 화면 실기 확인**: `userData/models/`를 비운 상태로 `pnpm dev`를 띄워 `/onboarding`으로 가는지,
   다운로드 진행률이 항목별로 올라가는지, 끝나면 홈으로 가는지. 개발 모드는 `scripts/fixtures/models/` 폴백이 있어
   픽스처 모델이 있으면 온보딩이 뜨지 않는다 (`references/architecture.md` 앱 런타임 경로 절).
