@@ -18,9 +18,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 버전은 package.json의 packageManager를 따른다. 여기서 version을 함께 주면 액션이 충돌로 실패한다
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - uses: actions/setup-node@v4
         with:
