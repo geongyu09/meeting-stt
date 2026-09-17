@@ -210,6 +210,9 @@ events:  { updateAvailable: 'update:available' }
   이전 워크플로는 `v*` 태그에서 드래프트 릴리스를 만들었지만, 시크릿이 없어 **공증 안 된** dmg만 올렸고
   `zip`·`latest-mac.yml`을 빠뜨려 `electron-updater`가 동작하지 않았다. 로컬 릴리스(6절)와 같은 태그에 산출물이 섞일 위험도 있다.
   릴리스를 CI로 옮기려면 `CSC_LINK`·`CSC_KEY_PASSWORD`·`APPLE_*` 시크릿을 등록하고 `release:mac`을 태그 잡에서 돌리도록 이 절부터 고친다.
+- **서명 시크릿을 빈 값으로 넘기지 않는다.** `CSC_LINK: ${{ secrets.CSC_LINK }}`는 시크릿이 없으면 빈 문자열이 되고,
+  electron-builder가 그것을 인증서 경로로 읽어 `⨯ <작업 디렉터리> not a file`로 죽는다 (2026-09-18 실측).
+  CI는 서명하지 않으므로 `CSC_IDENTITY_AUTO_DISCOVERY: 'false'`만 준다.
 
 ## 9. 단일 인스턴스
 

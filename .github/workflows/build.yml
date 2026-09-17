@@ -39,15 +39,15 @@ jobs:
       - name: 동봉 바이너리 준비
         run: pnpm tsx scripts/setupBin.ts --from-source
 
-      # electron-builder는 CI에서 태그를 보면 기본으로 게시하려 하므로 명시적으로 막는다
+      # 서명하지 않는다 (릴리스는 로컬에서 만든다). 빈 CSC_LINK를 넘기면 electron-builder가
+      # 그것을 인증서 경로로 읽어 "not a file"로 죽으므로 아예 주지 않는다.
+      # electron-builder는 CI에서 태그를 보면 기본으로 게시하려 하므로 --publish never로 막는다
       - name: 패키징
         run: |
           pnpm run build
           pnpm exec electron-builder --mac --publish never
         env:
-          # 시크릿이 없으면 서명 없이 빌드가 지나간다
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
       - uses: actions/upload-artifact@v4
         with:
