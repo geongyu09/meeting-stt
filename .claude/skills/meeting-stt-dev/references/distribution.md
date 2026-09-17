@@ -118,16 +118,42 @@ Homebrew 설치본은 `@rpath`로 Cellar의 dylib(`libggml`, `libwhisper`)을 �
   **타임스탬프 파일**을 만들기 때문에 `tsconfig.node.json`·eslint·prettier에서 `scripts/fixtures`를 제외해야 한다.
   제외하지 않으면 `pnpm typecheck`가 CMake 산출물을 TypeScript로 파싱하려다 실패한다.
 
-## 6. 코드 사이닝 · notarization
+### macOS 앱에는 `darwin-arm64` 바이너리만 넣는다
+
+`asarUnpack: resources/**`는 `resources/bin/` 아래를 통째로 앱에 넣는다. 리포지토리에 남은 `resources/bin/win32-x64/`(약 78MB)가
+mac 앱에 딸려 들어가던 것을 `electron-builder.yml`의 `files`에서 `!resources/bin/win32-*`로 뺀다.
+
+## 6. 코드 사이닝 · notarization · 릴리스
 
 - macOS: `hardenedRuntime: true` + `build/entitlements.mac.plist`(마이크·JIT 권한) + `notarize`.
-  자격 증명은 커밋하지 않고 환경변수로 넘긴다 — `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`.
+  서명 인증서는 **로그인 키체인의 `Developer ID Application`** 을 electron-builder가 자동으로 찾는다 (팀 ID `3XD9F9256D`).
+- 공증 자격 증명은 커밋하지 않는다. 로컬 릴리스는 **`notarytool` 키체인 프로필**(`APPLE_KEYCHAIN_PROFILE`)을 쓴다 —
+  앱 암호가 환경변수·셸 기록에 남지 않는다. 프로필은 한 번만 만든다:
+  `xcrun notarytool store-credentials meeting-stt-notary --apple-id <Apple ID> --team-id 3XD9F9256D`
+  (앱 암호는 appleid.apple.com → 로그인 및 보안 → 앱 암호에서 만든다). CI로 옮길 때는 `APPLE_ID`·`APPLE_APP_SPECIFIC_PASSWORD`·`APPLE_TEAM_ID`를 쓴다.
 - **공증은 옵트인이다.** `electron-builder.yml`의 기본값은 `notarize: false`이고,
-  배포 빌드용 `pnpm run build:mac:release`가 `-c.mac.notarize=true`로 켠다.
+  배포 빌드용 `pnpm run build:mac:release`·`pnpm run release:mac`가 `-c.mac.notarize=true`로 켠다.
   기본값을 켜 두면 자격 증명이 없는 로컬 빌드가 공증 단계에서 실패한다.
+- **자격 증명이 없으면 electron-builder는 공증을 경고만 남기고 건너뛴다** (`notarize=true`여도 실패하지 않는다).
+  그래서 릴리스 산출물은 반드시 `spctl`로 `source=Notarized Developer ID`인지 확인한 뒤에 게시한다.
 - **동봉 바이너리와 dylib도 서명 대상이다.** `asarUnpack`으로 풀려 나온 `resources/bin/**`이 서명되지 않으면
   하드닝 런타임에서 실행이 차단된다. 빌드 후 확인:
   `codesign --verify --deep --strict --verbose=2 <app>` / `spctl -a -t exec -vv <app>`.
+
+### 로컬 릴리스 절차
+
+릴리스는 CI가 아니라 **서명 인증서가 있는 개발 장비에서** 만든다 (8절). 저장소는 `github.com/geongyu09/meeting-stt`(공개)이고
+`electron-builder.yml`의 `publish`가 여기를 가리킨다.
+
+1. **커밋된 상태에서 빌드한다.** 이 워킹 트리는 여러 세션이 동시에 편집하므로, 커밋 안 된 변경이 섞이지 않게
+   릴리스할 커밋으로 별도 `git worktree`를 만들고 그 안에서 `pnpm install --frozen-lockfile`을 한다.
+   `resources/bin/`은 git 제외라 원본 트리의 `resources/bin/darwin-arm64/`를 복사해 넣는다 (whisper는 `--from-source` 정적 빌드여야 한다).
+2. `package.json`의 `version`을 올리고 커밋한다. 릴리스 태그는 `v<version>`이다.
+3. `APPLE_KEYCHAIN_PROFILE=meeting-stt-notary GH_TOKEN=$(gh auth token) pnpm run release:mac`
+   → 서명·공증·스테이플 후 GitHub에 **드래프트 릴리스**를 만들고 `dmg`·`zip`·`*.blockmap`·`latest-mac.yml`을 올린다.
+   `zip`과 `latest-mac.yml`이 없으면 `electron-updater`가 업데이트를 찾지 못한다.
+4. `codesign --verify --deep --strict` / `spctl -a -t exec -vv`(`source=Notarized Developer ID`) / `xcrun stapler validate <app>`로 확인한다.
+5. 드래프트를 확인한 뒤 게시한다. `electron-updater`는 **게시된** 릴리스만 본다.
 
 ## 7. 자동 업데이트 — 기본은 꺼 둔다
 
@@ -161,10 +187,13 @@ events:  { updateAvailable: 'update:available' }
 `.github/workflows/build.yml`
 
 - 러너는 `macos-15`(arm64) 하나다. 네이티브 애드온(`better-sqlite3`)과 동봉 바이너리가 플랫폼에 묶여 있어 크로스 빌드하지 않는다.
-- 순서: `pnpm install` → `pnpm tsx scripts/setupBin.ts` → `pnpm run build:mac`.
+  Windows 잡은 두지 않는다 (대상 플랫폼 결정, `SKILL.md`).
+- 순서: `pnpm install` → 린트·타입·테스트 → `pnpm tsx scripts/setupBin.ts --from-source` → `pnpm run build:mac`.
   `resources/bin/`이 비어 있으면 빌드를 중단한다 (`setupBin.ts`가 실패로 끝난다).
-- push/PR에서는 아티팩트 업로드까지만 하고, `v*` 태그에서만 릴리스에 올린다.
-- 서명 자격 증명은 저장소 시크릿으로 주입한다. 시크릿이 없는 포크 PR에서는 서명 없이 빌드가 지나가야 한다.
+- **CI는 검증 빌드만 하고 릴리스에 올리지 않는다** (2026-09-18 결정). push/PR/태그 모두 아티팩트 업로드까지다.
+  이전 워크플로는 `v*` 태그에서 드래프트 릴리스를 만들었지만, 시크릿이 없어 **공증 안 된** dmg만 올렸고
+  `zip`·`latest-mac.yml`을 빠뜨려 `electron-updater`가 동작하지 않았다. 로컬 릴리스(6절)와 같은 태그에 산출물이 섞일 위험도 있다.
+  릴리스를 CI로 옮기려면 `CSC_LINK`·`CSC_KEY_PASSWORD`·`APPLE_*` 시크릿을 등록하고 `release:mac`을 태그 잡에서 돌리도록 이 절부터 고친다.
 
 ## 9. 단일 인스턴스
 
@@ -185,11 +214,9 @@ macOS 배포용 whisper 정적 빌드(v1.8.4, Metal 내장), 저사양 권장 �
 
 ### 10.1 사용자만 할 수 있는 것
 
-- **원격 저장소**: 아직 `git remote`가 없다. `electron-builder.yml`의 `publish.owner`가 `OWNER` 자리표시자다.
-  첫 릴리스 전에 실제 저장소로 바꿔야 `electron-updater`가 동작한다.
-- **서명 자격 증명**: Apple Developer ID 인증서와 `APPLE_ID`·`APPLE_APP_SPECIFIC_PASSWORD`·`APPLE_TEAM_ID`를 GitHub Secrets에 등록.
-  그 뒤 `pnpm run build:mac:release`로 공증까지 돌려 보고 `codesign --verify --deep --strict` /
-  `spctl -a -t exec`로 확인한다. 설정은 이미 되어 있고 자격 증명만 없다.
+- ~~원격 저장소~~: 2026-09-18 확인 — `origin`이 `github.com/geongyu09/meeting-stt`(공개)이고 `publish.owner`를 `geongyu09`로 바꿨다.
+- **공증 자격 증명**: Developer ID 인증서는 로그인 키체인에 있다(2026-09-18 확인, 2026-08-26 빌드가 이 인증서로 서명됐지만 공증은 안 됐다).
+  `notarytool` 키체인 프로필 `meeting-stt-notary`도 등록했다(2026-09-18). 남은 것은 첫 릴리스를 만들어 게시하는 것이다 (6절).
 - **온보딩·설정 화면 실기 확인**: `userData/models/`를 비운 상태로 `pnpm dev`를 띄워 `/onboarding`으로 가는지,
   다운로드 진행률이 항목별로 올라가는지, 끝나면 홈으로 가는지. 개발 모드는 `scripts/fixtures/models/` 폴백이 있어
   픽스처 모델이 있으면 온보딩이 뜨지 않는다 (`references/architecture.md` 앱 런타임 경로 절).

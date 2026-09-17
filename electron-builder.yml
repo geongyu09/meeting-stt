@@ -13,6 +13,8 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml,pnpm-workspace.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json,vitest.config.ts}'
+  # macOS 전용 앱이라 리포지토리에 남은 Windows 바이너리는 넣지 않는다
+  - '!resources/bin/win32-*'
 # whisper-cli·sherpa-onnx와 동적 라이브러리는 asar 안에서 실행할 수 없다
 asarUnpack:
   - resources/**
@@ -38,8 +40,8 @@ mac:
 dmg:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
-# TODO(Phase 4): 첫 릴리스 전에 실제 저장소로 교체한다. 원격 저장소가 아직 없다
+# electron-updater가 이 저장소의 게시된 릴리스를 본다 (references/distribution.md 6절)
 publish:
   provider: github
-  owner: OWNER
+  owner: geongyu09
   repo: meeting-stt

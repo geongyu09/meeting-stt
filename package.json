@@ -24,6 +24,7 @@
     "build:win": "pnpm run build && electron-builder --win",
     "build:mac": "pnpm run build && electron-builder --mac",
     "build:mac:release": "pnpm run build && electron-builder --mac -c.mac.notarize=true",
+    "release:mac": "pnpm run build && electron-builder --mac -c.mac.notarize=true --publish always",
     "setup:bin": "tsx scripts/setupBin.ts",
     "setup:models": "tsx scripts/setupModels.ts"
   },

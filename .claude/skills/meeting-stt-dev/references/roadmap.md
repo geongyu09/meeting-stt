@@ -61,11 +61,12 @@
 - [x] `/settings`에서 음성 인식 모델 변경(같은 위젯 재사용), 요약 모델 다운로드(`SummaryModelSection`), 업데이트 확인 옵션
 - [x] macOS 배포용 whisper 정적 빌드(`scripts/buildWhisper.ts`, v1.8.4, Metal 내장), 서명·notarization 설정(옵트인)
 - [x] electron-updater — 기본 꺼짐, `update.check` 설정으로 켬, 새 버전은 알리기만(`features/update/UpdateBanner`) → 사용자가 받기·설치
-- [x] GitHub Actions: macOS(arm64) 빌드, `v*` 태그에서만 드래프트 릴리스
+- [x] GitHub Actions: macOS(arm64) 검증 빌드만 (릴리스는 로컬 `pnpm run release:mac`, `references/distribution.md` 6·8절)
 - [x] 단일 인스턴스 잠금(`app.requestSingleInstanceLock`)
 - [x] 설정 '조용히 처리'(`pipeline.quiet`) — 화자 분리 스레드를 성능 코어의 절반으로, STT와 순차 실행 (`references/architecture.md` 가속·스레드 정책)
 - [x] 통합 테스트: ModelDownloadSection, SummaryModelSection, UpdateBanner, SettingsSection(업데이트 옵션)
-- [ ] `electron-builder.yml`의 `publish.owner` 교체, 서명 자격 증명 등록 (**사용자만 할 수 있다** — `references/distribution.md` 10절)
+- [x] `electron-builder.yml`의 `publish.owner` 교체(`geongyu09`), 공증 자격 증명 등록(`notarytool` 키체인 프로필 `meeting-stt-notary`, 2026-09-18)
+- [ ] 첫 릴리스 `v0.1.0`: 공증 확인 후 드래프트 게시 (`references/distribution.md` 6절 로컬 릴리스 절차)
 - [ ] 완료 기준: `userData/models/`가 빈 상태로 앱을 켜면 온보딩이 뜨고, 다운로드가 끝나면 홈에서 녹음할 수 있다
       (**사용자 수동 확인 대기** — 개발 모드는 픽스처 폴백 때문에 픽스처 모델을 치워야 재현된다)
 
