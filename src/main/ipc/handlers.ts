@@ -108,7 +108,8 @@ const readBoolean = ({ payload, key }: { payload: unknown; key: string }) => {
 
 const readSettings = (payload: unknown) => ({
   isAudioKept: readBoolean({ payload, key: 'isAudioKept' }),
-  isUpdateCheckEnabled: readBoolean({ payload, key: 'isUpdateCheckEnabled' })
+  isUpdateCheckEnabled: readBoolean({ payload, key: 'isUpdateCheckEnabled' }),
+  isQuietProcessing: readBoolean({ payload, key: 'isQuietProcessing' })
 })
 
 const readWhisperModelId = (payload: unknown) => {

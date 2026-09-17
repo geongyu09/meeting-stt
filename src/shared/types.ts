@@ -34,6 +34,8 @@ export interface AppSettings {
   isAudioKept: boolean
   /** 앱 시작 시 새 버전을 확인할지. 기본은 꺼짐 — 네트워크는 모델 다운로드 한 번뿐이라는 약속 때문이다 */
   isUpdateCheckEnabled: boolean
+  /** 조용히 처리. 켜면 화자 분리 스레드를 줄이고 STT와 순차로 돌려 느린 대신 발열·팬 소음을 줄인다. 기본은 꺼짐 */
+  isQuietProcessing: boolean
 }
 
 /** 사용자가 고를 수 있는 음성 인식 모델 (Phase 4). 목록·체크섬은 src/main/models/registry.ts */

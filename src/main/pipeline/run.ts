@@ -28,6 +28,8 @@ interface RunPipelineParams {
   audioPath: string
   /** 있으면 화자 분리를 num-clusters로 고정한다. 없으면 임계값 폴백 (references/architecture.md) */
   speakerCount?: number
+  /** 조용히 처리. 화자 분리 스레드를 줄이고 STT와 순차로 돌린다 (references/architecture.md) */
+  isQuiet: boolean
   onProgress: (progress: ProgressParams) => void
 }
 
@@ -98,15 +100,17 @@ const runStt = async ({ audioPath, outputPath, onProgress }: RunSttParams) => {
 interface RunDiarizationParams {
   audioPath: string
   speakerCount?: number
+  isQuiet: boolean
   onProgress: (progress: ProgressParams) => void
 }
 
 const runDiarization = async ({
   audioPath,
   speakerCount,
+  isQuiet,
   onProgress
 }: RunDiarizationParams): Promise<SpeakerSegment[]> => {
-  const { diarize } = await threadPlan()
+  const { diarize } = await threadPlan({ isQuiet })
 
   const { stdout } = await runBinary({
     command: diarizeBinPath(),
@@ -132,31 +136,41 @@ interface TranscribeParams {
   audioPath: string
   outputPath: string
   speakerCount?: number
+  isQuiet: boolean
   onProgress: (progress: ProgressParams) => void
 }
 
-/** 코어가 넉넉하면 STT와 화자 분리를 같이 돌린다 */
+/**
+ * 코어가 넉넉하면 STT와 화자 분리를 같이 돌린다.
+ * 조용히 처리할 때는 GPU(STT)와 CPU(화자 분리) 발열이 한 방열판에 겹치지 않게 순차로 돌린다.
+ */
 const transcribeAndDiarize = async ({
   audioPath,
   outputPath,
   speakerCount,
+  isQuiet,
   onProgress
 }: TranscribeParams) =>
-  os.cpus().length >= PARALLEL_MIN_CORES
+  !isQuiet && os.cpus().length >= PARALLEL_MIN_CORES
     ? Promise.all([
         runStt({ audioPath, outputPath, onProgress }),
-        runDiarization({ audioPath, speakerCount, onProgress })
+        runDiarization({ audioPath, speakerCount, isQuiet, onProgress })
       ])
     : ([
         await runStt({ audioPath, outputPath, onProgress }),
-        await runDiarization({ audioPath, speakerCount, onProgress })
+        await runDiarization({ audioPath, speakerCount, isQuiet, onProgress })
       ] as const)
 
 /**
  * WAV 한 개를 회의록 발화 목록으로 바꾼다. Phase 1 검증 스크립트(scripts/pipeline.ts)와 같은 흐름이며,
  * 파라미터는 docs/phase1-results.md에서 확정한 기본값(정규화 + turbo-q5 + VAD 켬 + DTW 끔)을 쓴다.
  */
-export const runPipeline = async ({ audioPath, speakerCount, onProgress }: RunPipelineParams) => {
+export const runPipeline = async ({
+  audioPath,
+  speakerCount,
+  isQuiet,
+  onProgress
+}: RunPipelineParams) => {
   ensureReady()
 
   const outputPath = `${audioPath}${WHISPER_OUTPUT_SUFFIX}`
@@ -173,10 +187,12 @@ export const runPipeline = async ({ audioPath, speakerCount, onProgress }: RunPi
 
   try {
     info(speakerCount ? `화자 분리: 참석자 ${speakerCount}명으로 고정` : '화자 분리: 임계값 폴백')
+    if (isQuiet) info('조용히 처리: 화자 분리 스레드를 줄이고 순차 실행')
     const [segments, speakerSegments] = await transcribeAndDiarize({
       audioPath: normalizedPath,
       outputPath,
       speakerCount,
+      isQuiet,
       onProgress
     })
 

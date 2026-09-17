@@ -39,6 +39,14 @@ export default function SettingsSection() {
         앱을 시작할 때 새 버전이 있는지 확인합니다. 기본은 꺼짐이며, 켜도 다음 실행부터 확인합니다.
         회의 내용은 보내지 않습니다.
       </SettingToggle>
+      <SettingToggle
+        title="조용히 처리"
+        isChecked={settings.isQuietProcessing}
+        onChange={(isQuietProcessing) => updateSettings({ isQuietProcessing })}
+      >
+        회의록을 만들 때 CPU를 절반만 써서 발열과 팬 소음을 줄입니다. 대신 처리 시간이 길어집니다.
+        이미 처리 중인 회의에는 적용되지 않습니다.
+      </SettingToggle>
     </section>
   )
 }

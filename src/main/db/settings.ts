@@ -6,8 +6,13 @@ import { getDb } from './connection'
 const AUDIO_KEEP_KEY = 'audio.keep'
 const UPDATE_CHECK_KEY = 'update.check'
 const STT_MODEL_KEY = 'stt.model'
+const PIPELINE_QUIET_KEY = 'pipeline.quiet'
 
-const DEFAULT_SETTINGS: AppSettings = { isAudioKept: false, isUpdateCheckEnabled: false }
+const DEFAULT_SETTINGS: AppSettings = {
+  isAudioKept: false,
+  isUpdateCheckEnabled: false,
+  isQuietProcessing: false
+}
 
 /** 값이 없거나 JSON이 깨져도 undefined로 읽는다. 설정 하나 때문에 앱이 멈추면 안 된다 */
 const readValue = (key: string): unknown => {
@@ -42,12 +47,21 @@ export const getAppSettings = (): AppSettings => ({
   isUpdateCheckEnabled: readBoolean({
     key: UPDATE_CHECK_KEY,
     fallback: DEFAULT_SETTINGS.isUpdateCheckEnabled
+  }),
+  isQuietProcessing: readBoolean({
+    key: PIPELINE_QUIET_KEY,
+    fallback: DEFAULT_SETTINGS.isQuietProcessing
   })
 })
 
-export const updateAppSettings = ({ isAudioKept, isUpdateCheckEnabled }: AppSettings) => {
+export const updateAppSettings = ({
+  isAudioKept,
+  isUpdateCheckEnabled,
+  isQuietProcessing
+}: AppSettings) => {
   writeValue({ key: AUDIO_KEEP_KEY, value: isAudioKept })
   writeValue({ key: UPDATE_CHECK_KEY, value: isUpdateCheckEnabled })
+  writeValue({ key: PIPELINE_QUIET_KEY, value: isQuietProcessing })
 
   return getAppSettings()
 }

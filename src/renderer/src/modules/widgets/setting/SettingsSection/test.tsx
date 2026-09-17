@@ -13,8 +13,13 @@ import SettingsSection from './index'
 
 const AUDIO_LABEL = /원본 녹음 파일 보관/
 const UPDATE_LABEL = /업데이트 확인/
+const QUIET_LABEL = /조용히 처리/
 
-const DEFAULT_SETTINGS = { isAudioKept: false, isUpdateCheckEnabled: false }
+const DEFAULT_SETTINGS = {
+  isAudioKept: false,
+  isUpdateCheckEnabled: false,
+  isQuietProcessing: false
+}
 
 afterEach(() => {
   cleanup()
@@ -48,6 +53,7 @@ describe('SettingsSection', () => {
     const user = userEvent.setup()
     vi.mocked(getSettingsApi).mockResolvedValue({ ...DEFAULT_SETTINGS, isAudioKept: true })
     vi.mocked(updateSettingsApi).mockResolvedValue({
+      ...DEFAULT_SETTINGS,
       isAudioKept: true,
       isUpdateCheckEnabled: true
     })
@@ -56,11 +62,28 @@ describe('SettingsSection', () => {
     await user.click(await screen.findByLabelText(UPDATE_LABEL))
 
     expect(updateSettingsApi).toHaveBeenCalledWith({
+      ...DEFAULT_SETTINGS,
       isAudioKept: true,
       isUpdateCheckEnabled: true
     })
     const checkbox = (await screen.findByLabelText(UPDATE_LABEL)) as HTMLInputElement
     expect(checkbox.checked).toBe(true)
+  })
+
+  it('조용히 처리를 켜면 느려진다는 안내와 함께 저장한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
+    vi.mocked(updateSettingsApi).mockResolvedValue({ ...DEFAULT_SETTINGS, isQuietProcessing: true })
+    render(<SettingsSection />)
+
+    const checkbox = (await screen.findByLabelText(QUIET_LABEL)) as HTMLInputElement
+    expect(checkbox.checked).toBe(false)
+    expect(screen.getByText(/처리 시간이 길어집니다/)).toBeTruthy()
+
+    await user.click(checkbox)
+
+    expect(updateSettingsApi).toHaveBeenCalledWith({ ...DEFAULT_SETTINGS, isQuietProcessing: true })
+    expect(((await screen.findByLabelText(QUIET_LABEL)) as HTMLInputElement).checked).toBe(true)
   })
 
   it('저장에 실패하면 안내를 보여준다', async () => {
