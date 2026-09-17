@@ -30,7 +30,7 @@ description: 로컬 STT 회의록 데스크탑 앱(meeting-stt)의 개발 방향
 | 패키지 매니저 / 스크립트 러너 | **pnpm 10** (`pnpm install`, `pnpm dev`, `pnpm test`, `pnpm tsx scripts/*.ts`) | 런타임은 **Node 22+**. 단위 테스트는 **vitest**, TS 스크립트 실행은 **tsx**. bun/npm/yarn 명령을 문서·스크립트에 섞지 않는다 |
 | STT 엔진 | **whisper.cpp** `whisper-cli` 바이너리를 `child_process`로 spawn (방식 A) | 기본 모델 `ggml-large-v3-turbo-q5_0.bin`, 고품질 옵션 `large-v3-q5_0`, 저사양 옵션 `small-q5_1`. `-l ko --output-json-full` + 토큰 타임스탬프. **`-dtw`는 끔** (Phase 1에서 이득 없음, `--no-flash-attn`을 강제해 느려짐) |
 | 화자 분리 | **sherpa-onnx** (pyannote segmentation-3.0 ONNX + 3D-Speaker ERes2Net 임베딩) | `sherpa-onnx-offline-speaker-diarization` CLI spawn (v1.13.6), **CPU 프로바이더** (`coreml`은 CPU보다 훨씬 느려 사용 안 함). **참석자 수를 받아 `--clustering.num-clusters`로 돌리는 것이 기본 경로**(녹음 정지 시 입력, `meetings.speaker_count`). sherpa-onnx의 군집은 complete-linkage + 코사인 거리 고정 임계값이라 **임계값 방식은 클러스터 수가 참석자 수가 아니라 녹음 길이·발화 교대에 비례해 늘어난다** (71분 발표: 0.9에서 115개·10초 이상 38명, 앱 26분 회의: 129개·23명). 참석자 수가 없을 때만 `--clustering.cluster-threshold=0.8` + 군소 화자 흡수(10초 미만, `assignSpeakers`)로 폴백하고 과분할될 수 있음을 UI에 안내한다. 참석자 수가 있으면 군소 화자 흡수를 하지 않는다 (`docs/phase1-results.md` 6·7절) |
-| 가속 · 스레드 | whisper.cpp·llama.cpp는 **Metal GPU**(전 레이어 offload), sherpa-onnx는 CPU. spawn에 넘기는 스레드 수는 **성능 코어(P) 수 기준**으로 프로세스마다 따로 정한다 | `os.cpus().length - 2`처럼 효율 코어까지 세면 **더 느려지면서 발열만 는다** (M3 Pro 실측: 화자 분리 `-t 10` 18.2초·CPU 915% → `-t 6` 10.8초·CPU 593%). 정책과 실측표는 `references/architecture.md` |
+| 가속 · 스레드 | whisper.cpp·llama.cpp는 **Metal GPU**(전 레이어 offload), sherpa-onnx는 CPU. spawn에 넘기는 스레드 수는 **성능 코어(P) 수 기준**으로 프로세스마다 따로 정한다 | `os.cpus().length - 2`처럼 효율 코어까지 세면 **더 느려지면서 발열만 는다** (M3 Pro 실측: 화자 분리 `-t 10` 18.2초·CPU 915% → `-t 6` 10.8초·CPU 593%). **설정 '조용히 처리'(`pipeline.quiet`, 기본 꺼짐)** 를 켜면 화자 분리 스레드를 성능 코어의 절반으로 줄이고 STT와 순차로 돌린다 (화자 분리 +44%, CPU 부하 절반). 화자 분리를 CoreML로 옮기지 않는 이유(임베딩 입력 길이가 호출마다 달라 CPU보다 느림)도 같은 문서에 있다. 정책과 실측표는 `references/architecture.md` |
 | 음량 정규화 | STT·화자 분리 **전에** WAV 전체에 **순수 TS RMS 게인 정규화** (`src/main/pipeline/normalize.ts`) | ffmpeg를 동봉하지 않는다. 50ms 프레임 RMS의 90퍼센타일을 −20 dBFS로 맞추고 게인은 최대 +30 dB, 초과 샘플은 하드 클립. 원거리 마이크 녹음(발화 −44 dBFS)에서 Whisper가 수십 초를 통째로 놓치던 것을 복구한다 (글자수 +36%, ffmpeg `loudnorm`과 동등). 화자 분리에는 효과 없음. `docs/phase1-results.md` |
 | VAD | **whisper.cpp 내장 VAD** (`--vad --vad-model ggml-silero-v5.1.2.bin`) | 환각 억제뿐 아니라 **타임스탬프 정확도에도 필수**. 끄면 화자 경계 단어가 앞 화자에게 붙는다 (`docs/phase1-results.md`) |
 | 녹음 | `getUserMedia` + **AudioWorklet**으로 16kHz mono Float32 PCM 직접 수집 → WAV | MediaRecorder/ffmpeg 경로 사용 안 함. 주기적으로 디스크에 append |
@@ -107,6 +107,7 @@ Phase 5-2(시스템 오디오 캡처)는 아직 시작하지 않았다.
 - 장시간 녹음 PCM을 메모리에 전부 들고 있지 않는다 → 청크 단위 디스크 append.
 - 저사양 CPU에서 STT+화자분리 병렬 실행은 오히려 느리다 → `os.cpus().length` 기준 분기.
 - 바이너리에 코어 수만큼 스레드를 주면 효율 코어까지 잡아 **느려지고 팬만 돈다** → 성능 코어 수 기준으로, GPU가 일하는 whisper·llama는 그보다 더 낮게.
+- 성능 코어 수로 돌려도 긴 회의의 화자 분리는 몇 분간 코어를 전부 쓴다 → 소음이 싫은 사용자는 '조용히 처리' 설정으로 속도를 내준다. GPU를 쓴다고 발열이 없는 게 아니다(CPU·GPU가 방열판 하나를 공유).
 - macOS 마이크 권한: `NSMicrophoneUsageDescription`(electron-builder.yml, 한국어 문구로 교체) + `systemPreferences.askForMediaAccess('microphone')`.
 - 동봉 바이너리도 macOS notarization 시 함께 서명해야 한다.
 

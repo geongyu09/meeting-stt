@@ -86,11 +86,13 @@ CREATE TABLE IF NOT EXISTS settings (
 | `audio.keep` | boolean | `false` | 파이프라인 성공 후 원본 WAV를 보관할지. 끄면 삭제하고 `meetings.audio_path`를 `NULL`로 만든다 |
 | `update.check` | boolean | `false` | 앱 시작 시 새 버전이 있는지 확인할지 (Phase 4). 꺼져 있으면 네트워크를 전혀 쓰지 않는다 |
 | `stt.model` | `WhisperModelId` | `'turbo-q5'` | 온보딩·설정에서 고른 음성 인식 모델 (Phase 4). 모르는 값이면 기본 모델로 읽는다 |
+| `pipeline.quiet` | boolean | `false` | 조용히 처리. 켜면 화자 분리 스레드를 줄이고 STT와 화자 분리를 순차로 돌린다. 느려지는 대신 발열·팬 소음이 준다. 잡이 **시작할 때** 읽으므로 진행 중인 잡에는 적용되지 않는다 (`references/architecture.md` 가속·스레드 정책) |
 
 ```ts
 export interface AppSettings {
   isAudioKept: boolean
   isUpdateCheckEnabled: boolean
+  isQuietProcessing: boolean
 }
 ```
 
@@ -119,7 +121,7 @@ export interface Utterance {
 
 export interface Speaker { meetingId: string; label: string; displayName: string | null }
 
-export interface AppSettings { isAudioKept: boolean; isUpdateCheckEnabled: boolean }
+export interface AppSettings { isAudioKept: boolean; isUpdateCheckEnabled: boolean; isQuietProcessing: boolean }
 
 /** 사용자가 고를 수 있는 음성 인식 모델 (Phase 4). 목록·체크섬은 src/main/models/registry.ts */
 export type WhisperModelId = 'turbo-q5' | 'large-v3-q5' | 'small-q5_1'

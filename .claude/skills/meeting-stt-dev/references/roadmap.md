@@ -63,6 +63,7 @@
 - [x] electron-updater — 기본 꺼짐, `update.check` 설정으로 켬, 새 버전은 알리기만(`features/update/UpdateBanner`) → 사용자가 받기·설치
 - [x] GitHub Actions: macOS(arm64) 빌드, `v*` 태그에서만 드래프트 릴리스
 - [x] 단일 인스턴스 잠금(`app.requestSingleInstanceLock`)
+- [x] 설정 '조용히 처리'(`pipeline.quiet`) — 화자 분리 스레드를 성능 코어의 절반으로, STT와 순차 실행 (`references/architecture.md` 가속·스레드 정책)
 - [x] 통합 테스트: ModelDownloadSection, SummaryModelSection, UpdateBanner, SettingsSection(업데이트 옵션)
 - [ ] `electron-builder.yml`의 `publish.owner` 교체, 서명 자격 증명 등록 (**사용자만 할 수 있다** — `references/distribution.md` 10절)
 - [ ] 완료 기준: `userData/models/`가 빈 상태로 앱을 켜면 온보딩이 뜨고, 다운로드가 끝나면 홈에서 녹음할 수 있다

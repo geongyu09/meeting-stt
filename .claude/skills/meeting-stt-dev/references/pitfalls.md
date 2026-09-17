@@ -49,7 +49,8 @@
 - STT와 화자 분리를 무조건 병렬로 돌리지 않는다. `os.cpus().length`가 8 미만이면 순차 실행.
 - **`os.cpus().length`는 성능 코어와 효율 코어를 구분하지 않는다.** 그 수만큼 스레드를 주면 효율 코어까지 잡아 느려지면서 팬만 돈다 (M3 Pro 실측: 화자 분리 `-t 10` 18.2초 → `-t 6` 10.8초, CPU 915% → 593%). 스레드 수는 `src/main/bin/threads.ts`가 성능 코어(`sysctl -n hw.perflevel0.logicalcpu`) 기준으로만 정한다.
 - **GPU로 도는 단계에 CPU 스레드를 많이 주지 않는다.** whisper·llama는 Metal이 일하고 남은 스레드는 스핀 대기만 한다 — 요약은 `-t 2`와 `-t 10`이 같은 속도인데 CPU 시간이 6배 차이났다.
-- **`taskpolicy -b`(background QoS)로 팬을 잡으려 하지 않는다.** 효율 코어로 밀려 화자 분리가 10.8초 → 116.7초로 10배 느려진다.
+- **`taskpolicy -b`(background QoS)로 팬을 잡으려 하지 않는다.** 효율 코어로 밀려 화자 분리가 10.8초 → 116.7초로 10배 느려진다. 팬 소음을 줄이려면 설정 '조용히 처리'(`pipeline.quiet`)로 화자 분리 스레드를 성능 코어의 절반으로 줄인다 (+44%, CPU 부하 절반, `references/architecture.md`).
+- **화자 분리를 `--*.provider=coreml`로 돌리지 않는다.** 임베딩 입력 길이가 호출마다 달라 CoreML이 매번 첫 호출 비용을 치른다 — 1분 녹음 임베딩 CPU 5.2초 / CoreML 24.7초.
 - 잡 큐는 한 번에 하나만 처리한다(여러 회의 동시 처리 금지). 큐 상태는 앱 재시작 시 `status='processing'`인 회의를 `error`로 정리하거나 재시도한다.
 - **renderer가 보낸 PCM 청크를 `await` 없이 파일에 쓰면 순서가 섞인다.** WAV writer는 append를 직렬화(이전 쓰기 Promise에 체이닝)하고, `recording:stop`은 그 큐가 비워진 뒤에 헤더를 확정해야 한다.
 - whisper 진행률은 stderr/stdout 포맷이 버전에 따라 달라질 수 있으므로 파싱 실패 시 진행률만 숨기고 작업은 계속한다.
