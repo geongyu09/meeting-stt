@@ -6,9 +6,11 @@ import {
   type GetMeetingResponse,
   type GetMeetingsResponse,
   type GetSettingsResponse,
+  type GetRecordingStateResponse,
   type ModelDownloadProgressEvent,
   type ModelStatusResponse,
   type MutateMeetingResponse,
+  type RecordingCommandEvent,
   type RequestMicrophonePermissionResponse,
   type StartRecordingRequest,
   type StartRecordingResponse,
@@ -17,7 +19,14 @@ import {
 } from '@shared/ipc'
 import { isValidSpeakerCount, MAX_SPEAKER_COUNT, MIN_SPEAKER_COUNT } from '@shared/speakerCount'
 import { deleteMeetingWithRecording } from '../audio/recordings'
-import { appendRecordingChunk, startRecording, stopRecording } from '../audio/session'
+import {
+  appendRecordingChunk,
+  getRecordingState,
+  reportRecordingError,
+  setRecordingSpeakerCount,
+  startRecording,
+  stopRecording
+} from '../audio/session'
 import { findMeeting, listMeetings, renameMeeting } from '../db/meetings'
 import { getAppSettings, setWhisperModelId, updateAppSettings } from '../db/settings'
 import { hasSpeaker, listSpeakers, mergeSpeakers, renameSpeaker } from '../db/speakers'
@@ -27,6 +36,8 @@ import { isWhisperModelId } from '../models/registry'
 import { downloadModels, downloadSummaryModel, modelStatus } from '../models/service'
 import { enqueueSummaryJob } from '../pipeline/queue'
 import { downloadUpdate, installUpdate } from '../updater'
+import { showMainWindow } from '../windows/main'
+import { requestRecordingCommand, setWidgetVisible } from '../windows/widget'
 
 const FULL_PERCENT = 100
 
@@ -35,6 +46,7 @@ const UTTERANCE_TEXT_MAX_LENGTH = 10_000
 const SPEAKER_NAME_MAX_LENGTH = 60
 const LABEL_MAX_LENGTH = 100
 const CLIPBOARD_MAX_LENGTH = 2_000_000
+const ERROR_MESSAGE_MAX_LENGTH = 500
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
@@ -109,8 +121,20 @@ const readBoolean = ({ payload, key }: { payload: unknown; key: string }) => {
 const readSettings = (payload: unknown) => ({
   isAudioKept: readBoolean({ payload, key: 'isAudioKept' }),
   isUpdateCheckEnabled: readBoolean({ payload, key: 'isUpdateCheckEnabled' }),
-  isQuietProcessing: readBoolean({ payload, key: 'isQuietProcessing' })
+  isQuietProcessing: readBoolean({ payload, key: 'isQuietProcessing' }),
+  isWidgetEnabled: readBoolean({ payload, key: 'isWidgetEnabled' })
 })
+
+const RECORDING_COMMAND_KINDS: RecordingCommandEvent['kind'][] = ['start', 'stop', 'toggle']
+
+const readRecordingCommandKind = (payload: unknown) => {
+  const kind = isRecord(payload) ? payload.kind : undefined
+  if (!RECORDING_COMMAND_KINDS.includes(kind as RecordingCommandEvent['kind'])) {
+    throw new Error('알 수 없는 녹음 명령입니다')
+  }
+
+  return kind as RecordingCommandEvent['kind']
+}
 
 const readWhisperModelId = (payload: unknown) => {
   if (!isRecord(payload) || !isWhisperModelId(payload.whisperModelId)) {
@@ -272,8 +296,37 @@ export const registerIpcHandlers = () => {
     appendRecordingChunk({ meetingId: readMeetingId(payload), pcm: readPcm(payload) })
   )
 
-  ipcMain.handle(IPC.recording.stop, (_event, payload): Promise<StopRecordingResponse> =>
-    stopRecording({ meetingId: readMeetingId(payload), speakerCount: readSpeakerCount(payload) })
+  // 녹음을 끝낸 직후에 보고 싶은 것은 결과 화면이다. 위젯에서 정지했다면 메인 창이 뒤에 있다
+  ipcMain.handle(IPC.recording.stop, async (_event, payload): Promise<StopRecordingResponse> => {
+    const meeting = await stopRecording({ meetingId: readMeetingId(payload) })
+    showMainWindow()
+
+    return meeting
+  })
+
+  ipcMain.handle(IPC.recording.state, (): GetRecordingStateResponse => getRecordingState())
+
+  ipcMain.handle(IPC.recording.control, (_event, payload) =>
+    requestRecordingCommand({ kind: readRecordingCommandKind(payload) })
+  )
+
+  ipcMain.handle(IPC.recording.setSpeakerCount, (_event, payload): GetRecordingStateResponse =>
+    setRecordingSpeakerCount(readSpeakerCount(payload))
+  )
+
+  ipcMain.handle(IPC.recording.reportError, (_event, payload) =>
+    reportRecordingError({
+      message: readText({
+        payload,
+        key: 'message',
+        maxLength: ERROR_MESSAGE_MAX_LENGTH,
+        label: '오류 내용'
+      })
+    })
+  )
+
+  ipcMain.handle(IPC.widget.setVisible, (_event, payload) =>
+    setWidgetVisible({ isVisible: readBoolean({ payload, key: 'isVisible' }) })
   )
 
   ipcMain.handle(IPC.meetings.list, (): GetMeetingsResponse => listMeetings())
@@ -306,9 +359,18 @@ export const registerIpcHandlers = () => {
 
   ipcMain.handle(IPC.settings.get, (): GetSettingsResponse => getAppSettings())
 
-  ipcMain.handle(IPC.settings.update, (_event, payload): UpdateSettingsResponse =>
-    updateAppSettings(readSettings(payload))
-  )
+  // 설정이 정하는 것은 패널이 보이는지 여부뿐이다 — 창은 그래프 소유자라 계속 살아 있다.
+  // 값이 바뀐 경우에만 적용한다. 그러지 않으면 ✕로 숨긴 패널이 다른 설정을 저장할 때 되살아난다
+  ipcMain.handle(IPC.settings.update, (_event, payload): UpdateSettingsResponse => {
+    const previous = getAppSettings()
+    const settings = updateAppSettings(readSettings(payload))
+
+    if (settings.isWidgetEnabled !== previous.isWidgetEnabled) {
+      setWidgetVisible({ isVisible: settings.isWidgetEnabled })
+    }
+
+    return settings
+  })
 
   ipcMain.handle(IPC.models.status, (): ModelStatusResponse => modelStatus())
 

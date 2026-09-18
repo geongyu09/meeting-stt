@@ -17,8 +17,13 @@ export const IPC = {
     requestPermission: 'recording:requestPermission',
     start: 'recording:start',
     chunk: 'recording:chunk',
-    stop: 'recording:stop'
+    stop: 'recording:stop',
+    state: 'recording:state',
+    control: 'recording:control',
+    setSpeakerCount: 'recording:setSpeakerCount',
+    reportError: 'recording:reportError'
   },
+  widget: { setVisible: 'widget:setVisible' },
   meetings: {
     list: 'meetings:list',
     get: 'meetings:get',
@@ -40,7 +45,10 @@ export const IPC = {
     progress: 'pipeline:progress',
     summary: 'summary:progress',
     modelDownload: 'models:downloadProgress',
-    updateAvailable: 'update:available'
+    updateAvailable: 'update:available',
+    // 조회 채널과 이름이 겹칠 수 없어 이벤트 쪽에 Changed를 붙인다 (references/architecture.md IPC 규약)
+    recordingState: 'recording:stateChanged',
+    recordingCommand: 'recording:command'
   }
 } as const
 
@@ -62,15 +70,53 @@ export interface SendRecordingChunkRequest {
   pcm: ArrayBuffer
 }
 
+/**
+ * 참석자 수는 싣지 않는다 — main의 녹음 세션이 단일 출처이고 `recording:setSpeakerCount`로만 바뀐다.
+ * 두 경로가 생기면 "어느 쪽 값이 이겼는지"를 따져야 한다 (references/architecture.md).
+ */
 export interface StopRecordingRequest {
   meetingId: string
-  /**
-   * 참석자 수(@shared/speakerCount 범위의 정수). 있으면 화자 분리를 `num-clusters`로 고정하고,
-   * 없으면 임계값 폴백으로 나눈다 — 폴백은 긴 녹음에서 과분할된다 (references/architecture.md)
-   */
-  speakerCount?: number
 }
 export type StopRecordingResponse = Meeting
+
+/**
+ * 진행 중 녹음의 단일 출처. 위젯 패널과 메인 창이 같은 값을 본다 (references/architecture.md).
+ * 조회는 `recording:state`, push는 `recording:stateChanged`로 같은 모양을 쓴다.
+ */
+export interface RecordingStateEvent {
+  meetingId: string | null
+  /** 시작 시각(epoch ms). 경과 시간은 받는 쪽이 Date.now()로 계산한다 — 창마다 값이 어긋나지 않는다 */
+  startedAt: number | null
+  /** 직전 청크의 RMS (0~1). 청크 주기(약 0.5초)로만 갱신된다 */
+  level: number
+  /** 세션에 보관 중인 참석자 수. 두 창의 입력란을 같은 값으로 맞춘다 */
+  speakerCount?: number
+  /** 정지가 끝난 순간 한 번만 실린다. 메인 창이 이 회의의 상세로 이동한다 */
+  stoppedMeetingId?: string
+  /** 시작·정지가 실패한 순간 한 번만 실린다. 위젯에서만 알 수 있는 실패를 메인 창도 보여준다 */
+  errorMessage?: string
+}
+export type GetRecordingStateResponse = RecordingStateEvent
+
+/** 메인 창·Tray·전역 단축키가 보내는 요청. main이 위젯에 `recording:command`로 넘긴다 */
+export interface ControlRecordingRequest {
+  kind: 'start' | 'stop' | 'toggle'
+}
+export type RecordingCommandEvent = ControlRecordingRequest
+
+/** 비우면(undefined) 임계값 폴백으로 돌아간다 */
+export interface SetSpeakerCountRequest {
+  speakerCount?: number
+}
+
+/** 마이크 권한 거부처럼 위젯에서만 일어나는 실패를 세션에 모은다 */
+export interface ReportRecordingErrorRequest {
+  message: string
+}
+
+export interface SetWidgetVisibleRequest {
+  isVisible: boolean
+}
 
 export type GetMeetingsResponse = Meeting[]
 

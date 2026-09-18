@@ -1,35 +1,33 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
 import { formatTimestamp } from '@shared/format'
-import { isValidSpeakerCount, MAX_SPEAKER_COUNT, MIN_SPEAKER_COUNT } from '@shared/speakerCount'
+import { MAX_SPEAKER_COUNT, MIN_SPEAKER_COUNT } from '@shared/speakerCount'
+import { controlRecordingApi } from '@renderer/shared/api/recording'
 import Button from '@renderer/shared/components/primitives/ui/Button'
 import LevelMeter from '@renderer/shared/components/primitives/ui/LevelMeter'
-import useRecorder from '@renderer/shared/hooks/domain/recording/useRecorder'
-import { meetingDetailPath } from '@renderer/shared/routes/paths'
+import useRecordingState from '@renderer/shared/hooks/domain/recording/useRecordingState'
+import useSpeakerCount from '@renderer/shared/hooks/domain/recording/useSpeakerCount'
 
 import styles from './index.module.css'
 
 const SPEAKER_COUNT_INPUT_ID = 'recorder-speaker-count'
+const CONTROL_ERROR_MESSAGE = '녹음 요청을 보내지 못했습니다. 잠시 후 다시 시도해 주세요'
 
-/** 빈 입력은 "모름"(임계값 폴백), 그 외는 정수 범위 검사를 통과해야 넘긴다 */
-const parseSpeakerCount = (text: string) => {
-  if (text.trim() === '') return { speakerCount: undefined, isValid: true }
-
-  const value = Number(text)
-
-  return { speakerCount: value, isValid: isValidSpeakerCount(value) }
-}
-
+/**
+ * 메인 창의 녹음 화면. 오디오 그래프는 위젯 패널이 들고 있으므로 여기서는 명령을 보내고
+ * 상태를 구독만 한다 (references/architecture.md의 "녹음 위젯 패널").
+ */
 export default function RecorderSection() {
-  const navigate = useNavigate()
-  const { isRecording, isBusy, level, elapsedSec, error, start, stop } = useRecorder()
-  const [speakerCountText, setSpeakerCountText] = useState('')
-  const { speakerCount, isValid: isSpeakerCountValid } = parseSpeakerCount(speakerCountText)
+  const { isRecording, level, elapsedSec, speakerCount, errorMessage } = useRecordingState()
+  const { text, isValid, changeText } = useSpeakerCount({ speakerCount })
+  const [controlError, setControlError] = useState<string | null>(null)
 
-  const handleStop = async () => {
-    // 범위 밖 값은 정지를 막지 않고 "모름"으로 처리한다. 녹음을 못 멈추는 상황이 더 나쁘다
-    const meeting = await stop({ speakerCount: isSpeakerCountValid ? speakerCount : undefined })
-    if (meeting) navigate(meetingDetailPath({ meetingId: meeting.id }))
+  const handleControl = async (kind: 'start' | 'stop') => {
+    try {
+      await controlRecordingApi({ kind })
+      setControlError(null)
+    } catch {
+      setControlError(CONTROL_ERROR_MESSAGE)
+    }
   }
 
   return (
@@ -50,28 +48,36 @@ export default function RecorderSection() {
           max={MAX_SPEAKER_COUNT}
           step={1}
           placeholder="모름"
-          value={speakerCountText}
-          onChange={(event) => setSpeakerCountText(event.target.value)}
-          aria-invalid={!isSpeakerCountValid}
+          value={text}
+          onChange={(event) => changeText(event.target.value)}
+          aria-invalid={!isValid}
         />
-        <p className={isSpeakerCountValid ? styles.speakerCountHint : styles.error}>
-          {isSpeakerCountValid
+        <p className={isValid ? styles.speakerCountHint : styles.error}>
+          {isValid
             ? '말한 사람 수를 알면 적어 주세요. 비우면 자동으로 나누지만 긴 회의에서는 화자가 실제보다 많이 나올 수 있습니다'
             : `${MIN_SPEAKER_COUNT}~${MAX_SPEAKER_COUNT} 사이의 정수만 쓸 수 있습니다. 이대로 정지하면 자동으로 나눕니다`}
         </p>
       </div>
       {isRecording ? (
-        <Button variant="danger" onClick={handleStop} disabled={isBusy}>
+        <Button variant="danger" onClick={() => handleControl('stop')}>
           녹음 정지
         </Button>
       ) : (
-        <Button onClick={start} disabled={isBusy}>
-          녹음 시작
-        </Button>
+        <Button onClick={() => handleControl('start')}>녹음 시작</Button>
       )}
-      {error ? <p className={styles.error}>{error}</p> : null}
+      {controlError ? (
+        <p className={styles.error} role="alert">
+          {controlError}
+        </p>
+      ) : null}
+      {errorMessage ? (
+        <p className={styles.error} role="alert">
+          {errorMessage}
+        </p>
+      ) : null}
       <p className={styles.hint}>
-        정지하면 회의록 만들기가 시작되고 회의 상세 화면으로 이동합니다. 인터넷 연결은 쓰지 않습니다
+        정지하면 회의록 만들기가 시작되고 회의 상세 화면으로 이동합니다. 화면을 옮기거나 창을 닫아도
+        녹음은 계속되며, 오른쪽 위젯 패널과 ⌥⌘R 단축키로도 시작·정지할 수 있습니다
       </p>
     </section>
   )

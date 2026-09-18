@@ -1,6 +1,8 @@
 import type {
   ModelDownloadProgressEvent,
   PipelineProgressEvent,
+  RecordingCommandEvent,
+  RecordingStateEvent,
   SummaryProgressEvent,
   UpdateAvailableEvent
 } from '@shared/ipc'
@@ -44,3 +46,23 @@ export const onModelDownloadProgress = (listener: (event: ModelDownloadProgressE
  */
 export const onUpdateAvailable = (listener: (event: UpdateAvailableEvent) => void) =>
   window.api.events.onUpdateAvailable(listener)
+
+/**
+ * @description 녹음 상태(진행 중 회의·시작 시각·레벨·참석자 수) 변화를 구독합니다. 위젯과 메인 창이 같은 값을 봅니다.
+ * @param listener - 녹음 상태 이벤트 콜백
+ * @returns 구독 해제 함수
+ * @example
+ * useEffect(() => onRecordingState(setState), [])
+ */
+export const onRecordingState = (listener: (event: RecordingStateEvent) => void) =>
+  window.api.events.onRecordingState(listener)
+
+/**
+ * @description main이 보내는 녹음 시작/정지 지시를 구독합니다. 오디오 그래프를 가진 위젯 창에서만 씁니다.
+ * @param listener - 녹음 명령 콜백
+ * @returns 구독 해제 함수
+ * @example
+ * useEffect(() => onRecordingCommand(({ kind }) => run(kind)), [run])
+ */
+export const onRecordingCommand = (listener: (event: RecordingCommandEvent) => void) =>
+  window.api.events.onRecordingCommand(listener)

@@ -36,6 +36,11 @@ export interface AppSettings {
   isUpdateCheckEnabled: boolean
   /** 조용히 처리. 켜면 화자 분리 스레드를 줄이고 STT와 순차로 돌려 느린 대신 발열·팬 소음을 줄인다. 기본은 꺼짐 */
   isQuietProcessing: boolean
+  /**
+   * 녹음 위젯 패널을 화면에 띄울지. 기본은 켜짐이며, 꺼도 메뉴바·전역 단축키로 녹음할 수 있다
+   * (창 자체는 오디오 그래프 소유자라 항상 만든다, references/architecture.md)
+   */
+  isWidgetEnabled: boolean
 }
 
 /** 사용자가 고를 수 있는 음성 인식 모델 (Phase 4). 목록·체크섬은 src/main/models/registry.ts */

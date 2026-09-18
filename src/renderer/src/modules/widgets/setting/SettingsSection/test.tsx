@@ -18,7 +18,8 @@ const QUIET_LABEL = /조용히 처리/
 const DEFAULT_SETTINGS = {
   isAudioKept: false,
   isUpdateCheckEnabled: false,
-  isQuietProcessing: false
+  isQuietProcessing: false,
+  isWidgetEnabled: true
 }
 
 afterEach(() => {

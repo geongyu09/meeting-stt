@@ -1,5 +1,8 @@
 import type {
+  ControlRecordingRequest,
+  ReportRecordingErrorRequest,
   SendRecordingChunkRequest,
+  SetSpeakerCountRequest,
   StartRecordingRequest,
   StopRecordingRequest
 } from '@shared/ipc'
@@ -43,11 +46,51 @@ export const sendRecordingChunkApi = async ({ meetingId, pcm }: SendRecordingChu
 
 /**
  * @description 녹음을 정지합니다. main이 WAV 헤더를 확정하고 파이프라인 잡을 큐에 넣습니다.
+ * 참석자 수는 main 세션에 보관된 값을 쓰므로 여기서 넘기지 않습니다.
  * @param meetingId - 회의 ID
- * @param speakerCount - 참석자 수(선택). 있으면 화자 분리를 이 수로 고정하고, 없으면 자동으로 나눕니다
  * @returns 정지 직후의 회의 정보
  * @example
- * const meeting = await stopRecordingApi({ meetingId, speakerCount: 4 })
+ * const meeting = await stopRecordingApi({ meetingId })
  */
-export const stopRecordingApi = async ({ meetingId, speakerCount }: StopRecordingRequest) =>
-  window.api.recording.stop({ meetingId, speakerCount })
+export const stopRecordingApi = async ({ meetingId }: StopRecordingRequest) =>
+  window.api.recording.stop({ meetingId })
+
+/**
+ * @description 지금 녹음 중인지 조회합니다. 창이 늦게 열려 상태 이벤트를 놓쳤을 때 씁니다.
+ * @returns 진행 중 회의 ID·시작 시각·레벨·참석자 수
+ * @example
+ * const state = await getRecordingStateApi()
+ */
+export const getRecordingStateApi = async () => window.api.recording.state()
+
+/**
+ * @description 녹음 시작·정지를 요청합니다. main이 오디오 그래프를 가진 위젯 창에 명령을 넘깁니다.
+ * @param kind - 'start' | 'stop' | 'toggle'
+ * @returns 없음
+ * @example
+ * await controlRecordingApi({ kind: 'start' })
+ */
+export const controlRecordingApi = async ({ kind }: ControlRecordingRequest) => {
+  await window.api.recording.control({ kind })
+}
+
+/**
+ * @description 참석자 수를 main 세션에 저장합니다. 두 창의 입력란이 같은 값을 보게 됩니다.
+ * @param speakerCount - 참석자 수. 비우면(undefined) 화자를 자동으로 나눕니다
+ * @returns 저장 직후의 녹음 상태
+ * @example
+ * await setSpeakerCountApi({ speakerCount: 4 })
+ */
+export const setSpeakerCountApi = async ({ speakerCount }: SetSpeakerCountRequest) =>
+  window.api.recording.setSpeakerCount({ speakerCount })
+
+/**
+ * @description 위젯에서만 알 수 있는 녹음 실패(마이크 권한 등)를 main에 알립니다. 메인 창도 같은 안내를 봅니다.
+ * @param message - 사용자에게 보여줄 한국어 안내
+ * @returns 없음
+ * @example
+ * await reportRecordingErrorApi({ message: '마이크 사용 권한이 없습니다' })
+ */
+export const reportRecordingErrorApi = async ({ message }: ReportRecordingErrorRequest) => {
+  await window.api.recording.reportError({ message })
+}

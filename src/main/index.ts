@@ -1,53 +1,31 @@
-import { join } from 'path'
-import { app, shell, BrowserWindow, session } from 'electron'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import type { PipelineProgressEvent, SummaryProgressEvent, UpdateAvailableEvent } from '@shared/ipc'
+import { app, BrowserWindow, session } from 'electron'
+import { electronApp, optimizer } from '@electron-toolkit/utils'
+import type {
+  PipelineProgressEvent,
+  RecordingStateEvent,
+  SummaryProgressEvent,
+  UpdateAvailableEvent
+} from '@shared/ipc'
 import { IPC } from '@shared/ipc'
-import icon from '../../resources/icon.png?asset'
-import { recordingsDir } from './audio/session'
+import {
+  finalizeActiveRecording,
+  isRecording,
+  recordingsDir,
+  setRecordingStateListener
+} from './audio/session'
 import { closeDb } from './db/connection'
 import { failStaleMeetings } from './db/meetings'
 import { getAppSettings, getWhisperModelId } from './db/settings'
 import { registerIpcHandlers } from './ipc/handlers'
-import { info, messageOf, warn } from './log'
+import { error as logError, info, messageOf, warn } from './log'
 import { setSelectedWhisperModelId } from './models/paths'
 import { setPipelineProgressListener, setSummaryProgressListener } from './pipeline/queue'
 import { removeStalePipelineArtifacts } from './pipeline/run'
 import { checkForUpdates } from './updater'
-
-const WINDOW_WIDTH = 1000
-const WINDOW_HEIGHT = 720
-
-function createWindow(): BrowserWindow {
-  const mainWindow = new BrowserWindow({
-    width: WINDOW_WIDTH,
-    height: WINDOW_HEIGHT,
-    show: false,
-    autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
-    }
-  })
-
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
-  })
-
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
-
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
-  }
-
-  return mainWindow
-}
+import { createMainWindow, showMainWindow } from './windows/main'
+import { registerGlobalShortcuts, unregisterGlobalShortcuts } from './windows/shortcuts'
+import { createTray, destroyTray, refreshTray } from './windows/tray'
+import { createWidgetWindow } from './windows/widget'
 
 /** 로컬 앱이라 마이크 외의 권한 요청은 받지 않는다 */
 const restrictPermissions = () => {
@@ -68,6 +46,12 @@ const broadcastProgress = (event: PipelineProgressEvent) =>
 const broadcastSummaryProgress = (event: SummaryProgressEvent) =>
   broadcast({ channel: IPC.events.summary, event })
 
+/** 녹음 상태는 위젯·메인 창·메뉴바가 같은 값을 봐야 한다 (references/architecture.md) */
+const broadcastRecordingState = (event: RecordingStateEvent) => {
+  broadcast({ channel: IPC.events.recordingState, event })
+  refreshTray()
+}
+
 /**
  * 설정에서 켠 사용자만, 창이 뜬 직후 한 번 확인한다. 새 버전이 있으면 알리기만 하고
  * 내려받기는 사용자가 배너에서 요청한다 (references/distribution.md 7절).
@@ -78,15 +62,6 @@ const notifyUpdateIfAvailable = async () => {
 
   const event: UpdateAvailableEvent = { version }
   broadcast({ channel: IPC.events.updateAvailable, event })
-}
-
-/** 두 번째 실행은 먼저 뜬 창을 앞으로 가져온다 */
-const focusExistingWindow = () => {
-  const [window] = BrowserWindow.getAllWindows()
-  if (!window) return
-
-  if (window.isMinimized()) window.restore()
-  window.focus()
 }
 
 /** 이전 실행이 녹음·처리 중에 죽은 흔적을 정리한다. 실패해도 앱은 뜬다 */
@@ -106,7 +81,8 @@ const cleanupPreviousRun = async () => {
 const isPrimaryInstance = app.requestSingleInstanceLock()
 if (!isPrimaryInstance) app.quit()
 
-app.on('second-instance', focusExistingWindow)
+// 위젯이 먼저 잡힐 수 있어 창 목록의 0번을 쓰지 않는다 (references/pitfalls.md)
+app.on('second-instance', () => showMainWindow())
 
 app.whenReady().then(async () => {
   // quit()은 비동기라 ready가 먼저 올 수 있다. 두 번째 인스턴스는 DB를 열지 않는다
@@ -122,26 +98,47 @@ app.whenReady().then(async () => {
   registerIpcHandlers()
   setPipelineProgressListener(broadcastProgress)
   setSummaryProgressListener(broadcastSummaryProgress)
+  setRecordingStateListener(broadcastRecordingState)
   // 온보딩에서 고른 모델을 런타임 선택값으로 넣는다. 이후 파일명은 models/paths.ts만 정한다
   setSelectedWhisperModelId(getWhisperModelId())
   await cleanupPreviousRun()
 
-  const mainWindow = createWindow()
+  const mainWindow = createMainWindow()
+  createWidgetWindow()
+  createTray()
+  registerGlobalShortcuts()
+
   mainWindow.once('ready-to-show', () => {
     void notifyUpdateIfAvailable()
   })
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
+  app.on('activate', () => showMainWindow())
 })
 
+// 위젯이 떠 있으면 이 이벤트는 오지 않는다. macOS 전용이라 종료는 메뉴바·⌘Q가 담당한다
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  if (process.platform !== 'darwin') app.quit()
+})
+
+/**
+ * 화면 이동으로 녹음이 정지되지 않게 되면서(Phase 5-3) 헤더 확정의 마지막 기회가 종료 시점이다.
+ * 헤더가 확정되지 않은 WAV는 파이프라인이 읽지 못한다.
+ */
+let isFinalizingOnQuit = false
+
+app.on('before-quit', (event) => {
+  if (isFinalizingOnQuit || !isRecording()) return
+
+  event.preventDefault()
+  isFinalizingOnQuit = true
+  finalizeActiveRecording()
+    .then(() => info('종료 전에 진행 중이던 녹음을 저장했습니다'))
+    .catch((caught) => logError(`종료 중 녹음 마무리 실패: ${messageOf(caught)}`))
+    .finally(() => app.quit())
 })
 
 app.on('will-quit', () => {
+  unregisterGlobalShortcuts()
+  destroyTray()
   closeDb()
 })

@@ -32,6 +32,14 @@ export default function SettingsSection() {
         보관하지 않은 회의는 나중에 다시 처리할 수 없습니다.
       </SettingToggle>
       <SettingToggle
+        title="녹음 위젯 패널"
+        isChecked={settings.isWidgetEnabled}
+        onChange={(isWidgetEnabled) => updateSettings({ isWidgetEnabled })}
+      >
+        화면 오른쪽에 떠 있는 작은 패널에서 회의 중에도 녹음을 시작하고 정지합니다. 꺼도 메뉴바
+        아이콘과 ⌥⌘R 단축키로 녹음할 수 있고, ⌥⌘W로 패널을 다시 부를 수 있습니다.
+      </SettingToggle>
+      <SettingToggle
         title="업데이트 확인"
         isChecked={settings.isUpdateCheckEnabled}
         onChange={(isUpdateCheckEnabled) => updateSettings({ isUpdateCheckEnabled })}
