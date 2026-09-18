@@ -61,14 +61,17 @@
 - [x] `/settings`에서 음성 인식 모델 변경(같은 위젯 재사용), 요약 모델 다운로드(`SummaryModelSection`), 업데이트 확인 옵션
 - [x] macOS 배포용 whisper 정적 빌드(`scripts/buildWhisper.ts`, v1.8.4, Metal 내장), 서명·notarization 설정(옵트인)
 - [x] electron-updater — 기본 꺼짐, `update.check` 설정으로 켬, 새 버전은 알리기만(`features/update/UpdateBanner`) → 사용자가 받기·설치
-- [x] GitHub Actions: macOS(arm64) 검증 빌드만 (릴리스는 로컬 `pnpm run release:mac`, `references/distribution.md` 6·8절)
+- [x] GitHub Actions: macOS(arm64) 검증 빌드만 (릴리스는 로컬 `pnpm run build:mac:release` + 자산 개별 업로드, `references/distribution.md` 6·8절)
 - [x] 단일 인스턴스 잠금(`app.requestSingleInstanceLock`)
 - [x] 설정 '조용히 처리'(`pipeline.quiet`) — 화자 분리 스레드를 성능 코어의 절반으로, STT와 순차 실행 (`references/architecture.md` 가속·스레드 정책)
 - [x] 통합 테스트: ModelDownloadSection, SummaryModelSection, UpdateBanner, SettingsSection(업데이트 옵션)
 - [x] `electron-builder.yml`의 `publish.owner` 교체(`geongyu09`), 공증 자격 증명 등록(`notarytool` 키체인 프로필 `meeting-stt-notary`, 2026-09-18)
 - [x] 첫 릴리스 `v0.1.0` 게시 (2026-09-18) — 공증·스테이플 확인, dmg만 업로드 성공. 다음 릴리스에는 자동 업데이트용 zip이 필요하다 (`references/distribution.md` 6절)
-- [ ] 업데이트 배너 오탐 수정 — `checkForUpdates()`가 `isUpdateAvailable`을 보지 않아 v0.1.0 배포본이 자기 버전(0.1.0)을 새 버전으로 알리고,
-      "받기"가 `Please check update first`로 실패한다 (2026-09-18 발견, `references/distribution.md` 7절 · `references/pitfalls.md`)
+- [x] 업데이트 배너 오탐 수정 — 판정을 `isUpdateAvailable`로 바꿨다. `checkForUpdates()` 결과에서 알릴 버전을 고르는 부분만
+      `src/main/updateResult.ts`의 순수 함수로 떼어 단위 테스트를 붙였다 (electron-updater를 import하는 파일은 테스트할 수 없다).
+      v0.1.1에 포함 (2026-09-18, `references/distribution.md` 7절 · `references/pitfalls.md`)
+- [x] `v0.1.1` 게시 (2026-09-18) — **zip 포함**. 빌드·공증은 `build:mac:release`로 끝내고 자산은 하나씩 올렸다
+      (zip 91초·dmg 101초, 재시도 0회). 동봉 바이너리 17개 서명·공증·스테이플 확인 (`references/distribution.md` 6절)
 - [x] 완료 기준: `userData/models/`가 빈 상태로 앱을 켜면 온보딩이 뜨고, 다운로드가 끝나면 홈에서 녹음할 수 있다
       (**2026-09-18 사용자 수동 확인 완료**. 개발 모드는 픽스처 폴백 때문에 `userData/models/`와 `scripts/fixtures/models/`를
       둘 다 치워야 재현된다 — `src/main/models/paths.ts`) → **Phase 4 종료**

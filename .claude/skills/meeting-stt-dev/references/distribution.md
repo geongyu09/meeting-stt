@@ -190,7 +190,15 @@ mac 앱에 딸려 들어가던 것을 `electron-builder.yml`의 `files`에서 `!
 0.1.0 사용자가 업데이트를 받을 수 있다 — mac용 electron-updater는 zip만 받는다.
 
 배포본에서 "새 버전 0.1.0이 있습니다" 배너가 뜨고 "받기"가 `Please check update first`로 실패한 것은 **zip 누락과 무관하다.**
-`checkForUpdates()` 결과에서 `isUpdateAvailable`을 보지 않아 자기 버전을 새 버전으로 알린 것이다 (7절).
+`checkForUpdates()` 결과에서 `isUpdateAvailable`을 보지 않아 자기 버전을 새 버전으로 알린 것이다 (7절). v0.1.1에서 고쳤다.
+
+#### v0.1.1 실측 (2026-09-18) — 분리한 절차로는 한 번에 올라갔다
+
+`build:mac:release`로 빌드·공증을 끝내고 `gh release create --draft` 뒤에 자산을 하나씩 올렸더니
+zip 141MB가 91초(1.6MB/s), dmg 142MB가 101초(1.4MB/s)에 `201 Created`로 끝났다. **재시도 0회.**
+같은 `uploads.github.com`인데 v0.1.0에서 12번 실패한 것과 갈린 지점은 병렬 업로드 여부다 —
+electron-builder가 두 파일을 동시에 올리면서 드래프트를 둘로 쪼개던 것이 실패의 큰 몫이었다.
+작은 파일(`*.blockmap`, `latest-mac.yml`)은 `gh release upload`로 한 번에 올려도 문제없었다.
 
 ## 7. 자동 업데이트 — 기본은 꺼 둔다
 
