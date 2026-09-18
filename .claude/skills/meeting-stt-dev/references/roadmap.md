@@ -30,7 +30,7 @@
 - [x] SQLite 초기화·마이그레이션, meetings/utterances/speakers 리포지토리 (`pnpm dev`에서 `userData/meetings.db` 생성 확인)
 - [x] 파이프라인 잡 큐(순차) + Phase 1 로직 이식(`normalize` → whisper/diarize → merge), 완료 시 `status='done'`, 실패 시 `'error'` (정규화본은 잡이 끝나면 삭제, 원본 WAV는 재시도용으로 보관)
 - [x] 홈(리스트, 상태 표시) → 디테일(발화 리스트) 라우팅 (해시 라우터, `pipeline:progress` 수신 시 목록·상세 자동 갱신, 위젯 통합 테스트 포함)
-- [ ] 완료 기준: 앱에서 녹음 → 정지 → 잠시 후 홈에서 회의록이 열린다 (**사용자 수동 확인 대기** — 마이크 권한과 실제 발화가 필요해 자동 검증 불가)
+- [x] 완료 기준: 앱에서 녹음 → 정지 → 잠시 후 홈에서 회의록이 열린다 (**2026-09-18 사용자 수동 확인 완료**) → **Phase 2 종료**
 
 ## Phase 3: 편집·복사·화자 관리
 
@@ -47,7 +47,7 @@
 - [x] 원본 WAV 보관 설정(`audio.keep`, 기본 삭제) — `/settings` 화면, 잡 성공 시 적용
 - [x] 참석자 수 입력 → `num-clusters` (녹음 화면 숫자 입력, `recording:stop` payload `speakerCount`, `meetings.speaker_count`, 참석자 수가 있으면 군소 화자 흡수 생략) — 임계값 군집이 긴 녹음에서 파탄나는 문제 대응 (`docs/phase1-results.md` 6·7절)
 - [x] 통합 테스트: TranscriptSection 19개, SettingsSection 4개, MeetingListSection 7개 (`pnpm test` 139개 통과)
-- [ ] 완료 기준: 회의록을 열어 텍스트·화자 이름·제목을 고치고 복사한 결과가 앱을 다시 켜도 그대로 남는다 (**사용자 수동 확인 대기** — 실제 회의록 데이터가 필요해 자동 검증 불가)
+- [x] 완료 기준: 회의록을 열어 텍스트·화자 이름·제목을 고치고 복사한 결과가 앱을 다시 켜도 그대로 남는다 (**2026-09-18 사용자 수동 확인 완료**) → **Phase 3 종료**
 
 ## Phase 4: 배포 품질
 
@@ -67,8 +67,9 @@
 - [x] 통합 테스트: ModelDownloadSection, SummaryModelSection, UpdateBanner, SettingsSection(업데이트 옵션)
 - [x] `electron-builder.yml`의 `publish.owner` 교체(`geongyu09`), 공증 자격 증명 등록(`notarytool` 키체인 프로필 `meeting-stt-notary`, 2026-09-18)
 - [x] 첫 릴리스 `v0.1.0` 게시 (2026-09-18) — 공증·스테이플 확인, dmg만 업로드 성공. 다음 릴리스에는 자동 업데이트용 zip이 필요하다 (`references/distribution.md` 6절)
-- [ ] 완료 기준: `userData/models/`가 빈 상태로 앱을 켜면 온보딩이 뜨고, 다운로드가 끝나면 홈에서 녹음할 수 있다
-      (**사용자 수동 확인 대기** — 개발 모드는 픽스처 폴백 때문에 픽스처 모델을 치워야 재현된다)
+- [x] 완료 기준: `userData/models/`가 빈 상태로 앱을 켜면 온보딩이 뜨고, 다운로드가 끝나면 홈에서 녹음할 수 있다
+      (**2026-09-18 사용자 수동 확인 완료**. 개발 모드는 픽스처 폴백 때문에 `userData/models/`와 `scripts/fixtures/models/`를
+      둘 다 치워야 재현된다 — `src/main/models/paths.ts`) → **Phase 4 종료**
 
 ## Phase 5: 확장
 
