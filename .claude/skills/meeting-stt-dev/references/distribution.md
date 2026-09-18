@@ -160,11 +160,17 @@ mac 앱에 딸려 들어가던 것을 `electron-builder.yml`의 `files`에서 `!
    릴리스할 커밋으로 별도 `git worktree`를 만들고 그 안에서 `pnpm install --frozen-lockfile`을 한다.
    `resources/bin/`은 git 제외라 원본 트리의 `resources/bin/darwin-arm64/`를 복사해 넣는다 (whisper는 `--from-source` 정적 빌드여야 한다).
 2. `package.json`의 `version`을 올리고 커밋한다. 릴리스 태그는 `v<version>`이다.
-3. `APPLE_KEYCHAIN_PROFILE=meeting-stt-notary GH_TOKEN=$(gh auth token) pnpm run release:mac`
-   → 서명·공증·스테이플 후 GitHub에 **드래프트 릴리스**를 만들고 `dmg`·`zip`·`*.blockmap`·`latest-mac.yml`을 올린다.
-   `zip`과 `latest-mac.yml`이 없으면 `electron-updater`가 업데이트를 찾지 못한다.
+3. **빌드와 업로드를 분리한다.** `APPLE_KEYCHAIN_PROFILE=meeting-stt-notary pnpm run build:mac:release`
+   → 서명·공증·스테이플까지만 하고 `dist/`에 `dmg`·`zip`·`*.blockmap`·`latest-mac.yml`을 남긴다.
+   `publish` 설정이 있으므로 업로드를 하지 않아도 `latest-mac.yml`은 만들어진다.
+   `release:mac`(`--publish always`)은 쓰지 않는다 — 병렬 업로드가 드래프트를 두 개 만들고 140MB 구간에서 끊긴다(아래).
 4. `codesign --verify --deep --strict` / `spctl -a -t exec -vv`(`source=Notarized Developer ID`) / `xcrun stapler validate <app>`로 확인한다.
-5. 드래프트를 확인한 뒤 게시한다. `electron-updater`는 **게시된** 릴리스만 본다.
+   동봉 바이너리는 `--deep`이 보지 않으므로 `resources/bin/darwin-arm64/*`를 따로 검증한다 (6절).
+5. `gh release create v<version> --draft`로 빈 드래프트를 만들고, 자산을 **하나씩 순서대로** 올린다.
+   작은 파일(`*.blockmap`, `latest-mac.yml`)은 `gh release upload`로 되지만, 140MB짜리 `dmg`·`zip`은
+   `curl -4 -X POST -T <파일>`(스트리밍)로 올린다. `zip`과 `latest-mac.yml`이 없으면 `electron-updater`가 업데이트를 찾지 못한다.
+6. 올린 자산을 다시 내려받아 `latest-mac.yml`의 sha512와 대조한 뒤 드래프트를 게시한다.
+   `electron-updater`는 **게시된** 릴리스만 본다.
 
 #### 업로드가 자주 끊긴다 (2026-09-18 v0.1.0 실측)
 
