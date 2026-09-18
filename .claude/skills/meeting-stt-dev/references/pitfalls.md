@@ -64,6 +64,10 @@
 - 바이너리는 `asarUnpack` 대상이어야 실행 가능하고, macOS에서는 실행 권한(`chmod +x`)과 quarantine 해제가 필요하다. notarization 시 동봉 바이너리와 dylib까지 모두 서명(`hardenedRuntime`, entitlements에 `com.apple.security.cs.allow-unsigned-executable-memory` 등 필요 여부 확인).
 - 모델 파일은 절대 리포지토리나 설치 파일에 포함하지 않는다. `userData/models`에 다운로드하고 `.gitignore`로 차단.
 - `electron-builder.yml`의 `publish.url`, `appId`, `NSMicrophoneUsageDescription`은 스캐폴드 기본값이므로 배포 전 반드시 교체.
+- **`autoUpdater.checkForUpdates()`가 버전을 돌려줬다고 업데이트가 있는 것이 아니다.** 업데이트가 없어도 결과 객체가 오고
+  `updateInfo.version`은 **서버의 최신 버전**이다. 판단은 `result.isUpdateAvailable`로만 한다. 이걸 빠뜨리면 자기 버전을 "새 버전"으로 알리게 되고,
+  그 상태에서 누른 "받기"는 `Error: Please check update first`로 실패한다 — electron-updater가 업데이트가 있을 때만
+  내부 상태(`updateInfoAndProvider`)를 채우기 때문이다 (v0.1.0 배포본 실측, `distribution.md` 7절).
 
 ## 모델 다운로드 (Phase 4)
 - **`fetch`의 Range 응답은 200으로 올 수 있다.** 서버(또는 리다이렉트 뒤의 CDN)가 Range를 무시하면 전체 본문이 200으로 온다.

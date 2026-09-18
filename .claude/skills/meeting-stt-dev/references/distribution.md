@@ -179,8 +179,12 @@ mac 앱에 딸려 들어가던 것을 `electron-builder.yml`의 `files`에서 `!
 - 올린 뒤에는 자산을 다시 내려받아 `latest-mac.yml`의 sha512와 대조한다. 끊긴 연결이 조용히 손상된 파일을 남길 수 있다.
 - 업로드 자체가 계속 실패하면 브라우저에서 릴리스 편집 화면에 끌어다 놓는 경로가 남아 있다 (웹 업로드는 다른 서버를 쓴다).
 
-**v0.1.0에는 zip이 없다.** 12번 시도가 전부 실패해 dmg만 올렸다. 설치에는 지장이 없고, 0.1.0이 최신인 동안에는 업데이트 확인도 문제가 없다
-(자기 버전과 같으면 내려받지 않는다). 다만 **다음 릴리스에는 zip이 반드시 있어야** 0.1.0 사용자가 업데이트를 받을 수 있다 — mac용 electron-updater는 zip만 받는다.
+**v0.1.0에는 zip이 없다.** 12번 시도가 전부 실패해 dmg만 올렸다. 설치에는 지장이 없고, 업데이트 **확인**도 zip 없이 동작한다
+(`latest-mac.yml`만 읽으면 되고, 내려받기는 그다음 릴리스의 자산에서 이뤄진다). 다만 **다음 릴리스에는 zip이 반드시 있어야**
+0.1.0 사용자가 업데이트를 받을 수 있다 — mac용 electron-updater는 zip만 받는다.
+
+배포본에서 "새 버전 0.1.0이 있습니다" 배너가 뜨고 "받기"가 `Please check update first`로 실패한 것은 **zip 누락과 무관하다.**
+`checkForUpdates()` 결과에서 `isUpdateAvailable`을 보지 않아 자기 버전을 새 버전으로 알린 것이다 (7절).
 
 ## 7. 자동 업데이트 — 기본은 꺼 둔다
 
@@ -191,6 +195,10 @@ mac 앱에 딸려 들어가던 것을 `electron-builder.yml`의 `files`에서 `!
 - 개발 모드(`is.dev`)에서는 아무것도 하지 않는다.
 - 업데이트 확인 실패는 로그만 남기고 무시한다. 오프라인이 정상 상태인 앱이다.
 - 확인 시점은 **창이 뜬 직후 한 번**이다. 주기적으로 다시 확인하지 않는다.
+- **새 버전 알림은 `checkForUpdates()` 결과의 `isUpdateAvailable`이 참일 때만 보낸다.** `checkForUpdates()`는 업데이트가 없어도 결과 객체를 돌려주고,
+  그 `updateInfo.version`에는 **서버의 최신 버전**(= 지금 쓰고 있는 버전일 수 있다)이 들어 있다. 이 필드만 보고 알리면 자기 버전을 새 버전으로 알리게 되고,
+  electron-updater는 업데이트가 있을 때만 내부 상태를 채우므로 사용자가 누른 "받기"가 `Please check update first`로 거절된다
+  (2026-09-18 v0.1.0 배포본에서 발생, `references/pitfalls.md`).
 
 ### 업데이트 IPC 계약
 
@@ -201,7 +209,7 @@ events:  { updateAvailable: 'update:available' }
 
 | 채널 | 요청 | 응답 |
 | --- | --- | --- |
-| `update:available` (push) | — | `{ version }` — 새 버전을 발견했을 때 한 번 |
+| `update:available` (push) | — | `{ version }` — `isUpdateAvailable`이 참일 때만 한 번 |
 | `update:download` | 없음 | 내려받기가 끝나면 resolve (`invoke`를 매달아 둔다 — 설치 파일 하나라 수십 초 안에 끝난다) |
 | `update:install` | 없음 | 응답 없음. `quitAndInstall()`로 앱이 종료된다 |
 

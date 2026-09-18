@@ -67,6 +67,8 @@
 - [x] 통합 테스트: ModelDownloadSection, SummaryModelSection, UpdateBanner, SettingsSection(업데이트 옵션)
 - [x] `electron-builder.yml`의 `publish.owner` 교체(`geongyu09`), 공증 자격 증명 등록(`notarytool` 키체인 프로필 `meeting-stt-notary`, 2026-09-18)
 - [x] 첫 릴리스 `v0.1.0` 게시 (2026-09-18) — 공증·스테이플 확인, dmg만 업로드 성공. 다음 릴리스에는 자동 업데이트용 zip이 필요하다 (`references/distribution.md` 6절)
+- [ ] 업데이트 배너 오탐 수정 — `checkForUpdates()`가 `isUpdateAvailable`을 보지 않아 v0.1.0 배포본이 자기 버전(0.1.0)을 새 버전으로 알리고,
+      "받기"가 `Please check update first`로 실패한다 (2026-09-18 발견, `references/distribution.md` 7절 · `references/pitfalls.md`)
 - [x] 완료 기준: `userData/models/`가 빈 상태로 앱을 켜면 온보딩이 뜨고, 다운로드가 끝나면 홈에서 녹음할 수 있다
       (**2026-09-18 사용자 수동 확인 완료**. 개발 모드는 픽스처 폴백 때문에 `userData/models/`와 `scripts/fixtures/models/`를
       둘 다 치워야 재현된다 — `src/main/models/paths.ts`) → **Phase 4 종료**
