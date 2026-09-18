@@ -105,7 +105,8 @@
 남은 것:
 - [ ] 회의별 용어 사전(whisper `--prompt`) 검토 — STT 단계 과제. VAD로 잘린 구간마다 효과가 유지되는지와
       초기 프롬프트가 환각을 부르지 않는지 확인이 필요해 Phase 4 이후로 미룬다
-- [ ] **`pnpm dev`로 실제 앱에서 관통 확인** — 회의 상세에서 "요약 만들기" → 진행률 → 본문 표시 → 앱 재시작 후에도 남아 있는지 (사용자 수동 확인 필요)
+- [x] **`pnpm dev`로 실제 앱에서 관통 확인** — 회의 상세에서 "요약 만들기" → 진행률 → 본문 표시 → 앱 재시작 후에도 남아 있는지
+      (**2026-09-18 사용자 수동 확인 완료**)
 - [ ] **동봉 dylib의 서명·공증 확인 — 자격 증명 대기.** rpath가 `@loader_path`인 것과 내려받은 상태가
       adhoc(linker-signed)인 것은 확인했다(`docs/phase5-results.md`). `asarUnpack: resources/**`도 걸려 있다.
       electron-builder가 Developer ID로 재서명한 결과 확인은 인증서가 있어야 가능하다 (`references/distribution.md` 6절)

@@ -139,6 +139,17 @@ mac 앱에 딸려 들어가던 것을 `electron-builder.yml`의 `files`에서 `!
 - **동봉 바이너리와 dylib도 서명 대상이다.** `asarUnpack`으로 풀려 나온 `resources/bin/**`이 서명되지 않으면
   하드닝 런타임에서 실행이 차단된다. 빌드 후 확인:
   `codesign --verify --deep --strict --verbose=2 <app>` / `spctl -a -t exec -vv <app>`.
+- **`--deep`은 동봉 바이너리를 검사하지 않는다.** `--deep`이 따라 들어가는 곳은 `Frameworks`·`Helpers` 같은
+  정해진 중첩 번들 위치뿐이라, `Contents/Resources/app.asar.unpacked/resources/bin/`에 있는 파일은 통과 여부에 영향을 주지 않는다.
+  앱 수준 검증이 "valid on disk"라도 그 안의 dylib은 따로 확인해야 한다:
+  ```bash
+  BIN="<app>/Contents/Resources/app.asar.unpacked/resources/bin/darwin-arm64"
+  for f in "$BIN"/*; do codesign --verify --strict "$f" || echo "FAIL $f"; done
+  ```
+- **v0.1.0 실측 (2026-09-18)**: 동봉 17개(dylib 14 + `whisper-cli`·`llama-cli`·`sherpa-onnx-offline-speaker-diarization`)가
+  전부 `Developer ID Application: geongyu Park (3XD9F9256D)`로 재서명됐고 하드닝 런타임 플래그(`0x10000`)와 타임스탬프를 갖는다.
+  실패 0건. 앱은 `spctl` `source=Notarized Developer ID`, `stapler validate` 통과.
+  electron-builder가 `asarUnpack` 산출물까지 알아서 서명한다는 것이 확인됐으므로, 별도 서명 단계를 추가할 필요는 없다.
 
 ### 로컬 릴리스 절차
 

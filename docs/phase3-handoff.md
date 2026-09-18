@@ -1,8 +1,11 @@
-# 인계 메모 (2026-08-26, Phase 3·4·5-1 구현 완료 시점)
+# 인계 메모 (최종 갱신 2026-09-18, Phase 1~4·5-1 종료 시점)
 
 Phase 3(편집·복사·화자 관리), Phase 4(온보딩 모델 다운로드·업데이터·단일 인스턴스), Phase 5-1(로컬 요약)의 코드가 모두 붙은 시점에
 **남은 일**만 적어 둔 문서다. Phase별 완료 기준 자체는 `.claude/skills/meeting-stt-dev/references/roadmap.md`가 SSOT이고,
 이 문서는 작업 상태와 인계 사항만 담는다. 전부 처리되면 지운다.
+
+**2026-09-18: 각 Phase의 완료 기준은 모두 통과했다.** 아래 남은 항목은 완료 기준이 아니라 곁가지 확인들이라,
+이것들만 정리되면 이 문서는 지우고 4절 내용만 `references/architecture.md`로 옮기면 된다.
 
 자동 검증 상태: `pnpm test` 171개 통과, `pnpm typecheck`·`pnpm lint`·`pnpm exec prettier --check .`·`electron-vite build` 통과,
 `pnpm dev` 기동 시 main 로그에 오류 없음.
@@ -18,31 +21,27 @@ Phase 3(편집·복사·화자 관리), Phase 4(온보딩 모델 다운로드·�
 - [x] **Phase 4 완료 기준**: `scripts/fixtures/models/`를 잠시 옮기고(개발 모드 폴백 때문) `userData/models/`가 빈 상태로 켜면
       `/onboarding`이 뜨는가 → 다운로드 진행률이 항목별로 올라가는가 → 끝나면 홈으로 가는가 (2026-09-18 확인 완료)
       · `/settings`에서 음성 인식 모델을 **바꿔 받는** 경로는 아직 안 돌려 봤다 (`ggml-small-q5_1.bin`이 `userData/models/`에 없다)
-- [ ] **Phase 5-1 완료 기준**: 회의 상세에서 "요약 만들기" → 진행률 → 본문 표시 → 앱 재시작 후에도 남아 있는가.
-      요약 모델이 없을 때 설정 링크가 뜨고, `/settings`의 "요약 모델 다운로드"로 받은 뒤 버튼이 살아나는가
+- [x] **Phase 5-1 완료 기준**: 회의 상세에서 "요약 만들기" → 진행률 → 본문 표시 → 앱 재시작 후에도 남아 있는가 (2026-09-18 확인 완료)
+      · 요약 모델이 **없을 때** 설정 링크가 뜨는 경로는 안 돌려 봤다 (모델이 이미 받아져 있어 재현하려면 치워야 한다)
 - [ ] 두 번째 `pnpm dev`(또는 패키징 앱 두 번 실행)가 바로 꺼지고 먼저 뜬 창이 앞으로 오는가
 
 ## 2. 사용자만 할 수 있는 것 (`references/distribution.md` 10절)
 
-- [ ] 원격 저장소 만들고 `electron-builder.yml`의 `publish.owner` 교체 — 이게 있어야 `electron-updater`가 동작한다
-- [ ] Apple Developer ID·Windows 서명 자격 증명을 GitHub Secrets에 등록한 뒤 `pnpm run build:mac:release`로 공증까지 확인
-      (llama.cpp dylib 12개가 함께 서명되는지 `codesign --verify --deep --strict`로 본다)
-- [ ] Windows 실기에서 파이프라인 한 번 실행 (DLL 로딩·경로), 그 결과로 Windows용 llama.cpp 자산(`LLAMA_ENTRIES`) 추가
-- [ ] 업데이트 배너 실기 확인 — 릴리스가 하나 있어야 한다
+- [x] 원격 저장소 만들고 `electron-builder.yml`의 `publish.owner` 교체 (`geongyu09`, 2026-09-18)
+- [x] Apple Developer ID 자격 증명 등록 후 공증까지 확인 — `notarytool` 키체인 프로필(`meeting-stt-notary`)로
+      v0.1.0을 공증·스테이플해 게시했다 (2026-09-18). 릴리스는 GitHub Secrets/CI가 아니라 **로컬**에서 만든다
+      (`references/distribution.md` 6·8절)
+- [x] 동봉 바이너리가 Developer ID로 함께 재서명됐는지 확인 — **v0.1.0 dmg로 2026-09-18 확인 완료.**
+      `resources/bin/darwin-arm64/`의 17개(dylib 14 + 실행 파일 3) 전부 `Developer ID Application: geongyu Park (3XD9F9256D)`,
+      하드닝 런타임(`flags=0x10000(runtime)`)·타임스탬프 포함, `codesign --verify --strict` 실패 0건.
+      앱 자체는 `spctl` `source=Notarized Developer ID` + `stapler validate` 통과 (`references/distribution.md` 6절)
+- [ ] 업데이트 배너 실기 확인 — **v0.1.0만 있어서 아직 못 한다.** 다음 릴리스(zip 포함)가 올라가야 0.1.0에서 배너가 뜬다
 
-## 3. 커밋 정리
+~~Windows 실기 확인·`LLAMA_ENTRIES` 추가~~ — macOS 전용 결정(2026-08-26, `SKILL.md` 결정 표)으로 무효.
 
-워킹 트리에 Phase 2 마무리·3·4·5-1 변경분이 섞여 있다. 사용자 지시가 있을 때 Phase별로 나눠 커밋한다
-(푸시·원격 추가는 제안하지 않는다).
+## 3. 커밋 정리 — 끝남
 
-| 묶음           | 대표 경로                                                                                                                                                                                                                             |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Phase 2 마무리 | `src/main/pipeline/run.ts`(정규화), `src/main/index.ts`(시작 시 파생물 정리)                                                                                                                                                          |
-| Phase 3        | `src/main/db/*`, `src/main/audio/recordings.ts`, `TranscriptSection`, `SettingsSection`, `InlineEditableText`, `src/shared/progress.ts`                                                                                               |
-| Phase 4        | `src/main/models/**`, `src/main/updater.ts`, `scripts/**`, `electron-builder.yml`, `.github/**`, `ModelDownloadSection`, `SummaryModelSection`, `UpdateBanner`, `pages/Onboarding`, `routes/guards.tsx`, `references/distribution.md` |
-| Phase 5-1      | `src/main/summary/**`, `src/shared/summary.ts`, `SummarySection`, `docs/phase5-results.md`                                                                                                                                            |
-
-IPC 계약(`src/shared/{ipc,types}.ts`)·preload·`handlers.ts`는 세 Phase가 함께 건드렸으므로 어느 묶음에 넣어도 되지만, 한 묶음에만 넣는다.
+Phase 2 마무리·3·4·5-1 변경분은 모두 커밋됐다 (2026-09-18 기준 `main`).
 
 ## 4. 알아 둘 것 (다음 작업자용)
 
