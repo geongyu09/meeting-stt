@@ -138,6 +138,7 @@ src/
 | `setting` | 앱 설정 조회·변경 (원본 WAV 보관, 업데이트 확인 등) |
 | `update` | 새 버전 알림·다운로드·설치 (Phase 4, 기본 꺼짐) |
 | `clipboard` | 시스템 클립보드 쓰기 (api 래퍼 전용 도메인, 컴포넌트 폴더는 만들지 않음) |
+| `widget` | 녹음 위젯 패널 표시·숨김 (api 래퍼 전용 도메인. 패널 UI는 `recording/WidgetPanelSection`) |
 
 ## 레이어별 역할 (renderer)
 

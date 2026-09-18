@@ -117,3 +117,41 @@
 ### 5-2. 시스템 오디오 캡처
 
 - [ ] 아직 시작하지 않음. macOS ScreenCaptureKit 검토 (plan.md 6.2절: 난이도가 높아 2차 과제 권장)
+
+### 5-3. 녹음 위젯 패널 (메뉴바·전역 단축키 포함)
+
+사용자 요청으로 5-2보다 먼저 착수한다 (2026-09-18). 5-1처럼 로드맵 순서를 건너뛴 예외이므로 여기 기록해 둔다.
+설계·근거는 `references/architecture.md`의 "녹음 위젯 패널" 절, 함정은 `references/pitfalls.md`의 같은 이름 절.
+
+**계약 변경 (먼저 한다)**
+- [x] `src/shared/ipc.ts`: `recording.state` / `recording.control` / `recording.setSpeakerCount` / `recording.reportError`(모두 invoke), `events.recordingState` / `events.recordingCommand`, `widget.setVisible` 추가 (채널 문자열 표는 `references/architecture.md` IPC 규약 절)
+- [x] `StopRecordingRequest`에서 `speakerCount` 제거 — 참석자 수는 main 세션이 단일 출처가 된다
+- [x] `AppSettings`에 `isWidgetEnabled`(`widget.enabled`, 기본 켜짐) 추가
+- [x] 청크 RMS 계산을 `src/renderer`에서 `src/shared/audio.ts`로 옮기고 vitest 추가 (main이 레벨을 계산해 브로드캐스트)
+
+**main**
+- [x] `src/main/audio/session.ts`에 녹음 세션 상태(진행 중 회의·`startedAt`·참석자 수·마지막 레벨)와 상태 변화 브로드캐스트 추가
+- [x] `src/main/windows/{main,widget,tray,shortcuts}.ts` 분리 — `index.ts`에서 창 생성 코드를 옮긴다
+- [x] 메인 창 참조 보관 → `app.on('activate')` 재생성 조건과 `second-instance` 포커스를 메인 창 기준으로 수정
+- [x] 위젯 패널 창: frameless·`type: 'panel'`·alwaysOnTop·`backgroundThrottling: false`·vibrancy, `workArea` 우측 배치, 위치 저장/복원(화면 밖이면 폐기)
+- [x] Tray: `resources/trayTemplate.png`(+`@2x`), 녹음 중에만 1초 타이머로 `setTitle('● mm:ss')`, 메뉴 4개
+- [x] `globalShortcut` `⌥⌘R`(녹음 토글)·`⌥⌘W`(패널 토글), 등록 실패는 경고 로그만, `will-quit`에서 해제
+- [x] `before-quit`에서 진행 중 녹음의 WAV 헤더 확정 + 잡 큐 투입 (라우트 이동으로 정지하던 경로가 사라졌다)
+
+**renderer**
+- [x] `pages/Widget` + `modules/widgets/recording/WidgetPanelSection` — 녹음중 점·경과 시간·레벨 미터·참석자 수 입력·시작/정지
+- [x] `/widget` 라우트를 `RequireModels` 가드 **밖**에 등록, 모델 미준비 시 시작 버튼 차단 + 안내
+- [x] `useRecorder`를 위젯 전용으로 정리 — 언마운트 시 자동 정지 제거, `recording:command` 구독 추가
+- [x] `useRecordingState` 훅(상태 구독 + `startedAt` 기반 경과 시간) 신설, `RecorderSection`은 명령 전송·상태 구독으로 전환
+- [x] `RecorderSection`·`WidgetPanelSection`의 참석자 수 입력을 `recording:setSpeakerCount`로 동기화
+- [x] 메인 창이 `stoppedMeetingId`를 받으면 회의 상세로 이동
+- [x] `SettingsSection`에 위젯 표시 토글 추가
+
+**검증**
+- [x] 위젯 통합 테스트(시작/정지, 경과 시간, 모델 미준비 차단)와 `RecorderSection` 통합 테스트(명령 전송·상태 구독·참석자 수 동기화).
+      훅은 단위 테스트하지 않는다 (`.claude/rules/test-strategy.md`)
+- [x] `pnpm test`(199개) / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과 (2026-09-18)
+- [ ] `pnpm dev` 실제 확인 — **설치된 v0.1.0 앱이 단일 인스턴스 잠금을 쥐고 있으면 dev 인스턴스가 즉시 종료된다.
+      확인 전에 설치본을 종료할 것.** — 메인 창을 닫거나 다른 화면으로 이동해도 녹음 유지, 전체화면 앱 위에 패널 표시,
+      단축키로 시작·정지, 메뉴바 시간 갱신, 정지 후 상세 이동, 외장 모니터 분리 후 패널 위치 복원
+- [ ] 패널을 숨긴 채로 장시간(10분 이상) 녹음해 throttling으로 청크가 밀리지 않는지 확인 (`backgroundThrottling: false` 검증)
