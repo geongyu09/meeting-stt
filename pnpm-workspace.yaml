@@ -1,0 +1,3 @@
+# test/browser-stt 전용: 브라우저 프로토타입(web/)을 같은 잠금 파일 아래에 둔다
+packages:
+  - web

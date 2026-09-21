@@ -33,7 +33,10 @@
       "electron",
       "electron-winstaller",
       "esbuild",
-      "better-sqlite3"
+      "better-sqlite3",
+      "sharp",
+      "onnxruntime-node",
+      "protobufjs"
     ]
   },
   "dependencies": {
