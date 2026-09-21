@@ -1,0 +1,292 @@
+:root {
+  --bg: #12151c;
+  --panel: #1a1f29;
+  --line: #2c3440;
+  --text: #e6e9ef;
+  --muted: #98a2b3;
+  --accent: #4c8bf5;
+  --good: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --space: 12px;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: calc(var(--space) * 2);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space) * 1.5);
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0 0 4px;
+}
+
+h2 {
+  font-size: 15px;
+  margin: 0 0 var(--space);
+  color: var(--muted);
+  font-weight: 600;
+}
+
+header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: calc(var(--space) * 1.5);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px var(--space);
+  margin: 0;
+}
+
+.facts dt {
+  color: var(--muted);
+}
+
+.facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.good {
+  color: var(--good);
+}
+
+.warn {
+  color: var(--warn);
+}
+
+.bad {
+  color: var(--bad);
+}
+
+.dropZone {
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  padding: calc(var(--space) * 2);
+  text-align: center;
+  color: var(--muted);
+  cursor: pointer;
+  margin-bottom: var(--space);
+}
+
+.dropZone.dragging {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.waveform {
+  width: 100%;
+  height: 72px;
+  display: block;
+  background: #0d1016;
+  border-radius: 4px;
+  margin-bottom: var(--space);
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space);
+}
+
+.options label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+input,
+select {
+  background: #0d1016;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 6px 8px;
+  font-size: 14px;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 12px;
+  margin: var(--space) 0 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+  margin-top: var(--space);
+}
+
+button {
+  background: var(--accent);
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.progress {
+  margin-top: var(--space);
+}
+
+.progressBar {
+  height: 6px;
+  background: #0d1016;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 120ms linear;
+}
+
+.progress p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.error {
+  margin: var(--space) 0 0;
+  color: var(--bad);
+}
+
+.measurements {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.measurements th,
+.measurements td {
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.measurements th {
+  color: var(--muted);
+  font-weight: 400;
+  width: 18%;
+}
+
+.transcript {
+  list-style: none;
+  padding: 0;
+  margin: var(--space) 0 0;
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.transcript li {
+  display: grid;
+  grid-template-columns: 72px 92px 1fr;
+  gap: var(--space);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.transcript .time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.transcript .speaker {
+  color: var(--accent);
+}
+
+.recorder {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--space) * 1.5);
+}
+
+.elapsed {
+  margin: 0;
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+}
+
+.elapsed.recording {
+  color: var(--bad);
+}
+
+.meterRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+  flex: 1;
+}
+
+.meterTrack {
+  flex: 1;
+  height: 10px;
+  background: #0d1016;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.meterBar {
+  height: 100%;
+  background: var(--good);
+  transition: width 80ms linear;
+}
+
+.meterValue {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 82px;
+  text-align: right;
+}
+
+button.danger {
+  background: var(--bad);
+}
