@@ -1,5 +1,6 @@
 import type { DeviceKind, DtypeKind, WhisperModelKind } from '../pipeline/messages'
 import type { PipelineProgress } from '../pipeline/runPipeline'
+import { STAGE_LABELS } from '../lib/stageLabels'
 
 export const MIN_SPEAKER_COUNT = 1
 export const MAX_SPEAKER_COUNT = 20
@@ -21,13 +22,6 @@ interface RunPanelProps {
   onChange: (options: RunOptions) => void
   onRun: () => void
   onCancel: () => void
-}
-
-const STAGE_LABELS: Record<PipelineProgress['stage'], string> = {
-  decode: '디코딩',
-  diarize: '화자 분리',
-  stt: '음성 인식',
-  merge: '병합'
 }
 
 export default function RunPanel({

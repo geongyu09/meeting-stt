@@ -27,5 +27,10 @@ export default defineConfig({
      */
     assetsInlineLimit: (filePath) => (filePath.endsWith('pcmRecorder.js') ? false : undefined)
   },
-  server: { port: 5180, headers: isolationHeaders }
+  /**
+   * `strictPort`를 켜는 이유: 5180이 점유돼 있으면 Vite가 조용히 5181로 올라가는데,
+   * Cache Storage는 origin 단위라 받아 둔 모델 570MB가 통째로 미스가 난다 (§7).
+   * 포트가 밀릴 바에는 기동에 실패하는 쪽이 낫다.
+   */
+  server: { port: 5180, strictPort: true, headers: isolationHeaders }
 })

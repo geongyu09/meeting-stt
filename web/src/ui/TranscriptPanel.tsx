@@ -1,16 +1,30 @@
 import { useState } from 'react'
 
 import { formatTimestamp, formatTranscript, resolveSpeakerNames } from '../ported/format'
-import { formatElapsed, formatRtf, formatSeconds } from '../lib/units'
+import { stagePeakEntries, type MemoryReport } from '../lib/memory'
+import { STAGE_LABELS } from '../lib/stageLabels'
+import { formatElapsed, formatMb, formatRtf, formatSeconds } from '../lib/units'
 import type { PipelineResult } from '../pipeline/runPipeline'
 
 interface TranscriptPanelProps {
   result: PipelineResult
   durationSec: number
   decodeMs: number
+  memory: MemoryReport | null
 }
 
-export default function TranscriptPanel({ result, durationSec, decodeMs }: TranscriptPanelProps) {
+/** 단계별 최고값을 한 줄로. 재지 못한 단계는 빠진다 */
+const formatStagePeaks = (memory: MemoryReport) =>
+  stagePeakEntries(memory)
+    .map(({ stage, bytes }) => `${STAGE_LABELS[stage]} ${formatMb(bytes)}`)
+    .join(' · ')
+
+export default function TranscriptPanel({
+  result,
+  durationSec,
+  decodeMs,
+  memory
+}: TranscriptPanelProps) {
   const [isCopied, setIsCopied] = useState(false)
 
   const names = resolveSpeakerNames({
@@ -22,6 +36,7 @@ export default function TranscriptPanel({ result, durationSec, decodeMs }: Trans
     (total, utterance) => total + utterance.text.length,
     0
   )
+  const isMeasured = memory !== null && memory.sampleCount > 0
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(formatTranscript({ utterances: result.utterances }))
@@ -80,8 +95,24 @@ export default function TranscriptPanel({ result, durationSec, decodeMs }: Trans
             <th>글자 수</th>
             <td>{characterCount}</td>
           </tr>
+          <tr>
+            <th>피크 메모리</th>
+            <td>
+              {isMeasured
+                ? `${formatMb(memory.peakBytes)} (워커 ${formatMb(memory.peakWorkerBytes)})`
+                : '측정 불가'}
+            </td>
+            <th>단계별 피크</th>
+            <td>{isMeasured ? formatStagePeaks(memory) : '—'}</td>
+          </tr>
         </tbody>
       </table>
+
+      <p className="hint">
+        {isMeasured
+          ? `메모리는 JS 쪽만 센 하한선이다 (샘플 ${memory.sampleCount}회). WASM 힙·WebGPU 버퍼는 빠질 수 있어 Chrome 작업 관리자와 같이 본다.`
+          : '메모리를 재지 못했다. crossOriginIsolated가 아니거나 브라우저가 measureUserAgentSpecificMemory를 지원하지 않는다.'}
+      </p>
 
       <div className="actions">
         <button type="button" onClick={handleCopy}>

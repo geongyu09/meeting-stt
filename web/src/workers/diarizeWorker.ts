@@ -14,13 +14,11 @@ import {
 
 import { clusterByCompleteLinkage, l2Normalize } from '../pipeline/cluster'
 import type { DiarizeRequest, DiarizeResponse } from '../pipeline/messages'
+import { EMBEDDING_MODEL_ID, SEGMENTATION_MODEL_ID } from '../pipeline/modelIds'
 import { decodePowerset } from '../pipeline/powerset'
 import type { SpeakerSegment } from '../ported/types'
 import { applyWasmThreads } from './wasmThreads'
 import { onHostMessage, postToHost, toErrorMessage } from './workerBridge'
-
-const SEGMENTATION_MODEL_ID = 'onnx-community/pyannote-segmentation-3.0'
-const EMBEDDING_MODEL_ID = 'onnx-community/wespeaker-voxceleb-resnet34-LM'
 
 /** pyannote/segmentation-3.0이 학습된 창 길이 */
 const WINDOW_SEC = 10

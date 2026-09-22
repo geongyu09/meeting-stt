@@ -6,7 +6,8 @@
 
 import { pipeline, type ProgressInfo } from '@huggingface/transformers'
 
-import type { DtypeKind, SttRequest, SttResponse, WhisperModelKind } from '../pipeline/messages'
+import type { DtypeKind, SttRequest, SttResponse } from '../pipeline/messages'
+import { WHISPER_MODEL_IDS } from '../pipeline/modelIds'
 import { runSileroVad } from '../pipeline/sileroVad'
 import {
   buildSpeechBatches,
@@ -20,17 +21,6 @@ import { buildSpeechRegions } from '../pipeline/vadSegments'
 import type { SttSegment, SttWord } from '../ported/types'
 import { applyWasmThreads } from './wasmThreads'
 import { onHostMessage, postToHost, toErrorMessage } from './workerBridge'
-
-/**
- * `_timestamped` 저장소를 쓰는 이유: 기본 export에는 cross-attention 출력이 없어서
- * `return_timestamps: 'word'`가 "Model outputs must contain cross attentions"로 죽는다.
- * 가중치와 파일 크기는 같고 디코더에 attention 출력만 더 달려 있다.
- */
-const WHISPER_MODEL_IDS: Record<WhisperModelKind, string> = {
-  'large-v3-turbo': 'onnx-community/whisper-large-v3-turbo_timestamped',
-  small: 'onnx-community/whisper-small_timestamped',
-  tiny: 'onnx-community/whisper-tiny_timestamped'
-}
 
 const VAD_PROGRESS_EVERY_WINDOWS = 5000
 

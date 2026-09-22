@@ -14,7 +14,12 @@ pnpm --filter meeting-stt-web-prototype dev
 ```
 
 `http://localhost:5180`에서 Chrome으로 연다. 첫 실행 때 모델을 내려받는다 (q4f16 기준 약 600MB).
-브라우저 캐시에 남으므로 두 번째부터는 바로 시작한다.
+브라우저 캐시(Cache Storage)에 남으므로 두 번째부터는 네트워크를 쓰지 않는다.
+
+**진행률에 "내려받는 중"이 떠도 실제로 받는 게 아닐 수 있다.** transformers.js는 캐시에서 읽을 때도
+같은 이벤트를 쏘기 때문이다. 받아 둔 게 있는지는 화면 환경 패널의 **모델 캐시** 줄로 확인한다.
+포트는 `strictPort`로 5180에 고정해 뒀다 — 포트가 밀리면 origin이 달라져 캐시가 통째로 미스 나기 때문이다.
+저장소는 첫 로드 때 `navigator.storage.persist()`로 영구 모드로 올려 디스크 정리에 휩쓸리지 않게 한다.
 
 WASM을 멀티스레드로 돌려 보려면 `VITE_COEP=1 pnpm --filter meeting-stt-web-prototype dev`로 띄운다.
 COOP/COEP 헤더가 붙어 `crossOriginIsolated`가 켜지고, 화면의 환경 패널에서 확인할 수 있다.

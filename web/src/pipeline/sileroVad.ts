@@ -14,8 +14,8 @@ import {
 } from '@huggingface/transformers'
 
 import type { DeviceKind } from './messages'
+import { VAD_MODEL_ID } from './modelIds'
 
-export const VAD_MODEL_ID = 'onnx-community/silero-vad'
 /** 16kHz에서 silero v5가 받는 창 크기 */
 export const VAD_WINDOW_SAMPLES = 512
 const VAD_CONTEXT_SAMPLES = 64
