@@ -1,6 +1,6 @@
 out
 dist
-scripts/fixtures
+apps/desktop/scripts/fixtures
 pnpm-lock.yaml
 LICENSE.md
 tsconfig.json
@@ -8,4 +8,4 @@ tsconfig.*.json
 .claude/
 
 # whisper --output-json-full 샘플은 유효한 UTF-8이 아니라서 prettier가 다시 쓰면 깨진다
-src/main/pipeline/fixtures/
+apps/desktop/src/main/pipeline/fixtures/

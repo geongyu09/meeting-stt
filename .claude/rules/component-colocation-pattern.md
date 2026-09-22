@@ -1,8 +1,8 @@
 ---
 paths:
-  - "src/renderer/src/pages/**"
-  - "src/renderer/src/modules/**"
-  - "src/renderer/src/shared/components/**"
+  - "apps/desktop/src/renderer/src/pages/**"
+  - "apps/desktop/src/renderer/src/modules/**"
+  - "apps/desktop/src/renderer/src/shared/components/**"
 description: renderer React 컴포넌트가 지켜야 하는 폴더/index.tsx 방식의 콜로케이션 패턴 가이드라인. 컴포넌트 생성·수정·리팩토링·코드리뷰 전 필독.
 ---
 

@@ -6,11 +6,11 @@ out
 *.log*
 
 # Phase 1 검증용 로컬 오디오/모델 (용량이 크고 재현 가능하므로 커밋하지 않는다)
-scripts/fixtures/
+apps/desktop/scripts/fixtures/
 *.wav
 *.bin
 *.onnx
-resources/bin/
+apps/desktop/resources/bin/
 
 # 새 프로젝트(브라우저 워커 기반 전사 서비스)로 옮겨 갈 설계 문서. 이 저장소의 SSOT가 아니다
 docs/browser-worker-service-design.md

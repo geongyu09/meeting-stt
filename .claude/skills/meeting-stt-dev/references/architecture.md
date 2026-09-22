@@ -1,5 +1,7 @@
 # 아키텍처: 프로세스 경계, 디렉터리, IPC
 
+이 문서는 **데스크탑 앱(`apps/desktop`)** 내부를 다룬다. 아래 `src/…`, `scripts/…`, `resources/…`는 모두 `apps/desktop/` 기준이고, 워크스페이스 경계와 공용 패키지는 `references/monorepo.md`에 있다.
+
 ## 프로세스 경계
 
 ```
@@ -32,29 +34,39 @@
 
 ## 디렉터리 배치 (목표)
 
+워크스페이스 전체는 이렇게 생겼다 (`references/monorepo.md`).
+
 ```
-scripts/                      # Phase 1 검증 스크립트 (`pnpm tsx scripts/<name>.ts`로 실행)
+apps/desktop/                 # 제품 Electron 앱 (패키지 이름 meeting-stt) — 아래 상세
+apps/web/                     # 브라우저 추론 프로토타입 (docs/browser-prototype-plan.md)
+packages/core/src/            # 순수 공용 로직 — types, merge, format, normalize(공식), speakerCount, audio
+packages/models/src/          # 모델 카탈로그 — desktop.ts(동봉·다운로드 자산), web.ts(HF 저장소 id·dtype)
+```
+
+데스크탑 앱 내부:
+
+```
+scripts/                      # Phase 1 검증 스크립트 (`pnpm --filter meeting-stt exec tsx scripts/<name>.ts`)
   pipeline.ts                 # wav → normalize → whisper → diarize → merge → 콘솔/JSON 출력
   fixtures/                   # 테스트용 한국어 회의 WAV (git 제외)
 resources/
   bin/darwin-arm64/whisper-cli, sherpa-onnx-offline-speaker-diarization, llama-cli (+ dylib)
 src/
-  shared/
-    types.ts                  # Meeting, MeetingDetail, Utterance, Speaker, SttSegment, SpeakerSegment
+  shared/                     # 이 앱의 두 프로세스가 함께 쓰는 순수 TS (공용 로직은 @meeting-stt/core에 있다)
+    types.ts                  # Meeting, MeetingDetail, Utterance, Speaker, AppSettings (+ core의 파이프라인 타입 재노출)
     ipc.ts                    # 채널 상수 + 요청/응답/이벤트 payload 타입
-    audio.ts                  # 샘플레이트·청크 크기 등 renderer/main 공용 오디오 상수
-    merge.ts                  # assignSpeakers(군소 화자 흡수 포함), mergeUtterances (순수 함수, vitest)
-    format.ts                 # 타임스탬프 [hh:mm:ss], 복사용 텍스트/마크다운 조립
+    audio.ts                  # 녹음 청크 크기·레벨 미터 (형식 상수 SAMPLE_RATE_HZ 등은 core에서 재노출)
     progress.ts               # 단계별 퍼센트 → 전체 진행률 (가중치, 순수 함수, vitest)
+    summary.ts                # 요약 프롬프트·청킹 (Phase 5, 순수 함수)
   main/
     index.ts                  # 앱 수명주기, 권한 요청, ipc 등록
     log.ts                    # 운영 로그 (console 직접 호출 금지)
     windows/{main,widget,tray,shortcuts}.ts   # 메인 창·위젯 패널·메뉴바·전역 단축키 (Phase 5-3)
     audio/{session,wavWriter,recordings}.ts   # 녹음 세션 상태·WAV append·파일 정리
-    pipeline/{queue,run,normalize,whisper,diarize}.ts   # normalize는 RMS 게인 정규화(순수 TS), vad는 whisper 내장이라 별도 단계 없음
+    pipeline/{queue,run,normalize,whisper,diarize}.ts   # normalize는 RMS 게인 정규화(공식·상수는 @meeting-stt/core), vad는 whisper 내장이라 별도 단계 없음
     db/{connection,migrations,meetings,utterances,speakers,settings}.ts
-    models/{registry,paths,download,recommend,service}.ts   # 레지스트리(스크립트와 공유)·경로 해석·다운로드·저사양 권장
-    summary/{llama,run,paths,transcript}.ts                 # 로컬 요약 (Phase 5)
+    models/{paths,download,recommend,service}.ts   # 경로 해석·다운로드·저사양 권장 (자산 목록은 @meeting-stt/models/desktop)
+    summary/{llama,run,paths,transcript}.ts        # 로컬 요약 (Phase 5)
     updater.ts                # electron-updater, 기본 꺼짐 (references/distribution.md)
     bin/{paths,spawn}.ts
     ipc/handlers.ts

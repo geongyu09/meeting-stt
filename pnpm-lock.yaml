@@ -7,6 +7,36 @@ settings:
 importers:
 
   .:
+    devDependencies:
+      '@electron-toolkit/eslint-config-prettier':
+        specifier: ^3.0.0
+        version: 3.0.0(eslint@9.39.5(jiti@2.7.0))(prettier@3.9.6)
+      '@electron-toolkit/eslint-config-ts':
+        specifier: ^3.1.0
+        version: 3.1.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+      eslint:
+        specifier: ^9.39.1
+        version: 9.39.5(jiti@2.7.0)
+      eslint-plugin-react:
+        specifier: ^7.37.5
+        version: 7.37.5(eslint@9.39.5(jiti@2.7.0))
+      eslint-plugin-react-hooks:
+        specifier: ^7.0.1
+        version: 7.1.1(eslint@9.39.5(jiti@2.7.0))
+      eslint-plugin-react-refresh:
+        specifier: ^0.4.24
+        version: 0.4.26(eslint@9.39.5(jiti@2.7.0))
+      prettier:
+        specifier: ^3.7.4
+        version: 3.9.6
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@types/node@22.20.1)(happy-dom@20.11.6)(vite@7.3.6(@types/node@22.20.1)(jiti@2.7.0)(tsx@4.23.12))
+
+  apps/desktop:
     dependencies:
       '@electron-toolkit/utils':
         specifier: ^4.0.0
@@ -21,15 +51,15 @@ importers:
         specifier: ^8.3.0
         version: 8.3.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
     devDependencies:
-      '@electron-toolkit/eslint-config-prettier':
-        specifier: ^3.0.0
-        version: 3.0.0(eslint@9.39.5(jiti@2.7.0))(prettier@3.9.6)
-      '@electron-toolkit/eslint-config-ts':
-        specifier: ^3.1.0
-        version: 3.1.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
       '@electron-toolkit/tsconfig':
         specifier: ^2.0.0
         version: 2.0.0(@types/node@22.20.1)
+      '@meeting-stt/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@meeting-stt/models':
+        specifier: workspace:*
+        version: link:../../packages/models
       '@testing-library/react':
         specifier: ^16.3.2
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -52,7 +82,7 @@ importers:
         specifier: ^5.1.1
         version: 5.2.0(vite@7.3.6(@types/node@22.20.1)(jiti@2.7.0)(tsx@4.23.12))
       electron:
-        specifier: ^39.2.6
+        specifier: 39.8.10
         version: 39.8.10
       electron-builder:
         specifier: ^26.0.12
@@ -60,24 +90,9 @@ importers:
       electron-vite:
         specifier: ^5.0.0
         version: 5.0.0(vite@7.3.6(@types/node@22.20.1)(jiti@2.7.0)(tsx@4.23.12))
-      eslint:
-        specifier: ^9.39.1
-        version: 9.39.5(jiti@2.7.0)
-      eslint-plugin-react:
-        specifier: ^7.37.5
-        version: 7.37.5(eslint@9.39.5(jiti@2.7.0))
-      eslint-plugin-react-hooks:
-        specifier: ^7.0.1
-        version: 7.1.1(eslint@9.39.5(jiti@2.7.0))
-      eslint-plugin-react-refresh:
-        specifier: ^0.4.24
-        version: 0.4.26(eslint@9.39.5(jiti@2.7.0))
       happy-dom:
         specifier: ^20.11.6
         version: 20.11.6
-      prettier:
-        specifier: ^3.7.4
-        version: 3.9.6
       react:
         specifier: ^19.2.1
         version: 19.2.8
@@ -87,17 +102,11 @@ importers:
       tsx:
         specifier: ^4.23.12
         version: 4.23.12
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
       vite:
         specifier: ^7.2.6
         version: 7.3.6(@types/node@22.20.1)(jiti@2.7.0)(tsx@4.23.12)
-      vitest:
-        specifier: ^4.1.11
-        version: 4.1.11(@types/node@22.20.1)(happy-dom@20.11.6)(vite@7.3.6(@types/node@22.20.1)(jiti@2.7.0)(tsx@4.23.12))
 
-  web:
+  apps/web:
     dependencies:
       '@huggingface/transformers':
         specifier: ^4.3.0
@@ -109,6 +118,12 @@ importers:
         specifier: ^19.2.1
         version: 19.2.8(react@19.2.8)
     devDependencies:
+      '@meeting-stt/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@meeting-stt/models':
+        specifier: workspace:*
+        version: link:../../packages/models
       '@types/react':
         specifier: ^19.2.7
         version: 19.2.18
@@ -118,15 +133,16 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^5.1.1
         version: 5.2.0(vite@7.3.6(@types/node@22.20.1)(jiti@2.7.0)(tsx@4.23.12))
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+      tsx:
+        specifier: ^4.23.12
+        version: 4.23.12
       vite:
         specifier: ^7.2.6
         version: 7.3.6(@types/node@22.20.1)(jiti@2.7.0)(tsx@4.23.12)
-      vitest:
-        specifier: ^4.1.11
-        version: 4.1.11(@types/node@22.20.1)(happy-dom@20.11.6)(vite@7.3.6(@types/node@22.20.1)(jiti@2.7.0)(tsx@4.23.12))
+
+  packages/core: {}
+
+  packages/models: {}
 
 packages:
 
@@ -5674,13 +5690,13 @@ snapshots:
 
   node-abi@4.34.0:
     dependencies:
-      semver: 7.7.4
+      semver: 7.8.5
 
   node-addon-api@8.9.2: {}
 
   node-api-version@0.2.1:
     dependencies:
-      semver: 7.7.4
+      semver: 7.8.5
 
   node-exports-info@1.6.2:
     dependencies:
@@ -5696,7 +5712,7 @@ snapshots:
       graceful-fs: 4.2.11
       nopt: 9.0.0
       proc-log: 6.1.0
-      semver: 7.7.4
+      semver: 7.8.5
       tar: 7.5.22
       tinyglobby: 0.2.17
       undici: 6.28.0

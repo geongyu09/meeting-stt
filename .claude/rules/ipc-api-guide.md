@@ -1,13 +1,15 @@
 ---
 description: IPC 채널·payload 타입(src/shared/ipc.ts), main 핸들러, preload window.api 노출, renderer api 래퍼(@renderer/shared/api) 작성 규칙. IPC·API 코드 작성 전 필독.
 paths:
-  - "src/shared/ipc.ts"
-  - "src/main/ipc/**"
-  - "src/preload/**"
-  - "src/renderer/src/shared/api/**"
+  - "apps/desktop/src/shared/ipc.ts"
+  - "apps/desktop/src/main/ipc/**"
+  - "apps/desktop/src/preload/**"
+  - "apps/desktop/src/renderer/src/shared/api/**"
 ---
 
 # IPC · API 가이드라인
+
+경로는 모두 데스크탑 앱(`apps/desktop/`) 기준 (`.claude/rules/project-structure.md`).
 
 이 프로젝트에는 HTTP 서버가 없음. renderer의 "API"는 preload가 노출한 `window.api`이며, 실체는 main 프로세스의 IPC 핸들러. 네 층이 한 채널을 공유하므로 **채널과 타입은 한 곳(`src/shared/ipc.ts`)에서만 정의**하고 나머지는 그것을 import함.
 

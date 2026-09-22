@@ -27,7 +27,8 @@ description: 로컬 STT 회의록 데스크탑 앱(meeting-stt)의 개발 방향
 | --- | --- | --- |
 | 대상 플랫폼 | **macOS 14+ / Apple Silicon 전용** | Windows는 지원하지 않는다 (2026-08-26 결정). 새 코드에 `win32` 분기·자산을 만들지 않는다. 이미 있는 `win32-x64` 바이너리·`build:win`·`setupBin --platform=win32-x64`는 유지·검증 대상이 아니다 |
 | 데스크탑 프레임워크 | **Electron** (electron-vite + React 19 + TS) | 이미 스캐폴드됨. Tauri로 전환하지 않는다 |
-| 패키지 매니저 / 스크립트 러너 | **pnpm 10** (`pnpm install`, `pnpm dev`, `pnpm test`, `pnpm tsx scripts/*.ts`) | 런타임은 **Node 22+**. 단위 테스트는 **vitest**, TS 스크립트 실행은 **tsx**. bun/npm/yarn 명령을 문서·스크립트에 섞지 않는다 |
+| 패키지 매니저 / 스크립트 러너 | **pnpm 10** (`pnpm install`, `pnpm dev`, `pnpm test`, `pnpm --filter meeting-stt exec tsx scripts/*.ts`) | 런타임은 **Node 22+**. 단위 테스트는 **vitest**, TS 스크립트 실행은 **tsx**. bun/npm/yarn 명령을 문서·스크립트에 섞지 않는다 |
+| 리포지토리 구조 | **pnpm 워크스페이스 모노레포** — `apps/desktop`(제품 Electron 앱) · `apps/web`(브라우저 프로토타입) · `packages/core`(순수 공용 로직) · `packages/models`(모델 카탈로그) | 두 앱이 같은 파이프라인을 다른 런타임에서 돌리므로 병합·포맷·정규화 공식·참석자 수 규칙·모델 카탈로그는 `packages/*`에 **한 번만** 정의한다. 의존 방향은 `apps/* → packages/*` 한 방향이고 패키지는 electron·fs·DOM을 import하지 않는다. 워크스페이스 경계·스크립트 규약·새 패키지 추가 절차는 `references/monorepo.md` |
 | STT 엔진 | **whisper.cpp** `whisper-cli` 바이너리를 `child_process`로 spawn (방식 A) | 기본 모델 `ggml-large-v3-turbo-q5_0.bin`, 고품질 옵션 `large-v3-q5_0`, 저사양 옵션 `small-q5_1`. `-l ko --output-json-full` + 토큰 타임스탬프. **`-dtw`는 끔** (Phase 1에서 이득 없음, `--no-flash-attn`을 강제해 느려짐) |
 | 화자 분리 | **sherpa-onnx** (pyannote segmentation-3.0 ONNX + 3D-Speaker ERes2Net 임베딩) | `sherpa-onnx-offline-speaker-diarization` CLI spawn (v1.13.6), **CPU 프로바이더** (`coreml`은 CPU보다 훨씬 느려 사용 안 함). **참석자 수를 받아 `--clustering.num-clusters`로 돌리는 것이 기본 경로**(녹음 정지 시 입력, `meetings.speaker_count`). sherpa-onnx의 군집은 complete-linkage + 코사인 거리 고정 임계값이라 **임계값 방식은 클러스터 수가 참석자 수가 아니라 녹음 길이·발화 교대에 비례해 늘어난다** (71분 발표: 0.9에서 115개·10초 이상 38명, 앱 26분 회의: 129개·23명). 참석자 수가 없을 때만 `--clustering.cluster-threshold=0.8` + 군소 화자 흡수(10초 미만, `assignSpeakers`)로 폴백하고 과분할될 수 있음을 UI에 안내한다. 참석자 수가 있으면 군소 화자 흡수를 하지 않는다 (`docs/phase1-results.md` 6·7절) |
 | 가속 · 스레드 | whisper.cpp·llama.cpp는 **Metal GPU**(전 레이어 offload), sherpa-onnx는 CPU. spawn에 넘기는 스레드 수는 **성능 코어(P) 수 기준**으로 프로세스마다 따로 정한다 | `os.cpus().length - 2`처럼 효율 코어까지 세면 **더 느려지면서 발열만 는다** (M3 Pro 실측: 화자 분리 `-t 10` 18.2초·CPU 915% → `-t 6` 10.8초·CPU 593%). **설정 '조용히 처리'(`pipeline.quiet`, 기본 꺼짐)** 를 켜면 화자 분리 스레드를 성능 코어의 절반으로 줄이고 STT와 순차로 돌린다 (화자 분리 +44%, CPU 부하 절반). 화자 분리를 CoreML로 옮기지 않는 이유(임베딩 입력 길이가 호출마다 달라 CPU보다 느림)도 같은 문서에 있다. 정책과 실측표는 `references/architecture.md` |
@@ -93,14 +94,15 @@ Phase 5-2(시스템 오디오 캡처)는 아직 시작하지 않았다.
 
 ## 4. 코드 구조와 규칙
 
-디렉터리 배치·IPC 규약·프로세스 경계는 `references/architecture.md`, 배포(모델 다운로드·바이너리·서명·업데이트·CI)는 `references/distribution.md`를 따른다. 코드 컨벤션·renderer React 레이어(추상화 레벨·콜로케이션·세그먼트·훅 위치)·IPC/API 작성·테스트 배치 규칙은 `.claude/rules/*.md`에 있으며, 해당 경로의 파일을 만들거나 수정할 때 자동으로 적용된다. 핵심 규칙:
+워크스페이스 경계·패키지 형태·스크립트 규약은 `references/monorepo.md`, 데스크탑 앱 내부의 디렉터리 배치·IPC 규약·프로세스 경계는 `references/architecture.md`, 배포(모델 다운로드·바이너리·서명·업데이트·CI)는 `references/distribution.md`를 따른다. 코드 컨벤션·renderer React 레이어(추상화 레벨·콜로케이션·세그먼트·훅 위치)·IPC/API 작성·테스트 배치 규칙은 `.claude/rules/*.md`에 있으며, 해당 경로의 파일을 만들거나 수정할 때 자동으로 적용된다. 핵심 규칙:
 
+- **워크스페이스 경계**: 두 앱이 같은 값·같은 알고리즘을 써야 하면 `packages/core`(순수 로직)나 `packages/models`(모델 카탈로그)에 올리고, 런타임 API(`fs`, `electron`, `AudioContext`, 워커, spawn)를 만지는 코드는 앱에 남긴다. 아래 `src/…` 경로는 모두 `apps/desktop/` 기준이다 (`references/monorepo.md`).
 - **프로세스 경계**: `src/main`(Node) / `src/preload`(contextBridge) / `src/renderer`(브라우저) / `src/shared`(순수 TS 타입·유틸, 런타임 의존 없음). 병합 알고리즘·포맷터 같은 순수 로직은 `src/shared` 또는 `src/main/pipeline`에 두고 `pnpm test`(vitest)로 단위 테스트한다.
 - **IPC**: 채널 이름과 payload 타입은 `src/shared/ipc.ts`에 단일 정의. 요청-응답은 `ipcMain.handle`/`ipcRenderer.invoke`, 진행률 등 push는 `webContents.send`. preload는 `window.api`에 **타입이 붙은 함수만** 노출하고 `ipcRenderer`를 직접 노출하지 않는다.
 - **외부 바이너리**: `resources/bin/<platform>-<arch>/` 에 두고 `asarUnpack` 대상으로 유지. 실행 전 존재·실행권한 확인, stdout JSON 파싱 실패/비정상 종료는 `status='error'`로 기록하고 사용자에게 안내한다.
 - **데이터**: 화자 이름은 `utterances`에 쓰지 않고 `speakers(meeting_id, label) → display_name` 매핑으로 관리한다(한 번 바꾸면 전체 반영). 모든 시간 값은 초(sec, REAL), 생성 시각은 epoch ms.
 - **한국어 우선**: 기본 언어 `ko`, UI 문구·문서·커밋 메시지는 한국어. 코드 식별자는 영어.
-- **pnpm 주의**: pnpm 10은 의존성의 install/postinstall 스크립트를 기본 차단한다. 네이티브 애드온·바이너리 다운로드 패키지(`electron`, `esbuild`, `electron-winstaller`, `better-sqlite3`)는 `package.json`의 `pnpm.onlyBuiltDependencies`에 등록해야 한다. 새 네이티브 의존성을 추가하면 이 목록도 갱신한다. `.npmrc`의 `node-linker=hoisted`는 electron-builder 패키징을 위한 설정이므로 지우지 않는다. `package.json` scripts 내부 호출은 `pnpm run <script>`로 통일한다.
+- **pnpm 주의**: pnpm 10은 의존성의 install/postinstall 스크립트를 기본 차단한다. 네이티브 애드온·바이너리 다운로드 패키지(`electron`, `esbuild`, `electron-winstaller`, `better-sqlite3`)는 **워크스페이스 루트** `package.json`의 `pnpm.onlyBuiltDependencies`에 등록해야 한다 (앱 `package.json`에 적으면 무시된다). 새 네이티브 의존성을 추가하면 이 목록도 갱신한다. `.npmrc`의 `node-linker=hoisted`는 electron-builder 패키징을 위한 설정이므로 지우지 않는다. `package.json` scripts 내부 호출은 `pnpm run <script>`로 통일한다.
 - **범위 절제**: plan.md에 없는 기능(클라우드 동기화, 실시간 스트리밍 STT, 계정 등)은 제안만 하고 구현하지 않는다.
 
 ## 5. 알려진 함정 (구현 전 확인)

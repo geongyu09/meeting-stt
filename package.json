@@ -1,9 +1,8 @@
 {
-  "name": "meeting-stt",
-  "version": "0.1.1",
-  "description": "서버 없이 로컬에서 동작하는 STT 회의록 데스크탑 앱 (whisper.cpp + sherpa-onnx)",
+  "name": "meeting-stt-workspace",
+  "version": "0.0.0",
+  "description": "meeting-stt 모노레포 — 데스크탑 앱·브라우저 프로토타입·공용 패키지",
   "private": true,
-  "main": "./out/main/index.js",
   "packageManager": "pnpm@10.33.0",
   "engines": {
     "node": ">=22"
@@ -11,22 +10,19 @@
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
-    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
-    "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
-    "typecheck": "pnpm run typecheck:node && pnpm run typecheck:web",
-    "test": "vitest run --passWithNoTests",
-    "test:watch": "vitest",
-    "start": "electron-vite preview",
-    "dev": "electron-vite dev",
-    "build": "pnpm run typecheck && electron-vite build",
-    "postinstall": "electron-builder install-app-deps",
-    "build:unpack": "pnpm run build && electron-builder --dir",
-    "build:win": "pnpm run build && electron-builder --win",
-    "build:mac": "pnpm run build && electron-builder --mac",
-    "build:mac:release": "pnpm run build && electron-builder --mac -c.mac.notarize=true",
-    "release:mac": "pnpm run build && electron-builder --mac -c.mac.notarize=true --publish always",
-    "setup:bin": "tsx scripts/setupBin.ts",
-    "setup:models": "tsx scripts/setupModels.ts"
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
+    "dev": "pnpm --filter meeting-stt run dev",
+    "dev:web": "pnpm --filter @meeting-stt/web run dev",
+    "start": "pnpm --filter meeting-stt run start",
+    "build": "pnpm --filter meeting-stt run build",
+    "build:web": "pnpm --filter @meeting-stt/web run build",
+    "build:unpack": "pnpm --filter meeting-stt run build:unpack",
+    "build:mac": "pnpm --filter meeting-stt run build:mac",
+    "build:mac:release": "pnpm --filter meeting-stt run build:mac:release",
+    "release:mac": "pnpm --filter meeting-stt run release:mac",
+    "setup:bin": "pnpm --filter meeting-stt run setup:bin",
+    "setup:models": "pnpm --filter meeting-stt run setup:models"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -39,37 +35,15 @@
       "protobufjs"
     ]
   },
-  "dependencies": {
-    "@electron-toolkit/utils": "^4.0.0",
-    "better-sqlite3": "^13.0.3",
-    "electron-updater": "^6.8.9",
-    "react-router": "^8.3.0"
-  },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
     "@electron-toolkit/eslint-config-ts": "^3.1.0",
-    "@electron-toolkit/tsconfig": "^2.0.0",
-    "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.6",
-    "@types/better-sqlite3": "^9.6.0",
-    "@types/node": "^22.19.1",
-    "@types/react": "^19.2.7",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.1",
-    "electron": "^39.2.6",
-    "electron-builder": "^26.0.12",
-    "electron-vite": "^5.0.0",
     "eslint": "^9.39.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
-    "happy-dom": "^20.11.6",
     "prettier": "^3.7.4",
-    "react": "^19.2.1",
-    "react-dom": "^19.2.1",
-    "tsx": "^4.23.12",
     "typescript": "^5.9.3",
-    "vite": "^7.2.6",
     "vitest": "^4.1.11"
   }
 }

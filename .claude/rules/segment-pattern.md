@@ -1,8 +1,8 @@
 ---
 paths:
-  - "src/renderer/src/modules/**"
-  - "src/renderer/src/shared/components/**"
-  - "src/renderer/src/shared/hooks/**"
+  - "apps/desktop/src/renderer/src/modules/**"
+  - "apps/desktop/src/renderer/src/shared/components/**"
+  - "apps/desktop/src/renderer/src/shared/hooks/**"
 description: 컴포넌트 폴더(widgets·features·composites) 내부 세그먼트(ui / model / utils / types / constants / context)의 정의와 배치·의존 규칙, 훅 위치(model vs shared/hooks) 판단 기준. 세그먼트 코드 생성·배치·이동 전 필독.
 ---
 

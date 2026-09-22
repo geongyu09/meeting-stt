@@ -1,13 +1,15 @@
 ---
 paths:
-  - "src/**"
-description: 프로세스 경계(main / preload / renderer / shared)와 전체 폴더 구조, 레이어별 역할, 네이밍 원칙. 새 파일·폴더 생성이나 파일 위치 판단 전 필독.
+  - "apps/desktop/src/**"
+  - "apps/web/src/**"
+  - "packages/*/src/**"
+description: 워크스페이스 경계(apps / packages)와 프로세스 경계(main / preload / renderer / shared), 전체 폴더 구조, 레이어별 역할, 네이밍 원칙. 새 파일·폴더 생성이나 파일 위치 판단 전 필독.
 ---
 
 # 프로젝트 폴더 구조 가이드라인
 
 폴더 구조는 '변경에 유연함'을 판단 근거로 잡았기 때문에, 아래 모든 규칙은 **"코드가 어떤 이유로 함께 바뀌는가"** 를 따라 결정됨.
-이 프로젝트는 Electron 앱이므로 그 위에 **프로세스 경계**가 한 겹 더 있음. 먼저 프로세스를 정하고, renderer 안에서는 React 레이어 규칙을 적용.
+이 저장소는 pnpm 워크스페이스 모노레포이고 제품은 Electron 앱이라, React 레이어 규칙 위에 **워크스페이스 경계**와 **프로세스 경계**가 두 겹 더 있음. 워크스페이스 → 프로세스 → React 레이어 순으로 정함.
 
 세부 규칙은 역할별 문서 참고.
 
@@ -18,20 +20,47 @@ description: 프로세스 경계(main / preload / renderer / shared)와 전체 �
 - 훅: `.claude/rules/hook-guide.md`
 - 테스트: `.claude/rules/test-strategy.md`
 
+## 워크스페이스 경계 (먼저 판단)
+
+pnpm 워크스페이스 모노레포다. **먼저 워크스페이스를 정하고**, 데스크탑 앱 안에서는 프로세스를, renderer 안에서는 React 레이어 규칙을 적용.
+
+```
+apps/desktop/      제품 Electron 앱 (패키지 meeting-stt)
+apps/web/          브라우저 추론 프로토타입 (@meeting-stt/web)
+packages/core/     순수 공용 로직 (@meeting-stt/core)
+packages/models/   모델 카탈로그 (@meeting-stt/models)
+```
+
+| 새 코드가 이런 것이면 | 여기 |
+| --- | --- |
+| 두 앱이 **같은 값·같은 알고리즘**을 써야 하는 순수 TS (병합, 포맷, 정규화 공식·상수, 참석자 수 규칙, 오디오 형식) | `packages/core/src/<역할>.ts` |
+| 어느 모델을 쓰는지 (저장소·파일명·체크섬·양자화·용량) | `packages/models/src/{desktop,web}.ts` |
+| Electron·Node·SQLite·동봉 바이너리를 만지거나 앱 화면·IPC인 것 | `apps/desktop/src/…` |
+| 브라우저 워커·transformers.js·WebGPU를 만지는 것 | `apps/web/src/…` |
+
+- 의존 방향은 `apps/* → packages/*` 한 방향. 패키지는 앱을, 패키지는 서로를 import하지 않음. 앱끼리도 import 금지.
+- `packages/*`는 `electron`·`fs`·`child_process`·DOM·`react`를 import하지 않음 (Node·브라우저·vitest에서 같은 파일이 돈다).
+- **아래 `src/…` 경로는 모두 `apps/desktop/src/…`** 를 줄여 쓴 것. 웹 앱은 `apps/web/` 접두어를 붙여 적음.
+  워크스페이스 관리 규약은 `.claude/skills/meeting-stt-dev/references/monorepo.md`.
+
 ## 프로세스 경계
 
 | 위치 | 런타임 | 역할 | 금지 |
 | --- | --- | --- | --- |
-| `src/shared` | 양쪽 (순수 TS) | 도메인 타입, IPC 채널·payload 타입, 병합·포맷 같은 순수 함수 | 런타임 의존(`electron`, `fs`, `react`) 일체 |
+| `packages/core/src` | 두 앱 전부 (순수 TS) | 파이프라인 중간 산출물 타입, 화자 배정·발화 병합, 복사 포맷, 정규화 공식·상수, 참석자 수 규칙, 오디오 형식 상수 | 런타임 의존(`electron`, `fs`, `react`, DOM) 일체, 앱·다른 패키지 import |
+| `packages/models/src` | 두 앱 전부 (순수 데이터) | 모델 카탈로그 — 데스크탑 자산(URL·sha256·용량), 웹 저장소 id·dtype·ONNX 파일명 | 같음. 다운로드·파일 IO는 앱에 둠 |
+| `src/shared` | 이 앱의 양쪽 (순수 TS) | 도메인 타입, IPC 채널·payload 타입, 병합·포맷 같은 순수 함수 | 런타임 의존(`electron`, `fs`, `react`) 일체 |
 | `src/main` | Node | 창 생성, 녹음 파일 쓰기, 파이프라인(spawn), SQLite, 모델 관리, IPC 핸들러 | `react`, 동기 IO(`spawnSync`, 요청 경로의 `readFileSync`) |
 | `src/preload` | Node (contextBridge) | `window.api`에 타입 붙은 함수만 노출 | `ipcRenderer` 객체 직접 노출, 비즈니스 로직 |
 | `src/renderer/src` | Chromium (React) | 화면, 녹음 오디오 수집(AudioWorklet), `window.api` 호출·이벤트 구독 | `fs`, `child_process`, `electron`, `better-sqlite3` import, 추론·DB 접근 |
 
 - 의존 방향: `renderer → shared`, `main → shared`, `preload → shared`. `shared`는 아무것도 의존하지 않음.
 - **`src/shared`(프로세스 공용)와 `src/renderer/src/shared`(renderer 전용 공용)는 다른 폴더.** 별칭으로 구분: `@shared/*` = 프로세스 공용, `@renderer/shared/*` = renderer 공용. renderer 공용 코드는 `@shared`를 import할 수 있지만 그 반대는 불가.
+  - 공용 패키지는 별칭이 아니라 패키지 이름으로 import함: `@meeting-stt/core/merge`, `@meeting-stt/models/desktop`.
+    파일 하나가 모듈 하나(`exports: { "./*": "./src/*.ts" }`)이므로 배럴 `index.ts`를 만들지 않음.
   - `@shared/*` 별칭은 `src/shared` 생성 시 `tsconfig.web.json`·`tsconfig.node.json`·`electron.vite.config.ts`(main/preload/renderer 모두)에 함께 추가.
 
-## 전체 폴더 구조
+## 전체 폴더 구조 (`apps/desktop`)
 
 ```
 src/
@@ -169,6 +198,6 @@ widgets 안에서 독립적으로 존재할 수 있는, 섹션이 되지 못하�
 
 - renderer: 폴더명은 구현체 이름, 구현체 파일은 `index.ts(x)` (`Button/index.tsx`, `useRecorder/index.ts`). 코로케이션과 함께 변경에 유연함을 열어두기 위한 선택.
 - **컴포넌트 세그먼트(`ui`/`model`/`utils`/`types`/`constants`/`context`) 내부는 예외**: 폴더 + `index.ts`를 다시 쓰지 않고 구현체 이름의 플랫 파일 (`ui/UtteranceRow.tsx`, `model/useTranscript.ts`).
-- `src/shared`, `src/main`, `src/preload`는 폴더 + `index.ts` 방식을 쓰지 않고 역할별 플랫 파일. React 레이어 규칙(widgets/features 등)도 적용하지 않음.
+- `src/shared`, `src/main`, `src/preload`, `packages/*/src`는 폴더 + `index.ts` 방식을 쓰지 않고 역할별 플랫 파일. React 레이어 규칙(widgets/features 등)도 적용하지 않음.
 - 케밥 케이스 금지. 카멜(파스칼 포함)로 통일.
 - 테스트 파일은 "인덱스 제외 나머지는 폴더" 규칙의 예외 (`test.ts`, `test.tsx`, `*.test.ts`).

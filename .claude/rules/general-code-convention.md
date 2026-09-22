@@ -4,7 +4,8 @@ description: 모든 코드에 적용되는 전역 규칙(네이밍, 타입, 컴�
 
 # 전역 코드 컨벤션
 
-프로세스(main / preload / renderer / shared)와 무관하게 모든 코드에 적용됨.
+워크스페이스(apps/desktop · apps/web · packages/*)와 프로세스(main / preload / renderer / shared)에 무관하게 모든 코드에 적용됨.
+아래 `src/…` 경로는 데스크탑 앱(`apps/desktop/`) 기준.
 폴더 배치는 `.claude/rules/project-structure.md`, React 컴포넌트 규칙은 `component-abstract-pattern.md` / `component-colocation-pattern.md` / `segment-pattern.md` 참고.
 
 포매팅은 프로젝트 prettier 설정(`singleQuote`, `semi: false`, `printWidth: 100`, `trailingComma: none`)을 따르며, 손으로 맞추지 않고 `pnpm run format`으로 맞춤. 이 문서의 예시 코드도 같은 스타일.
@@ -17,7 +18,7 @@ description: 모든 코드에 적용되는 전역 규칙(네이밍, 타입, 컴�
 - 파일명: 컴포넌트는 `PascalCase.tsx`, 그 외는 `camelCase.ts`
 - 케밥 케이스 금지. 정적 파일(AudioWorklet, css)도 카멜로 통일 (`src/renderer/src/worklet/pcmRecorder.js`)
 - renderer의 컴포넌트·훅·유틸은 폴더 + `index.ts(x)` 형태. 단, 컴포넌트 세그먼트 내부는 플랫 파일 (`.claude/rules/segment-pattern.md`)
-- `src/shared`, `src/main`, `src/preload`(Node 쪽)는 폴더 + `index.ts`를 쓰지 않고 역할별 플랫 파일 (`src/main/pipeline/whisper.ts`)
+- `src/shared`, `src/main`, `src/preload`(Node 쪽)와 공용 패키지 `packages/*/src`는 폴더 + `index.ts`를 쓰지 않고 역할별 플랫 파일 (`src/main/pipeline/whisper.ts`, `packages/core/src/merge.ts`)
 - 타입 파일은 항상 `types/` 폴더 안에 내용을 나타내는 이름 (`types/meeting.ts`). `types.ts` 단일 파일·`types/index.ts` 금지 (프로세스 공용 `src/shared/types.ts`만 예외)
 
 ### 변수 및 함수명
@@ -64,7 +65,7 @@ description: 모든 코드에 적용되는 전역 규칙(네이밍, 타입, 컴�
 - 컴포넌트 props 타입: `컴포넌트명 + Props` **interface**
 - 훅·함수의 인자 타입: `함수명 + Params` **interface**
 - IPC 요청/응답 타입: `Request`, `Response` 접미 (`RenameSpeakerRequest`, `GetMeetingResponse`)
-- 도메인 타입(`Meeting`, `Utterance`, `Speaker`, `SttSegment`)은 `src/shared/types.ts`에서만 정의. 프로세스별로 재정의하지 않음
+- 파이프라인 중간 산출물 타입(`SttSegment`, `SpeakerSegment`, `SpeakerPiece`, `MergedUtterance`)은 `packages/core/src/types.ts`에서만 정의하고 두 앱이 그것을 import함. 제품 타입(`Meeting`, `Utterance`, `Speaker`, `AppSettings`)은 `src/shared/types.ts`에서만 정의. 프로세스·워크스페이스별로 재정의하지 않음
 
 ```tsx
 interface UtteranceEditorProps {
@@ -128,7 +129,8 @@ export default usePipelineProgress
 
 - 경로 별칭을 사용하고 상대 경로 남용 금지
   - `@renderer/*` → `src/renderer/src/*`
-  - `@shared/*` → `src/shared/*` (프로세스 공용, 순수 TS)
+  - `@shared/*` → `src/shared/*` (한 앱의 프로세스 공용, 순수 TS)
+  - `@meeting-stt/core/*`, `@meeting-stt/models/*` → 워크스페이스 공용 패키지. 별칭이 아니라 패키지 이름이라 두 앱에서 같은 경로로 import함
 - 상대 경로는 **같은 폴더 또는 하위 폴더**에서만 (`./model/useTranscript`, `./ui/UtteranceRow`)
 - 절대 경로 그룹과 상대 경로 그룹 사이는 빈 줄로 구분
 
@@ -144,4 +146,5 @@ import useTranscript from './model/useTranscript'
 - **프로세스 경계 임포트 금지 목록**
   - renderer: `fs`, `path`, `child_process`, `electron`, `better-sqlite3` import 금지 (`sandbox: false`여도 규칙으로 금지)
   - main / preload / shared: `react`, `react-dom` import 금지
+  - `packages/*`: `electron`, `fs`, `path`, `child_process`, `react`, DOM API(`window`, `AudioContext`) import 금지. 앱과 다른 패키지도 import하지 않음 (`references/monorepo.md`)
   - 런타임은 Node 22+ (Electron). Node 전용 API는 main/preload에서만, 브라우저 전용 API(`window`, `AudioContext`)는 renderer에서만 사용

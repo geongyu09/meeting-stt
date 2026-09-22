@@ -35,23 +35,24 @@ jobs:
           pnpm run typecheck
           pnpm test
 
-      # 이 단계가 실패하면 resources/bin이 비어 패키징해도 실행되지 않는다
+      # 이 단계가 실패하면 apps/desktop/resources/bin이 비어 패키징해도 실행되지 않는다
       - name: 동봉 바이너리 준비
-        run: pnpm tsx scripts/setupBin.ts --from-source
+        run: pnpm --filter meeting-stt exec tsx scripts/setupBin.ts --from-source
 
       # 서명하지 않는다 (릴리스는 로컬에서 만든다). 빈 CSC_LINK를 넘기면 electron-builder가
       # 그것을 인증서 경로로 읽어 "not a file"로 죽으므로 아예 주지 않는다.
       # electron-builder는 CI에서 태그를 보면 기본으로 게시하려 하므로 --publish never로 막는다
+      # electron-builder는 앱 워크스페이스에서 돌려야 electron-builder.yml·build/를 찾는다
       - name: 패키징
         run: |
           pnpm run build
-          pnpm exec electron-builder --mac --publish never
+          pnpm --filter meeting-stt exec electron-builder --mac --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
       - uses: actions/upload-artifact@v4
         with:
           name: meeting-stt-macOS
-          path: dist/*.dmg
+          path: apps/desktop/dist/*.dmg
           if-no-files-found: error
           retention-days: 7

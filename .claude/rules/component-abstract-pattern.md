@@ -1,8 +1,8 @@
 ---
 paths:
-  - "src/renderer/src/pages/**"
-  - "src/renderer/src/modules/**"
-  - "src/renderer/src/shared/components/**"
+  - "apps/desktop/src/renderer/src/pages/**"
+  - "apps/desktop/src/renderer/src/modules/**"
+  - "apps/desktop/src/renderer/src/shared/components/**"
 description: renderer React 컴포넌트가 지켜야 하는 추상화 레벨(pages > widgets > features > composites > primitives)을 정의한 가이드라인. 컴포넌트 생성·수정·리팩토링·코드리뷰 전 필독.
 ---
 

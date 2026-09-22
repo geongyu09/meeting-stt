@@ -1,7 +1,7 @@
 ---
 description: renderer 커스텀 훅(common / domain) 작성 가이드라인. shared/hooks 코드 생성·수정 전 필독.
 paths:
-  - "src/renderer/src/shared/hooks/**"
+  - "apps/desktop/src/renderer/src/shared/hooks/**"
 ---
 
 # React hook 가이드라인
