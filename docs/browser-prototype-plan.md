@@ -321,6 +321,10 @@ agent cluster로 묶어** 한 번에 세고, 워커가 `terminate`되면 그만�
 
 2026-09-22 사용자 지시로 정적 호스팅에 올린다. **Vercel**을 쓴다.
 
+- 배포 주소: <https://meeting-stt-web.vercel.app>
+- 프로젝트: `geongyu09's projects / meeting-stt-web` (hobby)
+- 2026-09-22 첫 배포에서 `crossOriginIsolated: 예`, WebGPU `apple / metal-3` + shader-f16, `영구 저장: 아니오`를 실측 확인했다.
+
 `web/`은 서버 코드가 없다. 추론·녹음·병합이 전부 브라우저에서 돌고 모델은 Hugging Face에서 직접 받으므로,
 빌드 산출물을 그대로 얹는 정적 호스팅이면 충분하다. 서버리스 함수를 만들지 않으니 실행 시간·바디 크기 제한과도 무관하다.
 
