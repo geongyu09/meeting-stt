@@ -1,0 +1,106 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 100vh;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+
+/* 제목 표시줄이 없는 창이라 이 영역을 잡아 끈다 */
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  -webkit-app-region: drag;
+}
+
+.title {
+  flex: 1;
+  font-size: var(--font-sm);
+  color: var(--color-text-muted);
+}
+
+.recordingDot,
+.idleDot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+}
+
+.recordingDot {
+  background: var(--color-danger);
+}
+
+.idleDot {
+  background: var(--color-text-muted);
+  opacity: 0.5;
+}
+
+.hideButton {
+  -webkit-app-region: no-drag;
+  padding: 0 var(--space-1);
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.hideButton:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+.elapsed {
+  margin: 0;
+  font-size: var(--font-xl);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.speakerCountContainer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.speakerCountLabel {
+  flex: 1;
+  font-size: var(--font-sm);
+  color: var(--color-text-muted);
+}
+
+.speakerCountInput {
+  width: 5em;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-sm);
+  text-align: center;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.speakerCountInput:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.speakerCountInput[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  text-align: center;
+}
+
+.error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--font-sm);
+  text-align: center;
+}

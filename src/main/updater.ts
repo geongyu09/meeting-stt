@@ -1,6 +1,7 @@
 import { is } from '@electron-toolkit/utils'
 import { autoUpdater } from 'electron-updater'
 import { info, messageOf, warn } from './log'
+import { pickAvailableVersion } from './updateResult'
 
 /**
  * 자동 업데이트는 **기본이 꺼짐**이다. 설정(`update.check`)을 켠 사용자만 확인한다 —
@@ -15,7 +16,7 @@ export const checkForUpdates = async ({ isEnabled }: { isEnabled: boolean }) => 
 
   try {
     const result = await autoUpdater.checkForUpdates()
-    const version = result?.updateInfo.version ?? null
+    const version = pickAvailableVersion(result)
     if (version) info(`새 버전이 있습니다: ${version}`)
 
     return version

@@ -86,6 +86,8 @@ CREATE TABLE IF NOT EXISTS settings (
 | `audio.keep` | boolean | `false` | 파이프라인 성공 후 원본 WAV를 보관할지. 끄면 삭제하고 `meetings.audio_path`를 `NULL`로 만든다 |
 | `update.check` | boolean | `false` | 앱 시작 시 새 버전이 있는지 확인할지 (Phase 4). 꺼져 있으면 네트워크를 전혀 쓰지 않는다 |
 | `stt.model` | `WhisperModelId` | `'turbo-q5'` | 온보딩·설정에서 고른 음성 인식 모델 (Phase 4). 모르는 값이면 기본 모델로 읽는다 |
+| `widget.enabled` | boolean | `true` | 앱 시작 시 녹음 위젯 패널을 띄울지 (Phase 5-3). 꺼도 메뉴바·전역 단축키는 그대로 동작한다 |
+| `widget.bounds` | `{ x, y }` | 없음 | 사용자가 옮긴 패널 위치 (Phase 5-3). 현재 디스플레이의 `workArea` 밖이면 버리고 기본 위치(우측 중앙)로 되돌린다 |
 | `pipeline.quiet` | boolean | `false` | 조용히 처리. 켜면 화자 분리 스레드를 줄이고 STT와 화자 분리를 순차로 돌린다. 느려지는 대신 발열·팬 소음이 준다. 잡이 **시작할 때** 읽으므로 진행 중인 잡에는 적용되지 않는다 (`references/architecture.md` 가속·스레드 정책) |
 
 ```ts
@@ -93,6 +95,7 @@ export interface AppSettings {
   isAudioKept: boolean
   isUpdateCheckEnabled: boolean
   isQuietProcessing: boolean
+  isWidgetEnabled: boolean
 }
 ```
 
@@ -102,6 +105,8 @@ export interface AppSettings {
   `settings:update`가 아니라 `models:download`가 쓴다 (`references/distribution.md` 3절). 읽기는 앱 시작 시 한 번
   `src/main/db/settings.ts`의 `getWhisperModelId()` → `src/main/models/paths.ts`의 `setSelectedWhisperModelId()`로 넘긴다.
   renderer는 `models:status` 응답의 `selectedWhisperModelId`로 본다.
+- **`widget.bounds`도 `AppSettings`에 넣지 않는다.** 설정 화면에서 사람이 고르는 값이 아니라 창을 옮길 때 main이 적어 두는
+  런타임 상태이고, 읽고 쓰는 쪽이 `src/main/windows/widget.ts` 하나뿐이기 때문이다.
 
 ## 공유 타입 (`src/shared/types.ts`)
 

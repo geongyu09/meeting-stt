@@ -64,6 +64,10 @@
 - 바이너리는 `asarUnpack` 대상이어야 실행 가능하고, macOS에서는 실행 권한(`chmod +x`)과 quarantine 해제가 필요하다. notarization 시 동봉 바이너리와 dylib까지 모두 서명(`hardenedRuntime`, entitlements에 `com.apple.security.cs.allow-unsigned-executable-memory` 등 필요 여부 확인).
 - 모델 파일은 절대 리포지토리나 설치 파일에 포함하지 않는다. `userData/models`에 다운로드하고 `.gitignore`로 차단.
 - `electron-builder.yml`의 `publish.url`, `appId`, `NSMicrophoneUsageDescription`은 스캐폴드 기본값이므로 배포 전 반드시 교체.
+- **`autoUpdater.checkForUpdates()`가 버전을 돌려줬다고 업데이트가 있는 것이 아니다.** 업데이트가 없어도 결과 객체가 오고
+  `updateInfo.version`은 **서버의 최신 버전**이다. 판단은 `result.isUpdateAvailable`로만 한다. 이걸 빠뜨리면 자기 버전을 "새 버전"으로 알리게 되고,
+  그 상태에서 누른 "받기"는 `Error: Please check update first`로 실패한다 — electron-updater가 업데이트가 있을 때만
+  내부 상태(`updateInfoAndProvider`)를 채우기 때문이다 (v0.1.0 배포본 실측, `distribution.md` 7절).
 
 ## 모델 다운로드 (Phase 4)
 - **`fetch`의 Range 응답은 200으로 올 수 있다.** 서버(또는 리다이렉트 뒤의 CDN)가 Range를 무시하면 전체 본문이 200으로 온다.
@@ -94,3 +98,27 @@
 - **요약 실패가 회의 상태를 덮어쓰면 안 된다.** `meetings.status`는 파이프라인 소유다. 요약 잡은 `summary:progress`의 `'error'`로만 알린다.
 - **`libllama-server-impl.dylib`은 `llama-server`를 쓰지 않아도 빼면 안 된다.** `llama-cli`가 직접 링크하고 있어 없으면 dyld가 실행을 거부한다. dylib은 실행 파일과 같은 폴더에 둔다 (rpath가 `@loader_path`).
 - 컨텍스트를 크게 잡으면 KV 캐시가 그만큼 커진다 (Qwen3-4B는 토큰당 약 144KB). 8192토큰이면 1.2GB 수준이라 저사양에서도 뜬다.
+
+## 녹음 위젯 패널 (Phase 5-3)
+
+결정과 근거는 `references/architecture.md`의 "녹음 위젯 패널" 절.
+
+- **숨겨지거나 가려진 창은 타이머·메시지 처리가 throttling된다.** 오디오 그래프를 들고 있는 위젯 창에는
+  `webPreferences.backgroundThrottling: false`가 필수다. `AudioWorklet` 자체는 별도 오디오 스레드라 살아 있지만,
+  `port.onmessage`로 넘어온 청크를 IPC로 넘기는 일은 메인 JS 스레드가 한다.
+- **경과 시간을 IPC로 흘려보내지 않는다.** `startedAt`만 주고 각 창이 `Date.now()`로 계산한다. 렌더가 밀려도 값이 정확하고 IPC 횟수도 늘지 않는다.
+- **`BrowserWindow.getAllWindows()[0]`을 메인 창으로 가정하지 않는다.** 위젯이 먼저 잡힐 수 있어
+  `app.on('activate')`의 창 재생성과 `second-instance` 포커스가 엉뚱한 창을 집는다. 메인 창 참조를 따로 들고 있는다.
+- **`window-all-closed`가 오지 않는다.** 위젯이 떠 있으면 메인 창을 닫아도 창이 남아 있어 macOS 외 플랫폼의 종료 처리가 걸리지 않는다. macOS 전용이라 당장 문제는 없지만, 종료 판단을 창 개수로 하지 않는다.
+- **패널 위치를 저장하면 화면 밖에 남을 수 있다.** 외장 모니터를 뺀 뒤 복원하면 보이지 않는 창이 된다. 저장값이 현재 디스플레이의 `workArea`와 겹치지 않으면 버리고 기본 위치로 되돌린다.
+- **Tray 아이콘 파일명은 `…Template.png`여야 한다.** 이 접미가 없으면 macOS가 다크 모드에서 아이콘을 반전하지 않아 검은 배경에 검은 아이콘이 된다.
+- **전역 단축키는 선점당할 수 있다.** `globalShortcut.register`의 반환값을 확인하고, 실패해도 경고만 남기고 앱을 띄운다.
+- **Tray 제목 갱신 타이머는 녹음 중에만 돌린다.** 상시 1초 타이머는 앱이 유휴 상태에서도 CPU를 깨워 배터리를 먹는다.
+- **Tray 컨텍스트 메뉴를 상태 이벤트마다 다시 만들지 않는다.** 레벨 값은 청크 주기(약 0.5초)로 바뀌므로 초당 두 번 메뉴가 교체된다.
+  녹음 여부가 바뀔 때만 `setContextMenu`하고, 표시/숨김처럼 매번 달라지는 문구는 메뉴에 넣지 않는다 (`위젯 표시/숨김` 한 항목).
+- **`loadFile(..., { hash })`에 앞의 `/`를 빼면 `#widget`이 된다.** `createHashRouter`는 `#/widget`을 기대하므로 라우트가 맞지 않는다.
+- **`recording:state` 조회 응답이 그 사이 도착한 상태 이벤트를 덮어쓸 수 있다.** 창이 열리자마자 녹음이 시작되면
+  먼저 보낸 조회의 (녹음 아님) 응답이 나중에 도착해 화면이 되돌아간다. 이벤트를 한 번이라도 받았으면 조회 결과를 버린다
+  (`useRecordingState`).
+- **설치된 앱이 떠 있으면 `pnpm dev`가 조용히 종료된다.** 단일 인스턴스 잠금(`app.requestSingleInstanceLock`)은 dev 빌드와 설치본을
+  같은 앱으로 본다. 로그도 남지 않고 exit 0으로 끝나므로, 개발 확인 전에 `/Applications`의 앱을 먼저 종료한다.

@@ -160,11 +160,17 @@ mac 앱에 딸려 들어가던 것을 `electron-builder.yml`의 `files`에서 `!
    릴리스할 커밋으로 별도 `git worktree`를 만들고 그 안에서 `pnpm install --frozen-lockfile`을 한다.
    `resources/bin/`은 git 제외라 원본 트리의 `resources/bin/darwin-arm64/`를 복사해 넣는다 (whisper는 `--from-source` 정적 빌드여야 한다).
 2. `package.json`의 `version`을 올리고 커밋한다. 릴리스 태그는 `v<version>`이다.
-3. `APPLE_KEYCHAIN_PROFILE=meeting-stt-notary GH_TOKEN=$(gh auth token) pnpm run release:mac`
-   → 서명·공증·스테이플 후 GitHub에 **드래프트 릴리스**를 만들고 `dmg`·`zip`·`*.blockmap`·`latest-mac.yml`을 올린다.
-   `zip`과 `latest-mac.yml`이 없으면 `electron-updater`가 업데이트를 찾지 못한다.
+3. **빌드와 업로드를 분리한다.** `APPLE_KEYCHAIN_PROFILE=meeting-stt-notary pnpm run build:mac:release`
+   → 서명·공증·스테이플까지만 하고 `dist/`에 `dmg`·`zip`·`*.blockmap`·`latest-mac.yml`을 남긴다.
+   `publish` 설정이 있으므로 업로드를 하지 않아도 `latest-mac.yml`은 만들어진다.
+   `release:mac`(`--publish always`)은 쓰지 않는다 — 병렬 업로드가 드래프트를 두 개 만들고 140MB 구간에서 끊긴다(아래).
 4. `codesign --verify --deep --strict` / `spctl -a -t exec -vv`(`source=Notarized Developer ID`) / `xcrun stapler validate <app>`로 확인한다.
-5. 드래프트를 확인한 뒤 게시한다. `electron-updater`는 **게시된** 릴리스만 본다.
+   동봉 바이너리는 `--deep`이 보지 않으므로 `resources/bin/darwin-arm64/*`를 따로 검증한다 (6절).
+5. `gh release create v<version> --draft`로 빈 드래프트를 만들고, 자산을 **하나씩 순서대로** 올린다.
+   작은 파일(`*.blockmap`, `latest-mac.yml`)은 `gh release upload`로 되지만, 140MB짜리 `dmg`·`zip`은
+   `curl -4 -X POST -T <파일>`(스트리밍)로 올린다. `zip`과 `latest-mac.yml`이 없으면 `electron-updater`가 업데이트를 찾지 못한다.
+6. 올린 자산을 다시 내려받아 `latest-mac.yml`의 sha512와 대조한 뒤 드래프트를 게시한다.
+   `electron-updater`는 **게시된** 릴리스만 본다.
 
 #### 업로드가 자주 끊긴다 (2026-09-18 v0.1.0 실측)
 
@@ -179,8 +185,20 @@ mac 앱에 딸려 들어가던 것을 `electron-builder.yml`의 `files`에서 `!
 - 올린 뒤에는 자산을 다시 내려받아 `latest-mac.yml`의 sha512와 대조한다. 끊긴 연결이 조용히 손상된 파일을 남길 수 있다.
 - 업로드 자체가 계속 실패하면 브라우저에서 릴리스 편집 화면에 끌어다 놓는 경로가 남아 있다 (웹 업로드는 다른 서버를 쓴다).
 
-**v0.1.0에는 zip이 없다.** 12번 시도가 전부 실패해 dmg만 올렸다. 설치에는 지장이 없고, 0.1.0이 최신인 동안에는 업데이트 확인도 문제가 없다
-(자기 버전과 같으면 내려받지 않는다). 다만 **다음 릴리스에는 zip이 반드시 있어야** 0.1.0 사용자가 업데이트를 받을 수 있다 — mac용 electron-updater는 zip만 받는다.
+**v0.1.0에는 zip이 없다.** 12번 시도가 전부 실패해 dmg만 올렸다. 설치에는 지장이 없고, 업데이트 **확인**도 zip 없이 동작한다
+(`latest-mac.yml`만 읽으면 되고, 내려받기는 그다음 릴리스의 자산에서 이뤄진다). 다만 **다음 릴리스에는 zip이 반드시 있어야**
+0.1.0 사용자가 업데이트를 받을 수 있다 — mac용 electron-updater는 zip만 받는다.
+
+배포본에서 "새 버전 0.1.0이 있습니다" 배너가 뜨고 "받기"가 `Please check update first`로 실패한 것은 **zip 누락과 무관하다.**
+`checkForUpdates()` 결과에서 `isUpdateAvailable`을 보지 않아 자기 버전을 새 버전으로 알린 것이다 (7절). v0.1.1에서 고쳤다.
+
+#### v0.1.1 실측 (2026-09-18) — 분리한 절차로는 한 번에 올라갔다
+
+`build:mac:release`로 빌드·공증을 끝내고 `gh release create --draft` 뒤에 자산을 하나씩 올렸더니
+zip 141MB가 91초(1.6MB/s), dmg 142MB가 101초(1.4MB/s)에 `201 Created`로 끝났다. **재시도 0회.**
+같은 `uploads.github.com`인데 v0.1.0에서 12번 실패한 것과 갈린 지점은 병렬 업로드 여부다 —
+electron-builder가 두 파일을 동시에 올리면서 드래프트를 둘로 쪼개던 것이 실패의 큰 몫이었다.
+작은 파일(`*.blockmap`, `latest-mac.yml`)은 `gh release upload`로 한 번에 올려도 문제없었다.
 
 ## 7. 자동 업데이트 — 기본은 꺼 둔다
 
@@ -191,6 +209,10 @@ mac 앱에 딸려 들어가던 것을 `electron-builder.yml`의 `files`에서 `!
 - 개발 모드(`is.dev`)에서는 아무것도 하지 않는다.
 - 업데이트 확인 실패는 로그만 남기고 무시한다. 오프라인이 정상 상태인 앱이다.
 - 확인 시점은 **창이 뜬 직후 한 번**이다. 주기적으로 다시 확인하지 않는다.
+- **새 버전 알림은 `checkForUpdates()` 결과의 `isUpdateAvailable`이 참일 때만 보낸다.** `checkForUpdates()`는 업데이트가 없어도 결과 객체를 돌려주고,
+  그 `updateInfo.version`에는 **서버의 최신 버전**(= 지금 쓰고 있는 버전일 수 있다)이 들어 있다. 이 필드만 보고 알리면 자기 버전을 새 버전으로 알리게 되고,
+  electron-updater는 업데이트가 있을 때만 내부 상태를 채우므로 사용자가 누른 "받기"가 `Please check update first`로 거절된다
+  (2026-09-18 v0.1.0 배포본에서 발생, `references/pitfalls.md`).
 
 ### 업데이트 IPC 계약
 
@@ -201,7 +223,7 @@ events:  { updateAvailable: 'update:available' }
 
 | 채널 | 요청 | 응답 |
 | --- | --- | --- |
-| `update:available` (push) | — | `{ version }` — 새 버전을 발견했을 때 한 번 |
+| `update:available` (push) | — | `{ version }` — `isUpdateAvailable`이 참일 때만 한 번 |
 | `update:download` | 없음 | 내려받기가 끝나면 resolve (`invoke`를 매달아 둔다 — 설치 파일 하나라 수십 초 안에 끝난다) |
 | `update:install` | 없음 | 응답 없음. `quitAndInstall()`로 앱이 종료된다 |
 

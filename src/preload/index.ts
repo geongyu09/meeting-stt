@@ -7,18 +7,25 @@ import {
   type GetMeetingRequest,
   type GetMeetingResponse,
   type GetMeetingsResponse,
+  type GetRecordingStateResponse,
   type GetSettingsResponse,
   type MergeSpeakersRequest,
+  type ControlRecordingRequest,
   type ModelDownloadProgressEvent,
   type ModelStatusResponse,
   type MutateMeetingResponse,
   type PipelineProgressEvent,
   type CreateSummaryRequest,
   type ReassignUtteranceRequest,
+  type RecordingCommandEvent,
+  type RecordingStateEvent,
+  type ReportRecordingErrorRequest,
   type RenameMeetingRequest,
   type RenameSpeakerRequest,
   type RequestMicrophonePermissionResponse,
   type SendRecordingChunkRequest,
+  type SetSpeakerCountRequest,
+  type SetWidgetVisibleRequest,
   type StartRecordingRequest,
   type StartRecordingResponse,
   type StopRecordingRequest,
@@ -42,7 +49,18 @@ const api = {
     chunk: (payload: SendRecordingChunkRequest): Promise<void> =>
       ipcRenderer.invoke(IPC.recording.chunk, payload),
     stop: (payload: StopRecordingRequest): Promise<StopRecordingResponse> =>
-      ipcRenderer.invoke(IPC.recording.stop, payload)
+      ipcRenderer.invoke(IPC.recording.stop, payload),
+    state: (): Promise<GetRecordingStateResponse> => ipcRenderer.invoke(IPC.recording.state),
+    control: (payload: ControlRecordingRequest): Promise<void> =>
+      ipcRenderer.invoke(IPC.recording.control, payload),
+    setSpeakerCount: (payload: SetSpeakerCountRequest): Promise<GetRecordingStateResponse> =>
+      ipcRenderer.invoke(IPC.recording.setSpeakerCount, payload),
+    reportError: (payload: ReportRecordingErrorRequest): Promise<void> =>
+      ipcRenderer.invoke(IPC.recording.reportError, payload)
+  },
+  widget: {
+    setVisible: (payload: SetWidgetVisibleRequest): Promise<void> =>
+      ipcRenderer.invoke(IPC.widget.setVisible, payload)
   },
   meetings: {
     list: (): Promise<GetMeetingsResponse> => ipcRenderer.invoke(IPC.meetings.list),
@@ -113,6 +131,22 @@ const api = {
 
       return () => {
         ipcRenderer.removeListener(IPC.events.modelDownload, handler)
+      }
+    },
+    onRecordingState: (listener: (event: RecordingStateEvent) => void) => {
+      const handler = (_: IpcRendererEvent, payload: RecordingStateEvent) => listener(payload)
+      ipcRenderer.on(IPC.events.recordingState, handler)
+
+      return () => {
+        ipcRenderer.removeListener(IPC.events.recordingState, handler)
+      }
+    },
+    onRecordingCommand: (listener: (event: RecordingCommandEvent) => void) => {
+      const handler = (_: IpcRendererEvent, payload: RecordingCommandEvent) => listener(payload)
+      ipcRenderer.on(IPC.events.recordingCommand, handler)
+
+      return () => {
+        ipcRenderer.removeListener(IPC.events.recordingCommand, handler)
       }
     },
     onUpdateAvailable: (listener: (event: UpdateAvailableEvent) => void) => {

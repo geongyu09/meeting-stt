@@ -3,20 +3,27 @@
 ## 프로세스 경계
 
 ```
-┌──────────────── renderer (Chromium, React) ────────────────┐
-│ 페이지: Onboarding / Home / Record / MeetingDetail        │
-│ 녹음: getUserMedia → AudioContext(16kHz) → AudioWorklet   │
-│       → Float32 PCM 청크를 IPC로 main에 전달              │
-│ 나머지는 window.api.* 호출 + 진행률 이벤트 구독만          │
+┌────────── renderer: 메인 창 (Chromium, React) ─────────────┐
+│ 페이지: Onboarding / Home / Record / MeetingDetail / Settings │
+│ 녹음은 직접 하지 않는다 — 명령을 보내고                     │
+│ recording:state 이벤트로 상태를 구독만 한다                 │
+│ 나머지는 window.api.* 호출 + 진행률 이벤트 구독             │
+└───────────────────────────┬────────────────────────────────┘
+┌────────── renderer: 위젯 패널 (#/widget, Phase 5-3) ───────┐
+│ 오디오 그래프의 유일한 소유자                               │
+│ 녹음: getUserMedia → AudioContext(16kHz) → AudioWorklet    │
+│       → Float32 PCM 청크를 IPC로 main에 전달               │
 └───────────────────────────┬────────────────────────────────┘
                             │ contextBridge (preload, 타입 고정)
 ┌───────────────────────────┴──── main (Node) ───────────────┐
 │ audio/   PCM 청크 → WAV 파일 append, 종료 시 헤더 확정      │
+│          녹음 세션 상태(진행 중 회의·시작 시각·참석자 수) 보유 │
+│ windows/ 메인 창·위젯 패널 생성과 배치, Tray, 전역 단축키    │
 │ pipeline/ 잡 큐(순차) → normalize → whisper(VAD 내장) → diarize → merge │
 │ db/      better-sqlite3, 마이그레이션, 리포지토리           │
 │ models/  모델 경로 해석, 다운로드(Range/체크섬), 존재 확인   │
 │ bin/     플랫폼별 바이너리 경로 해석, spawn 래퍼            │
-│ ipc/     handle 등록, 진행률 send                          │
+│ ipc/     handle 등록, 진행률·녹음 상태 send                 │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -40,9 +47,10 @@ src/
     format.ts                 # 타임스탬프 [hh:mm:ss], 복사용 텍스트/마크다운 조립
     progress.ts               # 단계별 퍼센트 → 전체 진행률 (가중치, 순수 함수, vitest)
   main/
-    index.ts                  # 창 생성, 권한 요청, ipc 등록
+    index.ts                  # 앱 수명주기, 권한 요청, ipc 등록
     log.ts                    # 운영 로그 (console 직접 호출 금지)
-    audio/wavWriter.ts        # Float32 청크 → Int16 append, 종료 시 헤더 확정
+    windows/{main,widget,tray,shortcuts}.ts   # 메인 창·위젯 패널·메뉴바·전역 단축키 (Phase 5-3)
+    audio/{session,wavWriter,recordings}.ts   # 녹음 세션 상태·WAV append·파일 정리
     pipeline/{queue,run,normalize,whisper,diarize}.ts   # normalize는 RMS 게인 정규화(순수 TS), vad는 whisper 내장이라 별도 단계 없음
     db/{connection,migrations,meetings,utterances,speakers,settings}.ts
     models/{registry,paths,download,recommend,service}.ts   # 레지스트리(스크립트와 공유)·경로 해석·다운로드·저사양 권장
@@ -54,13 +62,13 @@ src/
   renderer/src/
     main.tsx, App.tsx
     worklet/pcmRecorder.js    # AudioWorkletProcessor (Vite `?url` import로 로드)
-    pages/{Onboarding,Home,Record,MeetingDetail,Settings}/index.tsx   # widgets 배치만
-    shared/routes/{index.tsx,paths.ts,guards.tsx}   # 라우터·경로 상수·온보딩 진입 가드
+    pages/{Onboarding,Home,Record,MeetingDetail,Settings,Widget}/index.tsx   # widgets 배치만
+    shared/routes/{index.tsx,paths.ts,guards.tsx,layout.tsx}   # 라우터·경로 상수·온보딩 진입 가드·메인 창 레이아웃(정지 후 상세 이동)
     modules/widgets/{domain}/…    # section 단위 도메인 컴포넌트 (TranscriptSection, SettingsSection 등)
     modules/features/{domain}/…   # 작은 도메인 컴포넌트 (PipelineProgress 등)
     shared/api/{domain}/index.ts  # window.api 래퍼 (유일한 window.api 접점)
     shared/components/{primitives,composites}/…
-    shared/hooks/{common,domain}/…   # useRecorder, useMeetings, usePipelineProgress
+    shared/hooks/{common,domain}/…   # useRecorder(위젯 전용), useRecordingState, useMeetings, usePipelineProgress
     shared/{provider,routes,utils,constants,types}/
     # 레이어·콜로케이션·세그먼트·훅 위치 규칙은 .claude/rules/*.md 를 따른다
 ```
@@ -91,8 +99,25 @@ export const IPC = {
   //   update.download / update.install, events.updateAvailable
   // Phase 5
   //   summary.create, events.summary
+  // Phase 5-3 (아래 "녹음 위젯 패널" 절)
+  //   recording.state / recording.control / recording.setSpeakerCount / recording.reportError
+  //   events.recordingState / events.recordingCommand
+  //   widget.setVisible
 } as const
 ```
+
+**Phase 5-3의 채널 문자열은 아래와 같이 고정한다.** 조회(invoke)와 push 이벤트가 같은 개념을 다루지만
+채널 이름은 겹칠 수 없어 이벤트 쪽에 `Changed`를 붙인다.
+
+| 키 | 채널 | 방향 | 용도 |
+| --- | --- | --- | --- |
+| `recording.state` | `recording:state` | invoke | 지금 녹음 중인지 조회. 늦게 열린 창이 현재 상태를 안다 |
+| `recording.control` | `recording:control` | invoke | 메인 창이 보내는 시작/정지 요청. main이 위젯에 `recording:command`로 넘긴다 |
+| `recording.setSpeakerCount` | `recording:setSpeakerCount` | invoke | 두 창의 참석자 수 입력을 main 세션에 모은다 |
+| `recording.reportError` | `recording:reportError` | invoke | 위젯에서만 알 수 있는 실패(마이크 권한·그래프 생성)를 세션에 기록 |
+| `widget.setVisible` | `widget:setVisible` | invoke | 패널의 숨기기 버튼 |
+| `events.recordingState` | `recording:stateChanged` | push | 녹음 상태 브로드캐스트 |
+| `events.recordingCommand` | `recording:command` | push | main → 위젯 지시 (전역 단축키·Tray·메인 창) |
 
 ### 편집 채널의 응답 규약 (Phase 3)
 
@@ -299,6 +324,9 @@ CoreML이 느린 원인은 **임베딩 모델 입력 길이가 호출마다 달�
 
 ## 녹음 (renderer)
 
+**오디오 그래프의 소유자는 위젯 패널 창 하나뿐이다** (Phase 5-3, 아래 절). 메인 창은 녹음을 시작·정지하는
+명령만 보내고 상태는 `recording:state`로 받는다. 아래 규칙은 그래프를 실제로 만드는 쪽(위젯)에 적용된다.
+
 - `getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } })`
 - `new AudioContext({ sampleRate: 16000 })` → `audioWorklet.addModule(workletUrl)` → 프로세서가 128프레임 단위로 받은 Float32를 `CHUNK_SAMPLES`(8192, 약 0.5초)씩 모아 `port.postMessage`.
 - **워크릿 파일은 `src/renderer/src/worklet/pcmRecorder.js`에 두고 `import workletUrl from '@renderer/worklet/pcmRecorder.js?url'`로 로드한다.**
@@ -306,13 +334,115 @@ CoreML이 느린 원인은 **임베딩 모델 입력 길이가 호출마다 달�
   `?url`은 개발 모드에서는 dev 서버 경로를, 빌드에서는 `out/renderer/assets/`에 복사된 경로를 준다.
   단 Vite는 작은 에셋을 `data:` URL로 인라인하는데, renderer의 CSP가 `script-src 'self'`라 인라인되면 `addModule`이 차단된다.
   `electron.vite.config.ts`의 renderer `build.assetsInlineLimit`에서 워크릿만 인라인 대상에서 빼 **항상 파일로 내보낸다**.
-- 레벨 미터는 별도 `AnalyserNode`를 붙이지 않고 renderer가 받은 청크의 RMS로 계산한다 (노드를 하나 덜 만든다).
+- 레벨 미터는 별도 `AnalyserNode`를 붙이지 않고 **main이 `recording:chunk`로 받은 청크의 RMS**를 계산해
+  `recording:state`에 실어 보낸다 (노드를 하나 덜 만들고, 위젯과 메인 창이 같은 값을 본다).
+  RMS 계산은 `src/shared/audio.ts`의 순수 함수로 두고 vitest로 검증한다.
 - 정지 시 `IPC.recording.stop` → main이 WAV 헤더를 확정하고 파이프라인 잡을 큐에 넣는다.
-  payload의 `speakerCount?`(1~`MAX_SPEAKER_COUNT`=20, 정수)는 `meetings.speaker_count`에 저장돼 화자 분리의 `num-clusters`가 된다.
-  녹음 화면의 "참석자 수" 숫자 입력은 녹음 전·중 언제든 바꿀 수 있고 정지 시점의 값을 보낸다. 비우면 임계값 폴백이며, 그 경우 화자가 과분할될 수 있다고 입력란 옆에 안내한다.
+- **참석자 수(1~`MAX_SPEAKER_COUNT`=20, 정수)는 main의 녹음 세션이 들고 있는다.** 위젯과 메인 창 양쪽에 입력란이 있어
+  값의 출처가 둘이 되므로, 입력이 바뀔 때마다 `recording:setSpeakerCount`로 main에 보내고 `recording:state`로 양쪽을 동기화한다.
+  정지 시점에는 main이 보관값을 `meetings.speaker_count`에 저장해 화자 분리의 `num-clusters`로 쓴다.
+  `StopRecordingRequest`에는 `speakerCount`를 싣지 않는다 — 두 경로가 생기면 "어느 쪽 값이 이겼는지"를 따져야 한다.
+  비우면 임계값 폴백이며, 그 경우 화자가 과분할될 수 있다고 입력란 옆에 안내한다.
 - Float32 → Int16 PCM 변환은 main의 `audio/wavWriter.ts`에서 수행 (renderer는 원본 Float32 `ArrayBuffer`만 전달).
 - 샘플레이트·청크 크기 상수는 `src/shared/audio.ts`에 한 번만 정의해 renderer와 main이 함께 쓴다.
 - `AudioContext`가 16kHz 요청을 무시할 수 있으므로 실제 `context.sampleRate`를 확인해 다르면 녹음을 시작하지 않고 안내한다 (`references/pitfalls.md`).
+
+## 녹음 위젯 패널 (Phase 5-3)
+
+회의 중에 앱 창을 앞으로 꺼내지 않고도 녹음을 시작·정지하고, 녹음 중이라는 사실과 경과 시간을 항상 볼 수 있게 한다.
+구성은 **화면 우측에 떠 있는 플로팅 패널 + 메뉴바(Tray) 시간 표시 + 전역 단축키** 세 가지다.
+
+### macOS WidgetKit 위젯을 만들지 않는 이유
+
+알림 센터·데스크탑에 놓는 진짜 macOS 위젯은 SwiftUI로 작성한 **앱 확장(Widget Extension)** 이어야 한다.
+Electron 번들에 Xcode로 따로 빌드한 확장을 끼워 넣고 App Group으로 상태를 공유하는 편법이 있지만,
+확장마다 별도 서명·notarization 대상이 늘고(`references/distribution.md` 6절), 녹음 상태를 프로세스 밖으로 한 번 더
+복제해야 하며, 버튼 동작은 `AppIntent`로 호스트 앱을 깨우는 우회가 필요하다. 얻는 것은 외형뿐이라 채택하지 않는다.
+**"위젯"은 이 문서에서 항상 아래의 Electron 플로팅 패널을 가리킨다.**
+
+### 창 속성과 배치
+
+| 속성 | 값 | 이유 |
+| --- | --- | --- |
+| `frame` | `false` | 제목 표시줄 없는 패널. 드래그는 `-webkit-app-region: drag` 영역으로 |
+| `type` | `'panel'` | 다른 앱 위에 뜨면서 **키 입력 포커스를 뺏지 않는다**. 회의 중 타이핑을 방해하면 안 된다 |
+| `alwaysOnTop` | `true` (`setAlwaysOnTop(true, 'floating')`) | 브라우저·화상회의 창 위에 유지 |
+| `visibleOnAllWorkspaces` | `{ visibleOnFullScreen: true }` | 화상회의를 전체화면으로 쓰는 경우가 많다 |
+| `resizable` / `maximizable` | `false` | 고정 크기. 레이아웃 분기를 만들지 않는다 |
+| `skipTaskbar` | `true` | Dock·앱 전환기에 창이 두 개로 보이지 않게 |
+| `vibrancy` | `'hud'` | 네이티브 패널 질감. 배경색을 직접 칠하지 않는다 |
+| `backgroundThrottling` | **`false`** | 숨겨지거나 가려진 창은 타이머·메시지 처리가 throttling된다. 그래프 소유자가 이 창이라 필수 |
+
+- 위치는 `screen.getPrimaryDisplay().workArea` 기준으로 **우측 가장자리에 여백을 두고 세로 중앙**에 놓는다.
+  `bounds`가 아니라 `workArea`를 써야 메뉴바·Dock을 침범하지 않는다. 디스플레이 구성이 바뀌면(`screen`의 `display-metrics-changed`) 다시 계산한다.
+- 사용자가 패널을 옮기면 그 위치를 기억한다. 저장은 `settings` 테이블(`widget.bounds`)에 두고, 저장된 위치가
+  현재 디스플레이 밖이면 버리고 기본 위치로 되돌린다 (외장 모니터를 뺀 뒤 화면 밖에 남는 것을 막는다).
+
+### 라우트와 창 구성
+
+- 위젯은 **별도 HTML 엔트리를 만들지 않고** 같은 `index.html`의 해시 라우트 `#/widget`으로 띄운다
+  (`loadFile(..., { hash: '/widget' })` / 개발 모드는 `loadURL(url + '#/widget')`). **해시에 앞의 `/`를 빼면 `#widget`이 되어 라우트가 맞지 않는다**. `createHashRouter`를 쓰기 때문에 가능하고,
+  `electron.vite.config.ts`의 rollup input을 건드리지 않아 빌드 구성이 그대로다.
+- `/widget`은 `RequireModels` 가드 **밖**에 둔다. 가드 안에 두면 모델이 없을 때 위젯 창에 온보딩 화면이 뜬다.
+  대신 위젯이 `models:status`를 직접 조회해 준비 전이면 시작 버튼을 막고 "메인 창에서 모델을 먼저 준비해 주세요"를 보여준다.
+- 메인 창 참조를 `windows/main.ts`가 들고 있어야 한다. 기존 `BrowserWindow.getAllWindows()[0]` 방식은 위젯이 0번이 될 수 있어
+  **`app.on('activate')`의 재생성 조건과 `second-instance`의 포커스 대상이 깨진다.** 두 곳 모두 "메인 창이 없거나 파괴됐는지"로 바꾼다.
+- 창이 둘이므로 진행률·업데이트 브로드캐스트(`broadcast`)는 그대로 두 창에 간다. 위젯은 자기가 쓰지 않는 이벤트를 구독하지 않으면 그만이다.
+
+### 녹음 상태의 단일 출처
+
+녹음이 두 창에서 보이므로 **진행 중 녹음의 상태는 main의 세션(`src/main/audio/session.ts`)이 단일 출처**가 된다.
+
+```ts
+export interface RecordingStateEvent {
+  meetingId: string | null
+  /** 시작 시각(epoch ms). 경과 시간은 받는 쪽이 Date.now()로 계산한다 — 창마다 값이 어긋나지 않는다 */
+  startedAt: number | null
+  /** 직전 청크의 RMS (0~1). 청크 주기(약 0.5초)로만 갱신된다 */
+  level: number
+  /** 세션에 보관 중인 참석자 수. 두 창의 입력란을 같은 값으로 맞춘다 */
+  speakerCount?: number
+  /** 정지가 끝난 순간 한 번만 실린다. 메인 창이 이 회의의 상세로 이동한다 */
+  stoppedMeetingId?: string
+  /**
+   * 시작·정지가 실패한 순간 한 번만 실린다. 마이크 권한 거부나 그래프 생성 실패는 위젯에서만 일어나는데,
+   * 시작을 누른 사람은 메인 창에 있을 수 있다. 실패를 세션에 모아 두 창이 같은 안내를 본다
+   */
+  errorMessage?: string
+}
+```
+
+- **경과 시간을 이벤트로 보내지 않는다.** `startedAt`만 주고 각 창이 계산하면 IPC 횟수가 늘지 않고, 창이 가려져 렌더가 밀려도 값이 정확하다.
+- 창이 새로 열렸을 때를 위해 조회 채널 `recording:state`(invoke)를 함께 둔다. 이벤트만 있으면 늦게 연 창이 현재 상태를 모른다.
+- 전역 단축키·Tray 메뉴로 녹음을 시작하려면 main이 위젯에 지시해야 한다 (`getUserMedia`는 renderer에만 있다).
+  이 방향의 push 채널이 `recording:command`(`{ kind: 'start' | 'stop' | 'toggle' }`)다. 위젯이 그래프를 만든 뒤 평소처럼 `recording:start`를 invoke한다.
+  main → renderer → main으로 한 바퀴 도는 모양이지만, 마이크 접근이 renderer 전용이라 피할 수 없다.
+- **메인 창의 시작·정지 버튼도 같은 경로를 탄다.** 메인 창은 `recording:control`(invoke)로 main에 요청하고,
+  main이 위젯에 `recording:command`를 push한다. 메인 창이 `recording:start`를 직접 부르면 그래프 없는 녹음이 시작돼
+  빈 WAV가 남는다.
+- **위젯 창은 `widget.enabled`와 무관하게 항상 만든다.** 이 창이 오디오 그래프의 소유자라, 창이 없으면 전역 단축키로도
+  녹음할 수 없다. 설정은 **보이는지 여부만** 정한다 (숨은 창이 그래프를 들고 있어도 되는 이유가 `backgroundThrottling: false`다).
+- **참석자 수 보관값은 정지 후에도 남는다.** 다음 녹음이 같은 값으로 시작하지만 두 창의 입력란에 계속 보이므로 숨은 상태가 아니다.
+  세션마다 지우면 위젯에서 시작 → 메인 창에서 입력하는 흐름이 매번 초기화된다.
+
+### 메뉴바 (Tray)
+
+- 아이콘은 `resources/trayTemplate.png`(+`@2x`). 파일명이 `Template`으로 끝나야 macOS가 다크/라이트에 맞춰 반전한다.
+- 녹음 중에는 `tray.setTitle('● 12:34')`로 경과 시간을 1초마다 갱신하고, 녹음 중이 아니면 제목을 비워 아이콘만 남긴다.
+  타이머는 **녹음 중에만** 돌리고 정지 시 `clearInterval`한다.
+- 트레이 메뉴: 녹음 시작/정지 · 위젯 표시/숨김 · 메인 창 열기 · 종료.
+
+### 전역 단축키
+
+- `⌥⌘R` 녹음 토글, `⌥⌘W` 위젯 표시/숨김. `app.whenReady` 이후 등록하고 `will-quit`에서 `unregisterAll`한다.
+- **등록 실패(다른 앱이 선점)는 앱을 멈추지 않는다.** `globalShortcut.register`의 반환값이 거짓이면 경고 로그만 남기고 진행한다.
+  단축키가 없어도 패널과 트레이로 모든 동작을 할 수 있다.
+- 단축키는 고정값이다. 커스터마이즈 UI는 만들지 않는다 (설정 화면과 충돌 검사까지 필요해 비용이 크다).
+
+### 설정
+
+`AppSettings`에 `isWidgetEnabled`(DB 키 `widget.enabled`, **기본 켜짐**)를 추가한다. 끄면 앱 시작 시 패널을 띄우지 않고
+`⌥⌘W`로도 열리지 않는다. 트레이와 단축키는 패널과 독립적으로 동작한다 — 패널을 껐다고 녹음 토글까지 사라지면 안 된다.
 
 ## 화면 라우트 (Phase 2)
 
@@ -328,6 +458,7 @@ CoreML이 느린 원인은 **임베딩 모델 입력 길이가 호출마다 달�
 | `/meetings/:meetingId` | `pages/MeetingDetail` | `meeting/TranscriptSection` |
 | `/settings` | `pages/Settings` | `setting/SettingsSection`, `model/ModelDownloadSection`, `model/SummaryModelSection` |
 | `/onboarding` | `pages/Onboarding` | `model/ModelDownloadSection` |
+| `/widget` | `pages/Widget` | `recording/WidgetPanelSection` (위젯 창 전용, 가드 밖) |
 
 - `/settings`는 Phase 3에서 원본 WAV 보관 옵션과 함께 추가했다. Phase 4에서 업데이트 확인 옵션(`SettingsSection`),
   음성 인식 모델 변경(`ModelDownloadSection`, 온보딩과 같은 위젯), 요약 모델 다운로드(`SummaryModelSection`)를 붙였다.
@@ -337,8 +468,11 @@ CoreML이 느린 원인은 **임베딩 모델 입력 길이가 호출마다 달�
   온보딩 페이지 자체는 가드 밖에 있고, 다운로드가 끝나면 홈으로 이동한다. 가드는 레이아웃이 처음 마운트될 때 한 번만 조회한다
   (모델은 온보딩 밖에서 사라지지 않는다).
 - 홈 상단의 `features/update/UpdateBanner`는 `update:available` 이벤트를 받았을 때만 나타난다 (`references/distribution.md` 7절).
-- 흐름: 홈에서 "새 회의 녹음" → `/record` → 정지 → main이 잡을 큐에 넣고 `/meetings/:meetingId`로 이동 → 처리 중 상태를 보여주다가 `pipeline:progress`의 `done`을 받으면 회의록을 다시 불러온다.
-- 녹음 중에 `/record`를 벗어나면(뒤로 가기·창 닫기) 녹음을 정지해 WAV 헤더를 확정하고 잡을 큐에 넣는다. 헤더가 확정되지 않은 WAV는 파이프라인이 읽지 못한다.
+- 흐름: 홈에서 "새 회의 녹음" → `/record`(또는 위젯·단축키) → 정지 → main이 잡을 큐에 넣고 `/meetings/:meetingId`로 이동 → 처리 중 상태를 보여주다가 `pipeline:progress`의 `done`을 받으면 회의록을 다시 불러온다.
+- **Phase 5-3부터 `/record`를 벗어나도 녹음은 계속된다.** 오디오 그래프가 위젯 창으로 옮겨 갔기 때문이다
+  (그 전에는 `useRecorder`가 언마운트될 때 녹음을 정지했다). 대신 **앱이 종료될 때**(`before-quit`) 진행 중 녹음이 있으면
+  WAV 헤더를 확정하고 잡을 큐에 넣는다. 헤더가 확정되지 않은 WAV는 파이프라인이 읽지 못한다.
+- 위젯에서 정지하면 메인 창을 앞으로 가져오고 그 회의의 상세로 이동한다 (`stoppedMeetingId`). 녹음을 끝낸 직후에 보고 싶은 것은 결과 화면이다.
 - Phase 2에서 진행률 **막대**는 만들지 않았다. Phase 3에서 `modules/features/pipeline/PipelineProgress`로 추가했다 (위 "진행률 표시" 절).
 
 ## 편집 UI 규칙 (Phase 3)

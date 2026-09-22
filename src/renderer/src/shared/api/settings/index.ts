@@ -18,12 +18,19 @@ export const getSettingsApi = async () => window.api.settings.get()
  * const settings = await updateSettingsApi({
  *   isAudioKept: true,
  *   isUpdateCheckEnabled: false,
- *   isQuietProcessing: false
+ *   isQuietProcessing: false,
+ *   isWidgetEnabled: true
  * })
  */
 export const updateSettingsApi = async ({
   isAudioKept,
   isUpdateCheckEnabled,
-  isQuietProcessing
+  isQuietProcessing,
+  isWidgetEnabled
 }: UpdateSettingsRequest) =>
-  window.api.settings.update({ isAudioKept, isUpdateCheckEnabled, isQuietProcessing })
+  window.api.settings.update({
+    isAudioKept,
+    isUpdateCheckEnabled,
+    isQuietProcessing,
+    isWidgetEnabled
+  })

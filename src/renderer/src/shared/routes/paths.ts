@@ -4,7 +4,8 @@ export const PATHS = {
   record: '/record',
   meetingDetail: '/meetings/:meetingId',
   settings: '/settings',
-  onboarding: '/onboarding'
+  onboarding: '/onboarding',
+  widget: '/widget'
 } as const
 
 export const meetingDetailPath = ({ meetingId }: { meetingId: string }) => `/meetings/${meetingId}`
