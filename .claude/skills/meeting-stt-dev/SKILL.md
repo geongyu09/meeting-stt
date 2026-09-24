@@ -43,6 +43,7 @@ description: 로컬 STT 회의록 데스크탑 앱(meeting-stt)의 개발 방향
 | 모델 배포 | 설치 파일에 미동봉, **첫 실행 온보딩에서 다운로드** (Range 이어받기 + 체크섬) | 저장 위치 `app.getPath('userData')/models` |
 | 시스템 오디오 캡처 | **1차 범위 제외** (마이크만) | Phase 5의 두 번째 항목. 로컬 요약을 끝낸 뒤 착수한다 |
 | 로컬 요약 | **llama.cpp `llama-cli`** 를 `child_process`로 spawn. 모델 `Qwen3-4B-Instruct-2507-Q4_K_M.gguf` (Apache-2.0, 비사고형 instruct) | `llama-server`(HTTP)는 쓰지 않는다 — 단발 요약에 상주 서버·포트 관리가 필요 없다. 프롬프트·시스템 프롬프트·출력은 **전부 파일**로 주고받고(`-f`/`-sysf`/`-o`), 회의록이 길면 map-reduce 청킹. 자동 실행이 아니라 사용자가 버튼으로 요청한다 (`references/architecture.md`) |
+| LLM 공급자 | 요약·용어 초안처럼 LLM을 쓰는 곳은 **공급자 추상화(`src/main/llm/*`)** 를 거치고, 사용자가 설정에서 넷 중 하나를 고른다 — **로컬 모델(기본, llama.cpp)** / **Claude API 키**(Anthropic SDK, 토큰 요금) / **Claude Code CLI**(설치된 `claude -p`를 서브프로세스로 실행, 구독 계정 사용) / **OpenAI API 키**(OpenAI SDK Responses API, GPT-6 계열 중 모델 선택, 토큰 요금). 지원 외부 LLM은 **Claude와 GPT** (2026-09-24 Claude만 → 같은 날 GPT 추가, 사용자 결정) | "네트워크는 모델 다운로드 한 번"이라는 로컬 우선 약속의 **명시적 예외**다 — 기본은 여전히 로컬이고, 외부 공급자를 고르는 순간 회의록이 그 회사 서버(Anthropic·OpenAI)로 전송된다는 사실을 설정 화면에 적는다. 파이프라인(STT·화자 분리)은 어느 공급자를 골라도 로컬이다. 그 밖의 공급자(Gemini, Codex CLI 등)는 제안만 하고 구현하지 않는다. 설계는 `references/architecture.md` "LLM 공급자" 절 |
 | 녹음본 재생 | 요구사항 아님 → 파이프라인 완료 후 원본 WAV **삭제가 기본**, 보관은 설정 옵션(`audio.keep`, `/settings`) | 실패한 잡은 재시도용으로 원본을 남긴다 |
 | 클립보드 | 복사는 main의 `electron.clipboard` 경유(`clipboard:writeText`) | `file://` 문서와 권한 핸들러에 걸릴 여지를 없앤다. 텍스트 조립은 renderer가 `@meeting-stt/core/format`으로 |
 | 녹음 위젯 | **Electron 플로팅 패널 창**(화면 우측, `type: 'panel'`, alwaysOnTop) + 메뉴바 Tray 시간 + 전역 단축키(기본 `⌥⌘R`/`⌥⌘W`, 설정에서 변경) | macOS WidgetKit 위젯(SwiftUI 앱 확장)은 만들지 않는다 — 서명·공증 대상이 늘고 상태를 프로세스 밖으로 복제해야 하는데 얻는 건 외형뿐이다. **오디오 그래프의 소유자는 위젯 창 하나**이고 메인 창은 명령 전송·상태 구독만 한다. 진행 중 녹음의 단일 출처는 main의 녹음 세션이며 `recording:state`로 두 창에 push한다. 설계는 `references/architecture.md`의 "녹음 위젯 패널" 절 |
@@ -95,6 +96,8 @@ Phase 5-2(시스템 오디오 캡처)는 아직 시작하지 않았다.
 용어 사전 + 발음 유사도 후보 + LLM O/X 판정으로 수정 **제안**을 만드는 방식을 채택했다 (`docs/phase5-refine-results.md`). 앱 통합은 **전역 용어 사전**부터 착수했다 (2026-09-24 사용자 결정) — 설정의 팀 소개로 LLM이 초안을 만들고 사용자가 고쳐 저장한다 (`references/architecture.md` "용어 사전"). 교정 제안 UI와 회의별 용어는 그다음이다.
 **UI 리디자인**은 2026-09-24 사용자 요청으로 문서를 먼저 확정했다 — 사이드바 + 본문 두 칸 레이아웃, "여백" 팔레트, 동봉 글꼴, 회의록 검색(`meetings:search`).
 Phase 번호 밖의 별도 작업이며 체크리스트는 `references/roadmap.md` "UI 리디자인" 절이다.
+**LLM 공급자 선택**도 2026-09-24 사용자 요청으로 문서를 먼저 확정했다 — 요약·용어 초안이 로컬 모델 대신 사용자의 Claude API 키나
+Claude Code CLI(구독)를 쓸 수 있게 한다. 같은 날 사용자 요청으로 **OpenAI API 키(GPT-6 계열)** 도 추가했다. Phase 번호 밖의 별도 작업이며 설계는 `references/architecture.md` "LLM 공급자" 절, 체크리스트는 `references/roadmap.md` "LLM 공급자 선택" 절이다.
 작업 시작 시 `git log`/디렉터리 상태로 현재 Phase를 먼저 재확인한다.
 
 ## 4. 코드 구조와 규칙

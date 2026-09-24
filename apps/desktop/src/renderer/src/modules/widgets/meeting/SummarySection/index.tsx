@@ -1,11 +1,12 @@
 import { useId, useState } from 'react'
 import { Link } from 'react-router'
+import { LLM_PROVIDER_LABELS, llmMissingMessage } from '@shared/llm'
 import Button from '@renderer/shared/components/primitives/ui/Button'
 import Icon from '@renderer/shared/components/primitives/ui/Icon'
 import ProgressBar from '@renderer/shared/components/primitives/ui/ProgressBar'
+import useLlmStatus from '@renderer/shared/hooks/domain/llm/useLlmStatus'
 import useMeeting from '@renderer/shared/hooks/domain/meeting/useMeeting'
 import useSummary from '@renderer/shared/hooks/domain/meeting/useSummary'
-import useModelStatus from '@renderer/shared/hooks/domain/model/useModelStatus'
 import { PATHS } from '@renderer/shared/routes/paths'
 
 import { STAGE_MESSAGES } from './constants/stage'
@@ -25,7 +26,7 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
     initialSummary: meeting?.summary
   })
   const { isCopied, copyError, copySummary } = useSummaryCopy({ summary })
-  const { status: modelStatus } = useModelStatus()
+  const { status: llmStatus } = useLlmStatus()
   const [isExpanded, setIsExpanded] = useState(true)
   const bodyId = useId()
 
@@ -33,10 +34,11 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
   if (meeting?.status !== 'done') return null
 
   const hasTranscript = utterances.length > 0
-  // 상태를 아직 모르면 막지 않는다. 요약 모델은 선택 모델이라 설정에서 따로 받는다 (references/distribution.md)
-  const isModelMissing = modelStatus !== null && !modelStatus.isSummaryReady
+  // 상태를 아직 모르면 막지 않는다. 준비 문구는 main과 같은 함수로 만든다 (references/architecture.md "LLM 공급자")
+  const missingMessage = llmStatus ? llmMissingMessage(llmStatus) : null
+  const providerLabel = llmStatus ? LLM_PROVIDER_LABELS[llmStatus.provider] : ''
   // 접어 둔 채로 요약이 돌면 진행률이 안 보이므로 캡션이 대신 알려 준다
-  const caption = !isExpanded && isRunning ? `요약 중 ${percent}%` : '로컬 모델'
+  const caption = !isExpanded && isRunning ? `요약 중 ${percent}%` : providerLabel
 
   const renderBody = () => {
     if (isRunning) {
@@ -50,12 +52,12 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
 
     if (summary) return <p className={styles.summary}>{summary}</p>
     if (!hasTranscript) return <p className={styles.message}>요약할 발화가 없습니다</p>
-    if (isModelMissing) {
+    if (missingMessage) {
       return (
         <p className={styles.message}>
-          요약 모델이 설치되어 있지 않습니다.{' '}
+          {missingMessage}.{' '}
           <Link className={styles.link} to={PATHS.settings}>
-            설정에서 요약 모델 받기
+            설정에서 준비하기
           </Link>
         </p>
       )
@@ -63,7 +65,8 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
 
     return (
       <p className={styles.message}>
-        아직 요약이 없습니다. 회의록을 로컬 모델로 요약하며, 회의 길이에 따라 몇 분이 걸립니다
+        아직 요약이 없습니다. 회의록을 {providerLabel || '선택한 모델'}로 요약하며, 회의 길이에 따라
+        몇 분이 걸립니다
       </p>
     )
   }
@@ -103,7 +106,7 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
               size="sm"
               className={styles.action}
               onClick={createSummary}
-              disabled={isRunning || !hasTranscript || isModelMissing}
+              disabled={isRunning || !hasTranscript || missingMessage !== null}
             >
               {summary ? '다시 요약' : '요약 만들기'}
             </Button>

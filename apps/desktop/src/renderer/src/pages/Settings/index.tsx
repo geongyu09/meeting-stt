@@ -1,6 +1,7 @@
 import ModelDownloadSection from '@renderer/modules/widgets/model/ModelDownloadSection'
 import SummaryModelSection from '@renderer/modules/widgets/model/SummaryModelSection'
 import GlossarySection from '@renderer/modules/widgets/setting/GlossarySection'
+import LlmSection from '@renderer/modules/widgets/setting/LlmSection'
 import SettingsSection from '@renderer/modules/widgets/setting/SettingsSection'
 import SettingGroup from '@renderer/shared/components/primitives/layout/SettingGroup'
 import TopBar from '@renderer/shared/components/primitives/layout/TopBar'
@@ -15,10 +16,11 @@ export default function Settings() {
         <div className={styles.page}>
           <h1 className={styles.title}>설정</h1>
           <SettingsSection>
-            <SettingGroup title="모델">
+            <SettingGroup title="음성 인식 모델">
               <ModelDownloadSection variant="setting" />
-              <SummaryModelSection />
             </SettingGroup>
+            {/* widgets는 widgets를 import하지 않으므로 로컬 모델 파일 행은 페이지가 슬롯으로 넘긴다 */}
+            <LlmSection localModelSlot={<SummaryModelSection />} />
             <GlossarySection />
           </SettingsSection>
         </div>

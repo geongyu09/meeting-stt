@@ -6,7 +6,10 @@ import { formatBytes } from '@renderer/shared/utils/formatBytes'
 
 import styles from './index.module.css'
 
-/** 요약 모델은 온보딩 묶음에 없어 설정에서 따로 받는다 (references/distribution.md 1절) */
+/**
+ * 로컬 실행 방식의 요약 모델 파일. 온보딩 묶음에 없어 설정의 "요약 · 용어 초안" 카테고리에서 로컬을
+ * 골랐을 때만 보이고, Claude를 쓰면 필요 없다 (references/distribution.md 1절, architecture.md "LLM 공급자").
+ */
 export default function SummaryModelSection() {
   const { status, isLoading, error, progress, isDownloading, downloadError, downloadSummaryModel } =
     useModelStatus()
@@ -31,20 +34,21 @@ export default function SummaryModelSection() {
     if (isDownloading) return <span className={styles.meta}>{percent}%</span>
     if (item.isInstalled) return <span className={styles.success}>설치되어 있습니다</span>
 
-    return <Button onClick={downloadSummaryModel}>요약 모델 받기</Button>
+    return <Button onClick={downloadSummaryModel}>모델 파일 받기</Button>
   }
 
   return (
     <SettingRow
       title={
         <>
-          요약 모델 <span className={styles.optional}>선택</span>
+          로컬 요약 모델 파일 <span className={styles.optional}>로컬 방식에만 필요</span>
         </>
       }
       description={
         <>
-          {item.isInstalled ? '설치됨' : `설치되지 않음 · ${size}`}. 받아 두면 회의 상세에서 요약을
-          만들 수 있습니다. 없어도 녹음과 회의록 작성은 그대로 됩니다.
+          {item.isInstalled ? '설치됨' : `설치되지 않음 · ${size}`}. 이 기기에서 요약·용어 초안을
+          만들 때 쓰는 모델 파일입니다. Claude를 쓰면 필요 없고, 없어도 녹음과 회의록 작성은 그대로
+          됩니다.
           {downloadError && (
             <span className={styles.error} role="alert">
               {' '}

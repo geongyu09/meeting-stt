@@ -1,8 +1,14 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import {
   IPC,
+  type CheckLlmResponse,
   type CheckUpdateResponse,
   type DeleteMeetingRequest,
+  type GetLlmStatusResponse,
+  type SetClaudeApiKeyRequest,
+  type SetClaudeApiKeyResponse,
+  type SetLlmProviderRequest,
+  type SetLlmProviderResponse,
   type DownloadModelsRequest,
   type DownloadModelsResponse,
   type DraftGlossaryRequest,
@@ -117,6 +123,14 @@ const api = {
       ipcRenderer.invoke(IPC.glossary.update, payload),
     draft: (payload: DraftGlossaryRequest): Promise<DraftGlossaryResponse> =>
       ipcRenderer.invoke(IPC.glossary.draft, payload)
+  },
+  llm: {
+    status: (): Promise<GetLlmStatusResponse> => ipcRenderer.invoke(IPC.llm.status),
+    setProvider: (payload: SetLlmProviderRequest): Promise<SetLlmProviderResponse> =>
+      ipcRenderer.invoke(IPC.llm.setProvider, payload),
+    setClaudeApiKey: (payload: SetClaudeApiKeyRequest): Promise<SetClaudeApiKeyResponse> =>
+      ipcRenderer.invoke(IPC.llm.setClaudeApiKey, payload),
+    check: (): Promise<CheckLlmResponse> => ipcRenderer.invoke(IPC.llm.check)
   },
   models: {
     status: (): Promise<ModelStatusResponse> => ipcRenderer.invoke(IPC.models.status),

@@ -66,7 +66,8 @@ src/
     pipeline/{queue,run,normalize,whisper,diarize}.ts   # normalize는 RMS 게인 정규화(공식·상수는 @meeting-stt/core), vad는 whisper 내장이라 별도 단계 없음
     db/{connection,migrations,meetings,utterances,speakers,settings}.ts
     models/{paths,download,recommend,service}.ts   # 경로 해석·다운로드·저사양 권장 (자산 목록은 @meeting-stt/models/desktop)
-    summary/{llama,run,paths,transcript}.ts        # 로컬 요약 (Phase 5)
+    summary/{llama,run,paths,transcript}.ts        # 요약 (Phase 5). LLM 호출은 llm/*을 거친다
+    llm/{provider,local,claudeApi,claudeCli,openaiApi,apiKey,check}.ts  # LLM 공급자 추상화 (아래 "LLM 공급자" 절)
     updater.ts                # electron-updater, 기본 꺼짐 (references/distribution.md)
     bin/{paths,spawn}.ts
     ipc/handlers.ts
@@ -120,6 +121,8 @@ export const IPC = {
   //   shortcuts.setSuspended (단축키 설정, 아래 "전역 단축키" 절)
   // UI 리디자인 (아래 "화면 디자인" 절)
   //   meetings.search, events.meetingsChanged
+  // LLM 공급자 선택 (아래 "LLM 공급자" 절)
+  //   llm.status / llm.setProvider / llm.setApiKey / llm.setOpenaiModel / llm.check
 } as const
 ```
 
@@ -485,12 +488,19 @@ export interface RecordingStateEvent {
 | 1 | 녹음·처리 | 원본 녹음 파일 보관(`isAudioKept`), 조용히 처리(`isQuietProcessing`) | `SettingsSection` |
 | 2 | 녹음 위젯 | 위젯 패널(`isWidgetEnabled`), 위젯 반투명(`isWidgetFadeEnabled`), 비활성 불투명도(`widgetFadeOpacity`) | `SettingsSection` |
 | 3 | 단축키 | 녹음 시작·정지(`recordingShortcut`), 위젯 표시·숨김(`widgetShortcut`) | `SettingsSection` |
-| 4 | 모델 | 음성 인식 모델, 요약 모델 | `ModelDownloadSection`, `SummaryModelSection` (온보딩과 공유하므로 따로 감싸는 제목 없이 두 위젯의 `h2`를 그대로 카테고리 제목으로 쓴다) |
-| 5 | 용어 사전 | 팀 소개, 초안 만들기, 용어 목록 (Phase 5-4) | `setting/GlossarySection` (자기 채널로 따로 읽고 쓰므로 `SettingsSection`의 한 번 로드와 무관하다. 모델 위젯과 같이 `children`으로 끼운다) |
-| 6 | 업데이트 | 업데이트 확인(`isUpdateCheckEnabled`), 지금 확인(`UpdateCheck`) | `SettingsSection` |
+| 4 | 음성 인식 모델 | 음성 인식 모델 변경 | `ModelDownloadSection` (온보딩과 공유) |
+| 5 | 요약 · 용어 초안 | 실행 방식(로컬 / Claude API 키 / Claude Code / OpenAI API 키), 로컬을 골랐을 때만 **로컬 요약 모델 파일** 다운로드, API 키(공급자별), GPT 모델 선택, CLI 상태, 연결 확인 | `setting/LlmSection` — 파일 다운로드 행 `model/SummaryModelSection`은 페이지가 `localModelSlot`으로 끼운다 (아래 "LLM 공급자" 절). 2026-09-24까지는 "모델" 카테고리에 음성 인식 모델과 나란히 있었는데, 로컬 실행 방식의 부속품이 별개 설정처럼 보여 옮겼다 |
+| 6 | 용어 사전 | 팀 소개, 초안 만들기, 용어 목록 (Phase 5-4) | `setting/GlossarySection` (자기 채널로 따로 읽고 쓰므로 `SettingsSection`의 한 번 로드와 무관하다. 모델 위젯과 같이 `children`으로 끼운다) |
+| 7 | 업데이트 | 업데이트 확인(`isUpdateCheckEnabled`), 지금 확인(`UpdateCheck`) | `SettingsSection` |
 
-- 설정값 로드는 한 번만 한다. 그래서 `SettingsSection`이 1~3과 5를 모두 그리고, 모델 카테고리는 `children`으로 받아 3과 5 사이에 끼운다.
-  페이지는 `<SettingsSection><ModelDownloadSection /><SummaryModelSection /></SettingsSection>` 형태로 배치만 한다.
+- 설정값 로드는 한 번만 한다. 그래서 `SettingsSection`이 1~3과 7을 모두 그리고, 4~6은 `children`으로 받아 3과 7 사이에 끼운다.
+  페이지는 `<SettingsSection><SettingGroup title="음성 인식 모델"><ModelDownloadSection /></SettingGroup><LlmSection localModelSlot={<SummaryModelSection />} /><GlossarySection /></SettingsSection>` 형태로 배치만 한다.
+  widgets는 widgets를 import하지 않으므로(`.claude/rules/component-abstract-pattern.md`) `SummaryModelSection`은 페이지가 슬롯으로 넘긴다.
+- **오른쪽에 목차(TOC)를 둔다** (2026-09-24 사용자 요청). 카테고리가 7개로 늘어 스크롤로 찾기 어려워졌기 때문이다.
+  목차는 composite `PageToc`가 스크롤 영역 안의 `h2`를 **DOM에서 읽어** 만든다 — 카테고리가 여러 위젯에 흩어져 있고
+  설정 로드 전후로 개수가 달라지므로, 제목 목록을 따로 들고 있으면 순서·문구가 어긋난다. `MutationObserver`로 다시 읽는다.
+  항목을 누르면 그 카테고리로 부드럽게 스크롤하고, 스크롤 위치에 맞는 항목을 강조한다(`aria-current`).
+  창이 좁으면(본문 + 목차가 들어가지 않으면) 목차를 숨긴다.
 
 ## 화면 디자인 (UI 리디자인, 2026-09-24)
 
@@ -633,7 +643,7 @@ export interface RecordingStateEvent {
 | `/` | `pages/Home` | 빈 상태 안내 ("회의를 고르거나 새로 녹음하세요") |
 | `/record` | `pages/Record` | `recording/RecorderSection` |
 | `/meetings/:meetingId` | `pages/MeetingDetail` | `meeting/TranscriptSection` (오른쪽 레일에 `meeting/SummarySection`을 슬롯으로 받음) |
-| `/settings` | `pages/Settings` | `setting/SettingsSection` (카테고리 묶음, 모델 위젯을 `children`으로 받음), `model/ModelDownloadSection`, `model/SummaryModelSection` |
+| `/settings` | `pages/Settings` | `setting/SettingsSection` (카테고리 묶음, 모델·LLM·용어 사전 위젯을 `children`으로 받음), `model/ModelDownloadSection`, `setting/LlmSection` (`model/SummaryModelSection`을 슬롯으로 받음), `setting/GlossarySection`, 오른쪽 목차 `composites/PageToc` |
 | `/onboarding` | `pages/Onboarding` | `model/ModelDownloadSection` |
 | `/widget` | `pages/Widget` | `recording/WidgetPanelSection` (위젯 창 전용, 가드 밖) |
 
@@ -735,6 +745,122 @@ events: { progress: 'pipeline:progress', summary: 'summary:progress' }
 - 아카이브가 `tar.gz`라 `scripts/shell.ts`의 `extractArchive`는 압축 방식을 고정하지 않고 `tar -xf`로 자동 판별한다.
 - 릴리스 빌드 번호(`b10622` 등)는 `scripts/assets.ts`에 상수로 고정한다. 최신 빌드를 자동 추적하면 체크섬이 매번 바뀐다.
 
+## LLM 공급자 (2026-09-24)
+
+요약과 용어 초안은 **LLM을 부르는 방식이 같고 프롬프트만 다르다.** 사용자가 이미 구독하거나 발급받은 Claude를 쓸 수 있게
+LLM 호출을 `src/main/llm/*`의 **공급자 추상화** 뒤로 모으고, 설정에서 공급자를 고른다. 지원 외부 LLM은 Claude만이다 (SKILL.md 1절).
+
+### 세 공급자
+
+| `LlmProvider` | 실행 | 준비 조건 | 비용·전송 |
+| --- | --- | --- | --- |
+| `local` (기본) | `llama-cli` spawn (기존 방식 그대로) | `llama-cli` + 요약 모델 | 없음. 회의록이 기기 밖으로 나가지 않는다 |
+| `claude-api` | `@anthropic-ai/sdk`로 Messages API 호출 (main 프로세스) | 설정에 저장한 API 키 | Anthropic 콘솔 토큰 요금. 회의록이 Anthropic 서버로 전송된다 |
+| `claude-cli` | 설치된 Claude Code `claude -p`를 `child_process.spawn` | `claude` 실행 파일 + CLI에 로그인된 구독 계정 | 구독 사용량. 회의록이 Anthropic 서버로 전송된다 |
+
+- **회의록 전송 사실은 설정 화면의 공급자 설명에 그대로 적는다.** 로컬 우선 약속의 예외를 사용자가 알고 고르게 한다.
+- 파이프라인(STT·화자 분리)은 공급자와 무관하게 로컬이다. 공급자는 요약·용어 초안(앞으로 교정 판정)에만 적용된다.
+- **모델**: API는 `claude-opus-5` 고정, 적응형 사고(`thinking: { type: 'adaptive' }`) + `output_config.effort: 'medium'`(요약은 정형 작업이라 높은 노력이 필요 없다).
+  CLI는 `--model`을 넘기지 않고 **사용자가 CLI에 설정한 기본 모델**을 쓴다 — 구독 등급마다 쓸 수 있는 모델이 달라 앱이 고르면 실패할 수 있다.
+- **컨텍스트 예산은 공급자가 정한다.** `local`은 기존 `CHUNK_BUDGET_CHARS`(8K 컨텍스트)로 map-reduce하고, Claude는 컨텍스트가 커서
+  `CLAUDE_CHUNK_BUDGET_CHARS`(40만 자, 약 28만 토큰)까지 한 번에 넣는다. 실무 회의록은 전부 한 번에 들어가 reduce 단계가 없다.
+  `splitTranscript`의 `budgetChars` 인자로 넘기므로 순수 로직은 바뀌지 않는다.
+- **GBNF 문법은 `local`에서만 쓸 수 있다.** 용어 초안은 Claude에서는 문법 대신 출력 형식 지시문을 프롬프트 끝에 붙이고, 파싱(`parseGlossaryDraft`)이
+  형식에 맞지 않는 줄을 버리는 것으로 같은 결과를 얻는다.
+
+### 파일과 인터페이스
+
+```
+src/shared/llm.ts            # LlmProvider 유니온·기본값·한국어 라벨, 준비 여부 판정(isLlmReady·llmMissingMessage),
+                             # claude CLI 인자 조립·JSON 출력 파싱, Claude 청크 예산 (순수 함수, vitest)
+src/main/llm/types.ts        # LlmClient·LlmCompleteParams 인터페이스
+src/main/llm/provider.ts     # 설정을 읽어 LlmClient 하나를 만든다(createLlmClient)·현재 상태(getLlmStatus). 요약·용어 초안은 이것만 부른다
+src/main/llm/local.ts        # llama-cli (기존 summary/llama.ts의 인자 조립·답변 추출을 그대로 쓴다)
+src/main/llm/claudeApi.ts    # Anthropic SDK. 스트리밍으로 받아 finalMessage()만 쓴다 (긴 출력에서 HTTP 타임아웃 회피)
+src/main/llm/claudeCli.ts    # claude 실행 파일 탐색·spawn. 프롬프트는 stdin, 시스템 프롬프트는 --system-prompt
+src/main/llm/apiKey.ts       # API 키 저장·조회 (safeStorage 암호화)
+src/main/llm/check.ts        # 설정 화면 "연결 확인" — 짧은 프롬프트 한 번
+```
+
+```ts
+interface LlmCompleteParams {
+  system: string
+  prompt: string
+  /** 생성 상한. local은 -n, Claude는 max_tokens의 하한(사고 토큰이 포함되므로 16K 아래로 내리지 않는다) */
+  maxTokens: number
+  /** 임시 파일 이름과 로그에 쓰는 꼬리표 */
+  label: string
+  /** local이 프롬프트·출력 파일을 두는 폴더. 만들고 지우는 것은 호출하는 쪽(요약·용어 초안)의 몫 */
+  workDir: string
+  /** local 전용. GBNF 문법, 컨텍스트 크기, 온도. Claude 공급자는 무시한다 */
+  grammar?: string
+  contextTokens?: number
+  temperature?: number
+}
+
+interface LlmClient {
+  provider: LlmProvider
+  /** 회의록 한 조각의 최대 글자 수. splitTranscript의 budgetChars로 넘긴다 */
+  chunkBudgetChars: number
+  /** 답변 본문만 돌려준다. llama의 `Assistant:` 표시 제거는 local 구현이 한다 */
+  complete: (params: LlmCompleteParams) => Promise<string>
+}
+```
+
+- `createLlmClient()`는 잡이 **시작할 때** 설정을 한 번 읽는다. 진행 중인 잡의 공급자는 바뀌지 않는다 (조용히 처리 옵션과 같은 규칙).
+- 준비되지 않았으면 spawn·요청 전에 한국어 메시지로 멈춘다 (`llmMissingMessage`). 메시지는 renderer의 `SummarySection`도 같은 함수로 만들어 두 곳이 같은 문구를 보여준다.
+- Claude를 써도 **잡 큐는 그대로 하나**다 (`pipeline/queue.ts`, 동시성 1). Claude는 GPU를 쓰지 않아 STT와 동시에 돌 수 있지만,
+  큐를 둘로 나누면 "회의 처리 중이면 그 뒤에 만든다"는 화면 안내와 실패 처리가 공급자마다 갈린다. 단순함을 택했다.
+
+### Claude Code CLI 호출
+
+```
+claude -p --output-format json --tools "" --no-session-persistence --setting-sources "" --system-prompt <system>
+  (프롬프트는 stdin으로)
+```
+
+- **`--bare`를 쓰지 않는다.** 키체인 읽기를 끄기 때문에 구독 로그인이 풀려 "Not logged in"이 된다 (2026-09-24 실측). 대신
+  `--tools ""`(도구 전부 끔), `--no-session-persistence`(세션 파일 남기지 않음), `--setting-sources ""`(사용자·프로젝트 설정 무시)로 최소 모드를 만든다.
+- **`cwd`는 `userData/llm/`** 같은 빈 폴더로 둔다. 프로젝트 폴더에서 돌리면 그곳의 CLAUDE.md가 시스템 프롬프트에 섞인다.
+- 프롬프트는 **stdin**으로 준다. 회의록은 수만 자라 argv에 넣을 수 없다 (llama와 같은 이유). 시스템 프롬프트는 수백 자라 `--system-prompt`로 넘긴다.
+- 출력은 `--output-format json` 한 덩어리다. `type: 'result'`이고 `is_error`가 거짓일 때 `result` 문자열이 답변이다.
+  `is_error`가 참이면 `result`가 오류 문장이다 (예: `Not logged in · Please run /login`) — 그대로 한국어 안내 뒤에 붙인다.
+- **실행 파일 탐색**: Finder에서 띄운 Electron 앱의 `PATH`는 `/usr/bin:/bin:/usr/sbin:/sbin`뿐이라 `claude`가 안 잡힌다.
+  `~/.local/bin/claude` → `/opt/homebrew/bin/claude` → `/usr/local/bin/claude` → `~/.claude/local/claude` 순서로 존재를 보고,
+  없으면 로그인 셸(`$SHELL -ilc 'command -v claude'`)로 한 번 찾아 캐시한다. spawn할 때 `PATH`도 로그인 셸의 값으로 바꿔 준다
+  (npm 설치본은 `node`를 PATH에서 찾는다). 결과(`path`·`version`)는 `llm:status`로 설정 화면에 보여준다.
+
+### Claude API 호출
+
+- `new Anthropic({ apiKey })` → `client.messages.stream({...}).finalMessage()`. 스트리밍은 화면에 흘리지 않고 타임아웃 회피용이다.
+- `stop_reason === 'refusal'`이면 "요청을 처리하지 않았습니다"로, `max_tokens`면 "답변이 잘렸습니다"로 안내한다.
+- 오류는 SDK의 타입으로 나눈다: `AuthenticationError`(키 오류) → `RateLimitError`(한도) → `APIConnectionError`(네트워크) → `APIError`(그 외, 상태 코드 포함).
+- **API 키는 `safeStorage.encryptString`으로 암호화해 settings 테이블에 base64로 저장한다** (`llm.claudeApiKey`). renderer에는 키를 돌려주지 않고
+  `hasClaudeApiKey`와 마지막 4자(`claudeApiKeyTail`)만 준다. `safeStorage.isEncryptionAvailable()`이 거짓이면 저장을 거절한다 — 평문으로 남기지 않는다.
+
+### IPC
+
+| 키 | 채널 | 방향 | 용도 |
+| --- | --- | --- | --- |
+| `llm.status` | `llm:status` | invoke | `LlmStatus` 조회 — 공급자, 로컬 모델 준비 여부, 키 유무·꼬리, `claude` 경로·버전 |
+| `llm.setProvider` | `llm:setProvider` | invoke | 공급자 저장. 갱신된 `LlmStatus`를 돌려준다 |
+| `llm.setClaudeApiKey` | `llm:setClaudeApiKey` | invoke | 키 저장(`apiKey: string`) 또는 삭제(`null`). 갱신된 `LlmStatus`를 돌려준다 |
+| `llm.check` | `llm:check` | invoke | 현재 공급자로 짧은 프롬프트 한 번. 성공 메시지를 돌려주고 실패는 reject |
+
+- 공급자는 `AppSettings`에 넣지 않는다 — 키 저장·CLI 탐색·연결 확인 같은 비동기 동작이 붙어 있어 용어 사전과 같은 이유로 **자기 채널**을 쓴다 (`references/data-model.md`).
+- `llm:check`는 큐를 거치지 않는다. 짧고, 로컬 공급자는 spawn 대신 모델 존재만 확인해 돌려준다.
+
+### 화면
+
+- `setting/LlmSection` — 설정의 **"요약 · 용어 초안"** 카테고리. 용도로 이름을 짓는다 — "언어 모델"은 음성 인식 모델과 겹쳐 들린다.
+  "실행 방식" 라디오 세 개(제목·설명·전송 안내), 고른 방식에 따라 아래 행이 바뀐다:
+  `local`이면 **로컬 요약 모델 파일** 다운로드 행(`model/SummaryModelSection`, 페이지가 `localModelSlot`으로 넘긴다),
+  `claude-api`면 API 키 입력(`type="password"`)·저장·삭제와 저장 상태(`…abcd`), `claude-cli`면 찾은 경로·버전 또는 설치 안내.
+  "연결 확인" 버튼은 Claude 방식에서만 보인다. 로컬 파일 행은 파일이라는 점을 제목에 드러내고, Claude를 쓰면 필요 없다고 설명에 적는다.
+- `meeting/SummarySection`은 `useModelStatus` 대신 `useLlmStatus`로 준비 여부를 본다. 준비되지 않았을 때의 문구는 공급자별로 다르고(`llmMissingMessage`), 설정 링크는 같다.
+  캡션 "로컬 모델"은 공급자 라벨로 바뀐다.
+- `setting/GlossarySection`의 "초안에는 요약 모델이 필요합니다" 안내는 공급자 라벨을 쓰도록 바꾼다 (그 위젯을 손대는 작업이 끝난 뒤).
+
 ## 용어 사전 (Phase 5-4)
 
 교정(발음 유사도 후보 + O/X 판정)과 인식(whisper `--prompt`)은 둘 다 **정답 용어 목록**이 있어야 한다 (`docs/phase5-refine-results.md`).
@@ -791,7 +917,7 @@ events: { progress: 'pipeline:progress', summary: 'summary:progress' }
 
 ### 화면
 
-- `setting/GlossarySection` — 팀 소개 `textarea`(최대 500자), "초안 만들기" 버튼, **행 단위 용어 목록**, "저장" 버튼.
+- `setting/GlossarySection` — 팀 소개 `textarea`(최대 500자, placeholder에 영어 도구 이름을 섞은 예), "초안 만들기" 버튼, **행 단위 용어 목록**, "저장" 버튼.
 - **용어 목록은 한 행에 `용어` 입력 + `한글 읽기(선택)` 입력 + 삭제 버튼**으로 편집한다 (2026-09-24 사용자 결정, 이전의 한 줄 텍스트 `textarea`를 대체).
   텍스트 방식은 사용자가 `=`·쉼표 구분자를 직접 지켜야 했고, `:`·`->`·전각 쉼표를 쓰면 경고 없이 한 용어로 뭉쳤다.
   - 읽기는 **선택**이다. 한글 용어는 그 자체가 발음이고, 읽기가 빈 영어 용어는 교정 때 모델이 읽기를 채운다 (`src/shared/refine.ts`). 적어 두면 모델 읽기보다 정확하다는 점만 안내한다.

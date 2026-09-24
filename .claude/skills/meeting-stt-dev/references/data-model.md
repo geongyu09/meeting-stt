@@ -132,6 +132,27 @@ export interface AppSettings {
   저장할 때 main이 줄 앞뒤 공백을 자르고 빈 줄·중복 용어(`=` 앞부분 기준, 대소문자 무시)를 뺀다. 한도를 넘으면 거절한다.
 - **`widget.bounds`도 `AppSettings`에 넣지 않는다.** 설정 화면에서 사람이 고르는 값이 아니라 창을 옮길 때 main이 적어 두는
   런타임 상태이고, 읽고 쓰는 쪽이 `src/main/windows/widget.ts` 하나뿐이기 때문이다.
+- **LLM 공급자(`llm.provider`, `llm.claudeApiKey`)도 `AppSettings`에 넣지 않는다** (2026-09-24). 키 저장·CLI 탐색·연결 확인이 붙은
+  별도 카테고리라 자기 채널(`llm:status`/`llm:setProvider`/`llm:setClaudeApiKey`)로 읽고 쓴다 (`references/architecture.md` "LLM 공급자").
+
+  | 키 | 타입 | 기본값 | 뜻 |
+  | --- | --- | --- | --- |
+  | `llm.provider` | `'local' \| 'claude-api' \| 'claude-cli'` | `'local'` | 요약·용어 초안이 쓰는 LLM. 모르는 값은 `'local'`로 읽는다 |
+  | `llm.claudeApiKey` | string (base64) | 없음 | `safeStorage.encryptString`으로 암호화한 Anthropic API 키. **평문을 저장하지 않고 renderer에 돌려주지 않는다.** 복호화는 요청 직전 main에서만 한다 |
+
+  ```ts
+  export type LlmProvider = 'local' | 'claude-api' | 'claude-cli'
+
+  /** llm:status 응답. 키 자체는 없고 유무와 마지막 4자만 있다 */
+  export interface LlmStatus {
+    provider: LlmProvider
+    isLocalModelReady: boolean
+    hasClaudeApiKey: boolean
+    claudeApiKeyTail: string | null
+    claudeCliPath: string | null
+    claudeCliVersion: string | null
+  }
+  ```
 
 ## 공유 타입 (`src/shared/types.ts`)
 

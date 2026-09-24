@@ -73,6 +73,27 @@ export interface GlossarySettings {
   terms: string[]
 }
 
+/**
+ * 요약·용어 초안이 쓰는 LLM 공급자 (references/architecture.md "LLM 공급자").
+ * 'local'은 llama.cpp, 나머지 둘은 사용자의 Claude API 키·Claude Code CLI(구독)다.
+ */
+export type LlmProvider = 'local' | 'claude-api' | 'claude-cli'
+
+/**
+ * `llm:status` 응답. API 키 자체는 renderer로 보내지 않고 유무와 마지막 4자만 준다.
+ * 공급자는 `AppSettings`와 따로 자기 채널로 오간다 (references/data-model.md).
+ */
+export interface LlmStatus {
+  provider: LlmProvider
+  /** llama-cli와 요약 모델이 모두 있는지 */
+  isLocalModelReady: boolean
+  hasClaudeApiKey: boolean
+  claudeApiKeyTail: string | null
+  /** 찾은 `claude` 실행 파일. 없으면 null */
+  claudeCliPath: string | null
+  claudeCliVersion: string | null
+}
+
 /** 디테일 화면이 한 번에 받는 묶음 */
 export interface MeetingDetail {
   meeting: Meeting

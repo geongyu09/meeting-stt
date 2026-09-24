@@ -2,10 +2,10 @@ import { GLOSSARY_CTX_TOKENS, GLOSSARY_MAX_PREDICT_TOKENS } from '@shared/glossa
 import { cleanSummary, SUMMARY_CTX_TOKENS, SUMMARY_MAX_PREDICT_TOKENS } from '@shared/summary'
 
 /** 요약은 창작이 아니므로 낮게 둔다. 0으로 두면 같은 문장을 반복하는 경향이 있다 */
-const SUMMARY_TEMPERATURE = 0.3
+export const SUMMARY_TEMPERATURE = 0.3
 
 /** 용어 초안은 목록을 적는 일이라 요약보다 낮춘다. 0.3에서는 읽기가 더 자주 흔들렸다 */
-const GLOSSARY_TEMPERATURE = 0.1
+export const GLOSSARY_TEMPERATURE = 0.1
 
 /** llama-cli가 `-o` 파일에 답변 앞에 붙이는 고정 표시 */
 const ASSISTANT_MARKER = '\nAssistant:\n'
@@ -18,7 +18,7 @@ interface LlamaFilesParams {
   threads: number
 }
 
-interface BuildLlamaArgsParams extends LlamaFilesParams {
+export interface BuildLlamaArgsParams extends LlamaFilesParams {
   ctxTokens: number
   maxPredictTokens: number
   temperature: number
@@ -31,7 +31,7 @@ interface BuildLlamaArgsParams extends LlamaFilesParams {
  * 회의록은 수만 자라 argv에 넣으면 길이 제한에 걸리고, `-e`(기본 켜짐)가 본문의
  * 역슬래시를 제어문자로 바꾼다 (references/architecture.md).
  */
-const buildLlamaArgs = ({
+export const buildLlamaArgs = ({
   modelPath,
   systemPromptPath,
   promptPath,

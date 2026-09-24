@@ -25,7 +25,7 @@ main 프로세스의 온보딩 다운로더와 `scripts/setupModels.ts`(Phase 1 
   `WhisperModelId`·`ModelKey` 타입은 카탈로그의 어휘이므로 `@meeting-stt/models/desktop`에서 정의하고,
   `src/shared/types.ts`가 그것을 재노출한다 (앱 코드의 `@shared/types` import 경로를 유지하기 위해서다).
 - **요약 모델은 온보딩에서 받지 않는다** (2026-08-26 결정). 필수 묶음(약 620MB)만 받아 첫 실행을 짧게 끝내고,
-  2.4GB짜리 요약 모델은 `/settings`의 `SummaryModelSection`에서 사용자가 따로 받는다. 회의 상세의 `SummarySection`은
+  2.4GB짜리 요약 모델은 `/settings`의 "요약 · 용어 초안" 카테고리(`LlmSection` 안의 `SummaryModelSection`, 실행 방식이 로컬일 때만 보인다)에서 사용자가 따로 받는다. 회의 상세의 `SummarySection`은
   요약 모델이 없으면 버튼을 막고 설정으로 가는 링크를 보여준다. "요약 버튼을 처음 누를 때 받기"는 택하지 않았다 —
   버튼 하나가 수 분짜리 다운로드와 수 분짜리 추론을 연달아 일으키면 사용자가 무엇을 기다리는지 알 수 없다.
 - 파일은 전부 `userData/models/` 한 곳에 평평하게 둔다. 모델별 하위 폴더를 만들지 않는다 — 파일명이 이미 모델을 구분한다.

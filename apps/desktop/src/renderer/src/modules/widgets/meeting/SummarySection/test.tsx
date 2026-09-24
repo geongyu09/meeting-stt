@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
-import type { ModelStatusResponse, SummaryProgressEvent } from '@shared/ipc'
-import type { Meeting, MeetingDetail, Utterance } from '@shared/types'
+import type { SummaryProgressEvent } from '@shared/ipc'
+import type { LlmStatus, Meeting, MeetingDetail, Utterance } from '@shared/types'
 
 vi.mock('@renderer/shared/api/meetings', () => ({
   getMeetingApi: vi.fn(),
@@ -21,21 +21,21 @@ vi.mock('@renderer/shared/api/speakers', () => ({
 }))
 vi.mock('@renderer/shared/api/clipboard', () => ({ writeClipboardTextApi: vi.fn() }))
 vi.mock('@renderer/shared/api/summary', () => ({ createSummaryApi: vi.fn() }))
-vi.mock('@renderer/shared/api/models', () => ({
-  getModelStatusApi: vi.fn(),
-  downloadModelsApi: vi.fn(),
-  downloadSummaryModelApi: vi.fn()
+vi.mock('@renderer/shared/api/llm', () => ({
+  getLlmStatusApi: vi.fn(),
+  setLlmProviderApi: vi.fn(),
+  setClaudeApiKeyApi: vi.fn(),
+  checkLlmApi: vi.fn()
 }))
 vi.mock('@renderer/shared/api/events', () => ({
   onPipelineProgress: vi.fn(() => () => {}),
-  onSummaryProgress: vi.fn(() => () => {}),
-  onModelDownloadProgress: vi.fn(() => () => {})
+  onSummaryProgress: vi.fn(() => () => {})
 }))
 
 import { writeClipboardTextApi } from '@renderer/shared/api/clipboard'
 import { onSummaryProgress } from '@renderer/shared/api/events'
+import { getLlmStatusApi } from '@renderer/shared/api/llm'
 import { getMeetingApi } from '@renderer/shared/api/meetings'
-import { getModelStatusApi } from '@renderer/shared/api/models'
 import { createSummaryApi } from '@renderer/shared/api/summary'
 import SummarySection from './index'
 
@@ -67,27 +67,27 @@ const detailOf = (overrides: Partial<MeetingDetail> = {}): MeetingDetail => ({
   ...overrides
 })
 
-const modelStatusOf = (overrides: Partial<ModelStatusResponse> = {}): ModelStatusResponse => ({
-  isReady: true,
-  isSummaryReady: true,
-  selectedWhisperModelId: 'turbo-q5',
-  recommendedWhisperModelId: 'turbo-q5',
-  whisperOptions: [],
-  items: [],
+const llmStatusOf = (overrides: Partial<LlmStatus> = {}): LlmStatus => ({
+  provider: 'local',
+  isLocalModelReady: true,
+  hasClaudeApiKey: false,
+  claudeApiKeyTail: null,
+  claudeCliPath: null,
+  claudeCliVersion: null,
   ...overrides
 })
 
 interface RenderSectionParams {
   detail: MeetingDetail | null
-  modelStatus?: ModelStatusResponse
+  llmStatus?: LlmStatus
 }
 
 const renderSection = async (
   detail: MeetingDetail | null,
-  { modelStatus = modelStatusOf() }: Partial<RenderSectionParams> = {}
+  { llmStatus = llmStatusOf() }: Partial<RenderSectionParams> = {}
 ) => {
   vi.mocked(getMeetingApi).mockResolvedValue(detail)
-  vi.mocked(getModelStatusApi).mockResolvedValue(modelStatus)
+  vi.mocked(getLlmStatusApi).mockResolvedValue(llmStatus)
 
   await act(async () => {
     render(
@@ -134,13 +134,34 @@ describe('SummarySection', () => {
   })
 
   it('요약 모델이 없으면 버튼을 막고 설정으로 가는 링크를 보여 준다', async () => {
-    await renderSection(detailOf(), { modelStatus: modelStatusOf({ isSummaryReady: false }) })
+    await renderSection(detailOf(), { llmStatus: llmStatusOf({ isLocalModelReady: false }) })
 
     expect(screen.getByRole('button', { name: '요약 만들기' }).hasAttribute('disabled')).toBe(true)
-    expect(screen.getByText(/요약 모델이 설치되어 있지 않습니다/)).toBeTruthy()
-    expect(screen.getByRole('link', { name: '설정에서 요약 모델 받기' }).getAttribute('href')).toBe(
+    expect(screen.getByText(/로컬 요약 모델 파일이 설치되어 있지 않습니다/)).toBeTruthy()
+    expect(screen.getByRole('link', { name: '설정에서 준비하기' }).getAttribute('href')).toBe(
       '/settings'
     )
+  })
+
+  it('Claude API를 골랐는데 키가 없으면 키 안내로 막고, 키가 있으면 로컬 모델 없이도 요약할 수 있다', async () => {
+    await renderSection(detailOf(), {
+      llmStatus: llmStatusOf({ provider: 'claude-api', isLocalModelReady: false })
+    })
+
+    expect(screen.getByRole('button', { name: '요약 만들기' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByText(/Claude API 키가 저장되어 있지 않습니다/)).toBeTruthy()
+
+    cleanup()
+    await renderSection(detailOf(), {
+      llmStatus: llmStatusOf({
+        provider: 'claude-api',
+        isLocalModelReady: false,
+        hasClaudeApiKey: true
+      })
+    })
+
+    expect(screen.getByRole('button', { name: '요약 만들기' }).hasAttribute('disabled')).toBe(false)
+    expect(screen.getByText('Claude API')).toBeTruthy()
   })
 
   it('발화가 하나도 없으면 요약 버튼을 막는다', async () => {

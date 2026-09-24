@@ -1,6 +1,8 @@
 import type {
   AppSettings,
   GlossarySettings,
+  LlmProvider,
+  LlmStatus,
   Meeting,
   MeetingDetail,
   ModelKey,
@@ -39,6 +41,12 @@ export const IPC = {
   clipboard: { writeText: 'clipboard:writeText' },
   summary: { create: 'summary:create' },
   glossary: { get: 'glossary:get', update: 'glossary:update', draft: 'glossary:draft' },
+  llm: {
+    status: 'llm:status',
+    setProvider: 'llm:setProvider',
+    setClaudeApiKey: 'llm:setClaudeApiKey',
+    check: 'llm:check'
+  },
   models: {
     status: 'models:status',
     download: 'models:download',
@@ -208,6 +216,25 @@ export interface DraftGlossaryRequest {
 }
 export interface DraftGlossaryResponse {
   terms: string[]
+}
+
+export type GetLlmStatusResponse = LlmStatus
+
+/** 공급자 저장. 갱신된 상태를 돌려준다 (references/architecture.md "LLM 공급자") */
+export interface SetLlmProviderRequest {
+  provider: LlmProvider
+}
+export type SetLlmProviderResponse = LlmStatus
+
+/** `null`이면 저장된 키를 지운다. 키는 main이 암호화해 저장하고 renderer로 되돌려주지 않는다 */
+export interface SetClaudeApiKeyRequest {
+  apiKey: string | null
+}
+export type SetClaudeApiKeyResponse = LlmStatus
+
+/** 현재 공급자로 짧은 프롬프트 한 번. 실패는 reject(한국어 메시지)로 알린다 */
+export interface CheckLlmResponse {
+  message: string
 }
 
 export interface WriteClipboardTextRequest {

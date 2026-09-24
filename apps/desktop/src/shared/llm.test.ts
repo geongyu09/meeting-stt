@@ -1,0 +1,119 @@
+import { describe, expect, it } from 'vitest'
+import type { LlmStatus } from './types'
+
+import {
+  buildClaudeCliArgs,
+  isLlmProvider,
+  isLlmReady,
+  llmMissingMessage,
+  parseClaudeCliOutput,
+  readClaudeApiKeyPayload
+} from './llm'
+
+const statusOf = (overrides: Partial<LlmStatus> = {}): LlmStatus => ({
+  provider: 'local',
+  isLocalModelReady: true,
+  hasClaudeApiKey: false,
+  claudeApiKeyTail: null,
+  claudeCliPath: null,
+  claudeCliVersion: null,
+  ...overrides
+})
+
+// claude 2.1.281 `claude -p --output-format json` 실제 출력을 짧게 자른 것
+const CLI_SUCCESS =
+  '{"duration_api_ms":1873,"stop_reason":"end_turn","session_id":"39b2bed2","total_cost_usd":0.11,"is_error":false,"num_turns":1,"subtype":"success","result":"2","type":"result"}'
+const CLI_NOT_LOGGED_IN =
+  '{"duration_api_ms":0,"stop_reason":"stop_sequence","is_error":true,"num_turns":1,"subtype":"success","api_error_status":null,"result":"Not logged in · Please run /login","type":"result"}'
+
+describe('isLlmProvider', () => {
+  it('세 공급자만 인정한다', () => {
+    expect(isLlmProvider('local')).toBe(true)
+    expect(isLlmProvider('claude-api')).toBe(true)
+    expect(isLlmProvider('claude-cli')).toBe(true)
+    expect(isLlmProvider('openai')).toBe(false)
+    expect(isLlmProvider(undefined)).toBe(false)
+  })
+})
+
+describe('llmMissingMessage', () => {
+  it('로컬은 요약 모델이 없을 때만 막는다', () => {
+    expect(llmMissingMessage(statusOf())).toBeNull()
+    expect(llmMissingMessage(statusOf({ isLocalModelReady: false }))).toMatch(/요약 모델/)
+  })
+
+  it('Claude API는 키가 있어야 한다. 로컬 모델은 보지 않는다', () => {
+    expect(
+      llmMissingMessage(statusOf({ provider: 'claude-api', isLocalModelReady: false }))
+    ).toMatch(/API 키/)
+    expect(
+      isLlmReady(
+        statusOf({ provider: 'claude-api', isLocalModelReady: false, hasClaudeApiKey: true })
+      )
+    ).toBe(true)
+  })
+
+  it('Claude Code는 실행 파일을 찾아야 한다', () => {
+    expect(llmMissingMessage(statusOf({ provider: 'claude-cli' }))).toMatch(/claude 명령/)
+    expect(
+      isLlmReady(statusOf({ provider: 'claude-cli', claudeCliPath: '/Users/me/.local/bin/claude' }))
+    ).toBe(true)
+  })
+})
+
+describe('buildClaudeCliArgs', () => {
+  const args = buildClaudeCliArgs({ system: '당신은 요약 도우미입니다.' })
+
+  it('한 턴 출력 모드와 JSON 형식을 켠다', () => {
+    expect(args).toContain('-p')
+    expect(args[args.indexOf('--output-format') + 1]).toBe('json')
+  })
+
+  it('도구·세션 저장·사용자 설정을 끈다', () => {
+    expect(args[args.indexOf('--tools') + 1]).toBe('')
+    expect(args).toContain('--no-session-persistence')
+    expect(args[args.indexOf('--setting-sources') + 1]).toBe('')
+  })
+
+  it('구독 로그인이 풀리는 --bare는 쓰지 않는다', () => {
+    expect(args).not.toContain('--bare')
+  })
+
+  it('시스템 프롬프트를 인자로 넘기고 프롬프트 본문은 넘기지 않는다', () => {
+    expect(args[args.indexOf('--system-prompt') + 1]).toBe('당신은 요약 도우미입니다.')
+  })
+})
+
+describe('parseClaudeCliOutput', () => {
+  it('성공 출력에서 답변만 꺼낸다', () => {
+    expect(parseClaudeCliOutput(CLI_SUCCESS)).toBe('2')
+  })
+
+  it('종료 코드가 0이어도 is_error면 원문을 담아 던진다', () => {
+    expect(() => parseClaudeCliOutput(CLI_NOT_LOGGED_IN)).toThrow(/Not logged in/)
+  })
+
+  it('앞뒤에 로그가 섞여도 JSON을 찾는다', () => {
+    expect(parseClaudeCliOutput(`warning: something\n${CLI_SUCCESS}\n`)).toBe('2')
+  })
+
+  it('JSON이 아니면 형식 오류로 던진다', () => {
+    expect(() => parseClaudeCliOutput('Segmentation fault')).toThrow(/출력 형식/)
+  })
+})
+
+describe('readClaudeApiKey', () => {
+  it('null은 삭제 요청으로 본다', () => {
+    expect(readClaudeApiKeyPayload({ apiKey: null })).toBeNull()
+  })
+
+  it('앞뒤 공백을 자른다', () => {
+    expect(readClaudeApiKeyPayload({ apiKey: '  sk-ant-api03-abc  ' })).toBe('sk-ant-api03-abc')
+  })
+
+  it('빈 값·공백 포함·필드 누락은 거절한다', () => {
+    expect(() => readClaudeApiKeyPayload({ apiKey: '   ' })).toThrow(/입력/)
+    expect(() => readClaudeApiKeyPayload({ apiKey: 'sk-ant\nabc' })).toThrow(/형식/)
+    expect(() => readClaudeApiKeyPayload({})).toThrow(/잘못된 요청/)
+  })
+})

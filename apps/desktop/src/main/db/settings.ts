@@ -1,5 +1,6 @@
-import type { AppSettings, GlossarySettings, WhisperModelId } from '@shared/types'
+import type { AppSettings, GlossarySettings, LlmProvider, WhisperModelId } from '@shared/types'
 import { DEFAULT_WHISPER_MODEL_ID, isWhisperModelId } from '@meeting-stt/models/desktop'
+import { DEFAULT_LLM_PROVIDER, isLlmProvider } from '@shared/llm'
 import {
   DEFAULT_RECORDING_SHORTCUT,
   DEFAULT_WIDGET_SHORTCUT,
@@ -21,6 +22,8 @@ const RECORDING_SHORTCUT_KEY = 'shortcut.recording'
 const WIDGET_SHORTCUT_KEY = 'shortcut.widget'
 const GLOSSARY_TEAM_KEY = 'glossary.team'
 const GLOSSARY_TERMS_KEY = 'glossary.terms'
+const LLM_PROVIDER_KEY = 'llm.provider'
+const LLM_CLAUDE_API_KEY_KEY = 'llm.claudeApiKey'
 
 const DEFAULT_SETTINGS: AppSettings = {
   isAudioKept: false,
@@ -53,6 +56,10 @@ const writeValue = ({ key, value }: { key: string; value: unknown }) => {
        ON CONFLICT(key) DO UPDATE SET value = @value`
     )
     .run({ key, value: JSON.stringify(value) })
+}
+
+const deleteValue = ({ key }: { key: string }) => {
+  getDb().prepare('DELETE FROM settings WHERE key = ?').run(key)
 }
 
 const readBoolean = ({ key, fallback }: { key: string; fallback: boolean }) => {
@@ -180,4 +187,36 @@ export const updateGlossarySettings = ({ teamDescription, terms }: GlossarySetti
   writeValue({ key: GLOSSARY_TERMS_KEY, value: terms })
 
   return getGlossarySettings()
+}
+
+/**
+ * 요약·용어 초안이 쓰는 LLM 공급자. `AppSettings`에 넣지 않는다 — 키 저장·CLI 탐색이 붙은
+ * 별도 카테고리가 자기 채널로 읽고 쓴다 (references/data-model.md). 모르는 값은 로컬로 읽는다.
+ */
+export const getLlmProvider = (): LlmProvider => {
+  const value = readValue(LLM_PROVIDER_KEY)
+
+  return isLlmProvider(value) ? value : DEFAULT_LLM_PROVIDER
+}
+
+export const setLlmProvider = ({ provider }: { provider: LlmProvider }) =>
+  writeValue({ key: LLM_PROVIDER_KEY, value: provider })
+
+/**
+ * safeStorage로 암호화한 Claude API 키(base64). 평문은 여기까지 오지 않는다 —
+ * 암호화·복호화는 `src/main/llm/apiKey.ts`가 한다.
+ */
+export const getEncryptedClaudeApiKey = () => {
+  const value = readValue(LLM_CLAUDE_API_KEY_KEY)
+
+  return typeof value === 'string' && value ? value : null
+}
+
+export const setEncryptedClaudeApiKey = ({ encrypted }: { encrypted: string | null }) => {
+  if (encrypted === null) {
+    deleteValue({ key: LLM_CLAUDE_API_KEY_KEY })
+    return
+  }
+
+  writeValue({ key: LLM_CLAUDE_API_KEY_KEY, value: encrypted })
 }

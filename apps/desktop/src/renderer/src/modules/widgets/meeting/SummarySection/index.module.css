@@ -65,11 +65,18 @@
   font-size: var(--font-xs);
 }
 
-/* 마크다운 라이브러리를 들이지 않고 줄바꿈만 보존해 보여 준다 */
+/* 마크다운 라이브러리를 들이지 않고 줄바꿈만 보존해 보여 준다.
+   긴 요약이 회의록을 화면 밖으로 밀어내지 않도록 줄 수 기준으로 높이를 막고 안에서 스크롤한다 */
 .summary {
+  --summary-line-height: 1.75;
+  --summary-max-lines: 22;
+
+  max-height: calc(var(--summary-line-height) * var(--summary-max-lines) * 1em);
   margin: 0;
+  padding-right: var(--space-2);
+  overflow-y: auto;
   font-size: var(--font-base);
-  line-height: 1.75;
+  line-height: var(--summary-line-height);
   white-space: pre-wrap;
 }
 

@@ -1,7 +1,9 @@
 import { BrowserWindow, clipboard, ipcMain, systemPreferences } from 'electron'
 import {
   IPC,
+  type CheckLlmResponse,
   type DownloadModelsResponse,
+  type GetLlmStatusResponse,
   type GetMeetingRequest,
   type GetMeetingResponse,
   type GetMeetingsResponse,
@@ -15,6 +17,8 @@ import {
   type RecordingCommandEvent,
   type RequestMicrophonePermissionResponse,
   type SearchMeetingsResponse,
+  type SetClaudeApiKeyResponse,
+  type SetLlmProviderResponse,
   type StartRecordingRequest,
   type StartRecordingResponse,
   type StopRecordingResponse,
@@ -22,6 +26,7 @@ import {
   type UpdateSettingsResponse
 } from '@shared/ipc'
 import { readGlossarySettings, readTeamDescription } from '@shared/glossary'
+import { isLlmProvider, readClaudeApiKeyPayload } from '@shared/llm'
 import { isValidAccelerator } from '@shared/shortcut'
 import {
   isWidgetFadeOpacity,
@@ -46,10 +51,14 @@ import { findMeeting, listMeetings, renameMeeting, searchMeetings } from '../db/
 import {
   getAppSettings,
   getGlossarySettings,
+  setLlmProvider,
   setWhisperModelId,
   updateAppSettings,
   updateGlossarySettings
 } from '../db/settings'
+import { clearClaudeApiKey, saveClaudeApiKey } from '../llm/apiKey'
+import { checkLlm } from '../llm/check'
+import { getLlmStatus } from '../llm/provider'
 import { hasSpeaker, listSpeakers, mergeSpeakers, renameSpeaker } from '../db/speakers'
 import { listUtterances, updateUtteranceSpeaker, updateUtteranceText } from '../db/utterances'
 import type { ModelDownloadProgress } from '../models/download'
@@ -182,6 +191,23 @@ const readRecordingCommandKind = (payload: unknown) => {
   }
 
   return kind as RecordingCommandEvent['kind']
+}
+
+const readLlmProvider = (payload: unknown) => {
+  if (!isRecord(payload) || !isLlmProvider(payload.provider)) {
+    throw new Error('알 수 없는 LLM 공급자입니다')
+  }
+
+  return payload.provider
+}
+
+/** 키는 저장·삭제만 하고 renderer로 되돌려주지 않는다 (references/data-model.md) */
+const handleSetClaudeApiKey = (payload: unknown): Promise<SetClaudeApiKeyResponse> => {
+  const apiKey = readClaudeApiKeyPayload(payload)
+  if (apiKey === null) clearClaudeApiKey()
+  else saveClaudeApiKey({ apiKey })
+
+  return getLlmStatus()
 }
 
 const readWhisperModelId = (payload: unknown) => {
@@ -481,4 +507,17 @@ export const registerIpcHandlers = () => {
   ipcMain.handle(IPC.glossary.draft, async (_event, payload): Promise<DraftGlossaryResponse> => ({
     terms: await enqueueGlossaryDraft({ teamDescription: readTeamDescription(payload) })
   }))
+
+  ipcMain.handle(IPC.llm.status, (): Promise<GetLlmStatusResponse> => getLlmStatus())
+
+  ipcMain.handle(IPC.llm.setProvider, (_event, payload): Promise<SetLlmProviderResponse> => {
+    setLlmProvider({ provider: readLlmProvider(payload) })
+
+    return getLlmStatus()
+  })
+
+  ipcMain.handle(IPC.llm.setClaudeApiKey, (_event, payload) => handleSetClaudeApiKey(payload))
+
+  // 짧은 프롬프트 한 번이라 큐를 거치지 않는다 (references/architecture.md "LLM 공급자")
+  ipcMain.handle(IPC.llm.check, (): Promise<CheckLlmResponse> => checkLlm())
 }

@@ -55,7 +55,7 @@ describe('SummaryModelSection', () => {
   it('요약 모델이 없으면 용량과 함께 다운로드 버튼을 보여준다', async () => {
     await renderSection(statusOf(false))
 
-    expect(screen.getByRole('button', { name: '요약 모델 받기' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '모델 파일 받기' })).toBeTruthy()
     expect(screen.getByText(/설치되지 않음 · 2.5GB/)).toBeTruthy()
     expect(screen.getByText(/없어도 녹음과 회의록 작성은 그대로 됩니다/)).toBeTruthy()
   })
@@ -77,7 +77,7 @@ describe('SummaryModelSection', () => {
     )
     await renderSection(statusOf(false))
 
-    await user.click(screen.getByRole('button', { name: '요약 모델 받기' }))
+    await user.click(screen.getByRole('button', { name: '모델 파일 받기' }))
 
     expect(downloadSummaryModelApi).toHaveBeenCalledTimes(1)
     await emitProgress({ key: 'summary', receivedBytes: 1, totalBytes: SUMMARY_BYTES, percent: 30 })
@@ -99,10 +99,10 @@ describe('SummaryModelSection', () => {
     vi.mocked(downloadSummaryModelApi).mockRejectedValue(new Error('이미 모델을 내려받는 중입니다'))
     await renderSection(statusOf(false))
 
-    await user.click(screen.getByRole('button', { name: '요약 모델 받기' }))
+    await user.click(screen.getByRole('button', { name: '모델 파일 받기' }))
 
     expect(await screen.findByRole('alert')).toBeTruthy()
     expect(screen.getByText('이미 모델을 내려받는 중입니다')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '요약 모델 받기' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '모델 파일 받기' })).toBeTruthy()
   })
 })
