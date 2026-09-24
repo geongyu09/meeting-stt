@@ -3,12 +3,12 @@ import { useCallback, useRef, useState, type RefObject } from 'react'
 import type { TermEntry, TermRow } from '../types/termRow'
 import { EMPTY_TERM_ENTRY, parseTermLine, parseTermLines, toTermLines } from '../utils/termLines'
 
-interface UpdateRowParams {
+export interface UpdateRowParams {
   id: number
   patch: Partial<TermEntry>
 }
 
-interface PasteRowsParams {
+export interface PasteRowsParams {
   id: number
   text: string
 }
