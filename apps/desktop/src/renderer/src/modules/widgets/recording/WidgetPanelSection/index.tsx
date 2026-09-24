@@ -2,7 +2,6 @@ import { MAX_SPEAKER_COUNT, MIN_SPEAKER_COUNT } from '@meeting-stt/core/speakerC
 import { setWidgetVisibleApi } from '@renderer/shared/api/widget'
 import Button from '@renderer/shared/components/primitives/ui/Button'
 import Icon from '@renderer/shared/components/primitives/ui/Icon'
-import LevelWaveform from '@renderer/shared/components/primitives/ui/LevelWaveform'
 import Stepper from '@renderer/shared/components/primitives/ui/Stepper'
 import useModelStatus from '@renderer/shared/hooks/domain/model/useModelStatus'
 import useRecorder from '@renderer/shared/hooks/domain/recording/useRecorder'
@@ -12,7 +11,6 @@ import { formatClock } from '@renderer/shared/utils/formatClock'
 
 import styles from './index.module.css'
 
-const WAVEFORM_BAR_COUNT = 14
 const MODEL_NOT_READY_MESSAGE = '메인 창에서 모델을 먼저 준비해 주세요'
 
 /**
@@ -21,7 +19,7 @@ const MODEL_NOT_READY_MESSAGE = '메인 창에서 모델을 먼저 준비해 주
  */
 export default function WidgetPanelSection() {
   const { status } = useModelStatus()
-  const { isRecording, levels, elapsedSec, speakerCount, errorMessage } = useRecordingState()
+  const { isRecording, elapsedSec, speakerCount, errorMessage } = useRecordingState()
   const isModelReady = status?.isReady ?? false
   const { isBusy, start, stop } = useRecorder({ isReady: isModelReady })
   const { text, isValid, changeText } = useSpeakerCount({ speakerCount })
@@ -67,9 +65,6 @@ export default function WidgetPanelSection() {
         <p className={isRecording ? styles.elapsed : styles.idleElapsed}>
           {formatClock({ sec: elapsedSec })}
         </p>
-        {isRecording ? (
-          <LevelWaveform levels={levels} barCount={WAVEFORM_BAR_COUNT} size="sm" />
-        ) : null}
       </div>
       <div className={styles.speakerCount}>
         <span className={styles.speakerCountLabel}>참석자 수</span>
