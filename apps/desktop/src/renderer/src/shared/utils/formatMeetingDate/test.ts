@@ -1,16 +1,41 @@
 import { describe, expect, it } from 'vitest'
-import { formatMeetingDate } from './index'
+import { formatMeetingDate, formatMeetingDay, formatMeetingTime } from './index'
 
-describe('formatMeetingDate', () => {
-  it('현지 시각 기준 날짜와 시:분을 조립한다', () => {
-    const epochMs = new Date(2026, 7, 26, 15, 12).getTime()
-
-    expect(formatMeetingDate({ epochMs })).toBe('2026년 8월 26일 15:12')
+describe('formatMeetingTime', () => {
+  it('오후 시각을 12시간제로 읽는다', () => {
+    expect(formatMeetingTime({ epochMs: new Date(2026, 8, 24, 14, 10).getTime() })).toBe(
+      '오후 2:10'
+    )
   })
 
-  it('한 자리 시각은 0을 채운다', () => {
-    const epochMs = new Date(2026, 0, 3, 9, 5).getTime()
+  it('자정은 오전 12시, 정오는 오후 12시다', () => {
+    expect(formatMeetingTime({ epochMs: new Date(2026, 8, 24, 0, 5).getTime() })).toBe('오전 12:05')
+    expect(formatMeetingTime({ epochMs: new Date(2026, 8, 24, 12, 0).getTime() })).toBe(
+      '오후 12:00'
+    )
+  })
+})
 
-    expect(formatMeetingDate({ epochMs })).toBe('2026년 1월 3일 09:05')
+describe('formatMeetingDate', () => {
+  it('날짜·요일·시각을 조립한다', () => {
+    expect(formatMeetingDate({ epochMs: new Date(2026, 8, 24, 14, 10).getTime() })).toBe(
+      '2026년 9월 24일 (목) 오후 2:10'
+    )
+  })
+})
+
+describe('formatMeetingDay', () => {
+  const now = new Date(2026, 8, 24, 15, 0).getTime()
+
+  it('올해면 연도를 생략한다', () => {
+    expect(formatMeetingDay({ epochMs: new Date(2026, 8, 22, 9, 0).getTime(), now })).toBe(
+      '9월 22일'
+    )
+  })
+
+  it('다른 해면 연도를 붙인다', () => {
+    expect(formatMeetingDay({ epochMs: new Date(2025, 11, 30, 9, 0).getTime(), now })).toBe(
+      '2025년 12월 30일'
+    )
   })
 })

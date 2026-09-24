@@ -331,7 +331,8 @@ describe('TranscriptSection 화자 관리', () => {
     )
     renderSection()
 
-    const mergeButtons = await screen.findAllByRole('button', { name: '합치기' })
+    await user.click(await screen.findByRole('button', { name: '화자 합치기' }))
+    const mergeButtons = screen.getAllByRole('button', { name: '합치기' })
     await user.click(mergeButtons[1])
 
     expect(mergeSpeakersApi).not.toHaveBeenCalled()
@@ -393,7 +394,8 @@ describe('TranscriptSection 복사와 삭제', () => {
     vi.mocked(deleteMeetingApi).mockResolvedValue(undefined)
     renderSection()
 
-    await user.click(await screen.findByRole('button', { name: '회의 삭제' }))
+    await user.click(await screen.findByRole('button', { name: '회의 더보기' }))
+    await user.click(screen.getByRole('button', { name: '회의 삭제' }))
     expect(deleteMeetingApi).not.toHaveBeenCalled()
     expect(screen.getByText(/되돌릴 수 없습니다/)).toBeTruthy()
 
@@ -408,10 +410,12 @@ describe('TranscriptSection 복사와 삭제', () => {
     vi.mocked(getMeetingApi).mockResolvedValue(detailOf())
     renderSection()
 
-    await user.click(await screen.findByRole('button', { name: '회의 삭제' }))
+    await user.click(await screen.findByRole('button', { name: '회의 더보기' }))
+    await user.click(screen.getByRole('button', { name: '회의 삭제' }))
     await user.click(screen.getByRole('button', { name: '취소' }))
 
     expect(deleteMeetingApi).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: '회의 삭제' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '삭제' })).toBeNull()
+    expect(screen.getByRole('button', { name: '회의 더보기' })).toBeTruthy()
   })
 })

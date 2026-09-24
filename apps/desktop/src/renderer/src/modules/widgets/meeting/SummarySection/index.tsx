@@ -64,22 +64,29 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
     <section className={styles.section} aria-label="회의 요약">
       <header className={styles.header}>
         <h2 className={styles.title}>요약</h2>
-        <div className={styles.actions}>
-          {summary && !isRunning && (
-            <Button variant="secondary" onClick={copySummary}>
-              {isCopied ? '복사됨' : '요약 복사'}
-            </Button>
-          )}
-          <Button onClick={createSummary} disabled={isRunning || !hasTranscript || isModelMissing}>
-            {summary ? '다시 요약' : '요약 만들기'}
-          </Button>
-        </div>
+        <span className={styles.caption}>로컬 모델</span>
       </header>
 
       {renderBody()}
 
       {error && <p className={styles.error}>{error}</p>}
       {copyError && <p className={styles.error}>{copyError}</p>}
+
+      <div className={styles.actions}>
+        {summary && !isRunning && (
+          <Button variant="secondary" size="sm" className={styles.action} onClick={copySummary}>
+            {isCopied ? '복사됨' : '요약 복사'}
+          </Button>
+        )}
+        <Button
+          size="sm"
+          className={styles.action}
+          onClick={createSummary}
+          disabled={isRunning || !hasTranscript || isModelMissing}
+        >
+          {summary ? '다시 요약' : '요약 만들기'}
+        </Button>
+      </div>
     </section>
   )
 }

@@ -1,3 +1,4 @@
+import SettingRow from '@renderer/shared/components/primitives/layout/SettingRow'
 import Button from '@renderer/shared/components/primitives/ui/Button'
 import ProgressBar from '@renderer/shared/components/primitives/ui/ProgressBar'
 import useModelStatus from '@renderer/shared/hooks/domain/model/useModelStatus'
@@ -24,42 +25,37 @@ export default function SummaryModelSection() {
 
   const percent = progress.summary?.percent ?? 0
 
-  const renderBody = () => {
-    if (isDownloading) {
-      return (
-        <div className={styles.pending}>
-          <span className={styles.meta}>
-            {formatBytes({ bytes: item.sizeBytes })} · {percent}%
-          </span>
-          <ProgressBar percent={percent} label="요약 모델 다운로드 진행률" />
-        </div>
-      )
-    }
+  const size = formatBytes({ bytes: item.sizeBytes })
 
-    if (item.isInstalled) return <p className={styles.success}>설치되어 있습니다</p>
+  const renderControl = () => {
+    if (isDownloading) return <span className={styles.meta}>{percent}%</span>
+    if (item.isInstalled) return <span className={styles.success}>설치되어 있습니다</span>
 
-    return (
-      <div className={styles.actions}>
-        <Button onClick={downloadSummaryModel}>
-          요약 모델 다운로드 ({formatBytes({ bytes: item.sizeBytes })})
-        </Button>
-      </div>
-    )
+    return <Button onClick={downloadSummaryModel}>요약 모델 받기</Button>
   }
 
   return (
-    <section className={styles.section} aria-label="요약 모델">
-      <h2 className={styles.heading}>요약 모델</h2>
-      <p className={styles.hint}>
-        회의록을 로컬에서 요약하려면 요약 모델이 필요합니다. 없어도 녹음과 회의록 작성은 그대로
-        됩니다. 네트워크는 이 다운로드에만 씁니다.
-      </p>
-      {renderBody()}
-      {downloadError && (
-        <p className={styles.error} role="alert">
-          {downloadError.message}
-        </p>
-      )}
-    </section>
+    <SettingRow
+      title={
+        <>
+          요약 모델 <span className={styles.optional}>선택</span>
+        </>
+      }
+      description={
+        <>
+          {item.isInstalled ? '설치됨' : `설치되지 않음 · ${size}`}. 받아 두면 회의 상세에서 요약을
+          만들 수 있습니다. 없어도 녹음과 회의록 작성은 그대로 됩니다.
+          {downloadError && (
+            <span className={styles.error} role="alert">
+              {' '}
+              {downloadError.message}
+            </span>
+          )}
+        </>
+      }
+      control={renderControl()}
+    >
+      {isDownloading ? <ProgressBar percent={percent} label="요약 모델 다운로드 진행률" /> : null}
+    </SettingRow>
   )
 }

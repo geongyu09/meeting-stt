@@ -3,8 +3,13 @@ import { BrowserWindow, shell } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../../resources/icon.png?asset'
 
-const WINDOW_WIDTH = 1000
-const WINDOW_HEIGHT = 720
+/** 사이드바 272px + 본문 두 칸이 최소 폭에서도 회의록 줄 길이를 지키는 크기 (references/architecture.md) */
+const WINDOW_WIDTH = 1280
+const WINDOW_HEIGHT = 800
+const WINDOW_MIN_WIDTH = 1040
+const WINDOW_MIN_HEIGHT = 640
+/** 신호등을 사이드바 상단 52px 바의 세로 가운데에 둔다 */
+const TRAFFIC_LIGHT_POSITION = { x: 18, y: 18 }
 
 /**
  * 창이 둘이 되면서 `BrowserWindow.getAllWindows()[0]`을 메인 창으로 가정할 수 없게 됐다.
@@ -18,6 +23,10 @@ export const createMainWindow = () => {
   const window = new BrowserWindow({
     width: WINDOW_WIDTH,
     height: WINDOW_HEIGHT,
+    minWidth: WINDOW_MIN_WIDTH,
+    minHeight: WINDOW_MIN_HEIGHT,
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: TRAFFIC_LIGHT_POSITION,
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Meeting } from '@shared/types'
-import { onPipelineProgress } from '@renderer/shared/api/events'
+import { onMeetingsChanged } from '@renderer/shared/api/events'
 import { getMeetingsApi } from '@renderer/shared/api/meetings'
 
 const useMeetings = () => {
@@ -35,14 +35,9 @@ const useMeetings = () => {
     fetchMeetings()
   }, [fetchMeetings])
 
-  // 잡이 끝나면 status가 바뀌므로 목록을 다시 읽는다 (진행 중 퍼센트는 카드의 PipelineProgress가 맡는다)
-  useEffect(
-    () =>
-      onPipelineProgress(({ stage }) => {
-        if (stage === 'done' || stage === 'error') fetchMeetings()
-      }),
-    [fetchMeetings]
-  )
+  // 사이드바는 언마운트되지 않으므로 main이 알려 줄 때마다 다시 읽는다 (references/architecture.md "목록 갱신").
+  // 진행 중 퍼센트는 행의 PipelineProgress가 따로 구독한다
+  useEffect(() => onMeetingsChanged(() => void fetchMeetings()), [fetchMeetings])
 
   return { meetings, isLoading, error, refetch }
 }

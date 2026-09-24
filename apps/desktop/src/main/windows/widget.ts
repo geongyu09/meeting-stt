@@ -5,8 +5,8 @@ import { IPC, type RecordingCommandEvent } from '@shared/ipc'
 import { getAppSettings, getWidgetBounds, setWidgetBounds } from '../db/settings'
 import { warn } from '../log'
 
-const WIDGET_WIDTH = 264
-const WIDGET_HEIGHT = 248
+const WIDGET_WIDTH = 300
+const WIDGET_HEIGHT = 304
 /** 화면 가장자리와의 여백 */
 const EDGE_MARGIN = 16
 const OPAQUE = 1

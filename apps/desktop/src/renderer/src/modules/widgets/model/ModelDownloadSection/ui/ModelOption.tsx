@@ -22,6 +22,7 @@ export default function ModelOption({
   return (
     <label className={[styles.option, isSelected ? styles.selected : ''].join(' ')}>
       <input
+        className={styles.radio}
         type="radio"
         name="whisperModel"
         value={option.id}

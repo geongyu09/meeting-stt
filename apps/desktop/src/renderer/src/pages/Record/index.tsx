@@ -1,16 +1,11 @@
-import { Link } from 'react-router'
 import RecorderSection from '@renderer/modules/widgets/recording/RecorderSection'
-import { PATHS } from '@renderer/shared/routes/paths'
-
-import styles from './index.module.css'
+import TopBar from '@renderer/shared/components/primitives/layout/TopBar'
 
 export default function Record() {
   return (
-    <div className={styles.page}>
-      <Link className={styles.back} to={PATHS.home}>
-        ← 회의 목록
-      </Link>
+    <>
+      <TopBar title="새 회의 녹음" />
       <RecorderSection />
-    </div>
+    </>
   )
 }

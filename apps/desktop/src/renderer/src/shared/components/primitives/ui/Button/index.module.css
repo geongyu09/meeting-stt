@@ -16,13 +16,15 @@
 }
 
 .md {
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--font-md);
+  min-height: 36px;
+  padding: 0 var(--space-4);
+  font-size: var(--font-sm);
 }
 
 .sm {
-  padding: var(--space-1) var(--space-3);
-  font-size: var(--font-sm);
+  min-height: 30px;
+  padding: 0 var(--space-3);
+  font-size: var(--font-xs);
 }
 
 .accent {

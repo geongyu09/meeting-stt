@@ -1,15 +1,18 @@
 import { useState } from 'react'
-import { formatTimestamp } from '@meeting-stt/core/format'
 import { MAX_SPEAKER_COUNT, MIN_SPEAKER_COUNT } from '@meeting-stt/core/speakerCount'
+import { formatAccelerator } from '@shared/shortcut'
 import { controlRecordingApi } from '@renderer/shared/api/recording'
 import Button from '@renderer/shared/components/primitives/ui/Button'
-import LevelMeter from '@renderer/shared/components/primitives/ui/LevelMeter'
+import LevelWaveform from '@renderer/shared/components/primitives/ui/LevelWaveform'
+import Stepper from '@renderer/shared/components/primitives/ui/Stepper'
 import useRecordingState from '@renderer/shared/hooks/domain/recording/useRecordingState'
 import useSpeakerCount from '@renderer/shared/hooks/domain/recording/useSpeakerCount'
+import useSettings from '@renderer/shared/hooks/domain/setting/useSettings'
+import { formatClock } from '@renderer/shared/utils/formatClock'
 
 import styles from './index.module.css'
 
-const SPEAKER_COUNT_INPUT_ID = 'recorder-speaker-count'
+const WAVEFORM_BAR_COUNT = 48
 const CONTROL_ERROR_MESSAGE = '녹음 요청을 보내지 못했습니다. 잠시 후 다시 시도해 주세요'
 
 /**
@@ -17,8 +20,9 @@ const CONTROL_ERROR_MESSAGE = '녹음 요청을 보내지 못했습니다. 잠�
  * 상태를 구독만 한다 (references/architecture.md의 "녹음 위젯 패널").
  */
 export default function RecorderSection() {
-  const { isRecording, level, elapsedSec, speakerCount, errorMessage } = useRecordingState()
+  const { isRecording, levels, elapsedSec, speakerCount, errorMessage } = useRecordingState()
   const { text, isValid, changeText } = useSpeakerCount({ speakerCount })
+  const { settings } = useSettings()
   const [controlError, setControlError] = useState<string | null>(null)
 
   const handleControl = async (kind: 'start' | 'stop') => {
@@ -31,54 +35,82 @@ export default function RecorderSection() {
   }
 
   return (
-    <section className={styles.section}>
-      <h2 className={styles.heading}>새 회의 녹음</h2>
-      <p className={styles.elapsed}>{formatTimestamp({ sec: elapsedSec })}</p>
-      <LevelMeter level={level} />
-      <div className={styles.speakerCountContainer}>
-        <label className={styles.speakerCountLabel} htmlFor={SPEAKER_COUNT_INPUT_ID}>
-          참석자 수 (선택)
-        </label>
-        <input
-          id={SPEAKER_COUNT_INPUT_ID}
-          className={styles.speakerCountInput}
-          type="number"
-          inputMode="numeric"
+    <section className={styles.section} aria-label="녹음">
+      <div className={styles.clock}>
+        <span className={isRecording ? styles.recordingStatus : styles.idleStatus}>
+          <span className={styles.dot} aria-hidden="true" />
+          {isRecording ? '녹음 중' : '대기 중'}
+        </span>
+        <p className={styles.elapsed}>{formatClock({ sec: elapsedSec })}</p>
+      </div>
+
+      <div className={styles.waveform}>
+        <LevelWaveform levels={levels} barCount={WAVEFORM_BAR_COUNT} />
+      </div>
+
+      <div className={styles.speakerCount}>
+        <div className={styles.speakerCountText}>
+          <span className={styles.speakerCountTitle}>참석자 수</span>
+          <span className={isValid ? styles.speakerCountHint : styles.error}>
+            {isValid
+              ? '알면 적어 주세요. 비우면 자동으로 나눕니다'
+              : `${MIN_SPEAKER_COUNT}~${MAX_SPEAKER_COUNT} 사이의 정수만 쓸 수 있습니다`}
+          </span>
+        </div>
+        <Stepper
+          value={text}
+          onChange={changeText}
           min={MIN_SPEAKER_COUNT}
           max={MAX_SPEAKER_COUNT}
-          step={1}
+          label="참석자 수"
           placeholder="모름"
-          value={text}
-          onChange={(event) => changeText(event.target.value)}
-          aria-invalid={!isValid}
+          isInvalid={!isValid}
         />
-        <p className={isValid ? styles.speakerCountHint : styles.error}>
-          {isValid
-            ? '말한 사람 수를 알면 적어 주세요. 비우면 자동으로 나누지만 긴 회의에서는 화자가 실제보다 많이 나올 수 있습니다'
-            : `${MIN_SPEAKER_COUNT}~${MAX_SPEAKER_COUNT} 사이의 정수만 쓸 수 있습니다. 이대로 정지하면 자동으로 나눕니다`}
+        <Button variant="secondary" disabled={!text} onClick={() => changeText('')}>
+          모름
+        </Button>
+      </div>
+
+      <div className={styles.controls}>
+        {isRecording ? (
+          <Button className={styles.controlButton} onClick={() => handleControl('stop')}>
+            <span className={styles.stopIcon} aria-hidden="true" />
+            녹음 정지하고 회의록 만들기
+          </Button>
+        ) : (
+          <Button
+            variant="accent"
+            className={styles.controlButton}
+            onClick={() => handleControl('start')}
+          >
+            <span className={styles.startIcon} aria-hidden="true" />
+            녹음 시작
+          </Button>
+        )}
+        {controlError ? (
+          <p className={styles.error} role="alert">
+            {controlError}
+          </p>
+        ) : null}
+        {errorMessage ? (
+          <p className={styles.error} role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
+        <p className={styles.hint}>
+          창을 닫거나 다른 화면으로 옮겨도 녹음은 계속됩니다.
+          <br />
+          {settings ? (
+            <>
+              위젯 패널이나{' '}
+              <kbd className={styles.key}>{formatAccelerator(settings.recordingShortcut)}</kbd>
+              로도 시작·정지할 수 있습니다.
+            </>
+          ) : (
+            '위젯 패널에서도 시작·정지할 수 있습니다.'
+          )}
         </p>
       </div>
-      {isRecording ? (
-        <Button onClick={() => handleControl('stop')}>녹음 정지</Button>
-      ) : (
-        <Button variant="accent" onClick={() => handleControl('start')}>
-          녹음 시작
-        </Button>
-      )}
-      {controlError ? (
-        <p className={styles.error} role="alert">
-          {controlError}
-        </p>
-      ) : null}
-      {errorMessage ? (
-        <p className={styles.error} role="alert">
-          {errorMessage}
-        </p>
-      ) : null}
-      <p className={styles.hint}>
-        정지하면 회의록 만들기가 시작되고 회의 상세 화면으로 이동합니다. 화면을 옮기거나 창을 닫아도
-        녹음은 계속되며, 오른쪽 위젯 패널과 전역 단축키로도 시작·정지할 수 있습니다
-      </p>
     </section>
   )
 }

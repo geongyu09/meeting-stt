@@ -1,4 +1,5 @@
 import { GLOSSARY_MAX_TERMS, GLOSSARY_TEAM_MAX_CHARS } from '@shared/glossary'
+import SettingGroup from '@renderer/shared/components/primitives/layout/SettingGroup'
 import Button from '@renderer/shared/components/primitives/ui/Button'
 
 import useGlossary from './model/useGlossary'
@@ -59,6 +60,7 @@ export default function GlossarySection() {
         <div className={styles.actions}>
           <Button
             variant="secondary"
+            size="sm"
             onClick={draftTerms}
             disabled={isBusy || !teamDescription.trim()}
           >
@@ -90,7 +92,7 @@ export default function GlossarySection() {
           />
         </label>
         <div className={styles.actions}>
-          <Button onClick={saveGlossary} disabled={isBusy || !isDirty}>
+          <Button size="sm" onClick={saveGlossary} disabled={isBusy || !isDirty}>
             {isSaving ? '저장하는 중…' : '저장'}
           </Button>
           {isDirty && !isBusy && <span className={styles.hint}>저장하지 않은 변경이 있습니다</span>}
@@ -111,14 +113,15 @@ export default function GlossarySection() {
   }
 
   return (
-    <section className={styles.section} aria-label="용어 사전">
-      <h2 className={styles.heading}>용어 사전</h2>
-      <p className={styles.hint}>
-        회의에 자주 나오는 영어 용어·제품 이름·약어를 적어 두면 회의록 교정에 씁니다. 팀 소개를 적고
-        초안을 만들면 로컬 요약 모델이 후보를 채워 주고, 확인한 뒤 저장하면 됩니다. 초안에는 요약
-        모델이 필요합니다.
-      </p>
-      {renderBody()}
-    </section>
+    <SettingGroup title="용어 사전">
+      <div className={styles.body}>
+        <p className={styles.hint}>
+          회의에 자주 나오는 영어 용어·제품 이름·약어를 적어 두면 회의록 교정에 씁니다. 팀 소개를
+          적고 초안을 만들면 로컬 요약 모델이 후보를 채워 주고, 확인한 뒤 저장하면 됩니다. 초안에는
+          요약 모델이 필요합니다.
+        </p>
+        {renderBody()}
+      </div>
+    </SettingGroup>
   )
 }

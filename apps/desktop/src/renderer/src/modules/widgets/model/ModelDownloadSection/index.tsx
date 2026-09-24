@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { WhisperModelId } from '@shared/types'
+import SettingRow from '@renderer/shared/components/primitives/layout/SettingRow'
 import Button from '@renderer/shared/components/primitives/ui/Button'
 import useModelStatus from '@renderer/shared/hooks/domain/model/useModelStatus'
 import { formatBytes } from '@renderer/shared/utils/formatBytes'
@@ -15,10 +16,15 @@ const LOW_SPEC_MODEL_ID: WhisperModelId = 'small-q5_1'
 interface ModelDownloadSectionProps {
   /** 다운로드가 끝났을 때. 온보딩은 홈으로 이동하고, 설정은 넘기지 않는다 */
   onComplete?: () => void
+  /** 설정에서는 현재 모델 한 행으로 접어 두고 "모델 바꾸기"로 펼친다 (references/architecture.md "화면별 구성") */
+  variant?: 'onboarding' | 'setting'
 }
 
 /** 온보딩과 설정이 함께 쓰는 음성 인식 모델 선택·다운로드 (references/distribution.md 2절) */
-export default function ModelDownloadSection({ onComplete }: ModelDownloadSectionProps) {
+export default function ModelDownloadSection({
+  onComplete,
+  variant = 'onboarding'
+}: ModelDownloadSectionProps) {
   const {
     status,
     isLoading,
@@ -31,11 +37,12 @@ export default function ModelDownloadSection({ onComplete }: ModelDownloadSectio
   } = useModelStatus()
   const [chosenId, setChosenId] = useState<WhisperModelId | null>(null)
   const [isCompleted, setIsCompleted] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
 
   if (isLoading && !status) return <p className={styles.message}>모델 상태를 확인하는 중입니다</p>
   if (!status) {
     return (
-      <div className={styles.section}>
+      <div className={styles.failure}>
         <p className={styles.error} role="alert">
           {error?.message ?? '모델 상태를 확인하지 못했습니다'}
         </p>
@@ -65,21 +72,29 @@ export default function ModelDownloadSection({ onComplete }: ModelDownloadSectio
   }
 
   const buttonLabel = () => {
-    if (isDownloading) return '내려받는 중'
+    if (isDownloading) return '받는 중…'
     if (bytesToDownload > 0) return `다운로드 (${formatBytes({ bytes: bytesToDownload })})`
 
     return '이 모델 사용'
   }
 
-  return (
-    <section className={styles.section} aria-label="음성 인식 모델">
-      <h2 className={styles.heading}>음성 인식 모델</h2>
-      <p className={styles.notice}>
-        네트워크는 모델을 내려받는 지금 한 번만 씁니다. 회의 녹음·회의록 작성·요약은 모두 이 컴퓨터
-        안에서 이루어지며 어디에도 전송되지 않습니다.
-      </p>
+  const renderStatusNote = () => {
+    if (isCompleted) return <span className={styles.success}>모델이 준비되었습니다</span>
+    if (isDownloading) return <span className={styles.message}>받는 중에 창을 닫지 마세요</span>
+    if (isAlreadyApplied) return <span className={styles.message}>현재 사용 중인 모델입니다</span>
 
-      <div className={styles.options} role="radiogroup" aria-label="음성 인식 모델 선택">
+    return (
+      <span className={styles.message}>
+        네트워크는 모델을 내려받는 지금 한 번만 씁니다. 회의 녹음·회의록 작성·요약은 모두 이 컴퓨터
+        안에서 이루어집니다.
+      </span>
+    )
+  }
+
+  const picker = (
+    <div className={styles.picker}>
+      <fieldset className={styles.options}>
+        <legend className={styles.legend}>음성 인식 모델 선택</legend>
         {status.whisperOptions.map((option) => (
           <ModelOption
             key={option.id}
@@ -93,7 +108,7 @@ export default function ModelDownloadSection({ onComplete }: ModelDownloadSectio
             }}
           />
         ))}
-      </div>
+      </fieldset>
 
       {isLowSpecWarning && (
         <p className={styles.warning}>
@@ -101,17 +116,13 @@ export default function ModelDownloadSection({ onComplete }: ModelDownloadSectio
         </p>
       )}
 
-      {isDownloading && <DownloadItemList items={items} progress={progress} />}
+      <DownloadItemList items={items} progress={progress} isDownloading={isDownloading} />
 
       <div className={styles.actions}>
+        {renderStatusNote()}
         <Button onClick={handleDownload} disabled={isDownloading || isAlreadyApplied}>
           {buttonLabel()}
         </Button>
-        {isCompleted ? (
-          <span className={styles.success}>모델이 준비되었습니다</span>
-        ) : (
-          isAlreadyApplied && <span className={styles.message}>현재 사용 중인 모델입니다</span>
-        )}
       </div>
 
       {downloadError && (
@@ -119,6 +130,37 @@ export default function ModelDownloadSection({ onComplete }: ModelDownloadSectio
           {downloadError.message}
         </p>
       )}
-    </section>
+    </div>
+  )
+
+  if (variant === 'onboarding') {
+    return (
+      <section className={styles.section} aria-label="음성 인식 모델">
+        {picker}
+      </section>
+    )
+  }
+
+  const currentLabel =
+    status.whisperOptions.find((option) => option.id === status.selectedWhisperModelId)?.label ??
+    status.selectedWhisperModelId
+
+  return (
+    <SettingRow
+      title="음성 인식 모델"
+      description={`${currentLabel} · ${status.isReady ? '설치됨' : '설치되지 않음'}`}
+      control={
+        <Button
+          variant="secondary"
+          aria-expanded={isExpanded}
+          disabled={isDownloading && isExpanded}
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          {isExpanded ? '닫기' : '모델 바꾸기'}
+        </Button>
+      }
+    >
+      {isExpanded ? picker : null}
+    </SettingRow>
   )
 }

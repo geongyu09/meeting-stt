@@ -1,28 +1,23 @@
-.section {
+.section,
+.picker {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-}
-
-.heading {
-  margin: 0;
-  font-size: var(--font-lg);
-}
-
-.notice {
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-muted);
-  font-size: var(--font-sm);
+  gap: 20px;
 }
 
 .options {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.legend {
+  padding: 0 0 10px;
+  font-size: var(--font-base);
+  font-weight: 600;
 }
 
 .warning {
@@ -34,12 +29,15 @@
 .actions {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  justify-content: space-between;
+  gap: var(--space-4);
 }
 
 .message {
   margin: 0;
   color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  line-height: 1.6;
 }
 
 .success {
@@ -50,4 +48,12 @@
 .error {
   margin: 0;
   color: var(--color-danger);
+  font-size: var(--font-sm);
+}
+
+.failure {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
 }

@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react'
-
-import styles from './SettingToggle.module.css'
+import { useId, type ReactNode } from 'react'
+import SettingRow from '@renderer/shared/components/primitives/layout/SettingRow'
+import Switch from '@renderer/shared/components/primitives/ui/Switch'
 
 interface SettingToggleProps {
   title: string
@@ -16,17 +16,14 @@ export default function SettingToggle({
   onChange,
   children
 }: SettingToggleProps) {
+  const titleId = useId()
+
   return (
-    <label className={styles.option}>
-      <input
-        type="checkbox"
-        checked={isChecked}
-        onChange={(event) => onChange(event.target.checked)}
-      />
-      <span className={styles.optionBody}>
-        <span className={styles.optionTitle}>{title}</span>
-        <span className={styles.optionHint}>{children}</span>
-      </span>
-    </label>
+    <SettingRow
+      title={title}
+      titleId={titleId}
+      description={children}
+      control={<Switch isChecked={isChecked} onChange={onChange} ariaLabelledBy={titleId} />}
+    />
   )
 }

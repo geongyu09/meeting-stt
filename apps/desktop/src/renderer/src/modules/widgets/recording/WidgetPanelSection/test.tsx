@@ -145,7 +145,7 @@ describe('WidgetPanelSection', () => {
     })
 
     expect(screen.getByText('녹음 중')).toBeTruthy()
-    expect(screen.getByText('00:01:05')).toBeTruthy()
+    expect(screen.getByText('01:05')).toBeTruthy()
     expect(screen.getByRole('button', { name: '녹음 정지' })).toBeTruthy()
   })
 

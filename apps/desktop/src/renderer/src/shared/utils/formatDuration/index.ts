@@ -16,3 +16,17 @@ export const formatDuration = ({ sec }: { sec: number }) => {
 
   return parts.length ? parts.join(' ') : '0초'
 }
+
+/**
+ * 사이드바처럼 좁은 곳의 회의 길이. 1분이 넘으면 초를 버린다 ("48분", "1시간 12분").
+ * 1분 미만이면 초로 보여 준다 — "0분"은 녹음이 비었다는 뜻으로 읽힌다.
+ */
+export const formatDurationShort = ({ sec }: { sec: number }) => {
+  const total = Math.max(0, Math.round(sec))
+  if (total < SECONDS_PER_MINUTE) return `${total}초`
+
+  const hours = Math.floor(total / SECONDS_PER_HOUR)
+  const minutes = Math.floor((total % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE)
+
+  return [...(hours ? [`${hours}시간`] : []), ...(minutes ? [`${minutes}분`] : [])].join(' ')
+}

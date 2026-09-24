@@ -11,6 +11,9 @@ vi.mock('@renderer/shared/api/recording', () => ({
 }))
 
 vi.mock('@renderer/shared/api/events', () => ({ onRecordingState: vi.fn() }))
+vi.mock('@renderer/shared/api/settings', () => ({
+  getSettingsApi: vi.fn().mockResolvedValue({ recordingShortcut: 'Alt+Command+R' })
+}))
 
 import { onRecordingState } from '@renderer/shared/api/events'
 import {
@@ -60,9 +63,9 @@ describe('RecorderSection', () => {
       pushState({ meetingId: MEETING_ID, startedAt: Date.now() - 125_000, level: 0.2 })
     })
 
-    expect(screen.getByText('00:02:05')).toBeTruthy()
+    expect(screen.getByText('02:05')).toBeTruthy()
 
-    await user.click(screen.getByRole('button', { name: '녹음 정지' }))
+    await user.click(screen.getByRole('button', { name: '녹음 정지하고 회의록 만들기' }))
 
     expect(controlRecordingApi).toHaveBeenCalledWith({ kind: 'stop' })
   })
@@ -71,7 +74,7 @@ describe('RecorderSection', () => {
     const user = userEvent.setup()
     render(<RecorderSection />)
 
-    await user.type(screen.getByLabelText('참석자 수 (선택)'), '4')
+    await user.type(screen.getByLabelText('참석자 수'), '4')
 
     expect(setSpeakerCountApi).toHaveBeenCalledWith({ speakerCount: 4 })
   })
@@ -83,14 +86,14 @@ describe('RecorderSection', () => {
       pushState({ ...IDLE_STATE, speakerCount: 7 })
     })
 
-    expect((screen.getByLabelText('참석자 수 (선택)') as HTMLInputElement).value).toBe('7')
+    expect((screen.getByLabelText('참석자 수') as HTMLInputElement).value).toBe('7')
   })
 
   it('범위를 벗어난 참석자 수는 보내지 않고 안내한다', async () => {
     const user = userEvent.setup()
     render(<RecorderSection />)
 
-    await user.type(screen.getByLabelText('참석자 수 (선택)'), '99')
+    await user.type(screen.getByLabelText('참석자 수'), '99')
 
     expect(setSpeakerCountApi).not.toHaveBeenCalledWith({ speakerCount: 99 })
     expect(screen.getByText(/1~20 사이의 정수만 쓸 수 있습니다/)).toBeTruthy()

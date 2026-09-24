@@ -23,6 +23,7 @@ export default function OpacitySlider({
     <label className={styles.slider}>
       <span className={styles.label}>포커스가 없을 때 불투명도</span>
       <input
+        className={styles.input}
         type="range"
         min={min}
         max={max}

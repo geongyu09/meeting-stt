@@ -24,12 +24,16 @@ import {
 } from '@renderer/shared/api/settings'
 import SettingsSection from './index'
 
-const AUDIO_LABEL = /원본 녹음 파일 보관/
-const UPDATE_LABEL = /^업데이트 확인/
-const QUIET_LABEL = /조용히 처리/
-const FADE_LABEL = /위젯 반투명/
+const AUDIO_LABEL = '원본 녹음 파일 보관'
+const UPDATE_LABEL = '시작할 때 업데이트 확인'
+const QUIET_LABEL = '조용히 처리'
+const FADE_LABEL = '위젯 반투명'
 const OPACITY_LABEL = /포커스가 없을 때 불투명도/
-const RECORDING_SHORTCUT_BUTTON = /녹음 시작·정지 단축키 변경/
+const RECORDING_SHORTCUT_BUTTON = '녹음 시작·정지 변경'
+
+/** 설정 행의 켜기/끄기는 제목을 이름으로 갖는 role="switch" 버튼이다 */
+const findSwitch = (name: string) => screen.findByRole('switch', { name })
+const isOn = (element: HTMLElement) => element.getAttribute('aria-checked') === 'true'
 
 const DEFAULT_SETTINGS = {
   isAudioKept: false,
@@ -52,8 +56,7 @@ describe('SettingsSection', () => {
     vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
     render(<SettingsSection />)
 
-    const checkbox = (await screen.findByLabelText(AUDIO_LABEL)) as HTMLInputElement
-    expect(checkbox.checked).toBe(false)
+    expect(isOn(await findSwitch(AUDIO_LABEL))).toBe(false)
     expect(screen.getByText(/보관하지 않은 회의는 나중에 다시 처리할 수 없습니다/)).toBeTruthy()
   })
 
@@ -63,11 +66,10 @@ describe('SettingsSection', () => {
     vi.mocked(updateSettingsApi).mockResolvedValue({ ...DEFAULT_SETTINGS, isAudioKept: true })
     render(<SettingsSection />)
 
-    await user.click(await screen.findByLabelText(AUDIO_LABEL))
+    await user.click(await findSwitch(AUDIO_LABEL))
 
     expect(updateSettingsApi).toHaveBeenCalledWith({ ...DEFAULT_SETTINGS, isAudioKept: true })
-    const checkbox = (await screen.findByLabelText(AUDIO_LABEL)) as HTMLInputElement
-    expect(checkbox.checked).toBe(true)
+    expect(isOn(await findSwitch(AUDIO_LABEL))).toBe(true)
   })
 
   it('업데이트 확인을 켜면 나머지 설정을 유지한 채 저장한다', async () => {
@@ -80,15 +82,14 @@ describe('SettingsSection', () => {
     })
     render(<SettingsSection />)
 
-    await user.click(await screen.findByLabelText(UPDATE_LABEL))
+    await user.click(await findSwitch(UPDATE_LABEL))
 
     expect(updateSettingsApi).toHaveBeenCalledWith({
       ...DEFAULT_SETTINGS,
       isAudioKept: true,
       isUpdateCheckEnabled: true
     })
-    const checkbox = (await screen.findByLabelText(UPDATE_LABEL)) as HTMLInputElement
-    expect(checkbox.checked).toBe(true)
+    expect(isOn(await findSwitch(UPDATE_LABEL))).toBe(true)
   })
 
   it('조용히 처리를 켜면 느려진다는 안내와 함께 저장한다', async () => {
@@ -97,14 +98,14 @@ describe('SettingsSection', () => {
     vi.mocked(updateSettingsApi).mockResolvedValue({ ...DEFAULT_SETTINGS, isQuietProcessing: true })
     render(<SettingsSection />)
 
-    const checkbox = (await screen.findByLabelText(QUIET_LABEL)) as HTMLInputElement
-    expect(checkbox.checked).toBe(false)
-    expect(screen.getByText(/처리 시간이 길어집니다/)).toBeTruthy()
+    const toggle = await findSwitch(QUIET_LABEL)
+    expect(isOn(toggle)).toBe(false)
+    expect(screen.getByText(/처리 시간이 길어지고/)).toBeTruthy()
 
-    await user.click(checkbox)
+    await user.click(toggle)
 
     expect(updateSettingsApi).toHaveBeenCalledWith({ ...DEFAULT_SETTINGS, isQuietProcessing: true })
-    expect(((await screen.findByLabelText(QUIET_LABEL)) as HTMLInputElement).checked).toBe(true)
+    expect(isOn(await findSwitch(QUIET_LABEL))).toBe(true)
   })
 
   it('저장에 실패하면 안내를 보여준다', async () => {
@@ -113,7 +114,7 @@ describe('SettingsSection', () => {
     vi.mocked(updateSettingsApi).mockRejectedValue(new Error('설정을 저장하지 못했습니다'))
     render(<SettingsSection />)
 
-    await user.click(await screen.findByLabelText(AUDIO_LABEL))
+    await user.click(await findSwitch(AUDIO_LABEL))
 
     expect(await screen.findByRole('alert')).toBeTruthy()
     expect(screen.getByText('설정을 저장하지 못했습니다')).toBeTruthy()
@@ -131,7 +132,7 @@ describe('SettingsSection', () => {
     const slider = (await screen.findByLabelText(OPACITY_LABEL)) as HTMLInputElement
     expect(slider.disabled).toBe(false)
 
-    await user.click(screen.getByLabelText(FADE_LABEL))
+    await user.click(await findSwitch(FADE_LABEL))
 
     expect(updateSettingsApi).toHaveBeenCalledWith({
       ...DEFAULT_SETTINGS,
@@ -185,7 +186,7 @@ describe('SettingsSection', () => {
     await user.click(button)
 
     fireEvent.keyDown(button, { code: 'KeyA', key: 'a' })
-    expect(button.textContent).toBe('키 조합을 누르세요')
+    expect(button.textContent).toBe('키를 누르세요…')
 
     fireEvent.keyDown(button, { code: 'Escape', key: 'Escape' })
 
@@ -225,14 +226,20 @@ describe('SettingsSection', () => {
       </SettingsSection>
     )
 
-    await screen.findByLabelText(AUDIO_LABEL)
-    const regions = screen.getAllByRole('region').map((region) => region.getAttribute('aria-label'))
+    await findSwitch(AUDIO_LABEL)
+    const regions = screen
+      .getAllByRole('region')
+      .map((region) => region.getAttribute('aria-label') ?? region.querySelector('h2')?.textContent)
     expect(regions).toEqual(['녹음·처리', '녹음 위젯', '단축키', '음성 인식 모델', '업데이트'])
     expect(
-      within(screen.getByRole('region', { name: '녹음·처리' })).getByLabelText(QUIET_LABEL)
+      within(screen.getByRole('region', { name: '녹음·처리' })).getByRole('switch', {
+        name: QUIET_LABEL
+      })
     ).toBeTruthy()
     expect(
-      within(screen.getByRole('region', { name: '녹음 위젯' })).getByLabelText(FADE_LABEL)
+      within(screen.getByRole('region', { name: '녹음 위젯' })).getByRole('switch', {
+        name: FADE_LABEL
+      })
     ).toBeTruthy()
   })
 

@@ -1,22 +1,29 @@
 .slider {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: 0 var(--space-4);
-  font-size: var(--font-sm);
-  color: var(--color-text-muted);
-}
-
-.slider input {
-  flex: 1;
+  gap: var(--space-5);
+  padding: var(--space-3) 0 var(--space-4);
 }
 
 .label {
-  white-space: nowrap;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.input {
+  flex: 1;
+  accent-color: var(--color-text);
+}
+
+.input:disabled {
+  opacity: 0.5;
 }
 
 .value {
-  min-width: 3em;
-  text-align: right;
+  width: 44px;
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
