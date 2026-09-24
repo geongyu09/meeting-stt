@@ -24,6 +24,7 @@ export const IPC = {
     reportError: 'recording:reportError'
   },
   widget: { setVisible: 'widget:setVisible' },
+  shortcuts: { setSuspended: 'shortcuts:setSuspended' },
   meetings: {
     list: 'meetings:list',
     get: 'meetings:get',
@@ -40,7 +41,7 @@ export const IPC = {
     download: 'models:download',
     downloadSummary: 'models:downloadSummary'
   },
-  update: { download: 'update:download', install: 'update:install' },
+  update: { check: 'update:check', download: 'update:download', install: 'update:install' },
   events: {
     progress: 'pipeline:progress',
     summary: 'summary:progress',
@@ -116,6 +117,11 @@ export interface ReportRecordingErrorRequest {
 
 export interface SetWidgetVisibleRequest {
   isVisible: boolean
+}
+
+/** 설정 화면에서 새 단축키를 입력받는 동안 전역 단축키를 해제한다 */
+export interface SetShortcutsSuspendedRequest {
+  isSuspended: boolean
 }
 
 export type GetMeetingsResponse = Meeting[]
@@ -239,6 +245,12 @@ export interface ModelDownloadProgressEvent {
   receivedBytes: number
   totalBytes: number
   percent: number
+}
+
+/** 설정에서 직접 누른 업데이트 확인 결과. 새 버전이 없으면 `availableVersion`은 null */
+export interface CheckUpdateResponse {
+  currentVersion: string
+  availableVersion: string | null
 }
 
 /** 새 버전을 발견했을 때 한 번 보낸다. 내려받기는 사용자가 `update:download`로 요청한다 */

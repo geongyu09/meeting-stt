@@ -1,0 +1,22 @@
+.slider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-4);
+  font-size: var(--font-sm);
+  color: var(--color-text-muted);
+}
+
+.slider input {
+  flex: 1;
+}
+
+.label {
+  white-space: nowrap;
+}
+
+.value {
+  min-width: 3em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

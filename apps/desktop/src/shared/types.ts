@@ -53,6 +53,14 @@ export interface AppSettings {
    * (창 자체는 오디오 그래프 소유자라 항상 만든다, references/architecture.md)
    */
   isWidgetEnabled: boolean
+  /** 위젯 패널이 포커스를 잃으면 반투명하게 할지. 기본은 켜짐 */
+  isWidgetFadeEnabled: boolean
+  /** 포커스가 없을 때의 위젯 불투명도 (0.2~0.95) */
+  widgetFadeOpacity: number
+  /** 녹음 토글 전역 단축키 (Electron accelerator, `src/shared/shortcut.ts`) */
+  recordingShortcut: string
+  /** 위젯 표시/숨김 전역 단축키. 녹음 단축키와 같을 수 없다 */
+  widgetShortcut: string
 }
 
 /** 디테일 화면이 한 번에 받는 묶음 */

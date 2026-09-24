@@ -108,13 +108,14 @@ export const IPC = {
   //   clipboard.writeText
   // Phase 4 (references/distribution.md 3·7절)
   //   models.status / models.download / models.downloadSummary, events.modelDownload
-  //   update.download / update.install, events.updateAvailable
+  //   update.check / update.download / update.install, events.updateAvailable
   // Phase 5
   //   summary.create, events.summary
   // Phase 5-3 (아래 "녹음 위젯 패널" 절)
   //   recording.state / recording.control / recording.setSpeakerCount / recording.reportError
   //   events.recordingState / events.recordingCommand
   //   widget.setVisible
+  //   shortcuts.setSuspended (단축키 설정, 아래 "전역 단축키" 절)
 } as const
 ```
 
@@ -128,6 +129,7 @@ export const IPC = {
 | `recording.setSpeakerCount` | `recording:setSpeakerCount` | invoke | 두 창의 참석자 수 입력을 main 세션에 모은다 |
 | `recording.reportError` | `recording:reportError` | invoke | 위젯에서만 알 수 있는 실패(마이크 권한·그래프 생성)를 세션에 기록 |
 | `widget.setVisible` | `widget:setVisible` | invoke | 패널의 숨기기 버튼 |
+| `shortcuts.setSuspended` | `shortcuts:setSuspended` | invoke | 설정 화면에서 단축키를 입력받는 동안 전역 단축키를 잠시 해제·복구 |
 | `events.recordingState` | `recording:stateChanged` | push | 녹음 상태 브로드캐스트 |
 | `events.recordingCommand` | `recording:command` | push | main → 위젯 지시 (전역 단축키·Tray·메인 창) |
 
@@ -382,7 +384,9 @@ Electron 번들에 Xcode로 따로 빌드한 확장을 끼워 넣고 App Group�
 | `visibleOnAllWorkspaces` | `{ visibleOnFullScreen: true }` | 화상회의를 전체화면으로 쓰는 경우가 많다 |
 | `resizable` / `maximizable` | `false` | 고정 크기. 레이아웃 분기를 만들지 않는다 |
 | `skipTaskbar` | `true` | Dock·앱 전환기에 창이 두 개로 보이지 않게 |
-| `vibrancy` | `'hud'` | 네이티브 패널 질감. 배경색을 직접 칠하지 않는다 |
+| `vibrancy` | `'popover'` | 네이티브 패널 질감. 배경색을 직접 칠하지 않는다. `'hud'`는 시스템 테마와 무관하게 어두운 재질이라 라이트 모드의 어두운 글자와 겹쳐 색이 깨진다 |
+| `visualEffectState` | `'active'` | 기본값(`followWindow`)은 창 포커스에 따라 재질이 바뀐다. 패널은 대부분 비활성 상태라 포커스를 받을 때마다 색이 튄다 |
+| 비활성 시 불투명도 | 포커스를 잃으면 `setOpacity(widgetFadeOpacity)`, 받으면 `1` | 회의 화면을 가리는 느낌을 줄인다. `showInactive`로 뜨므로 처음부터 반투명으로 시작한다. 설정 `widget.fade`(기본 켜짐)로 끄면 항상 `1`, 값은 `widget.fadeOpacity`(기본 0.55, 0.2~0.95) |
 | `backgroundThrottling` | **`false`** | 숨겨지거나 가려진 창은 타이머·메시지 처리가 throttling된다. 그래프 소유자가 이 창이라 필수 |
 
 - 위치는 `screen.getPrimaryDisplay().workArea` 기준으로 **우측 가장자리에 여백을 두고 세로 중앙**에 놓는다.
@@ -446,15 +450,28 @@ export interface RecordingStateEvent {
 
 ### 전역 단축키
 
-- `⌥⌘R` 녹음 토글, `⌥⌘W` 위젯 표시/숨김. `app.whenReady` 이후 등록하고 `will-quit`에서 `unregisterAll`한다.
-- **등록 실패(다른 앱이 선점)는 앱을 멈추지 않는다.** `globalShortcut.register`의 반환값이 거짓이면 경고 로그만 남기고 진행한다.
+- 기본값은 `⌥⌘R` 녹음 토글, `⌥⌘W` 위젯 표시/숨김. `app.whenReady` 이후 등록하고 `will-quit`에서 `unregisterAll`한다.
+- **앱 시작 시 등록 실패(다른 앱이 선점)는 앱을 멈추지 않는다.** `globalShortcut.register`의 반환값이 거짓이면 경고 로그만 남기고 진행한다.
   단축키가 없어도 패널과 트레이로 모든 동작을 할 수 있다.
-- 단축키는 고정값이다. 커스터마이즈 UI는 만들지 않는다 (설정 화면과 충돌 검사까지 필요해 비용이 크다).
+- **설정 화면에서 바꿀 수 있다** (2026-09-24 사용자 요청으로 "고정값" 결정을 뒤집음). 값은 Electron accelerator 문자열로
+  `shortcut.recording` / `shortcut.widget`에 저장한다.
+  - 허용 형식은 `src/shared/shortcut.ts`의 `isValidAccelerator` 하나가 정한다: 수식키 `Control`·`Alt`·`Shift`·`Command` 중
+    `Control`·`Alt`·`Command`가 **하나 이상**(Shift만으로는 일반 타이핑과 겹친다) + 키 하나(`A`~`Z`, `0`~`9`, `F1`~`F12`, `Space`, 방향키).
+    renderer의 키 입력 변환(`KeyboardEvent.code` 기준 — `key`는 ⌥ 조합에서 특수문자가 된다)과 main의 검증이 같은 함수를 쓴다.
+  - 저장 순서: 검증 → 두 단축키가 같으면 거절 → **등록을 먼저 시도하고 실패하면 이전 단축키로 되돌린 뒤 한국어 오류를 throw** → 성공했을 때만 DB에 쓴다.
+    앱 시작과 달리 설정 변경에서는 실패를 삼키지 않는다 — 사용자가 방금 고른 키가 동작하지 않는 걸 모르면 안 된다.
+  - **입력받는 동안은 전역 단축키를 해제한다** (`shortcuts:setSuspended`). 해제하지 않으면 현재 단축키를 누르는 순간 녹음이 시작된다.
+    입력이 끝나거나(확정·Esc·포커스 이탈) 설정 화면이 언마운트되면 복구한다.
+  - 안내 문구의 단축키 표기는 `formatAccelerator`(`⌥⌘R`)로 현재 설정값을 보여준다. 설정을 모르는 화면은 키를 적지 않고 "전역 단축키"라고만 쓴다.
 
 ### 설정
 
 `AppSettings`에 `isWidgetEnabled`(DB 키 `widget.enabled`, **기본 켜짐**)를 추가한다. 끄면 앱 시작 시 패널을 띄우지 않고
 `⌥⌘W`로도 열리지 않는다. 트레이와 단축키는 패널과 독립적으로 동작한다 — 패널을 껐다고 녹음 토글까지 사라지면 안 된다.
+
+같은 설정 화면에 위젯 반투명(`isWidgetFadeEnabled`, 기본 켜짐)·비활성 불투명도(`widgetFadeOpacity`, 슬라이더)와
+두 전역 단축키(`recordingShortcut`, `widgetShortcut`)를 둔다. 불투명도는 저장 즉시 `windows/widget.ts`의 `applyWidgetOpacity`로 반영하고,
+단축키는 위 "전역 단축키" 절의 저장 순서를 따른다.
 
 ## 화면 라우트 (Phase 2)
 

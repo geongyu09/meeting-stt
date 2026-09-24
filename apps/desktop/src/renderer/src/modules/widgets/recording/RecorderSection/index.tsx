@@ -77,7 +77,7 @@ export default function RecorderSection() {
       ) : null}
       <p className={styles.hint}>
         정지하면 회의록 만들기가 시작되고 회의 상세 화면으로 이동합니다. 화면을 옮기거나 창을 닫아도
-        녹음은 계속되며, 오른쪽 위젯 패널과 ⌥⌘R 단축키로도 시작·정지할 수 있습니다
+        녹음은 계속되며, 오른쪽 위젯 패널과 전역 단축키로도 시작·정지할 수 있습니다
       </p>
     </section>
   )

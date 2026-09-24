@@ -153,6 +153,8 @@
 - [x] `RecorderSection`·`WidgetPanelSection`의 참석자 수 입력을 `recording:setSpeakerCount`로 동기화
 - [x] 메인 창이 `stoppedMeetingId`를 받으면 회의 상세로 이동
 - [x] `SettingsSection`에 위젯 표시 토글 추가
+- [x] 위젯 재질을 `vibrancy: 'popover'` + `visualEffectState: 'active'`로 교체 (포커스 시 색 깨짐 수정, 2026-09-24)
+- [x] 설정: 위젯 반투명 on/off·불투명도 슬라이더, 전역 단축키 두 개 변경 (`shortcut.*`, `widget.fade*`, `shortcuts:setSuspended`)
 
 **검증**
 - [x] 위젯 통합 테스트(시작/정지, 경과 시간, 모델 미준비 차단)와 `RecorderSection` 통합 테스트(명령 전송·상태 구독·참석자 수 동기화).

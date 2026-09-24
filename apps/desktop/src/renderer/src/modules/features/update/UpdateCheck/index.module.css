@@ -1,0 +1,19 @@
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.text {
+  font-size: var(--font-sm);
+  color: var(--color-text-muted);
+}
+
+.error {
+  color: var(--color-danger);
+}

@@ -1,7 +1,23 @@
 import { is } from '@electron-toolkit/utils'
+import { app } from 'electron'
 import { autoUpdater } from 'electron-updater'
+import type { CheckUpdateResponse } from '@shared/ipc'
+
 import { info, messageOf, warn } from './log'
 import { pickAvailableVersion } from './updateResult'
+
+const DEV_MODE_MESSAGE = '개발 모드에서는 업데이트를 확인할 수 없습니다'
+const CHECK_FAILED_MESSAGE = '업데이트를 확인하지 못했습니다. 네트워크 연결을 확인해 주세요'
+
+/** 새 버전을 찾아도 내려받지 않는다. 받기·설치는 사용자가 누를 때만 한다 */
+const findAvailableVersion = async () => {
+  autoUpdater.autoDownload = false
+  autoUpdater.autoInstallOnAppQuit = false
+
+  const result = await autoUpdater.checkForUpdates()
+
+  return pickAvailableVersion(result)
+}
 
 /**
  * 자동 업데이트는 **기본이 꺼짐**이다. 설정(`update.check`)을 켠 사용자만 확인한다 —
@@ -11,12 +27,8 @@ import { pickAvailableVersion } from './updateResult'
 export const checkForUpdates = async ({ isEnabled }: { isEnabled: boolean }) => {
   if (!isEnabled || is.dev) return null
 
-  autoUpdater.autoDownload = false
-  autoUpdater.autoInstallOnAppQuit = false
-
   try {
-    const result = await autoUpdater.checkForUpdates()
-    const version = pickAvailableVersion(result)
+    const version = await findAvailableVersion()
     if (version) info(`새 버전이 있습니다: ${version}`)
 
     return version
@@ -25,6 +37,27 @@ export const checkForUpdates = async ({ isEnabled }: { isEnabled: boolean }) => 
     warn(`업데이트 확인 실패: ${messageOf(caught)}`)
 
     return null
+  }
+}
+
+/**
+ * 설정의 "지금 확인" 버튼에서 부른다. 사용자가 직접 요청한 것이라 `update.check` 설정을 보지 않고,
+ * 실패는 삼키지 않고 안내 문구로 던진다 (`references/distribution.md` 7절).
+ */
+export const checkForUpdatesNow = async () => {
+  if (is.dev) throw new Error(DEV_MODE_MESSAGE)
+
+  const currentVersion = app.getVersion()
+  try {
+    const availableVersion = await findAvailableVersion()
+    if (availableVersion) info(`새 버전이 있습니다: ${availableVersion}`)
+
+    const response: CheckUpdateResponse = { currentVersion, availableVersion }
+
+    return response
+  } catch (caught) {
+    warn(`업데이트 수동 확인 실패: ${messageOf(caught)}`)
+    throw new Error(CHECK_FAILED_MESSAGE)
   }
 }
 

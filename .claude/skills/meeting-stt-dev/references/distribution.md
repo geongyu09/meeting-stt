@@ -214,6 +214,10 @@ electron-builder가 두 파일을 동시에 올리면서 드래프트를 둘로 
 - 개발 모드(`is.dev`)에서는 아무것도 하지 않는다.
 - 업데이트 확인 실패는 로그만 남기고 무시한다. 오프라인이 정상 상태인 앱이다.
 - 확인 시점은 **창이 뜬 직후 한 번**이다. 주기적으로 다시 확인하지 않는다.
+- **수동 확인 (2026-09-24 추가)**: `/settings`의 "지금 확인" 버튼은 `update.check` 설정과 **무관하게** 그 자리에서 확인한다.
+  사용자가 직접 누른 요청이므로 "조용히 서버를 부르지 않는다"는 약속과 충돌하지 않는다. 자동 확인과 달리 실패를 삼키지 않고
+  화면에 안내한다(누른 사람이 결과를 기다리고 있다). 새 버전을 찾으면 그 자리에서 "받기" → "다시 시작해 설치"로 이어진다.
+  이유: 기본값이 꺼짐이라 기존 설치자 대부분이 새 버전을 알 방법이 없었다. 개발 모드에서는 확인하지 않고 그 사실을 안내한다.
 - **새 버전 알림은 `checkForUpdates()` 결과의 `isUpdateAvailable`이 참일 때만 보낸다.** `checkForUpdates()`는 업데이트가 없어도 결과 객체를 돌려주고,
   그 `updateInfo.version`에는 **서버의 최신 버전**(= 지금 쓰고 있는 버전일 수 있다)이 들어 있다. 이 필드만 보고 알리면 자기 버전을 새 버전으로 알리게 되고,
   electron-updater는 업데이트가 있을 때만 내부 상태를 채우므로 사용자가 누른 "받기"가 `Please check update first`로 거절된다
@@ -222,19 +226,22 @@ electron-builder가 두 파일을 동시에 올리면서 드래프트를 둘로 
 ### 업데이트 IPC 계약
 
 ```ts
-update:  { download: 'update:download', install: 'update:install' }
+update:  { check: 'update:check', download: 'update:download', install: 'update:install' }
 events:  { updateAvailable: 'update:available' }
 ```
 
 | 채널 | 요청 | 응답 |
 | --- | --- | --- |
 | `update:available` (push) | — | `{ version }` — `isUpdateAvailable`이 참일 때만 한 번 |
+| `update:check` | 없음 | `{ currentVersion, availableVersion }` — 새 버전이 없으면 `availableVersion: null`. 확인 실패·개발 모드는 reject(안내 문구) |
 | `update:download` | 없음 | 내려받기가 끝나면 resolve (`invoke`를 매달아 둔다 — 설치 파일 하나라 수십 초 안에 끝난다) |
 | `update:install` | 없음 | 응답 없음. `quitAndInstall()`로 앱이 종료된다 |
 
 - UI는 홈 상단의 `modules/features/update/UpdateBanner` 하나다. 이벤트를 받기 전에는 아무것도 그리지 않고,
   "받기" → 진행 중 → "다시 시작해 설치" 순서로 바뀐다. 무시하면 다음 실행 때 다시 알린다 (상태를 저장하지 않는다).
 - 설정의 `update.check`는 `AppSettings.isUpdateCheckEnabled`로 노출하고 `/settings`의 체크박스로 켠다. 켜도 다음 실행부터 확인한다.
+- 수동 확인 UI는 `modules/features/update/UpdateCheck`이고 `/settings`의 `SettingsSection`이 "업데이트 확인" 토글 바로 아래에 둔다.
+  배너와 같은 `useUpdate` 훅을 쓰며, 훅은 `check()`와 `'checking' | 'latest'` 단계를 더 갖는다. 배너는 이 두 단계에서 아무것도 그리지 않는다.
 
 ## 모노레포에서의 패키징 (2026-09-22)
 

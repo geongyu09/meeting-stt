@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import {
   IPC,
+  type CheckUpdateResponse,
   type DeleteMeetingRequest,
   type DownloadModelsRequest,
   type DownloadModelsResponse,
@@ -25,6 +26,7 @@ import {
   type RequestMicrophonePermissionResponse,
   type SendRecordingChunkRequest,
   type SetSpeakerCountRequest,
+  type SetShortcutsSuspendedRequest,
   type SetWidgetVisibleRequest,
   type StartRecordingRequest,
   type StartRecordingResponse,
@@ -61,6 +63,10 @@ const api = {
   widget: {
     setVisible: (payload: SetWidgetVisibleRequest): Promise<void> =>
       ipcRenderer.invoke(IPC.widget.setVisible, payload)
+  },
+  shortcuts: {
+    setSuspended: (payload: SetShortcutsSuspendedRequest): Promise<void> =>
+      ipcRenderer.invoke(IPC.shortcuts.setSuspended, payload)
   },
   meetings: {
     list: (): Promise<GetMeetingsResponse> => ipcRenderer.invoke(IPC.meetings.list),
@@ -104,6 +110,7 @@ const api = {
       ipcRenderer.invoke(IPC.models.downloadSummary)
   },
   update: {
+    check: (): Promise<CheckUpdateResponse> => ipcRenderer.invoke(IPC.update.check),
     download: (): Promise<void> => ipcRenderer.invoke(IPC.update.download),
     install: (): Promise<void> => ipcRenderer.invoke(IPC.update.install)
   },

@@ -1,5 +1,11 @@
 import type { AppSettings, WhisperModelId } from '@shared/types'
 import { DEFAULT_WHISPER_MODEL_ID, isWhisperModelId } from '@meeting-stt/models/desktop'
+import {
+  DEFAULT_RECORDING_SHORTCUT,
+  DEFAULT_WIDGET_SHORTCUT,
+  isValidAccelerator
+} from '@shared/shortcut'
+import { DEFAULT_WIDGET_FADE_OPACITY, isWidgetFadeOpacity } from '@shared/widget'
 import { getDb } from './connection'
 
 /** DB 키와 TS 필드명의 변환은 이 파일에서만 한다 (references/data-model.md) */
@@ -9,12 +15,20 @@ const STT_MODEL_KEY = 'stt.model'
 const PIPELINE_QUIET_KEY = 'pipeline.quiet'
 const WIDGET_ENABLED_KEY = 'widget.enabled'
 const WIDGET_BOUNDS_KEY = 'widget.bounds'
+const WIDGET_FADE_KEY = 'widget.fade'
+const WIDGET_FADE_OPACITY_KEY = 'widget.fadeOpacity'
+const RECORDING_SHORTCUT_KEY = 'shortcut.recording'
+const WIDGET_SHORTCUT_KEY = 'shortcut.widget'
 
 const DEFAULT_SETTINGS: AppSettings = {
   isAudioKept: false,
   isUpdateCheckEnabled: false,
   isQuietProcessing: false,
-  isWidgetEnabled: true
+  isWidgetEnabled: true,
+  isWidgetFadeEnabled: true,
+  widgetFadeOpacity: DEFAULT_WIDGET_FADE_OPACITY,
+  recordingShortcut: DEFAULT_RECORDING_SHORTCUT,
+  widgetShortcut: DEFAULT_WIDGET_SHORTCUT
 }
 
 /** 값이 없거나 JSON이 깨져도 undefined로 읽는다. 설정 하나 때문에 앱이 멈추면 안 된다 */
@@ -45,6 +59,18 @@ const readBoolean = ({ key, fallback }: { key: string; fallback: boolean }) => {
   return typeof value === 'boolean' ? value : fallback
 }
 
+const readOpacity = ({ key, fallback }: { key: string; fallback: number }) => {
+  const value = readValue(key)
+
+  return isWidgetFadeOpacity(value) ? value : fallback
+}
+
+const readShortcut = ({ key, fallback }: { key: string; fallback: string }) => {
+  const value = readValue(key)
+
+  return typeof value === 'string' && isValidAccelerator(value) ? value : fallback
+}
+
 export const getAppSettings = (): AppSettings => ({
   isAudioKept: readBoolean({ key: AUDIO_KEEP_KEY, fallback: DEFAULT_SETTINGS.isAudioKept }),
   isUpdateCheckEnabled: readBoolean({
@@ -58,6 +84,22 @@ export const getAppSettings = (): AppSettings => ({
   isWidgetEnabled: readBoolean({
     key: WIDGET_ENABLED_KEY,
     fallback: DEFAULT_SETTINGS.isWidgetEnabled
+  }),
+  isWidgetFadeEnabled: readBoolean({
+    key: WIDGET_FADE_KEY,
+    fallback: DEFAULT_SETTINGS.isWidgetFadeEnabled
+  }),
+  widgetFadeOpacity: readOpacity({
+    key: WIDGET_FADE_OPACITY_KEY,
+    fallback: DEFAULT_SETTINGS.widgetFadeOpacity
+  }),
+  recordingShortcut: readShortcut({
+    key: RECORDING_SHORTCUT_KEY,
+    fallback: DEFAULT_SETTINGS.recordingShortcut
+  }),
+  widgetShortcut: readShortcut({
+    key: WIDGET_SHORTCUT_KEY,
+    fallback: DEFAULT_SETTINGS.widgetShortcut
   })
 })
 
@@ -65,12 +107,20 @@ export const updateAppSettings = ({
   isAudioKept,
   isUpdateCheckEnabled,
   isQuietProcessing,
-  isWidgetEnabled
+  isWidgetEnabled,
+  isWidgetFadeEnabled,
+  widgetFadeOpacity,
+  recordingShortcut,
+  widgetShortcut
 }: AppSettings) => {
   writeValue({ key: AUDIO_KEEP_KEY, value: isAudioKept })
   writeValue({ key: UPDATE_CHECK_KEY, value: isUpdateCheckEnabled })
   writeValue({ key: PIPELINE_QUIET_KEY, value: isQuietProcessing })
   writeValue({ key: WIDGET_ENABLED_KEY, value: isWidgetEnabled })
+  writeValue({ key: WIDGET_FADE_KEY, value: isWidgetFadeEnabled })
+  writeValue({ key: WIDGET_FADE_OPACITY_KEY, value: widgetFadeOpacity })
+  writeValue({ key: RECORDING_SHORTCUT_KEY, value: recordingShortcut })
+  writeValue({ key: WIDGET_SHORTCUT_KEY, value: widgetShortcut })
 
   return getAppSettings()
 }

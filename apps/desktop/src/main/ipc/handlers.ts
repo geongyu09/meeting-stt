@@ -17,6 +17,12 @@ import {
   type StopRecordingResponse,
   type UpdateSettingsResponse
 } from '@shared/ipc'
+import { isValidAccelerator } from '@shared/shortcut'
+import {
+  isWidgetFadeOpacity,
+  MAX_WIDGET_FADE_OPACITY,
+  MIN_WIDGET_FADE_OPACITY
+} from '@shared/widget'
 import {
   isValidSpeakerCount,
   MAX_SPEAKER_COUNT,
@@ -39,9 +45,10 @@ import type { ModelDownloadProgress } from '../models/download'
 import { isWhisperModelId } from '@meeting-stt/models/desktop'
 import { downloadModels, downloadSummaryModel, modelStatus } from '../models/service'
 import { enqueueSummaryJob } from '../pipeline/queue'
-import { downloadUpdate, installUpdate } from '../updater'
+import { checkForUpdatesNow, downloadUpdate, installUpdate } from '../updater'
 import { showMainWindow } from '../windows/main'
-import { requestRecordingCommand, setWidgetVisible } from '../windows/widget'
+import { replaceGlobalShortcuts, setGlobalShortcutsSuspended } from '../windows/shortcuts'
+import { applyWidgetOpacity, requestRecordingCommand, setWidgetVisible } from '../windows/widget'
 
 const FULL_PERCENT = 100
 
@@ -122,11 +129,35 @@ const readBoolean = ({ payload, key }: { payload: unknown; key: string }) => {
   return payload[key]
 }
 
+const readFadeOpacity = (payload: unknown) => {
+  const value = isRecord(payload) ? payload.widgetFadeOpacity : undefined
+  if (!isWidgetFadeOpacity(value)) {
+    throw new Error(
+      `위젯 불투명도는 ${MIN_WIDGET_FADE_OPACITY}~${MAX_WIDGET_FADE_OPACITY} 사이여야 합니다`
+    )
+  }
+
+  return value
+}
+
+const readShortcut = ({ payload, key }: { payload: unknown; key: string }) => {
+  const value = isRecord(payload) ? payload[key] : undefined
+  if (typeof value !== 'string' || !isValidAccelerator(value)) {
+    throw new Error('단축키는 ⌘·⌥·⌃ 중 하나 이상과 문자·숫자·기능키를 함께 눌러 지정해 주세요')
+  }
+
+  return value
+}
+
 const readSettings = (payload: unknown) => ({
   isAudioKept: readBoolean({ payload, key: 'isAudioKept' }),
   isUpdateCheckEnabled: readBoolean({ payload, key: 'isUpdateCheckEnabled' }),
   isQuietProcessing: readBoolean({ payload, key: 'isQuietProcessing' }),
-  isWidgetEnabled: readBoolean({ payload, key: 'isWidgetEnabled' })
+  isWidgetEnabled: readBoolean({ payload, key: 'isWidgetEnabled' }),
+  isWidgetFadeEnabled: readBoolean({ payload, key: 'isWidgetFadeEnabled' }),
+  widgetFadeOpacity: readFadeOpacity(payload),
+  recordingShortcut: readShortcut({ payload, key: 'recordingShortcut' }),
+  widgetShortcut: readShortcut({ payload, key: 'widgetShortcut' })
 })
 
 const RECORDING_COMMAND_KINDS: RecordingCommandEvent['kind'][] = ['start', 'stop', 'toggle']
@@ -365,16 +396,29 @@ export const registerIpcHandlers = () => {
 
   // 설정이 정하는 것은 패널이 보이는지 여부뿐이다 — 창은 그래프 소유자라 계속 살아 있다.
   // 값이 바뀐 경우에만 적용한다. 그러지 않으면 ✕로 숨긴 패널이 다른 설정을 저장할 때 되살아난다
+  // 단축키는 등록을 먼저 시도하고 성공했을 때만 저장한다 — 실패하면 이전 단축키로 되돌아가 있다
   ipcMain.handle(IPC.settings.update, (_event, payload): UpdateSettingsResponse => {
     const previous = getAppSettings()
-    const settings = updateAppSettings(readSettings(payload))
+    const next = readSettings(payload)
+
+    const isShortcutChanged =
+      next.recordingShortcut !== previous.recordingShortcut ||
+      next.widgetShortcut !== previous.widgetShortcut
+    if (isShortcutChanged) replaceGlobalShortcuts({ next, previous })
+
+    const settings = updateAppSettings(next)
 
     if (settings.isWidgetEnabled !== previous.isWidgetEnabled) {
       setWidgetVisible({ isVisible: settings.isWidgetEnabled })
     }
+    applyWidgetOpacity()
 
     return settings
   })
+
+  ipcMain.handle(IPC.shortcuts.setSuspended, (_event, payload): void =>
+    setGlobalShortcutsSuspended({ isSuspended: readBoolean({ payload, key: 'isSuspended' }) })
+  )
 
   ipcMain.handle(IPC.models.status, (): ModelStatusResponse => modelStatus())
 
@@ -383,6 +427,8 @@ export const registerIpcHandlers = () => {
   ipcMain.handle(IPC.models.downloadSummary, (): Promise<DownloadModelsResponse> =>
     downloadSummaryModel({ onProgress: broadcastModelDownloadProgress })
   )
+
+  ipcMain.handle(IPC.update.check, () => checkForUpdatesNow())
 
   ipcMain.handle(IPC.update.download, () => downloadUpdate())
 
