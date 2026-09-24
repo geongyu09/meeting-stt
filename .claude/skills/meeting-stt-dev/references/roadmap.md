@@ -18,8 +18,8 @@
 - [x] 실제 한국어 회의 WAV 픽스처 확보 → 품질·`cluster_threshold` 튜닝은 이걸로만 판단한다 (2026-08-26, 음성 메모 71분 발표·Q&A 녹음 `scripts/fixtures/audio/geumtoro*.wav`, git 제외)
 - [x] 실제 녹음으로 재측정한 결론 반영: 음량 정규화 단계 추가(`src/main/pipeline/normalize.ts`), `cluster-threshold` 0.6 → 0.8, 군소 화자 흡수(`assignSpeakers`) → `docs/phase1-results.md`
       → **2026-08-26 일부 뒤집힘**: 임계값 군집은 71분 전체·앱 26분 회의에서 화자가 115·129개로 늘어난다(6·7절). 참석자 수 `num-clusters`가 기본 경로로 바뀜
-- [x] `scripts/pipeline.ts`: WAV → (VAD) → whisper JSON → diarization 출력 → `src/shared/merge.ts` → 회의록 텍스트 출력
-- [x] `src/shared/merge.ts`·`format.ts`·`main/pipeline/{whisper,diarize}.ts` 단위 테스트 통과 (`pnpm test`, 45개)
+- [x] `scripts/pipeline.ts`: WAV → (VAD) → whisper JSON → diarization 출력 → `@meeting-stt/core/merge` → 회의록 텍스트 출력
+- [x] 병합·포맷(현 `packages/core/src/`)·`main/pipeline/{whisper,diarize}.ts` 단위 테스트 통과 (`pnpm test`, 45개)
 - [x] 튜닝 결과 기록: 모델별(turbo-q5 / large-v3 / small) 처리 시간·체감 정확도, `cluster_threshold` 값, VAD 사용 유무 차이, 단어 타임스탬프 옵션 효과 → `docs/phase1-results.md`
 - [x] 결론: 기본 모델·파라미터 확정 후 SKILL.md 결정 표 갱신 (실제 회의 WAV로 재확인 완료)
 
@@ -53,7 +53,7 @@
 
 결정과 계약은 `references/distribution.md`가 SSOT다.
 
-- [x] 모델 레지스트리(`src/main/models/registry.ts`, 스크립트와 공유) + 다운로더(Range 이어받기, SHA256, `tar -xf` 아카이브 해제, 동시성 1)
+- [x] 모델 카탈로그(`@meeting-stt/models/desktop`, 스크립트와 공유) + 다운로더(Range 이어받기, SHA256, `tar -xf` 아카이브 해제, 동시성 1)
 - [x] 온보딩: 모델 선택(권장 turbo-q5 / 고품질 large-v3 / 저사양 small, 권장값 미리 선택) → 총 용량 → 항목별 진행률 → 완료 시 홈
       (`modules/widgets/model/ModelDownloadSection`, `pages/Onboarding`, `shared/routes/guards.tsx`의 `RequireModels` 가드)
 - [x] "네트워크는 모델 다운로드 한 번뿐" 문구 노출 (온보딩·설정의 `ModelDownloadSection`)

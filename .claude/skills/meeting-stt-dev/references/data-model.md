@@ -128,7 +128,7 @@ export interface Speaker { meetingId: string; label: string; displayName: string
 
 export interface AppSettings { isAudioKept: boolean; isUpdateCheckEnabled: boolean; isQuietProcessing: boolean }
 
-/** 사용자가 고를 수 있는 음성 인식 모델 (Phase 4). 목록·체크섬은 src/main/models/registry.ts */
+/** 사용자가 고를 수 있는 음성 인식 모델 (Phase 4). 목록·체크섬은 @meeting-stt/models/desktop */
 export type WhisperModelId = 'turbo-q5' | 'large-v3-q5' | 'small-q5_1'
 /** 모델 파일 종류. 'summary'만 선택 모델이고 나머지는 필수다 */
 export type ModelKey = 'whisper' | 'vad' | 'segmentation' | 'embedding' | 'summary'
@@ -160,7 +160,7 @@ export type SummaryStage = 'summarize' | 'reduce' | 'done' | 'error'
   녹음 시작 시점(파일명 결정)에 main이 id를 먼저 정해야 하고, 나중에 파일 기반 내보내기·복구에서 충돌이 없어야 하기 때문이다.
 - 따라서 IPC payload의 `meetingId`·`utteranceId`도 전부 `string`이다.
 
-## 병합 알고리즘 (`src/shared/merge.ts`, 순수 함수)
+## 병합 알고리즘 (`@meeting-stt/core/merge`, 순수 함수)
 
 1. `SpeakerSegment[]`를 start 기준 정렬해 두고, 각 단어(없으면 세그먼트)에 대해 **겹침 길이가 최대인 화자**를 배정한다. 세그먼트 수가 수천 개가 되므로 이진 탐색으로 후보 구간을 좁힌다 (WhisperX 방식).
 2. 겹치는 화자 구간이 없으면 **1초 이내에서 가장 가까운 화자 구간**에 배정한다 — 화자 전환 경계의 단어는 타임스탬프 오차 때문에 어느 구간에도 걸치지 않는 일이 잦다. 그래도 없으면 직전 단어의 화자를 승계하고, 그것도 없으면 `UNKNOWN`.
@@ -170,7 +170,7 @@ export type SummaryStage = 'summarize' | 'reduce' | 'done' | 'error'
 
 테스트(`pnpm test`, vitest)에는 최소 다음 케이스를 둔다: 단일 화자, 세그먼트 중간 화자 전환, 겹침 없는 단어, 고아 발화 흡수, 빈 입력.
 
-## 복사 포맷 (`src/shared/format.ts`)
+## 복사 포맷 (`@meeting-stt/core/format`)
 
 ```
 [00:00:12] 김OO: 지난주 논의했던 배포 일정부터 정리하겠습니다.

@@ -41,10 +41,10 @@
 
 | 파일                             | 하는 일                                             | 손볼 곳                                    |
 | -------------------------------- | --------------------------------------------------- | ------------------------------------------ |
-| `src/shared/merge.ts`            | 화자 구간 + 단어 타임스탬프 → 발화 단위 회의록      | 없음                                       |
+| `packages/core/src/merge.ts`     | 화자 구간 + 단어 타임스탬프 → 발화 단위 회의록      | 없음 (두 앱이 공용 패키지로 함께 쓴다)     |
 | `src/shared/types.ts`            | `SttSegment` / `SpeakerSegment` / `MergedUtterance` | 안 쓰는 타입 제거                          |
 | `src/main/pipeline/normalize.ts` | RMS 음량 정규화                                     | 파일 IO 껍데기를 `Float32Array` 입출력으로 |
-| `src/shared/format.ts`           | 타임스탬프·회의록 텍스트 포맷                       | 없음                                       |
+| `packages/core/src/format.ts`    | 타임스탬프·회의록 텍스트 포맷                       | 없음 (두 앱이 공용 패키지로 함께 쓴다)     |
 
 `merge.ts`의 테스트(`merge.test.ts`)도 같이 가져오면 이식이 깨졌는지 바로 안다.
 

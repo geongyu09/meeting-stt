@@ -7,10 +7,14 @@ Phase 1~3에서 확정된 내용(모델 조합, 파이프라인, 편집 계약)�
 여기서 다루지 않는다 — 리포지토리에 남아 있는 `resources/bin/win32-x64/`·`build:win`·`setupBin --platform=win32-x64`는
 지우지 않았을 뿐 유지·검증 대상이 아니고, 새 코드에 `win32` 분기를 추가하지 않는다.
 
-## 1. 모델 레지스트리 — 앱과 스크립트가 공유한다
+경로는 데스크탑 앱(`apps/desktop/`) 기준이다 (`references/monorepo.md`).
 
-`src/main/models/registry.ts`는 **electron을 import하지 않는 순수 데이터·함수**다. main 프로세스의 온보딩 다운로더와
-`scripts/setupModels.ts`(Phase 1 픽스처용)가 같은 목록을 쓴다. 목록이 두 곳에 갈라지면 체크섬이 어긋난 채로 오래 남는다.
+## 1. 모델 카탈로그 — 앱과 스크립트가 공유한다
+
+`@meeting-stt/models/desktop`(= `packages/models/src/desktop.ts`)은 **electron을 import하지 않는 순수 데이터·함수**다.
+main 프로세스의 온보딩 다운로더와 `scripts/setupModels.ts`(Phase 1 픽스처용)가 같은 목록을 쓴다.
+목록이 두 곳에 갈라지면 체크섬이 어긋난 채로 오래 남는다. 브라우저 앱이 쓰는 저장소 id는 같은 패키지의
+`@meeting-stt/models/web`에 있다 — 런타임이 달라 값은 공유하지 않지만 **모델을 바꾸는 결정은 한 패키지에서** 내린다.
 
 - 항목 형태: `{ key, label(한국어), fileName, url, sha256, sizeBytes, kind: 'direct' | 'archive' }`.
   `archive`는 아카이브 안에서 꺼낼 `entry` 경로를 함께 갖는다.
@@ -18,8 +22,8 @@ Phase 1~3에서 확정된 내용(모델 조합, 파이프라인, 편집 계약)�
   VAD·화자 분할·화자 임베딩은 선택지가 없는 필수 모델이다.
 - 고른 모델은 `settings` 테이블의 `stt.model`(기본 `turbo-q5`)에 저장한다 (`references/data-model.md`).
   `src/main/models/paths.ts`는 이 값을 받아 whisper 모델 파일명을 정한다. 다른 모듈이 파일명을 직접 조립하지 않는다.
-  `WhisperModelId`·`ModelKey` 타입은 도메인 타입이라 `src/shared/types.ts`에 있고, 레지스트리는 그것을 `import type`으로만 쓴다
-  (타입 전용 import는 지워지므로 `scripts/`에서 레지스트리를 불러도 경로 별칭 해석이 필요 없다).
+  `WhisperModelId`·`ModelKey` 타입은 카탈로그의 어휘이므로 `@meeting-stt/models/desktop`에서 정의하고,
+  `src/shared/types.ts`가 그것을 재노출한다 (앱 코드의 `@shared/types` import 경로를 유지하기 위해서다).
 - **요약 모델은 온보딩에서 받지 않는다** (2026-08-26 결정). 필수 묶음(약 620MB)만 받아 첫 실행을 짧게 끝내고,
   2.4GB짜리 요약 모델은 `/settings`의 `SummaryModelSection`에서 사용자가 따로 받는다. 회의 상세의 `SummarySection`은
   요약 모델이 없으면 버튼을 막고 설정으로 가는 링크를 보여준다. "요약 버튼을 처음 누를 때 받기"는 택하지 않았다 —
@@ -101,8 +105,8 @@ recommendWhisperModelId({ cpuCount, totalMemoryBytes }): WhisperModelId
 
 | 플랫폼 | 자산 | 비고 |
 | --- | --- | --- |
-| `darwin-arm64` (개발) | Homebrew `whisper-cli` 심볼릭 링크, sherpa-onnx `v1.13.6` osx-arm64 shared-no-tts | `pnpm tsx scripts/setupBin.ts` |
-| `darwin-arm64` (배포) | whisper.cpp `v1.8.4`를 **소스에서 정적 빌드**, sherpa-onnx는 같음 | `pnpm tsx scripts/setupBin.ts --from-source` |
+| `darwin-arm64` (개발) | Homebrew `whisper-cli` 심볼릭 링크, sherpa-onnx `v1.13.6` osx-arm64 shared-no-tts | `pnpm setup:bin` |
+| `darwin-arm64` (배포) | whisper.cpp `v1.8.4`를 **소스에서 정적 빌드**, sherpa-onnx는 같음 | `pnpm --filter meeting-stt exec tsx scripts/setupBin.ts --from-source` |
 
 ### macOS 배포용 whisper는 소스에서 빌드한다
 
@@ -159,9 +163,10 @@ mac 앱에 딸려 들어가던 것을 `electron-builder.yml`의 `files`에서 `!
 1. **커밋된 상태에서 빌드한다.** 이 워킹 트리는 여러 세션이 동시에 편집하므로, 커밋 안 된 변경이 섞이지 않게
    릴리스할 커밋으로 별도 `git worktree`를 만들고 그 안에서 `pnpm install --frozen-lockfile`을 한다.
    `resources/bin/`은 git 제외라 원본 트리의 `resources/bin/darwin-arm64/`를 복사해 넣는다 (whisper는 `--from-source` 정적 빌드여야 한다).
-2. `package.json`의 `version`을 올리고 커밋한다. 릴리스 태그는 `v<version>`이다.
+2. `apps/desktop/package.json`의 `version`을 올리고 커밋한다 (루트 `package.json`의 버전은 쓰지 않는다).
+   릴리스 태그는 `v<version>`이다.
 3. **빌드와 업로드를 분리한다.** `APPLE_KEYCHAIN_PROFILE=meeting-stt-notary pnpm run build:mac:release`
-   → 서명·공증·스테이플까지만 하고 `dist/`에 `dmg`·`zip`·`*.blockmap`·`latest-mac.yml`을 남긴다.
+   → 서명·공증·스테이플까지만 하고 `apps/desktop/dist/`에 `dmg`·`zip`·`*.blockmap`·`latest-mac.yml`을 남긴다.
    `publish` 설정이 있으므로 업로드를 하지 않아도 `latest-mac.yml`은 만들어진다.
    `release:mac`(`--publish always`)은 쓰지 않는다 — 병렬 업로드가 드래프트를 두 개 만들고 140MB 구간에서 끊긴다(아래).
 4. `codesign --verify --deep --strict` / `spctl -a -t exec -vv`(`source=Notarized Developer ID`) / `xcrun stapler validate <app>`로 확인한다.
@@ -231,13 +236,33 @@ events:  { updateAvailable: 'update:available' }
   "받기" → 진행 중 → "다시 시작해 설치" 순서로 바뀐다. 무시하면 다음 실행 때 다시 알린다 (상태를 저장하지 않는다).
 - 설정의 `update.check`는 `AppSettings.isUpdateCheckEnabled`로 노출하고 `/settings`의 체크박스로 켠다. 켜도 다음 실행부터 확인한다.
 
+## 모노레포에서의 패키징 (2026-09-22)
+
+(뒤 절의 번호를 밀지 않으려고 번호를 붙이지 않았다. 워크스페이스 전반은 `references/monorepo.md`.)
+
+electron-builder는 **앱 워크스페이스(`apps/desktop`)가 실행 디렉터리**여야 `electron-builder.yml`·`build/`·`out/`을 찾는다.
+루트에서 부르면 안 된다. 루트 스크립트는 `pnpm --filter meeting-stt run …`으로 위임만 한다.
+
+- **`apps/desktop/package.json`의 `electron` 버전은 범위(`^39.2.6`)가 아니라 정확한 버전(`39.8.10`)으로 적는다.**
+  `.npmrc`가 `node-linker=hoisted`라 `electron`이 워크스페이스 루트의 `node_modules`에 설치되고,
+  electron-builder는 앱 디렉터리의 `node_modules/electron`을 못 찾아 버전을 계산하지 못한다
+  (`⨯ Electron version "^39.2.6" is a range, not a fixed version`). 고정하면 `package.json` 한 곳만 보고 해결한다 —
+  `electron-builder.yml`에 `electronVersion`을 박지 않는 이유는 그 값이 실제 설치본과 조용히 갈라질 수 있기 때문이다.
+  electron을 올릴 때는 이 번호를 직접 바꾼다 (서명·공증해 내보내는 앱이라 자동 minor 업데이트를 원하지 않는다).
+- 버전을 고정하면 `postinstall`의 `electron-builder install-app-deps`가 워크스페이스 루트를 스스로 감지해
+  네이티브 의존성을 Electron ABI로 리빌드한다 (`detected workspace root for project using packageManager field`).
+- 공용 패키지(`@meeting-stt/core`, `@meeting-stt/models`)는 앱의 **devDependencies**에 둔다. 번들러가 소스를 인라인하므로
+  런타임 의존성이 아니고, `dependencies`에 두면 electron-builder가 TS 소스 디렉터리를 app.asar에 복사하려 한다.
+  실제로 패키징한 app.asar에는 `@meeting-stt/*`가 없고 `better-sqlite3`·`electron-updater` 같은 런타임 의존성만 들어간다 (2026-09-22 확인).
+
 ## 8. CI (GitHub Actions)
 
 `.github/workflows/build.yml`
 
 - 러너는 `macos-15`(arm64) 하나다. 네이티브 애드온(`better-sqlite3`)과 동봉 바이너리가 플랫폼에 묶여 있어 크로스 빌드하지 않는다.
   Windows 잡은 두지 않는다 (대상 플랫폼 결정, `SKILL.md`).
-- 순서: `pnpm install` → 린트·타입·테스트 → `pnpm tsx scripts/setupBin.ts --from-source` → `pnpm run build:mac`.
+- 순서: `pnpm install` → 린트·타입·테스트 → `pnpm --filter meeting-stt exec tsx scripts/setupBin.ts --from-source`
+  → `pnpm run build` → `pnpm --filter meeting-stt exec electron-builder --mac --publish never`. 아티팩트 경로는 `apps/desktop/dist/`다.
   `resources/bin/`이 비어 있으면 빌드를 중단한다 (`setupBin.ts`가 실패로 끝난다).
 - **CI는 검증 빌드만 하고 릴리스에 올리지 않는다** (2026-09-18 결정). push/PR/태그 모두 아티팩트 업로드까지다.
   이전 워크플로는 `v*` 태그에서 드래프트 릴리스를 만들었지만, 시크릿이 없어 **공증 안 된** dmg만 올렸고

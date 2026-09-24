@@ -61,8 +61,10 @@ pnpm 워크스페이스 하나에 데스크탑 앱·브라우저 프로토타입
 - 서브패스 와일드카드라 파일 하나가 모듈 하나다: `@meeting-stt/core/merge` → `packages/core/src/merge.ts`.
   배럴(`index.ts`)을 두지 않는 이유는 `src/shared`·`src/main`과 같다 — 역할별 플랫 파일에 경로가 곧 이름이다
   (`.claude/rules/general-code-convention.md`).
-- 앱은 `"@meeting-stt/core": "workspace:*"`로 의존을 적는다. `moduleResolution: bundler`라 `exports`가 그대로 해석되므로
-  tsconfig에 `paths` 별칭을 따로 만들지 않는다.
+- 앱은 `"@meeting-stt/core": "workspace:*"`를 **devDependencies**에 적는다. `moduleResolution: bundler`라 `exports`가
+  그대로 해석되므로 tsconfig에 `paths` 별칭을 따로 만들지 않는다. devDependencies인 이유는 번들러(electron-vite/vite)가
+  소스를 **인라인**하므로 런타임 의존성이 아니고, `dependencies`에 두면 electron-builder가 TS 소스 디렉터리를
+  app.asar에 복사하려 하기 때문이다 (`references/distribution.md`).
 - 테스트는 코드와 같이 산다. `packages/core/src/merge.test.ts`가 `pnpm -r test`에서 자기 패키지의 vitest로 돌아간다.
 
 ## 스크립트 규약
@@ -103,6 +105,9 @@ pnpm 워크스페이스 하나에 데스크탑 앱·브라우저 프로토타입
 
 - **electron-builder는 앱 워크스페이스에서 돌려야 한다.** `postinstall`의 `electron-builder install-app-deps`와
   패키징 명령은 `apps/desktop`이 실행 디렉터리다. 루트에서 부르면 `electron-builder.yml`도, `build/` 리소스도 못 찾는다.
+- **`apps/desktop`의 `electron` 버전은 범위가 아니라 정확한 버전으로 적는다.** `node-linker=hoisted`라 `electron`이
+  루트 `node_modules`에 설치되고, electron-builder가 앱 디렉터리에서 버전을 계산하지 못해
+  `⨯ Electron version "^39.2.6" is a range, not a fixed version`으로 설치가 실패한다 (`references/distribution.md`).
 - **Vercel 배포는 저장소 루트를 프로젝트 루트로 쓴다.** `vercel.json`이 루트에 있고
   `buildCommand`는 `pnpm --filter @meeting-stt/web run build`, `outputDirectory`는 `apps/web/dist`다.
   워크스페이스 이름을 바꾸면 이 두 줄을 같이 고쳐야 한다.
@@ -110,6 +115,17 @@ pnpm 워크스페이스 하나에 데스크탑 앱·브라우저 프로토타입
   (`.github/workflows/build.yml`).
 - **패키지를 고치면 두 앱이 같이 바뀐다.** `packages/core`를 건드리는 변경은 데스크탑 테스트와 웹 테스트를
   모두 돌려 확인한다 (`pnpm test`가 전부 돈다).
+- **`pnpm -r`은 스크립트가 없는 워크스페이스를 조용히 건너뛴다.** 새 패키지에 `typecheck`·`test`를 빼놓으면
+  검사에서 빠진 채로 오래 남는다.
+
+## 전환 확인 (2026-09-22)
+
+모노레포로 옮긴 뒤 다음을 직접 돌려 통과를 확인했다: `pnpm install`(better-sqlite3 Electron ABI 리빌드 포함),
+`pnpm lint`, `pnpm typecheck`(4개 워크스페이스), `pnpm test`(core 38 · models 4 · web 44 · desktop 171 = 257개),
+`pnpm build`(electron-vite → `apps/desktop/out`), `pnpm build:web`(→ `apps/web/dist`),
+`pnpm build:unpack`(electron-builder 패키징·서명까지),
+그리고 `pnpm --filter meeting-stt exec tsx`로 워크스페이스 패키지를 불러오는 스크립트 경로.
+패키징된 app.asar에 `@meeting-stt/*`가 들어가지 않고 공용 로직이 `out/main/index.js`에 인라인된 것도 확인했다.
 
 ## 이전 문서의 경로를 읽는 법
 

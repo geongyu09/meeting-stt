@@ -2,16 +2,14 @@ appId: com.meetingstt.app
 productName: meeting-stt
 directories:
   buildResources: build
+# 수집 기준은 이 앱 워크스페이스(apps/desktop) 디렉터리다. 루트의 docs/·plan.md·.github/·설정 파일은
+# 애초에 들어오지 않으므로 여기서 제외하지 않는다 (references/monorepo.md)
 files:
-  - '!**/.vscode/*'
   - '!src/*'
   - '!scripts/*'
-  - '!plan.md'
-  - '!docs/*'
-  - '!.github/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
-  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,CHANGELOG.md,README.md}'
-  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml,pnpm-workspace.yaml}'
+  - '!{.eslintcache,CHANGELOG.md,README.md}'
+  - '!{.env,.env.*}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json,vitest.config.ts}'
   # macOS 전용 앱이라 리포지토리에 남은 Windows 바이너리는 넣지 않는다
   - '!resources/bin/win32-*'

@@ -60,7 +60,7 @@
   DB 계층(`src/main/db/*`)은 단위 테스트 대상에서 제외하고, 순수 함수(병합·포맷·파서·WAV 헤더)만 테스트한다. DB 동작은 `pnpm dev`로 확인한다.
 - 네이티브 애드온(`better-sqlite3`)은 Electron ABI로 리빌드가 필요하다. pnpm 10은 의존성의 install/postinstall 스크립트를 기본 차단하므로 `package.json`의 `pnpm.onlyBuiltDependencies`에 등록하고(`electron`, `esbuild`, `electron-winstaller` 포함) `pnpm install` 로그에 "Ignored build scripts" 경고가 없는지, `electron-builder install-app-deps`가 실행되는지 확인한다.
 - pnpm 기본 링커(isolated, 심볼릭 링크)는 electron-builder 패키징·네이티브 리빌드에서 문제를 일으킬 수 있다. `.npmrc`의 `node-linker=hoisted` / `shamefully-hoist=true`를 유지한다.
-- `src/main`, `src/preload`는 Node에서 실행된다. 테스트 러너는 vitest(`pnpm test`), TS 스크립트 실행은 tsx(`pnpm tsx scripts/x.ts`)를 쓴다. `bun test`, `bun:*` 모듈, `Bun.*` API는 사용하지 않는다.
+- `src/main`, `src/preload`는 Node에서 실행된다. 테스트 러너는 vitest(`pnpm test`), TS 스크립트 실행은 tsx(`pnpm --filter meeting-stt exec tsx scripts/x.ts`)를 쓴다. `bun test`, `bun:*` 모듈, `Bun.*` API는 사용하지 않는다.
 - 바이너리는 `asarUnpack` 대상이어야 실행 가능하고, macOS에서는 실행 권한(`chmod +x`)과 quarantine 해제가 필요하다. notarization 시 동봉 바이너리와 dylib까지 모두 서명(`hardenedRuntime`, entitlements에 `com.apple.security.cs.allow-unsigned-executable-memory` 등 필요 여부 확인).
 - 모델 파일은 절대 리포지토리나 설치 파일에 포함하지 않는다. `userData/models`에 다운로드하고 `.gitignore`로 차단.
 - `electron-builder.yml`의 `publish.url`, `appId`, `NSMicrophoneUsageDescription`은 스캐폴드 기본값이므로 배포 전 반드시 교체.

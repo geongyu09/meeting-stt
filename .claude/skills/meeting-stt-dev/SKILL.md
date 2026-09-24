@@ -43,7 +43,7 @@ description: 로컬 STT 회의록 데스크탑 앱(meeting-stt)의 개발 방향
 | 시스템 오디오 캡처 | **1차 범위 제외** (마이크만) | Phase 5의 두 번째 항목. 로컬 요약을 끝낸 뒤 착수한다 |
 | 로컬 요약 | **llama.cpp `llama-cli`** 를 `child_process`로 spawn. 모델 `Qwen3-4B-Instruct-2507-Q4_K_M.gguf` (Apache-2.0, 비사고형 instruct) | `llama-server`(HTTP)는 쓰지 않는다 — 단발 요약에 상주 서버·포트 관리가 필요 없다. 프롬프트·시스템 프롬프트·출력은 **전부 파일**로 주고받고(`-f`/`-sysf`/`-o`), 회의록이 길면 map-reduce 청킹. 자동 실행이 아니라 사용자가 버튼으로 요청한다 (`references/architecture.md`) |
 | 녹음본 재생 | 요구사항 아님 → 파이프라인 완료 후 원본 WAV **삭제가 기본**, 보관은 설정 옵션(`audio.keep`, `/settings`) | 실패한 잡은 재시도용으로 원본을 남긴다 |
-| 클립보드 | 복사는 main의 `electron.clipboard` 경유(`clipboard:writeText`) | `file://` 문서와 권한 핸들러에 걸릴 여지를 없앤다. 텍스트 조립은 renderer가 `@shared/format`으로 |
+| 클립보드 | 복사는 main의 `electron.clipboard` 경유(`clipboard:writeText`) | `file://` 문서와 권한 핸들러에 걸릴 여지를 없앤다. 텍스트 조립은 renderer가 `@meeting-stt/core/format`으로 |
 | 녹음 위젯 | **Electron 플로팅 패널 창**(화면 우측, `type: 'panel'`, alwaysOnTop) + 메뉴바 Tray 시간 + 전역 단축키(`⌥⌘R`/`⌥⌘W`) | macOS WidgetKit 위젯(SwiftUI 앱 확장)은 만들지 않는다 — 서명·공증 대상이 늘고 상태를 프로세스 밖으로 복제해야 하는데 얻는 건 외형뿐이다. **오디오 그래프의 소유자는 위젯 창 하나**이고 메인 창은 명령 전송·상태 구독만 한다. 진행 중 녹음의 단일 출처는 main의 녹음 세션이며 `recording:state`로 두 창에 push한다. 설계는 `references/architecture.md`의 "녹음 위젯 패널" 절 |
 | 확인 UI | 되돌릴 수 없는 동작(회의 삭제, 화자 병합)은 **2단계 인라인 확인**. `window.confirm`·네이티브 대화상자 금지 | renderer를 멈추지 않고 통합 테스트로 검증할 수 있다 |
 
@@ -69,7 +69,7 @@ renderer는 IPC로 요청·진행률 수신만 한다. 렌더러 내 추론(tran
 
 상세 체크리스트(완료 기준 포함)는 `references/roadmap.md`.
 
-1. **Phase 1 파이프라인 검증 (스크립트)** — 앱 UI를 만들기 **전에** `scripts/`에서 `pnpm tsx`로
+1. **Phase 1 파이프라인 검증 (스크립트)** — 앱 UI를 만들기 **전에** `apps/desktop/scripts/`에서 tsx로
    `whisper-cli → sherpa-onnx → 병합`을 실제 한국어 회의 WAV로 돌려 품질·속도를 확인하고
    모델 크기/양자화/`cluster_threshold`를 튜닝한다. 여기서 만든 병합 로직은 이후 `src/main/pipeline/`으로 그대로 옮긴다.
 2. **Phase 2 앱 골격** — 녹음 → WAV → 파이프라인 → SQLite → 홈/디테일 관통.
