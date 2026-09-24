@@ -5,6 +5,8 @@ import { stagePeakEntries, type MemoryReport } from '../lib/memory'
 import { STAGE_LABELS } from '../lib/stageLabels'
 import { formatElapsed, formatMb, formatRtf, formatSeconds } from '../lib/units'
 import type { PipelineResult } from '../pipeline/runPipeline'
+import Button from '../components/Button'
+import Icon from '../components/Icon'
 
 interface TranscriptPanelProps {
   result: PipelineResult
@@ -12,6 +14,12 @@ interface TranscriptPanelProps {
   decodeMs: number
   memory: MemoryReport | null
 }
+
+/** 화자 색 토큰 개수. 5번째 화자부터 1번 색을 다시 쓴다 (architecture.md "디자인 토큰") */
+const SPEAKER_COLOR_COUNT = 4
+
+const speakerColorOf = (index: number) =>
+  `var(--color-speaker-${(index % SPEAKER_COLOR_COUNT) + 1})`
 
 /** 단계별 최고값을 한 줄로. 재지 못한 단계는 빠진다 */
 const formatStagePeaks = (memory: MemoryReport) =>
@@ -30,6 +38,7 @@ export default function TranscriptPanel({
   const names = resolveSpeakerNames({
     labels: result.utterances.map((utterance) => utterance.speakerLabel)
   })
+  const speakerOrder = Object.keys(names)
   const totalMs =
     decodeMs + result.timings.diarizeMs + result.timings.sttMs + result.timings.mergeMs
   const characterCount = result.utterances.reduce(
@@ -115,9 +124,10 @@ export default function TranscriptPanel({
       </p>
 
       <div className="actions">
-        <button type="button" onClick={handleCopy}>
+        <Button variant="secondary" onClick={handleCopy}>
+          <Icon name="copy" />
           회의록 복사
-        </button>
+        </Button>
         {isCopied ? <span className="hint">복사했다</span> : null}
       </div>
 
@@ -125,7 +135,12 @@ export default function TranscriptPanel({
         {result.utterances.map((utterance) => (
           <li key={utterance.ord}>
             <span className="time">{formatTimestamp({ sec: utterance.startSec })}</span>
-            <span className="speaker">{names[utterance.speakerLabel]}</span>
+            <span
+              className="speaker"
+              style={{ color: speakerColorOf(speakerOrder.indexOf(utterance.speakerLabel)) }}
+            >
+              {names[utterance.speakerLabel]}
+            </span>
             <span className="text">{utterance.text}</span>
           </li>
         ))}

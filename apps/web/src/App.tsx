@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { isValidSpeakerCount } from '@meeting-stt/core/speakerCount'
+
 import { probeEnvironment, type EnvironmentInfo } from './lib/environment'
 import { mergeMemoryReports, startMemorySampler, type MemoryReport } from './lib/memory'
 import { probeModelCache, type ModelCacheInfo } from './lib/modelCache'
@@ -12,11 +14,16 @@ import RunPanel, { type RunOptions } from './ui/RunPanel'
 import TranscriptPanel from './ui/TranscriptPanel'
 
 const DEFAULT_OPTIONS: RunOptions = {
-  speakerCount: 3,
+  speakerCountText: '3',
   sttDevice: 'webgpu',
   sttDtype: 'q4f16',
   whisperModel: 'large-v3-turbo',
   diarizeDevice: 'wasm'
+}
+
+const parseSpeakerCount = (text: string) => {
+  const parsed = Number(text.trim())
+  return text.trim() !== '' && isValidSpeakerCount(parsed) ? parsed : null
 }
 
 const toMessage = (error: unknown) => (error instanceof Error ? error.message : String(error))
@@ -36,6 +43,7 @@ export default function App() {
   // 실행이 끝나면 캐시가 채워져 있다. 이 값을 바꿔 캐시 조회를 다시 돌린다
   const [refreshToken, setRefreshToken] = useState(0)
   const abortRef = useRef<AbortController | null>(null)
+  const speakerCount = parseSpeakerCount(options.speakerCountText)
 
   // 환경 확인은 브라우저 API에 묻는 외부 동기화라 마운트 때 한 번만 한다
   useEffect(() => {
@@ -72,7 +80,7 @@ export default function App() {
   }
 
   const handleRun = async () => {
-    if (!audio || !file) return
+    if (!audio || !file || speakerCount === null) return
 
     setIsRunning(true)
     setResult(null)
@@ -90,7 +98,7 @@ export default function App() {
       const finished = await runPipeline({
         samples: ready.samples,
         sampleRate: ready.sampleRate,
-        speakerCount: options.speakerCount,
+        speakerCount,
         sttDevice: options.sttDevice,
         sttDtype: options.sttDtype,
         whisperModel: options.whisperModel,
@@ -135,6 +143,7 @@ export default function App() {
         progress={progress}
         isRunning={isRunning}
         isReady={audio !== null}
+        isSpeakerCountValid={speakerCount !== null}
         errorMessage={errorMessage}
         onChange={setOptions}
         onRun={handleRun}

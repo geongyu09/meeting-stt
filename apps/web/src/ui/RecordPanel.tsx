@@ -1,13 +1,15 @@
 import { useState } from 'react'
 
 import type { Recording } from '../audio/recorder'
-import { dbToMeterRatio, formatDb, formatSeconds, rmsToDb } from '../lib/units'
+import Button from '../components/Button'
+import Icon from '../components/Icon'
+import LevelWaveform from '../components/LevelWaveform'
+import { formatDb, formatSeconds, rmsToDb } from '../lib/units'
 import { formatTimestamp } from '@meeting-stt/core/format'
-import useRecorder from './useRecorder'
+import useRecorder, { LEVEL_HISTORY_SIZE } from './useRecorder'
 
 /** `click()` 직후에 revoke하면 다운로드가 시작되기 전에 URL이 사라지는 브라우저가 있다 */
 const REVOKE_DELAY_MS = 1000
-const PERCENT = 100
 
 interface RecordPanelProps {
   /** 파이프라인이 도는 중에는 녹음을 시작하지 못하게 한다 */
@@ -26,14 +28,14 @@ const downloadRecording = (recording: Recording) => {
 
 export default function RecordPanel({ isDisabled, onRecorded }: RecordPanelProps) {
   const [lastRecording, setLastRecording] = useState<Recording | null>(null)
-  const { isRecording, isBusy, level, elapsedSec, errorMessage, start, stop } = useRecorder({
+  const { isRecording, isBusy, levels, elapsedSec, errorMessage, start, stop } = useRecorder({
     onRecorded: (recording) => {
       setLastRecording(recording)
       onRecorded(recording)
     }
   })
 
-  const levelDb = rmsToDb(level)
+  const levelDb = rmsToDb(levels.at(-1) ?? 0)
 
   return (
     <section className="panel">
@@ -44,36 +46,27 @@ export default function RecordPanel({ isDisabled, onRecorded }: RecordPanelProps
           {formatTimestamp({ sec: elapsedSec })}
         </p>
         <div className="meterRow">
-          <div
-            className="meterTrack"
-            role="meter"
-            aria-label="마이크 입력 세기"
-            aria-valuenow={Math.round(dbToMeterRatio(levelDb) * PERCENT)}
-          >
-            <div className="meterBar" style={{ width: `${dbToMeterRatio(levelDb) * PERCENT}%` }} />
-          </div>
+          <LevelWaveform levels={levels} barCount={LEVEL_HISTORY_SIZE} />
           <span className="meterValue">{isRecording ? formatDb(levelDb) : '—'}</span>
         </div>
       </div>
 
       <div className="actions">
         {isRecording ? (
-          <button type="button" onClick={() => void stop()} disabled={isBusy} className="danger">
+          // 빨강은 오류 전용이라 녹음 정지에 danger를 쓰지 않는다 (architecture.md "공통 컴포넌트")
+          <Button variant="primary" onClick={() => void stop()} disabled={isBusy}>
             녹음 정지
-          </button>
+          </Button>
         ) : (
-          <button type="button" onClick={() => void start()} disabled={isBusy || isDisabled}>
+          <Button variant="accent" onClick={() => void start()} disabled={isBusy || isDisabled}>
+            <Icon name="mic" />
             녹음 시작
-          </button>
+          </Button>
         )}
         {lastRecording ? (
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => downloadRecording(lastRecording)}
-          >
+          <Button variant="secondary" onClick={() => downloadRecording(lastRecording)}>
             WAV 저장
-          </button>
+          </Button>
         ) : null}
       </div>
 
@@ -88,7 +81,7 @@ export default function RecordPanel({ isDisabled, onRecorded }: RecordPanelProps
         </p>
       ) : null}
       {isRecording ? (
-        <p className="hint warn">
+        <p className="hint emphasis">
           녹음 중에는 새로고침·탭 닫기를 하지 않는다. 디스크에 쓰지 않는다
         </p>
       ) : null}

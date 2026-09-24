@@ -1,11 +1,15 @@
 import { MAX_SPEAKER_COUNT, MIN_SPEAKER_COUNT } from '@meeting-stt/core/speakerCount'
 
+import Button from '../components/Button'
+import ProgressBar from '../components/ProgressBar'
+import Stepper from '../components/Stepper'
 import type { DeviceKind, DtypeKind, WhisperModelKind } from '../pipeline/messages'
 import type { PipelineProgress } from '../pipeline/runPipeline'
 import { STAGE_LABELS } from '../lib/stageLabels'
 
 export interface RunOptions {
-  speakerCount: number
+  /** 입력 중인 문자열. 비었거나 범위 밖이면 실행 버튼이 꺼진다 */
+  speakerCountText: string
   sttDevice: DeviceKind
   sttDtype: DtypeKind
   whisperModel: WhisperModelKind
@@ -17,6 +21,7 @@ interface RunPanelProps {
   progress: PipelineProgress | null
   isRunning: boolean
   isReady: boolean
+  isSpeakerCountValid: boolean
   errorMessage: string | null
   onChange: (options: RunOptions) => void
   onRun: () => void
@@ -28,6 +33,7 @@ export default function RunPanel({
   progress,
   isRunning,
   isReady,
+  isSpeakerCountValid,
   errorMessage,
   onChange,
   onRun,
@@ -38,17 +44,19 @@ export default function RunPanel({
       <h2>실행</h2>
 
       <div className="options">
-        <label>
-          참석자 수
-          <input
-            type="number"
+        <div className="option">
+          <label htmlFor="speaker-count">참석자 수</label>
+          <Stepper
+            id="speaker-count"
+            label="참석자 수"
+            value={options.speakerCountText}
             min={MIN_SPEAKER_COUNT}
             max={MAX_SPEAKER_COUNT}
-            value={options.speakerCount}
-            disabled={isRunning}
-            onChange={(event) => onChange({ ...options, speakerCount: Number(event.target.value) })}
+            placeholder="필수"
+            isInvalid={!isSpeakerCountValid}
+            onChange={(text) => onChange({ ...options, speakerCountText: text })}
           />
-        </label>
+        </div>
 
         <label>
           STT 장치
@@ -110,26 +118,22 @@ export default function RunPanel({
       </div>
 
       <p className="hint">
-        참석자 수를 고정하지 않으면 긴 녹음에서 화자가 무한정 늘어난다 (docs/phase1-results.md).
+        참석자 수는 {MIN_SPEAKER_COUNT}~{MAX_SPEAKER_COUNT}명으로 넣는다. 고정하지 않으면 긴
+        녹음에서 화자가 무한정 늘어난다 (docs/phase1-results.md).
       </p>
 
       <div className="actions">
-        <button type="button" onClick={onRun} disabled={!isReady || isRunning}>
+        <Button onClick={onRun} disabled={!isReady || !isSpeakerCountValid || isRunning}>
           회의록 만들기
-        </button>
-        <button type="button" onClick={onCancel} disabled={!isRunning} className="secondary">
+        </Button>
+        <Button variant="secondary" onClick={onCancel} disabled={!isRunning}>
           중단
-        </button>
+        </Button>
       </div>
 
       {progress ? (
         <div className="progress">
-          <div className="progressBar">
-            <div
-              className="progressFill"
-              style={{ width: `${Math.min(100, progress.percent)}%` }}
-            />
-          </div>
+          <ProgressBar percent={progress.percent} label="회의록 만드는 중" />
           <p>
             [{STAGE_LABELS[progress.stage]}] {progress.note} — {progress.percent.toFixed(1)}%
           </p>

@@ -4,6 +4,8 @@ import { startRecorder, type Recorder, type Recording } from '../audio/recorder'
 
 const ELAPSED_TICK_MS = 200
 const MS_PER_SEC = 1000
+/** 파형형 레벨 미터가 그리는 칸 수만큼만 들고 있는다 (청크 약 0.13초 × 48 ≈ 6초) */
+export const LEVEL_HISTORY_SIZE = 48
 
 interface UseRecorderParams {
   /** 정지 직후 호출된다. 호출한 쪽이 이 녹음을 파이프라인 입력으로 넣는다 */
@@ -16,7 +18,7 @@ const messageOf = (caught: unknown) =>
 const useRecorder = ({ onRecorded }: UseRecorderParams) => {
   const [isRecording, setIsRecording] = useState(false)
   const [isBusy, setIsBusy] = useState(false)
-  const [level, setLevel] = useState(0)
+  const [levels, setLevels] = useState<number[]>([])
   const [elapsedSec, setElapsedSec] = useState(0)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const recorderRef = useRef<Recorder | null>(null)
@@ -26,9 +28,11 @@ const useRecorder = ({ onRecorded }: UseRecorderParams) => {
     setIsBusy(true)
 
     try {
-      recorderRef.current = await startRecorder({ onLevel: setLevel })
+      setLevels([])
+      recorderRef.current = await startRecorder({
+        onLevel: (next) => setLevels((previous) => [...previous, next].slice(-LEVEL_HISTORY_SIZE))
+      })
       setElapsedSec(0)
-      setLevel(0)
       setIsRecording(true)
     } catch (caught) {
       setErrorMessage(messageOf(caught))
@@ -50,7 +54,7 @@ const useRecorder = ({ onRecorded }: UseRecorderParams) => {
       setErrorMessage(messageOf(caught))
     } finally {
       setIsRecording(false)
-      setLevel(0)
+      setLevels([])
       setIsBusy(false)
     }
   }, [onRecorded])
@@ -86,7 +90,7 @@ const useRecorder = ({ onRecorded }: UseRecorderParams) => {
     []
   )
 
-  return { isRecording, isBusy, level, elapsedSec, errorMessage, start, stop }
+  return { isRecording, isBusy, levels, elapsedSec, errorMessage, start, stop }
 }
 
 export default useRecorder
