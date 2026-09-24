@@ -14,6 +14,7 @@ import {
   type MutateMeetingResponse,
   type RecordingCommandEvent,
   type RequestMicrophonePermissionResponse,
+  type SearchMeetingsResponse,
   type StartRecordingRequest,
   type StartRecordingResponse,
   type StopRecordingResponse,
@@ -41,7 +42,7 @@ import {
   startRecording,
   stopRecording
 } from '../audio/session'
-import { findMeeting, listMeetings, renameMeeting } from '../db/meetings'
+import { findMeeting, listMeetings, renameMeeting, searchMeetings } from '../db/meetings'
 import {
   getAppSettings,
   getGlossarySettings,
@@ -53,6 +54,7 @@ import { hasSpeaker, listSpeakers, mergeSpeakers, renameSpeaker } from '../db/sp
 import { listUtterances, updateUtteranceSpeaker, updateUtteranceText } from '../db/utterances'
 import type { ModelDownloadProgress } from '../models/download'
 import { isWhisperModelId } from '@meeting-stt/models/desktop'
+import { notifyMeetingsChanged } from '../meetingsChanged'
 import { downloadModels, downloadSummaryModel, modelStatus } from '../models/service'
 import { enqueueGlossaryDraft, enqueueSummaryJob } from '../pipeline/queue'
 import { checkForUpdatesNow, downloadUpdate, installUpdate } from '../updater'
@@ -68,6 +70,7 @@ const SPEAKER_NAME_MAX_LENGTH = 60
 const LABEL_MAX_LENGTH = 100
 const CLIPBOARD_MAX_LENGTH = 2_000_000
 const ERROR_MESSAGE_MAX_LENGTH = 500
+const SEARCH_QUERY_MAX_LENGTH = 200
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
@@ -224,6 +227,7 @@ const handleRenameMeeting = (payload: unknown) => {
   const title = readText({ payload, key: 'title', maxLength: TITLE_MAX_LENGTH, label: '회의 제목' })
 
   if (!renameMeeting({ meetingId, title })) throw new Error('회의를 찾을 수 없습니다')
+  notifyMeetingsChanged()
 
   return requireMeetingDetail({ meetingId })
 }
@@ -234,6 +238,19 @@ const handleDeleteMeeting = async (payload: unknown) => {
   if (!(await deleteMeetingWithRecording({ meetingId }))) {
     throw new Error('회의를 찾을 수 없습니다')
   }
+  notifyMeetingsChanged()
+}
+
+/** 빈 질의는 오류가 아니라 빈 결과다. 사용자가 입력을 지우는 중에도 부른다 */
+const handleSearchMeetings = (payload: unknown): SearchMeetingsResponse => {
+  if (!isRecord(payload) || typeof payload.query !== 'string') {
+    throw new Error('잘못된 요청입니다 (검색어 없음)')
+  }
+  if (payload.query.length > SEARCH_QUERY_MAX_LENGTH) {
+    throw new Error(`검색어가 너무 깁니다 (최대 ${SEARCH_QUERY_MAX_LENGTH}자)`)
+  }
+
+  return searchMeetings({ query: payload.query })
 }
 
 const handleUpdateUtteranceText = (payload: unknown) => {
@@ -385,6 +402,10 @@ export const registerIpcHandlers = () => {
   )
 
   ipcMain.handle(IPC.meetings.delete, (_event, payload) => handleDeleteMeeting(payload))
+
+  ipcMain.handle(IPC.meetings.search, (_event, payload): SearchMeetingsResponse =>
+    handleSearchMeetings(payload)
+  )
 
   ipcMain.handle(IPC.utterances.updateText, (_event, payload): MutateMeetingResponse =>
     handleUpdateUtteranceText(payload)

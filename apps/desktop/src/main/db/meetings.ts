@@ -1,4 +1,6 @@
+import type { MeetingSearchResult } from '@shared/ipc'
 import type { Meeting, MeetingStatus } from '@shared/types'
+import { SEARCH_RESULT_LIMIT, toLikePattern } from '../searchQuery'
 import { getDb } from './connection'
 
 interface MeetingRow {
@@ -45,6 +47,47 @@ export const listMeetings = () =>
     .prepare('SELECT * FROM meetings ORDER BY created_at DESC')
     .all()
     .map((row) => toMeeting(row as MeetingRow))
+
+interface SearchRow extends MeetingRow {
+  match_utterance_id: string | null
+  match_text: string | null
+  match_start_sec: number | null
+}
+
+const toSearchResult = (row: SearchRow): MeetingSearchResult => ({
+  meeting: toMeeting(row),
+  match:
+    row.match_utterance_id && row.match_text !== null && row.match_start_sec !== null
+      ? { utteranceId: row.match_utterance_id, text: row.match_text, startSec: row.match_start_sec }
+      : null
+})
+
+/**
+ * 회의 제목과 발화 텍스트를 LIKE로 전체 스캔한다. 발화로 걸리면 순서가 가장 앞선 발화 하나를 함께 준다.
+ * FTS5를 쓰지 않는 이유는 references/architecture.md "회의록 검색".
+ */
+export const searchMeetings = ({ query }: { query: string }) => {
+  const pattern = toLikePattern(query)
+  if (!pattern) return []
+
+  return getDb()
+    .prepare(
+      `WITH first_match AS (
+         SELECT u.meeting_id, u.id, u.text, u.start_sec,
+                ROW_NUMBER() OVER (PARTITION BY u.meeting_id ORDER BY u.ord) AS rank
+         FROM utterances u
+         WHERE u.text LIKE @pattern ESCAPE '\\'
+       )
+       SELECT m.*, f.id AS match_utterance_id, f.text AS match_text, f.start_sec AS match_start_sec
+       FROM meetings m
+       LEFT JOIN first_match f ON f.meeting_id = m.id AND f.rank = 1
+       WHERE f.id IS NOT NULL OR m.title LIKE @pattern ESCAPE '\\'
+       ORDER BY m.created_at DESC
+       LIMIT @limit`
+    )
+    .all({ pattern, limit: SEARCH_RESULT_LIMIT })
+    .map((row) => toSearchResult(row as SearchRow))
+}
 
 export const findMeeting = ({ meetingId }: { meetingId: string }) => {
   const row = getDb().prepare('SELECT * FROM meetings WHERE id = ?').get(meetingId)

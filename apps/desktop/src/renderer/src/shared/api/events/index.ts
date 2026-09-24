@@ -66,3 +66,13 @@ export const onRecordingState = (listener: (event: RecordingStateEvent) => void)
  */
 export const onRecordingCommand = (listener: (event: RecordingCommandEvent) => void) =>
   window.api.events.onRecordingCommand(listener)
+
+/**
+ * @description 회의 목록이 바뀌었다는 알림(녹음 시작·정지, 제목 변경, 삭제, 처리 시작·완료·실패)을 구독합니다. 내용은 없으니 다시 조회합니다.
+ * @param listener - 알림 콜백
+ * @returns 구독 해제 함수
+ * @example
+ * useEffect(() => onMeetingsChanged(refetch), [refetch])
+ */
+export const onMeetingsChanged = (listener: () => void) =>
+  window.api.events.onMeetingsChanged(listener)

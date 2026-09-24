@@ -1,4 +1,9 @@
-import type { DeleteMeetingRequest, GetMeetingRequest, RenameMeetingRequest } from '@shared/ipc'
+import type {
+  DeleteMeetingRequest,
+  GetMeetingRequest,
+  RenameMeetingRequest,
+  SearchMeetingsRequest
+} from '@shared/ipc'
 
 /**
  * @description 회의 목록을 최신순으로 불러옵니다.
@@ -39,3 +44,13 @@ export const renameMeetingApi = async ({ meetingId, title }: RenameMeetingReques
 export const deleteMeetingApi = async ({ meetingId }: DeleteMeetingRequest) => {
   await window.api.meetings.delete({ meetingId })
 }
+
+/**
+ * @description 회의 제목과 발화 텍스트에서 검색어를 찾습니다. 최신순으로 최대 50개를 돌려줍니다.
+ * @param query - 검색어. 공백뿐이면 빈 결과
+ * @returns 회의와, 발화로 걸렸으면 처음 걸린 발화 하나
+ * @example
+ * const results = await searchMeetingsApi({ query: '배포' })
+ */
+export const searchMeetingsApi = async ({ query }: SearchMeetingsRequest) =>
+  window.api.meetings.search({ query })

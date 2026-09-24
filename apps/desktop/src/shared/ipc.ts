@@ -30,7 +30,8 @@ export const IPC = {
     list: 'meetings:list',
     get: 'meetings:get',
     rename: 'meetings:rename',
-    delete: 'meetings:delete'
+    delete: 'meetings:delete',
+    search: 'meetings:search'
   },
   utterances: { updateText: 'utterances:updateText', reassign: 'utterances:reassign' },
   speakers: { rename: 'speakers:rename', merge: 'speakers:merge' },
@@ -51,6 +52,7 @@ export const IPC = {
     updateAvailable: 'update:available',
     // 조회 채널과 이름이 겹칠 수 없어 이벤트 쪽에 Changed를 붙인다 (references/architecture.md IPC 규약)
     recordingState: 'recording:stateChanged',
+    meetingsChanged: 'meetings:changed',
     recordingCommand: 'recording:command'
   }
 } as const
@@ -127,6 +129,19 @@ export interface SetShortcutsSuspendedRequest {
 }
 
 export type GetMeetingsResponse = Meeting[]
+
+/** 회의 제목·발화 텍스트 부분 일치 검색 (references/architecture.md "회의록 검색") */
+export interface SearchMeetingsRequest {
+  query: string
+}
+
+export interface MeetingSearchResult {
+  meeting: Meeting
+  /** 발화로 걸렸을 때 순서가 가장 앞선 발화 하나. 제목으로만 걸리면 null */
+  match: { utteranceId: string; text: string; startSec: number } | null
+}
+/** 최신순, 최대 50개. 공백뿐인 질의는 빈 배열 */
+export type SearchMeetingsResponse = MeetingSearchResult[]
 
 export interface GetMeetingRequest {
   meetingId: string

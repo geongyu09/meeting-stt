@@ -27,6 +27,8 @@ import {
   type RenameMeetingRequest,
   type RenameSpeakerRequest,
   type RequestMicrophonePermissionResponse,
+  type SearchMeetingsRequest,
+  type SearchMeetingsResponse,
   type SendRecordingChunkRequest,
   type SetSpeakerCountRequest,
   type SetShortcutsSuspendedRequest,
@@ -80,7 +82,9 @@ const api = {
     rename: (payload: RenameMeetingRequest): Promise<MutateMeetingResponse> =>
       ipcRenderer.invoke(IPC.meetings.rename, payload),
     delete: (payload: DeleteMeetingRequest): Promise<void> =>
-      ipcRenderer.invoke(IPC.meetings.delete, payload)
+      ipcRenderer.invoke(IPC.meetings.delete, payload),
+    search: (payload: SearchMeetingsRequest): Promise<SearchMeetingsResponse> =>
+      ipcRenderer.invoke(IPC.meetings.search, payload)
   },
   utterances: {
     updateText: (payload: UpdateUtteranceTextRequest): Promise<MutateMeetingResponse> =>
@@ -166,6 +170,14 @@ const api = {
 
       return () => {
         ipcRenderer.removeListener(IPC.events.recordingCommand, handler)
+      }
+    },
+    onMeetingsChanged: (listener: () => void) => {
+      const handler = () => listener()
+      ipcRenderer.on(IPC.events.meetingsChanged, handler)
+
+      return () => {
+        ipcRenderer.removeListener(IPC.events.meetingsChanged, handler)
       }
     },
     onUpdateAvailable: (listener: (event: UpdateAvailableEvent) => void) => {

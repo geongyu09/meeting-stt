@@ -12,6 +12,7 @@ import { ensureSpeakers } from '../db/speakers'
 import { replaceUtterances } from '../db/utterances'
 import { runGlossaryDraft } from '../glossary/draft'
 import { error as logError, info, messageOf, warn } from '../log'
+import { notifyMeetingsChanged } from '../meetingsChanged'
 import { runSummary } from '../summary/run'
 import { buildTranscriptText } from '../summary/transcript'
 import { runPipeline } from './run'
@@ -79,6 +80,7 @@ const processMeeting = async (meetingId: string) => {
   if (!audioPath) throw new Error('녹음 파일을 찾을 수 없습니다')
 
   updateMeetingStatus({ meetingId, status: 'processing' })
+  notifyMeetingsChanged()
   const utterances = await runPipeline({
     audioPath,
     speakerCount: findMeeting({ meetingId })?.speakerCount,
@@ -95,6 +97,7 @@ const processMeeting = async (meetingId: string) => {
   replaceUtterances({ meetingId, utterances })
   updateMeetingStatus({ meetingId, status: 'done' })
   report({ meetingId, stage: 'done', percent: DONE_PERCENT })
+  notifyMeetingsChanged()
   info(`회의 ${meetingId} 처리 완료 (발화 ${utterances.length}개)`)
 
   await applyAudioRetention({ meetingId })
@@ -129,6 +132,7 @@ const failJob = ({ kind, meetingId }: MeetingJob, message: string) => {
   logError(`회의 ${meetingId} 처리 실패: ${message}`)
   updateMeetingStatus({ meetingId, status: 'error', errorMessage: message })
   report({ meetingId, stage: 'error', percent: 0 })
+  notifyMeetingsChanged()
 }
 
 const drain = async () => {

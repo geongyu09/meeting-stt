@@ -12,6 +12,7 @@ import {
   updateMeetingStatus
 } from '../db/meetings'
 import { info, warn } from '../log'
+import { notifyMeetingsChanged } from '../meetingsChanged'
 import { enqueuePipelineJob } from '../pipeline/queue'
 import { createWavWriter, type WavWriter } from './wavWriter'
 
@@ -93,6 +94,7 @@ export const startRecording = async ({ sampleRate }: { sampleRate: number }) => 
   session = { meetingId, startedAt: createdAt, writer, level: 0 }
   info(`녹음 시작 ${meetingId}`)
   publish()
+  notifyMeetingsChanged()
 
   return { meetingId }
 }
@@ -141,6 +143,7 @@ export const stopRecording = async ({ meetingId }: { meetingId: string }) => {
   }
 
   publish({ stoppedMeetingId: meetingId })
+  notifyMeetingsChanged()
 
   const meeting = findMeeting({ meetingId })
   if (!meeting) throw new Error('회의 정보를 찾을 수 없습니다')

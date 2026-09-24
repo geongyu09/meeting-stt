@@ -18,6 +18,7 @@ import { failStaleMeetings } from './db/meetings'
 import { getAppSettings, getWhisperModelId } from './db/settings'
 import { registerIpcHandlers } from './ipc/handlers'
 import { error as logError, info, messageOf, warn } from './log'
+import { setMeetingsChangedListener } from './meetingsChanged'
 import { setSelectedWhisperModelId } from './models/paths'
 import { setPipelineProgressListener, setSummaryProgressListener } from './pipeline/queue'
 import { removeStalePipelineArtifacts } from './pipeline/run'
@@ -99,6 +100,7 @@ app.whenReady().then(async () => {
   setPipelineProgressListener(broadcastProgress)
   setSummaryProgressListener(broadcastSummaryProgress)
   setRecordingStateListener(broadcastRecordingState)
+  setMeetingsChangedListener(() => broadcast({ channel: IPC.events.meetingsChanged, event: null }))
   // 온보딩에서 고른 모델을 런타임 선택값으로 넣는다. 이후 파일명은 models/paths.ts만 정한다
   setSelectedWhisperModelId(getWhisperModelId())
   await cleanupPreviousRun()
