@@ -1,10 +1,11 @@
 import { safeStorage } from 'electron'
-import { apiKeyTailOf } from '@shared/llm'
-import { getEncryptedClaudeApiKey, setEncryptedClaudeApiKey } from '../db/settings'
+import type { LlmApiKeyStatus, LlmApiVendor } from '@shared/types'
+import { apiKeyTailOf, LLM_API_KEY_LABELS } from '@shared/llm'
+import { getEncryptedApiKey, setEncryptedApiKey } from '../db/settings'
 import { messageOf, warn } from '../log'
 
 /**
- * Claude API 키는 `safeStorage`로 암호화해 settings 테이블에 base64로 둔다 (references/data-model.md).
+ * API 키는 회사별로 `safeStorage`로 암호화해 settings 테이블에 base64로 둔다 (references/data-model.md).
  * 평문은 요청 직전 이 모듈 안에서만 잠깐 존재하고, renderer로는 유무와 꼬리만 나간다.
  */
 const ensureEncryptionAvailable = () => {
@@ -13,28 +14,37 @@ const ensureEncryptionAvailable = () => {
   }
 }
 
-export const saveClaudeApiKey = ({ apiKey }: { apiKey: string }) => {
-  ensureEncryptionAvailable()
-  setEncryptedClaudeApiKey({ encrypted: safeStorage.encryptString(apiKey).toString('base64') })
+interface SaveApiKeyParams {
+  vendor: LlmApiVendor
+  apiKey: string
 }
 
-export const clearClaudeApiKey = () => setEncryptedClaudeApiKey({ encrypted: null })
+export const saveApiKey = ({ vendor, apiKey }: SaveApiKeyParams) => {
+  ensureEncryptionAvailable()
+  setEncryptedApiKey({
+    vendor,
+    encrypted: safeStorage.encryptString(apiKey).toString('base64')
+  })
+}
+
+export const clearApiKey = ({ vendor }: { vendor: LlmApiVendor }) =>
+  setEncryptedApiKey({ vendor, encrypted: null })
 
 /** 복호화에 실패하면(다른 사용자 계정·키체인 초기화) 없는 것으로 본다. 앱이 멈추면 안 된다 */
-export const readClaudeApiKey = () => {
-  const encrypted = getEncryptedClaudeApiKey()
+export const readApiKey = ({ vendor }: { vendor: LlmApiVendor }) => {
+  const encrypted = getEncryptedApiKey({ vendor })
   if (!encrypted) return null
 
   try {
     return safeStorage.decryptString(Buffer.from(encrypted, 'base64'))
   } catch (caught) {
-    warn(`Claude API 키 복호화 실패: ${messageOf(caught)}`)
+    warn(`${LLM_API_KEY_LABELS[vendor]} 복호화 실패: ${messageOf(caught)}`)
     return null
   }
 }
 
-export const claudeApiKeyTail = () => {
-  const apiKey = readClaudeApiKey()
+export const apiKeyStatusOf = ({ vendor }: { vendor: LlmApiVendor }): LlmApiKeyStatus => {
+  const apiKey = readApiKey({ vendor })
 
-  return apiKey ? apiKeyTailOf(apiKey) : null
+  return { isSaved: apiKey !== null, tail: apiKey ? apiKeyTailOf(apiKey) : null }
 }

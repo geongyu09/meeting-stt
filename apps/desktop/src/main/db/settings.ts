@@ -1,6 +1,18 @@
-import type { AppSettings, GlossarySettings, LlmProvider, WhisperModelId } from '@shared/types'
+import type {
+  AppSettings,
+  GlossarySettings,
+  LlmApiVendor,
+  LlmProvider,
+  OpenaiModelId,
+  WhisperModelId
+} from '@shared/types'
 import { DEFAULT_WHISPER_MODEL_ID, isWhisperModelId } from '@meeting-stt/models/desktop'
-import { DEFAULT_LLM_PROVIDER, isLlmProvider } from '@shared/llm'
+import {
+  DEFAULT_LLM_PROVIDER,
+  DEFAULT_OPENAI_MODEL_ID,
+  isLlmProvider,
+  isOpenaiModelId
+} from '@shared/llm'
 import {
   DEFAULT_RECORDING_SHORTCUT,
   DEFAULT_WIDGET_SHORTCUT,
@@ -23,7 +35,12 @@ const WIDGET_SHORTCUT_KEY = 'shortcut.widget'
 const GLOSSARY_TEAM_KEY = 'glossary.team'
 const GLOSSARY_TERMS_KEY = 'glossary.terms'
 const LLM_PROVIDER_KEY = 'llm.provider'
-const LLM_CLAUDE_API_KEY_KEY = 'llm.claudeApiKey'
+const LLM_OPENAI_MODEL_KEY = 'llm.openaiModel'
+/** 회사별 암호화 키의 settings 키. Anthropic은 OpenAI 추가 전 이름을 그대로 둬 저장된 키를 잃지 않는다 */
+const LLM_API_KEY_KEYS: Record<LlmApiVendor, string> = {
+  anthropic: 'llm.claudeApiKey',
+  openai: 'llm.openaiApiKey'
+}
 
 const DEFAULT_SETTINGS: AppSettings = {
   isAudioKept: false,
@@ -202,21 +219,36 @@ export const getLlmProvider = (): LlmProvider => {
 export const setLlmProvider = ({ provider }: { provider: LlmProvider }) =>
   writeValue({ key: LLM_PROVIDER_KEY, value: provider })
 
+/** `openai-api`가 부르는 GPT 모델. 모르는 값(사라진 모델 id)은 기본값으로 읽는다 */
+export const getOpenaiModel = (): OpenaiModelId => {
+  const value = readValue(LLM_OPENAI_MODEL_KEY)
+
+  return isOpenaiModelId(value) ? value : DEFAULT_OPENAI_MODEL_ID
+}
+
+export const setOpenaiModel = ({ model }: { model: OpenaiModelId }) =>
+  writeValue({ key: LLM_OPENAI_MODEL_KEY, value: model })
+
 /**
- * safeStorage로 암호화한 Claude API 키(base64). 평문은 여기까지 오지 않는다 —
+ * safeStorage로 암호화한 회사별 API 키(base64). 평문은 여기까지 오지 않는다 —
  * 암호화·복호화는 `src/main/llm/apiKey.ts`가 한다.
  */
-export const getEncryptedClaudeApiKey = () => {
-  const value = readValue(LLM_CLAUDE_API_KEY_KEY)
+export const getEncryptedApiKey = ({ vendor }: { vendor: LlmApiVendor }) => {
+  const value = readValue(LLM_API_KEY_KEYS[vendor])
 
   return typeof value === 'string' && value ? value : null
 }
 
-export const setEncryptedClaudeApiKey = ({ encrypted }: { encrypted: string | null }) => {
+interface SetEncryptedApiKeyParams {
+  vendor: LlmApiVendor
+  encrypted: string | null
+}
+
+export const setEncryptedApiKey = ({ vendor, encrypted }: SetEncryptedApiKeyParams) => {
   if (encrypted === null) {
-    deleteValue({ key: LLM_CLAUDE_API_KEY_KEY })
+    deleteValue({ key: LLM_API_KEY_KEYS[vendor] })
     return
   }
 
-  writeValue({ key: LLM_CLAUDE_API_KEY_KEY, value: encrypted })
+  writeValue({ key: LLM_API_KEY_KEYS[vendor], value: encrypted })
 }

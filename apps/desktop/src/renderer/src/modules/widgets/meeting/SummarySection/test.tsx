@@ -70,8 +70,11 @@ const detailOf = (overrides: Partial<MeetingDetail> = {}): MeetingDetail => ({
 const llmStatusOf = (overrides: Partial<LlmStatus> = {}): LlmStatus => ({
   provider: 'local',
   isLocalModelReady: true,
-  hasClaudeApiKey: false,
-  claudeApiKeyTail: null,
+  apiKeys: {
+    anthropic: { isSaved: false, tail: null },
+    openai: { isSaved: false, tail: null }
+  },
+  openaiModel: 'gpt-6-sol',
   claudeCliPath: null,
   claudeCliVersion: null,
   ...overrides
@@ -156,7 +159,10 @@ describe('SummarySection', () => {
       llmStatus: llmStatusOf({
         provider: 'claude-api',
         isLocalModelReady: false,
-        hasClaudeApiKey: true
+        apiKeys: {
+          anthropic: { isSaved: true, tail: 'wxyz' },
+          openai: { isSaved: false, tail: null }
+        }
       })
     })
 

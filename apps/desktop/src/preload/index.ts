@@ -5,10 +5,12 @@ import {
   type CheckUpdateResponse,
   type DeleteMeetingRequest,
   type GetLlmStatusResponse,
-  type SetClaudeApiKeyRequest,
-  type SetClaudeApiKeyResponse,
+  type SetLlmApiKeyRequest,
+  type SetLlmApiKeyResponse,
   type SetLlmProviderRequest,
   type SetLlmProviderResponse,
+  type SetOpenaiModelRequest,
+  type SetOpenaiModelResponse,
   type DownloadModelsRequest,
   type DownloadModelsResponse,
   type DraftGlossaryRequest,
@@ -128,8 +130,10 @@ const api = {
     status: (): Promise<GetLlmStatusResponse> => ipcRenderer.invoke(IPC.llm.status),
     setProvider: (payload: SetLlmProviderRequest): Promise<SetLlmProviderResponse> =>
       ipcRenderer.invoke(IPC.llm.setProvider, payload),
-    setClaudeApiKey: (payload: SetClaudeApiKeyRequest): Promise<SetClaudeApiKeyResponse> =>
-      ipcRenderer.invoke(IPC.llm.setClaudeApiKey, payload),
+    setApiKey: (payload: SetLlmApiKeyRequest): Promise<SetLlmApiKeyResponse> =>
+      ipcRenderer.invoke(IPC.llm.setApiKey, payload),
+    setOpenaiModel: (payload: SetOpenaiModelRequest): Promise<SetOpenaiModelResponse> =>
+      ipcRenderer.invoke(IPC.llm.setOpenaiModel, payload),
     check: (): Promise<CheckLlmResponse> => ipcRenderer.invoke(IPC.llm.check)
   },
   models: {

@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { CLAUDE_API_MODEL_ID, CLAUDE_MIN_MAX_TOKENS } from '@shared/llm'
+import { API_MIN_MAX_TOKENS, CLAUDE_API_MODEL_ID } from '@shared/llm'
 
 /** 요약·초안은 정형 작업이라 높은 노력이 필요 없다 (references/architecture.md "Claude API 호출") */
 const EFFORT = 'medium'
@@ -46,7 +46,7 @@ export const completeWithClaudeApi = async ({
       .stream({
         model: CLAUDE_API_MODEL_ID,
         // 적응형 사고 토큰이 여기에 포함되므로 로컬용 상한을 그대로 쓰지 않는다
-        max_tokens: Math.max(maxTokens, CLAUDE_MIN_MAX_TOKENS),
+        max_tokens: Math.max(maxTokens, API_MIN_MAX_TOKENS),
         system,
         messages: [{ role: 'user', content: prompt }],
         thinking: { type: 'adaptive' },

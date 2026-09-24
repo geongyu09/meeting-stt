@@ -1,11 +1,12 @@
-import type { LlmStatus } from '@shared/types'
-import { CLAUDE_CHUNK_BUDGET_CHARS, llmMissingMessage } from '@shared/llm'
-import { getLlmProvider } from '../db/settings'
+import type { LlmStatus, OpenaiModelId } from '@shared/types'
+import { API_CHUNK_BUDGET_CHARS, llmMissingMessage } from '@shared/llm'
+import { getLlmProvider, getOpenaiModel } from '../db/settings'
 
-import { claudeApiKeyTail, readClaudeApiKey } from './apiKey'
+import { apiKeyStatusOf, readApiKey } from './apiKey'
 import { completeWithClaudeApi } from './claudeApi'
 import { completeWithClaudeCli, locateClaudeCli } from './claudeCli'
 import { createLocalClient, isLocalLlmReady } from './local'
+import { completeWithOpenaiApi } from './openaiApi'
 import type { LlmClient } from './types'
 
 /** 설정 화면과 잡 시작 전 확인이 함께 쓰는 현재 상태 (references/architecture.md "LLM 공급자") */
@@ -15,8 +16,11 @@ export const getLlmStatus = async (): Promise<LlmStatus> => {
   return {
     provider: getLlmProvider(),
     isLocalModelReady: isLocalLlmReady(),
-    hasClaudeApiKey: readClaudeApiKey() !== null,
-    claudeApiKeyTail: claudeApiKeyTail(),
+    apiKeys: {
+      anthropic: apiKeyStatusOf({ vendor: 'anthropic' }),
+      openai: apiKeyStatusOf({ vendor: 'openai' })
+    },
+    openaiModel: getOpenaiModel(),
     claudeCliPath: cli.path,
     claudeCliVersion: cli.version
   }
@@ -24,15 +28,27 @@ export const getLlmStatus = async (): Promise<LlmStatus> => {
 
 const createClaudeApiClient = ({ apiKey }: { apiKey: string }): LlmClient => ({
   provider: 'claude-api',
-  chunkBudgetChars: CLAUDE_CHUNK_BUDGET_CHARS,
+  chunkBudgetChars: API_CHUNK_BUDGET_CHARS,
   complete: ({ system, prompt, maxTokens }) =>
     completeWithClaudeApi({ apiKey, system, prompt, maxTokens })
 })
 
 const createClaudeCliClient = ({ cliPath }: { cliPath: string }): LlmClient => ({
   provider: 'claude-cli',
-  chunkBudgetChars: CLAUDE_CHUNK_BUDGET_CHARS,
+  chunkBudgetChars: API_CHUNK_BUDGET_CHARS,
   complete: ({ system, prompt }) => completeWithClaudeCli({ cliPath, system, prompt })
+})
+
+interface CreateOpenaiApiClientParams {
+  apiKey: string
+  model: OpenaiModelId
+}
+
+const createOpenaiApiClient = ({ apiKey, model }: CreateOpenaiApiClientParams): LlmClient => ({
+  provider: 'openai-api',
+  chunkBudgetChars: API_CHUNK_BUDGET_CHARS,
+  complete: ({ system, prompt, maxTokens }) =>
+    completeWithOpenaiApi({ apiKey, model, system, prompt, maxTokens })
 })
 
 /**
@@ -45,10 +61,16 @@ export const createLlmClient = async (): Promise<LlmClient> => {
   if (missing) throw new Error(missing)
 
   if (status.provider === 'claude-api') {
-    return createClaudeApiClient({ apiKey: readClaudeApiKey() as string })
+    return createClaudeApiClient({ apiKey: readApiKey({ vendor: 'anthropic' }) as string })
   }
   if (status.provider === 'claude-cli') {
     return createClaudeCliClient({ cliPath: status.claudeCliPath as string })
+  }
+  if (status.provider === 'openai-api') {
+    return createOpenaiApiClient({
+      apiKey: readApiKey({ vendor: 'openai' }) as string,
+      model: status.openaiModel
+    })
   }
 
   return createLocalClient()

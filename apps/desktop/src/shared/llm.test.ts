@@ -2,21 +2,32 @@ import { describe, expect, it } from 'vitest'
 import type { LlmStatus } from './types'
 
 import {
+  apiVendorOf,
   buildClaudeCliArgs,
   isLlmProvider,
   isLlmReady,
+  isOpenaiModelId,
   llmMissingMessage,
   parseClaudeCliOutput,
-  readClaudeApiKeyPayload
+  readApiKeyPayload
 } from './llm'
 
 const statusOf = (overrides: Partial<LlmStatus> = {}): LlmStatus => ({
   provider: 'local',
   isLocalModelReady: true,
-  hasClaudeApiKey: false,
-  claudeApiKeyTail: null,
+  apiKeys: {
+    anthropic: { isSaved: false, tail: null },
+    openai: { isSaved: false, tail: null }
+  },
+  openaiModel: 'gpt-6-sol',
   claudeCliPath: null,
   claudeCliVersion: null,
+  ...overrides
+})
+
+const savedKeys = (overrides: Partial<LlmStatus['apiKeys']> = {}): LlmStatus['apiKeys'] => ({
+  anthropic: { isSaved: false, tail: null },
+  openai: { isSaved: false, tail: null },
   ...overrides
 })
 
@@ -27,12 +38,31 @@ const CLI_NOT_LOGGED_IN =
   '{"duration_api_ms":0,"stop_reason":"stop_sequence","is_error":true,"num_turns":1,"subtype":"success","api_error_status":null,"result":"Not logged in · Please run /login","type":"result"}'
 
 describe('isLlmProvider', () => {
-  it('세 공급자만 인정한다', () => {
+  it('네 공급자만 인정한다', () => {
     expect(isLlmProvider('local')).toBe(true)
     expect(isLlmProvider('claude-api')).toBe(true)
     expect(isLlmProvider('claude-cli')).toBe(true)
-    expect(isLlmProvider('openai')).toBe(false)
+    expect(isLlmProvider('openai-api')).toBe(true)
+    expect(isLlmProvider('gemini')).toBe(false)
     expect(isLlmProvider(undefined)).toBe(false)
+  })
+})
+
+describe('isOpenaiModelId', () => {
+  it('GPT-6 계열 세 모델만 인정한다', () => {
+    expect(isOpenaiModelId('gpt-6-sol')).toBe(true)
+    expect(isOpenaiModelId('gpt-6-astra')).toBe(true)
+    expect(isOpenaiModelId('gpt-6-luna')).toBe(true)
+    expect(isOpenaiModelId('gpt-4o')).toBe(false)
+  })
+})
+
+describe('apiVendorOf', () => {
+  it('키를 쓰는 공급자만 회사를 돌려준다', () => {
+    expect(apiVendorOf('claude-api')).toBe('anthropic')
+    expect(apiVendorOf('openai-api')).toBe('openai')
+    expect(apiVendorOf('claude-cli')).toBeNull()
+    expect(apiVendorOf('local')).toBeNull()
   })
 })
 
@@ -42,13 +72,36 @@ describe('llmMissingMessage', () => {
     expect(llmMissingMessage(statusOf({ isLocalModelReady: false }))).toMatch(/요약 모델/)
   })
 
-  it('Claude API는 키가 있어야 한다. 로컬 모델은 보지 않는다', () => {
+  it('Claude API는 Anthropic 키가 있어야 한다. 로컬 모델·OpenAI 키는 보지 않는다', () => {
     expect(
-      llmMissingMessage(statusOf({ provider: 'claude-api', isLocalModelReady: false }))
-    ).toMatch(/API 키/)
+      llmMissingMessage(
+        statusOf({
+          provider: 'claude-api',
+          isLocalModelReady: false,
+          apiKeys: savedKeys({ openai: { isSaved: true, tail: 'abcd' } })
+        })
+      )
+    ).toMatch(/Claude API 키/)
     expect(
       isLlmReady(
-        statusOf({ provider: 'claude-api', isLocalModelReady: false, hasClaudeApiKey: true })
+        statusOf({
+          provider: 'claude-api',
+          isLocalModelReady: false,
+          apiKeys: savedKeys({ anthropic: { isSaved: true, tail: 'wxyz' } })
+        })
+      )
+    ).toBe(true)
+  })
+
+  it('OpenAI API는 OpenAI 키가 있어야 한다', () => {
+    expect(llmMissingMessage(statusOf({ provider: 'openai-api' }))).toMatch(/OpenAI API 키/)
+    expect(
+      isLlmReady(
+        statusOf({
+          provider: 'openai-api',
+          isLocalModelReady: false,
+          apiKeys: savedKeys({ openai: { isSaved: true, tail: 'abcd' } })
+        })
       )
     ).toBe(true)
   })
@@ -102,18 +155,25 @@ describe('parseClaudeCliOutput', () => {
   })
 })
 
-describe('readClaudeApiKey', () => {
+describe('readApiKeyPayload', () => {
   it('null은 삭제 요청으로 본다', () => {
-    expect(readClaudeApiKeyPayload({ apiKey: null })).toBeNull()
+    expect(readApiKeyPayload({ vendor: 'openai', apiKey: null })).toEqual({
+      vendor: 'openai',
+      apiKey: null
+    })
   })
 
   it('앞뒤 공백을 자른다', () => {
-    expect(readClaudeApiKeyPayload({ apiKey: '  sk-ant-api03-abc  ' })).toBe('sk-ant-api03-abc')
+    expect(readApiKeyPayload({ vendor: 'anthropic', apiKey: '  sk-ant-api03-abc  ' })).toEqual({
+      vendor: 'anthropic',
+      apiKey: 'sk-ant-api03-abc'
+    })
   })
 
-  it('빈 값·공백 포함·필드 누락은 거절한다', () => {
-    expect(() => readClaudeApiKeyPayload({ apiKey: '   ' })).toThrow(/입력/)
-    expect(() => readClaudeApiKeyPayload({ apiKey: 'sk-ant\nabc' })).toThrow(/형식/)
-    expect(() => readClaudeApiKeyPayload({})).toThrow(/잘못된 요청/)
+  it('모르는 회사·빈 값·공백 포함·필드 누락은 거절한다', () => {
+    expect(() => readApiKeyPayload({ vendor: 'google', apiKey: 'x' })).toThrow(/회사/)
+    expect(() => readApiKeyPayload({ vendor: 'openai', apiKey: '   ' })).toThrow(/입력/)
+    expect(() => readApiKeyPayload({ vendor: 'openai', apiKey: 'sk-proj\nabc' })).toThrow(/형식/)
+    expect(() => readApiKeyPayload({ vendor: 'openai' })).toThrow(/잘못된 요청/)
   })
 })

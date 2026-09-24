@@ -1,12 +1,12 @@
 /**
  * LLM 공급자 선택의 순수 로직 (references/architecture.md "LLM 공급자").
- * 공급자 유니온·라벨·준비 여부 판정과 Claude Code CLI 인자·출력 파싱을 둔다.
+ * 공급자 유니온·라벨·API 키 회사·GPT 모델 목록·준비 여부 판정과 Claude Code CLI 인자·출력 파싱을 둔다.
  * spawn·SDK 호출·키 저장은 `src/main/llm/*`이 담당한다.
  */
 
-import type { LlmProvider, LlmStatus } from './types'
+import type { LlmApiVendor, LlmProvider, LlmStatus, OpenaiModelId } from './types'
 
-export const LLM_PROVIDERS: LlmProvider[] = ['local', 'claude-api', 'claude-cli']
+export const LLM_PROVIDERS: LlmProvider[] = ['local', 'claude-api', 'claude-cli', 'openai-api']
 
 export const DEFAULT_LLM_PROVIDER: LlmProvider = 'local'
 
@@ -14,27 +14,55 @@ export const DEFAULT_LLM_PROVIDER: LlmProvider = 'local'
 export const LLM_PROVIDER_LABELS: Record<LlmProvider, string> = {
   local: '로컬 모델',
   'claude-api': 'Claude API',
-  'claude-cli': 'Claude Code'
+  'claude-cli': 'Claude Code',
+  'openai-api': 'OpenAI API'
 }
 
-/** API 호출에 쓰는 모델. CLI는 사용자가 CLI에 설정한 기본 모델을 쓴다 */
+export const LLM_API_VENDORS: LlmApiVendor[] = ['anthropic', 'openai']
+
+/** 키 입력란 라벨과 준비 안내에 쓰는 이름. 회사 이름이 아니라 사용자가 아는 제품 이름으로 적는다 */
+export const LLM_API_KEY_LABELS: Record<LlmApiVendor, string> = {
+  anthropic: 'Claude API 키',
+  openai: 'OpenAI API 키'
+}
+
+/** API 호출에 쓰는 Claude 모델. CLI는 사용자가 CLI에 설정한 기본 모델을 쓴다 */
 export const CLAUDE_API_MODEL_ID = 'claude-opus-5'
 
+interface OpenaiModelOption {
+  id: OpenaiModelId
+  title: string
+  description: string
+}
+
+/** GPT-6 계열 셋. 요금 차이가 커서 사용자가 고른다 (references/architecture.md "LLM 공급자") */
+export const OPENAI_MODELS: OpenaiModelOption[] = [
+  {
+    id: 'gpt-6-astra',
+    title: 'GPT-6 Astra',
+    description: '가장 뛰어난 모델. 요금이 가장 높습니다'
+  },
+  { id: 'gpt-6-sol', title: 'GPT-6 Sol', description: '성능과 요금의 균형. 요약에 충분합니다' },
+  { id: 'gpt-6-luna', title: 'GPT-6 Luna', description: '가장 저렴하고 빠른 모델' }
+]
+
+export const DEFAULT_OPENAI_MODEL_ID: OpenaiModelId = 'gpt-6-sol'
+
 /**
- * Claude는 컨텍스트가 커서 회의록을 통째로 넣는다. 40만 자는 약 28만 토큰으로
+ * 외부 API는 컨텍스트가 커서 회의록을 통째로 넣는다. 40만 자는 약 28만 토큰으로
  * 8시간짜리 회의도 한 번에 들어간다 (references/architecture.md).
  */
-export const CLAUDE_CHUNK_BUDGET_CHARS = 400_000
+export const API_CHUNK_BUDGET_CHARS = 400_000
 
 /**
- * 적응형 사고가 켜져 있으면 max_tokens에 사고 토큰도 포함된다. 로컬용 상한(1200)을 그대로 주면
+ * Claude의 적응형 사고와 GPT-6의 추론 토큰은 출력 상한에 포함된다. 로컬용 상한(1200)을 그대로 주면
  * 사고만 하다 잘리므로 이 값 아래로는 내리지 않는다.
  */
-export const CLAUDE_MIN_MAX_TOKENS = 16_000
+export const API_MIN_MAX_TOKENS = 16_000
 
-/** Anthropic 키는 `sk-ant-…` 100자 안팎이다. 붙여 넣기 실수(회의록 등)를 거른다 */
-export const CLAUDE_API_KEY_MAX_CHARS = 512
-export const CLAUDE_API_KEY_TAIL_CHARS = 4
+/** Anthropic 키는 `sk-ant-…` 100자 안팎, OpenAI 키는 `sk-proj-…` 200자 안팎이다. 붙여 넣기 실수(회의록 등)를 거른다 */
+export const API_KEY_MAX_CHARS = 512
+export const API_KEY_TAIL_CHARS = 4
 
 /** 설정 화면 "연결 확인"에 쓰는 한 턴짜리 프롬프트 */
 export const LLM_CHECK_SYSTEM_PROMPT =
@@ -43,6 +71,26 @@ export const LLM_CHECK_PROMPT = '연결 확인입니다. "확인"이라고만 �
 
 export const isLlmProvider = (value: unknown): value is LlmProvider =>
   typeof value === 'string' && (LLM_PROVIDERS as string[]).includes(value)
+
+export const isLlmApiVendor = (value: unknown): value is LlmApiVendor =>
+  typeof value === 'string' && (LLM_API_VENDORS as string[]).includes(value)
+
+export const isOpenaiModelId = (value: unknown): value is OpenaiModelId =>
+  typeof value === 'string' && OPENAI_MODELS.some((model) => model.id === value)
+
+/**
+ * @description 공급자가 API 키를 쓰는지, 쓴다면 어느 회사 키인지 알려줍니다. 키 저장·상태·화면이 이 대응 하나를 본다.
+ * @param provider - LLM 공급자
+ * @returns 회사. 키를 쓰지 않는 공급자(로컬·CLI)는 null
+ * @example
+ * apiVendorOf('openai-api') // 'openai'
+ */
+export const apiVendorOf = (provider: LlmProvider): LlmApiVendor | null => {
+  if (provider === 'claude-api') return 'anthropic'
+  if (provider === 'openai-api') return 'openai'
+
+  return null
+}
 
 /**
  * @description 현재 공급자로 요약·초안을 만들 준비가 되어 있지 않을 때 보여줄 한국어 안내를 만듭니다.
@@ -53,11 +101,15 @@ export const isLlmProvider = (value: unknown): value is LlmProvider =>
  * const message = llmMissingMessage(status) // '로컬 요약 모델 파일이 설치되어 있지 않습니다'
  */
 export const llmMissingMessage = (status: LlmStatus) => {
-  if (status.provider === 'claude-api') {
-    return status.hasClaudeApiKey ? null : 'Claude API 키가 저장되어 있지 않습니다'
-  }
   if (status.provider === 'claude-cli') {
     return status.claudeCliPath ? null : 'Claude Code(claude 명령)를 찾을 수 없습니다'
+  }
+
+  const vendor = apiVendorOf(status.provider)
+  if (vendor) {
+    return status.apiKeys[vendor].isSaved
+      ? null
+      : `${LLM_API_KEY_LABELS[vendor]}가 저장되어 있지 않습니다`
   }
 
   return status.isLocalModelReady ? null : '로컬 요약 모델 파일이 설치되어 있지 않습니다'
@@ -140,29 +192,30 @@ export const parseClaudeCliOutput = (stdout: string) => {
  * @example
  * apiKeyTailOf('sk-ant-api03-…wxyz') // 'wxyz'
  */
-export const apiKeyTailOf = (apiKey: string) => apiKey.slice(-CLAUDE_API_KEY_TAIL_CHARS)
+export const apiKeyTailOf = (apiKey: string) => apiKey.slice(-API_KEY_TAIL_CHARS)
 
 /**
- * @description renderer가 보낸 API 키를 검증합니다. 빈 값·너무 긴 값·줄바꿈이 섞인 값은 거절한다.
- * @param payload - `llm:setClaudeApiKey` 요청 payload
- * @returns 앞뒤 공백을 자른 키. `null`이면 삭제 요청
+ * @description renderer가 보낸 API 키 요청을 검증합니다. 모르는 회사·빈 값·너무 긴 값·줄바꿈이 섞인 값은 거절한다.
+ * @param payload - `llm:setApiKey` 요청 payload
+ * @returns 회사와 앞뒤 공백을 자른 키. `apiKey`가 `null`이면 삭제 요청
  * @example
- * const apiKey = readClaudeApiKeyPayload(payload)
+ * const { vendor, apiKey } = readApiKeyPayload(payload)
  */
-export const readClaudeApiKeyPayload = (payload: unknown) => {
-  if (!isRecord(payload) || !('apiKey' in payload)) {
-    throw new Error('잘못된 요청입니다 (API 키 없음)')
+export const readApiKeyPayload = (payload: unknown) => {
+  if (!isRecord(payload) || !isLlmApiVendor(payload.vendor)) {
+    throw new Error('잘못된 요청입니다 (API 키 회사 없음)')
   }
-  if (payload.apiKey === null) return null
+  if (!('apiKey' in payload)) throw new Error('잘못된 요청입니다 (API 키 없음)')
+
+  const { vendor } = payload
+  if (payload.apiKey === null) return { vendor, apiKey: null }
   if (typeof payload.apiKey !== 'string') throw new Error('잘못된 요청입니다 (API 키 형식 오류)')
 
   const apiKey = payload.apiKey.trim()
   if (!apiKey) throw new Error('API 키를 입력해 주세요')
-  if (apiKey.length > CLAUDE_API_KEY_MAX_CHARS || /\s/.test(apiKey)) {
-    throw new Error(
-      'API 키 형식이 아닙니다. Anthropic 콘솔에서 복사한 키를 그대로 붙여 넣어 주세요'
-    )
+  if (apiKey.length > API_KEY_MAX_CHARS || /\s/.test(apiKey)) {
+    throw new Error('API 키 형식이 아닙니다. 콘솔에서 복사한 키를 그대로 붙여 넣어 주세요')
   }
 
-  return apiKey
+  return { vendor, apiKey }
 }

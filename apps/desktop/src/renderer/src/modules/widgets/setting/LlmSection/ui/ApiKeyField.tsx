@@ -4,6 +4,10 @@ import Button from '@renderer/shared/components/primitives/ui/Button'
 import styles from './ApiKeyField.module.css'
 
 interface ApiKeyFieldProps {
+  label: string
+  /** 저장된 키가 없을 때 보이는 발급 안내 */
+  hint: string
+  placeholder: string
   value: string
   hasSavedKey: boolean
   savedKeyTail: string | null
@@ -15,6 +19,9 @@ interface ApiKeyFieldProps {
 
 /** 키는 저장 후 입력란에서 지운다. 저장된 키는 유무와 마지막 4자만 보인다 (references/data-model.md) */
 export default function ApiKeyField({
+  label,
+  hint,
+  placeholder,
   value,
   hasSavedKey,
   savedKeyTail,
@@ -28,12 +35,12 @@ export default function ApiKeyField({
   return (
     <div className={styles.field}>
       <label className={styles.label} htmlFor={inputId}>
-        Claude API 키
+        {label}
       </label>
       <span className={styles.hint}>
         {hasSavedKey
           ? `저장된 키가 있습니다 (…${savedKeyTail ?? ''}). 새 키를 저장하면 바꿉니다.`
-          : 'Anthropic 콘솔(console.anthropic.com)에서 발급한 키를 붙여 넣으세요. 키는 이 기기에 암호화해 저장합니다.'}
+          : hint}
       </span>
       <div className={styles.row}>
         <input
@@ -42,7 +49,7 @@ export default function ApiKeyField({
           type="password"
           autoComplete="off"
           spellCheck={false}
-          placeholder="sk-ant-…"
+          placeholder={placeholder}
           value={value}
           disabled={isDisabled}
           onChange={(event) => onChange(event.target.value)}

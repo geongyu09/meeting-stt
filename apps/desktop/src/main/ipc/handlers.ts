@@ -17,8 +17,9 @@ import {
   type RecordingCommandEvent,
   type RequestMicrophonePermissionResponse,
   type SearchMeetingsResponse,
-  type SetClaudeApiKeyResponse,
+  type SetLlmApiKeyResponse,
   type SetLlmProviderResponse,
+  type SetOpenaiModelResponse,
   type StartRecordingRequest,
   type StartRecordingResponse,
   type StopRecordingResponse,
@@ -26,7 +27,7 @@ import {
   type UpdateSettingsResponse
 } from '@shared/ipc'
 import { readGlossarySettings, readTeamDescription } from '@shared/glossary'
-import { isLlmProvider, readClaudeApiKeyPayload } from '@shared/llm'
+import { isLlmProvider, isOpenaiModelId, readApiKeyPayload } from '@shared/llm'
 import { isValidAccelerator } from '@shared/shortcut'
 import {
   isWidgetFadeOpacity,
@@ -52,11 +53,12 @@ import {
   getAppSettings,
   getGlossarySettings,
   setLlmProvider,
+  setOpenaiModel,
   setWhisperModelId,
   updateAppSettings,
   updateGlossarySettings
 } from '../db/settings'
-import { clearClaudeApiKey, saveClaudeApiKey } from '../llm/apiKey'
+import { clearApiKey, saveApiKey } from '../llm/apiKey'
 import { checkLlm } from '../llm/check'
 import { getLlmStatus } from '../llm/provider'
 import { hasSpeaker, listSpeakers, mergeSpeakers, renameSpeaker } from '../db/speakers'
@@ -202,12 +204,20 @@ const readLlmProvider = (payload: unknown) => {
 }
 
 /** 키는 저장·삭제만 하고 renderer로 되돌려주지 않는다 (references/data-model.md) */
-const handleSetClaudeApiKey = (payload: unknown): Promise<SetClaudeApiKeyResponse> => {
-  const apiKey = readClaudeApiKeyPayload(payload)
-  if (apiKey === null) clearClaudeApiKey()
-  else saveClaudeApiKey({ apiKey })
+const handleSetLlmApiKey = (payload: unknown): Promise<SetLlmApiKeyResponse> => {
+  const { vendor, apiKey } = readApiKeyPayload(payload)
+  if (apiKey === null) clearApiKey({ vendor })
+  else saveApiKey({ vendor, apiKey })
 
   return getLlmStatus()
+}
+
+const readOpenaiModel = (payload: unknown) => {
+  if (!isRecord(payload) || !isOpenaiModelId(payload.model)) {
+    throw new Error('알 수 없는 GPT 모델입니다')
+  }
+
+  return payload.model
 }
 
 const readWhisperModelId = (payload: unknown) => {
@@ -516,7 +526,13 @@ export const registerIpcHandlers = () => {
     return getLlmStatus()
   })
 
-  ipcMain.handle(IPC.llm.setClaudeApiKey, (_event, payload) => handleSetClaudeApiKey(payload))
+  ipcMain.handle(IPC.llm.setApiKey, (_event, payload) => handleSetLlmApiKey(payload))
+
+  ipcMain.handle(IPC.llm.setOpenaiModel, (_event, payload): Promise<SetOpenaiModelResponse> => {
+    setOpenaiModel({ model: readOpenaiModel(payload) })
+
+    return getLlmStatus()
+  })
 
   // 짧은 프롬프트 한 번이라 큐를 거치지 않는다 (references/architecture.md "LLM 공급자")
   ipcMain.handle(IPC.llm.check, (): Promise<CheckLlmResponse> => checkLlm())

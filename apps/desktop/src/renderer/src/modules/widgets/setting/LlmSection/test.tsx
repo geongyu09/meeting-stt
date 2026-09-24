@@ -7,25 +7,36 @@ import type { LlmStatus } from '@shared/types'
 vi.mock('@renderer/shared/api/llm', () => ({
   getLlmStatusApi: vi.fn(),
   setLlmProviderApi: vi.fn(),
-  setClaudeApiKeyApi: vi.fn(),
+  setLlmApiKeyApi: vi.fn(),
+  setOpenaiModelApi: vi.fn(),
   checkLlmApi: vi.fn()
 }))
 
 import {
   checkLlmApi,
   getLlmStatusApi,
-  setClaudeApiKeyApi,
-  setLlmProviderApi
+  setLlmApiKeyApi,
+  setLlmProviderApi,
+  setOpenaiModelApi
 } from '@renderer/shared/api/llm'
 import LlmSection from './index'
 
 const statusOf = (overrides: Partial<LlmStatus> = {}): LlmStatus => ({
   provider: 'local',
   isLocalModelReady: true,
-  hasClaudeApiKey: false,
-  claudeApiKeyTail: null,
+  apiKeys: {
+    anthropic: { isSaved: false, tail: null },
+    openai: { isSaved: false, tail: null }
+  },
+  openaiModel: 'gpt-6-sol',
   claudeCliPath: null,
   claudeCliVersion: null,
+  ...overrides
+})
+
+const savedKeys = (overrides: Partial<LlmStatus['apiKeys']> = {}): LlmStatus['apiKeys'] => ({
+  anthropic: { isSaved: false, tail: null },
+  openai: { isSaved: false, tail: null },
   ...overrides
 })
 
@@ -51,6 +62,7 @@ describe('LlmSection', () => {
     expect(findRadio(/로컬 모델/).hasAttribute('checked')).toBe(true)
     expect(screen.getByText(/기기 밖으로 나가지 않습니다/)).toBeTruthy()
     expect(screen.getAllByText(/Anthropic 서버로 전송/)).toHaveLength(2)
+    expect(screen.getByText(/OpenAI 서버로 전송/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: '연결 확인' })).toBeNull()
   })
 
@@ -63,7 +75,7 @@ describe('LlmSection', () => {
     expect(screen.queryByText('로컬 모델 파일 행')).toBeNull()
   })
 
-  it('Claude API를 고르면 저장하고 키 입력란을 보여 준다', async () => {
+  it('Claude API를 고르면 저장하고 Anthropic 키 입력란을 보여 준다', async () => {
     const user = userEvent.setup()
     vi.mocked(setLlmProviderApi).mockResolvedValue(statusOf({ provider: 'claude-api' }))
     await renderSection(statusOf())
@@ -72,39 +84,89 @@ describe('LlmSection', () => {
 
     expect(setLlmProviderApi).toHaveBeenCalledWith({ provider: 'claude-api' })
     expect(screen.getByLabelText('Claude API 키')).toBeTruthy()
-    expect(screen.getByText(/발급한 키를 붙여 넣으세요/)).toBeTruthy()
+    expect(screen.getByText(/console\.anthropic\.com/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: '연결 확인' })).toBeTruthy()
+    expect(screen.queryByLabelText('GPT 모델')).toBeNull()
+  })
+
+  it('OpenAI API를 고르면 OpenAI 키 입력란과 GPT 모델 선택을 보여 준다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(setLlmProviderApi).mockResolvedValue(statusOf({ provider: 'openai-api' }))
+    await renderSection(statusOf())
+
+    await user.click(findRadio(/OpenAI API/))
+
+    expect(setLlmProviderApi).toHaveBeenCalledWith({ provider: 'openai-api' })
+    expect(screen.getByLabelText('OpenAI API 키')).toBeTruthy()
+    expect(screen.getByText(/platform\.openai\.com/)).toBeTruthy()
+    expect((screen.getByLabelText('GPT 모델') as HTMLSelectElement).value).toBe('gpt-6-sol')
     expect(screen.getByRole('button', { name: '연결 확인' })).toBeTruthy()
   })
 
-  it('키를 저장하면 입력란을 비우고 마지막 네 자만 보여 준다', async () => {
+  it('키를 저장하면 회사를 함께 보내고 입력란을 비운 뒤 마지막 네 자만 보여 준다', async () => {
     const user = userEvent.setup()
-    vi.mocked(setClaudeApiKeyApi).mockResolvedValue(
-      statusOf({ provider: 'claude-api', hasClaudeApiKey: true, claudeApiKeyTail: 'wxyz' })
+    vi.mocked(setLlmApiKeyApi).mockResolvedValue(
+      statusOf({
+        provider: 'openai-api',
+        apiKeys: savedKeys({ openai: { isSaved: true, tail: 'wxyz' } })
+      })
     )
-    await renderSection(statusOf({ provider: 'claude-api' }))
+    await renderSection(statusOf({ provider: 'openai-api' }))
 
-    const input = screen.getByLabelText('Claude API 키') as HTMLInputElement
-    await user.type(input, 'sk-ant-api03-wxyz')
+    const input = screen.getByLabelText('OpenAI API 키') as HTMLInputElement
+    await user.type(input, 'sk-proj-wxyz')
     await user.click(screen.getByRole('button', { name: '저장' }))
 
-    expect(setClaudeApiKeyApi).toHaveBeenCalledWith({ apiKey: 'sk-ant-api03-wxyz' })
+    expect(setLlmApiKeyApi).toHaveBeenCalledWith({ vendor: 'openai', apiKey: 'sk-proj-wxyz' })
     expect(input.value).toBe('')
     expect(input.getAttribute('type')).toBe('password')
     expect(screen.getByText(/…wxyz/)).toBeTruthy()
     expect(screen.getByRole('status').textContent).toContain('API 키를 저장했습니다')
   })
 
-  it('저장된 키가 있으면 지울 수 있다', async () => {
+  it('저장된 키가 있으면 그 회사의 키를 지울 수 있다', async () => {
     const user = userEvent.setup()
-    vi.mocked(setClaudeApiKeyApi).mockResolvedValue(statusOf({ provider: 'claude-api' }))
+    vi.mocked(setLlmApiKeyApi).mockResolvedValue(statusOf({ provider: 'claude-api' }))
     await renderSection(
-      statusOf({ provider: 'claude-api', hasClaudeApiKey: true, claudeApiKeyTail: 'wxyz' })
+      statusOf({
+        provider: 'claude-api',
+        apiKeys: savedKeys({ anthropic: { isSaved: true, tail: 'wxyz' } })
+      })
     )
 
     await user.click(screen.getByRole('button', { name: '키 삭제' }))
 
-    expect(setClaudeApiKeyApi).toHaveBeenCalledWith({ apiKey: null })
+    expect(setLlmApiKeyApi).toHaveBeenCalledWith({ vendor: 'anthropic', apiKey: null })
     expect(screen.queryByRole('button', { name: '키 삭제' })).toBeNull()
+  })
+
+  it('회사별 키는 따로 저장되어 공급자를 오가도 남아 있다', async () => {
+    await renderSection(
+      statusOf({
+        provider: 'claude-api',
+        apiKeys: savedKeys({
+          anthropic: { isSaved: true, tail: 'aaaa' },
+          openai: { isSaved: true, tail: 'bbbb' }
+        })
+      })
+    )
+
+    expect(screen.getByText(/…aaaa/)).toBeTruthy()
+    expect(screen.queryByText(/…bbbb/)).toBeNull()
+  })
+
+  it('GPT 모델을 바꾸면 저장한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(setOpenaiModelApi).mockResolvedValue(
+      statusOf({ provider: 'openai-api', openaiModel: 'gpt-6-luna' })
+    )
+    await renderSection(statusOf({ provider: 'openai-api' }))
+
+    await user.selectOptions(screen.getByLabelText('GPT 모델'), 'gpt-6-luna')
+
+    expect(setOpenaiModelApi).toHaveBeenCalledWith({ model: 'gpt-6-luna' })
+    expect((screen.getByLabelText('GPT 모델') as HTMLSelectElement).value).toBe('gpt-6-luna')
+    expect(screen.getByText(/가장 저렴하고 빠른 모델/)).toBeTruthy()
   })
 
   it('Claude Code를 골랐는데 명령을 못 찾으면 설치 안내를 보여 준다', async () => {

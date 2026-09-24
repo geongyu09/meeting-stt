@@ -143,7 +143,7 @@
   상세에서 제목을 바꾸거나 회의를 지워도 목록이 그대로 남는다. main이 목록 변경 뒤 `meetings:changed`를 push하고 사이드바가 다시 불러온다 (`architecture.md` "화면 디자인").
 - **글꼴 서브셋·woff2 변환본은 원래 이름으로 동봉하지 않는다.** OFL 예약 글꼴 이름 조항 때문이다. 배포처가 준 파일을 그대로 넣는다.
 
-## LLM 공급자 (Claude API · Claude Code CLI)
+## LLM 공급자 (Claude API · Claude Code CLI · OpenAI API)
 
 - **Finder에서 띄운 Electron 앱의 `PATH`에는 `claude`가 없다.** GUI 앱은 로그인 셸의 PATH를 받지 않아 `/usr/bin:/bin:/usr/sbin:/sbin`뿐이다.
   잘 알려진 설치 위치를 먼저 보고, 없으면 `$SHELL -ilc 'command -v claude'`로 한 번 찾아 캐시한다. spawn할 때도 PATH를 로그인 셸 값으로 바꿔 준다 — npm 설치본은 `node`를 PATH에서 찾는다.
@@ -153,5 +153,8 @@
 - **`claude -p --output-format json`은 실패해도 종료 코드 0으로 JSON을 낸다.** `is_error: true`와 `result`(오류 문장)를 확인해야 한다. 종료 코드만 보면 "성공"으로 읽힌다.
 - **`safeStorage`는 `app.whenReady()` 뒤에만 쓸 수 있고, 키체인 접근이 막힌 환경에서는 `isEncryptionAvailable()`이 거짓이다.** 거짓이면 키 저장을 거절한다. 평문 폴백을 두지 않는다.
 - **API 키를 renderer로 보내지 않는다.** 설정 화면은 유무와 마지막 4자만 받는다. 키를 화면 상태에 들고 있으면 DevTools·로그·테스트 스냅샷에 새기 쉽다.
-- **Claude는 8K 컨텍스트 청킹이 필요 없다.** 그대로 map-reduce하면 요청 수가 늘고 reduce가 부분 요약을 다시 뭉갠다. 공급자가 청크 예산을 정한다.
+- **외부 API는 8K 컨텍스트 청킹이 필요 없다.** 그대로 map-reduce하면 요청 수가 늘고 reduce가 부분 요약을 다시 뭉갠다. 공급자가 청크 예산을 정한다.
 - **Claude 응답에서 `stop_reason`을 본다.** `refusal`은 텍스트가 비어 있고, `max_tokens`는 문장 중간에서 끝난다. 둘 다 빈 요약·잘린 요약으로 저장되지 않게 오류로 바꾼다.
+- **OpenAI Responses 응답에서 `status`를 본다.** HTTP 200이어도 `status: 'incomplete'`면 `output_text`가 잘려 있다. `incomplete_details.reason`(`max_output_tokens`·`content_filter`)으로 나눠 오류로 바꾼다.
+- **GPT-6의 추론 토큰도 `max_output_tokens`에 포함된다.** Claude의 적응형 사고와 같은 이유로 하한(`API_MIN_MAX_TOKENS`)을 둔다. 온도(`temperature`)는 추론 모델이 받지 않으므로 넘기지 않는다.
+- **API 키를 공급자가 아니라 회사 단위로 저장한다.** 공급자 라디오를 오갈 때마다 키를 다시 붙여 넣게 하지 않기 위해서다. 새 공급자를 붙일 때 `apiVendorOf`에 대응만 추가하면 키 저장·상태·화면이 따라온다.

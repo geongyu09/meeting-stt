@@ -1,8 +1,10 @@
 import type {
   AppSettings,
   GlossarySettings,
+  LlmApiVendor,
   LlmProvider,
   LlmStatus,
+  OpenaiModelId,
   Meeting,
   MeetingDetail,
   ModelKey,
@@ -44,7 +46,8 @@ export const IPC = {
   llm: {
     status: 'llm:status',
     setProvider: 'llm:setProvider',
-    setClaudeApiKey: 'llm:setClaudeApiKey',
+    setApiKey: 'llm:setApiKey',
+    setOpenaiModel: 'llm:setOpenaiModel',
     check: 'llm:check'
   },
   models: {
@@ -226,11 +229,18 @@ export interface SetLlmProviderRequest {
 }
 export type SetLlmProviderResponse = LlmStatus
 
-/** `null`이면 저장된 키를 지운다. 키는 main이 암호화해 저장하고 renderer로 되돌려주지 않는다 */
-export interface SetClaudeApiKeyRequest {
+/** 회사별 키 저장. `null`이면 저장된 키를 지운다. 키는 main이 암호화해 저장하고 renderer로 되돌려주지 않는다 */
+export interface SetLlmApiKeyRequest {
+  vendor: LlmApiVendor
   apiKey: string | null
 }
-export type SetClaudeApiKeyResponse = LlmStatus
+export type SetLlmApiKeyResponse = LlmStatus
+
+/** `openai-api`가 부를 GPT 모델 저장. 갱신된 상태를 돌려준다 */
+export interface SetOpenaiModelRequest {
+  model: OpenaiModelId
+}
+export type SetOpenaiModelResponse = LlmStatus
 
 /** 현재 공급자로 짧은 프롬프트 한 번. 실패는 reject(한국어 메시지)로 알린다 */
 export interface CheckLlmResponse {

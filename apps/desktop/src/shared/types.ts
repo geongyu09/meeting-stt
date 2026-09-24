@@ -75,20 +75,32 @@ export interface GlossarySettings {
 
 /**
  * 요약·용어 초안이 쓰는 LLM 공급자 (references/architecture.md "LLM 공급자").
- * 'local'은 llama.cpp, 나머지 둘은 사용자의 Claude API 키·Claude Code CLI(구독)다.
+ * 'local'은 llama.cpp, 나머지는 사용자의 Claude API 키·Claude Code CLI(구독)·OpenAI API 키다.
  */
-export type LlmProvider = 'local' | 'claude-api' | 'claude-cli'
+export type LlmProvider = 'local' | 'claude-api' | 'claude-cli' | 'openai-api'
+
+/** API 키를 저장하는 단위. 공급자가 아니라 회사별이라 공급자를 오가도 키를 다시 넣지 않는다 */
+export type LlmApiVendor = 'anthropic' | 'openai'
+
+/** `openai-api`가 부르는 GPT 모델. 목록·라벨은 `src/shared/llm.ts`의 OPENAI_MODELS */
+export type OpenaiModelId = 'gpt-6-astra' | 'gpt-6-sol' | 'gpt-6-luna'
+
+/** 저장된 키의 유무와 마지막 4자. 키 자체는 renderer로 보내지 않는다 */
+export interface LlmApiKeyStatus {
+  isSaved: boolean
+  tail: string | null
+}
 
 /**
- * `llm:status` 응답. API 키 자체는 renderer로 보내지 않고 유무와 마지막 4자만 준다.
+ * `llm:status` 응답. API 키 자체는 renderer로 보내지 않고 회사별 유무와 마지막 4자만 준다.
  * 공급자는 `AppSettings`와 따로 자기 채널로 오간다 (references/data-model.md).
  */
 export interface LlmStatus {
   provider: LlmProvider
   /** llama-cli와 요약 모델이 모두 있는지 */
   isLocalModelReady: boolean
-  hasClaudeApiKey: boolean
-  claudeApiKeyTail: string | null
+  apiKeys: Record<LlmApiVendor, LlmApiKeyStatus>
+  openaiModel: OpenaiModelId
   /** 찾은 `claude` 실행 파일. 없으면 null */
   claudeCliPath: string | null
   claudeCliVersion: string | null

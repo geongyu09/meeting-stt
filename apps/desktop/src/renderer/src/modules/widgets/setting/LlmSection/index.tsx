@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react'
 import type { LlmStatus } from '@shared/types'
+import { apiVendorOf } from '@shared/llm'
 import SettingGroup from '@renderer/shared/components/primitives/layout/SettingGroup'
 import Button from '@renderer/shared/components/primitives/ui/Button'
 
-import { PROVIDER_OPTIONS } from './constants/providers'
+import { API_KEY_FIELD_COPY, PROVIDER_OPTIONS } from './constants/providers'
 import useLlmSettings from './model/useLlmSettings'
 import ApiKeyField from './ui/ApiKeyField'
+import OpenaiModelSelect from './ui/OpenaiModelSelect'
 import ProviderOption from './ui/ProviderOption'
 import styles from './index.module.css'
 
@@ -34,7 +36,7 @@ interface LlmSectionProps {
   localModelSlot?: ReactNode
 }
 
-/** 요약·용어 초안을 어떤 방식으로 만들지. 기본은 로컬이고, Claude를 고르면 회의록이 밖으로 나간다 */
+/** 요약·용어 초안을 어떤 방식으로 만들지. 기본은 로컬이고, 외부 공급자를 고르면 회의록이 밖으로 나간다 */
 export default function LlmSection({ localModelSlot }: LlmSectionProps) {
   const {
     status,
@@ -49,6 +51,7 @@ export default function LlmSection({ localModelSlot }: LlmSectionProps) {
     selectProvider,
     saveApiKey,
     clearApiKey,
+    selectOpenaiModel,
     checkConnection
   } = useLlmSettings()
 
@@ -63,6 +66,7 @@ export default function LlmSection({ localModelSlot }: LlmSectionProps) {
     }
 
     const isBusy = isSaving || isChecking
+    const vendor = apiVendorOf(status.provider)
 
     return (
       <>
@@ -82,15 +86,25 @@ export default function LlmSection({ localModelSlot }: LlmSectionProps) {
         </div>
 
         {status.provider === 'local' && localModelSlot}
-        {status.provider === 'claude-api' && (
+        {vendor && (
           <ApiKeyField
+            label={API_KEY_FIELD_COPY[vendor].label}
+            hint={API_KEY_FIELD_COPY[vendor].hint}
+            placeholder={API_KEY_FIELD_COPY[vendor].placeholder}
             value={apiKeyInput}
-            hasSavedKey={status.hasClaudeApiKey}
-            savedKeyTail={status.claudeApiKeyTail}
+            hasSavedKey={status.apiKeys[vendor].isSaved}
+            savedKeyTail={status.apiKeys[vendor].tail}
             isDisabled={isBusy}
             onChange={setApiKeyInput}
-            onSave={saveApiKey}
-            onClear={clearApiKey}
+            onSave={() => saveApiKey(vendor)}
+            onClear={() => clearApiKey(vendor)}
+          />
+        )}
+        {status.provider === 'openai-api' && (
+          <OpenaiModelSelect
+            value={status.openaiModel}
+            isDisabled={isBusy}
+            onChange={selectOpenaiModel}
           />
         )}
         {renderReadiness(status)}

@@ -747,38 +747,46 @@ events: { progress: 'pipeline:progress', summary: 'summary:progress' }
 
 ## LLM 공급자 (2026-09-24)
 
-요약과 용어 초안은 **LLM을 부르는 방식이 같고 프롬프트만 다르다.** 사용자가 이미 구독하거나 발급받은 Claude를 쓸 수 있게
-LLM 호출을 `src/main/llm/*`의 **공급자 추상화** 뒤로 모으고, 설정에서 공급자를 고른다. 지원 외부 LLM은 Claude만이다 (SKILL.md 1절).
+요약과 용어 초안은 **LLM을 부르는 방식이 같고 프롬프트만 다르다.** 사용자가 이미 구독하거나 발급받은 Claude·GPT를 쓸 수 있게
+LLM 호출을 `src/main/llm/*`의 **공급자 추상화** 뒤로 모으고, 설정에서 공급자를 고른다. 지원 외부 LLM은 Claude와 GPT다 (SKILL.md 1절).
 
-### 세 공급자
+### 네 공급자
 
 | `LlmProvider` | 실행 | 준비 조건 | 비용·전송 |
 | --- | --- | --- | --- |
 | `local` (기본) | `llama-cli` spawn (기존 방식 그대로) | `llama-cli` + 요약 모델 | 없음. 회의록이 기기 밖으로 나가지 않는다 |
-| `claude-api` | `@anthropic-ai/sdk`로 Messages API 호출 (main 프로세스) | 설정에 저장한 API 키 | Anthropic 콘솔 토큰 요금. 회의록이 Anthropic 서버로 전송된다 |
+| `claude-api` | `@anthropic-ai/sdk`로 Messages API 호출 (main 프로세스) | 설정에 저장한 Anthropic API 키 | Anthropic 콘솔 토큰 요금. 회의록이 Anthropic 서버로 전송된다 |
 | `claude-cli` | 설치된 Claude Code `claude -p`를 `child_process.spawn` | `claude` 실행 파일 + CLI에 로그인된 구독 계정 | 구독 사용량. 회의록이 Anthropic 서버로 전송된다 |
+| `openai-api` | `openai` SDK로 Responses API 호출 (main 프로세스) | 설정에 저장한 OpenAI API 키 | OpenAI 플랫폼 토큰 요금. 회의록이 OpenAI 서버로 전송된다 |
 
 - **회의록 전송 사실은 설정 화면의 공급자 설명에 그대로 적는다.** 로컬 우선 약속의 예외를 사용자가 알고 고르게 한다.
 - 파이프라인(STT·화자 분리)은 공급자와 무관하게 로컬이다. 공급자는 요약·용어 초안(앞으로 교정 판정)에만 적용된다.
-- **모델**: API는 `claude-opus-5` 고정, 적응형 사고(`thinking: { type: 'adaptive' }`) + `output_config.effort: 'medium'`(요약은 정형 작업이라 높은 노력이 필요 없다).
+- **API 키는 회사(`LlmApiVendor = 'anthropic' | 'openai'`) 단위로 따로 저장한다.** 공급자를 오가며 써도 키를 다시 넣지 않는다.
+  키가 필요한 공급자와 회사의 대응은 `apiVendorOf(provider)` 한 곳에 둔다 (`claude-api` → `anthropic`, `openai-api` → `openai`, 나머지 null).
+- **모델**: Claude API는 `claude-opus-5` 고정, 적응형 사고(`thinking: { type: 'adaptive' }`) + `output_config.effort: 'medium'`(요약은 정형 작업이라 높은 노력이 필요 없다).
   CLI는 `--model`을 넘기지 않고 **사용자가 CLI에 설정한 기본 모델**을 쓴다 — 구독 등급마다 쓸 수 있는 모델이 달라 앱이 고르면 실패할 수 있다.
-- **컨텍스트 예산은 공급자가 정한다.** `local`은 기존 `CHUNK_BUDGET_CHARS`(8K 컨텍스트)로 map-reduce하고, Claude는 컨텍스트가 커서
-  `CLAUDE_CHUNK_BUDGET_CHARS`(40만 자, 약 28만 토큰)까지 한 번에 넣는다. 실무 회의록은 전부 한 번에 들어가 reduce 단계가 없다.
+  OpenAI는 **GPT-6 계열 셋 중 사용자가 고른다** (`OpenaiModelId = 'gpt-6-astra' | 'gpt-6-sol' | 'gpt-6-luna'`, 기본 `gpt-6-sol`) —
+  요금이 모델마다 크게 달라 앱이 하나로 고정하면 비싼 쪽(Astra)이나 부족한 쪽(Luna)을 강요하게 된다. `reasoning.effort`는 `'low'`.
+  GPT 모델 목록은 `src/shared/llm.ts`의 `OPENAI_MODELS` 한 곳에만 둔다.
+- **컨텍스트 예산은 공급자가 정한다.** `local`은 기존 `CHUNK_BUDGET_CHARS`(8K 컨텍스트)로 map-reduce하고, 외부 API는 컨텍스트가 커서
+  `API_CHUNK_BUDGET_CHARS`(40만 자, 약 28만 토큰)까지 한 번에 넣는다. 실무 회의록은 전부 한 번에 들어가 reduce 단계가 없다.
   `splitTranscript`의 `budgetChars` 인자로 넘기므로 순수 로직은 바뀌지 않는다.
-- **GBNF 문법은 `local`에서만 쓸 수 있다.** 용어 초안은 Claude에서는 문법 대신 출력 형식 지시문을 프롬프트 끝에 붙이고, 파싱(`parseGlossaryDraft`)이
+- **생성 상한의 하한(`API_MIN_MAX_TOKENS`, 16K)도 외부 API 공통이다.** Claude의 적응형 사고와 GPT-6의 추론 토큰이 모두 출력 상한에 포함되므로 로컬용 상한(1200)을 그대로 주면 사고만 하다 잘린다.
+- **GBNF 문법은 `local`에서만 쓸 수 있다.** 용어 초안은 외부 API에서는 문법 대신 출력 형식 지시문을 프롬프트 끝에 붙이고, 파싱(`parseGlossaryDraft`)이
   형식에 맞지 않는 줄을 버리는 것으로 같은 결과를 얻는다.
 
 ### 파일과 인터페이스
 
 ```
-src/shared/llm.ts            # LlmProvider 유니온·기본값·한국어 라벨, 준비 여부 판정(isLlmReady·llmMissingMessage),
-                             # claude CLI 인자 조립·JSON 출력 파싱, Claude 청크 예산 (순수 함수, vitest)
+src/shared/llm.ts            # LlmProvider 유니온·기본값·한국어 라벨, API 키 회사(LlmApiVendor)·GPT 모델 목록, 준비 여부 판정(isLlmReady·llmMissingMessage),
+                             # claude CLI 인자 조립·JSON 출력 파싱, 외부 API 청크 예산 (순수 함수, vitest)
 src/main/llm/types.ts        # LlmClient·LlmCompleteParams 인터페이스
 src/main/llm/provider.ts     # 설정을 읽어 LlmClient 하나를 만든다(createLlmClient)·현재 상태(getLlmStatus). 요약·용어 초안은 이것만 부른다
 src/main/llm/local.ts        # llama-cli (기존 summary/llama.ts의 인자 조립·답변 추출을 그대로 쓴다)
 src/main/llm/claudeApi.ts    # Anthropic SDK. 스트리밍으로 받아 finalMessage()만 쓴다 (긴 출력에서 HTTP 타임아웃 회피)
 src/main/llm/claudeCli.ts    # claude 실행 파일 탐색·spawn. 프롬프트는 stdin, 시스템 프롬프트는 --system-prompt
-src/main/llm/apiKey.ts       # API 키 저장·조회 (safeStorage 암호화)
+src/main/llm/openaiApi.ts    # OpenAI SDK Responses API. instructions=시스템 프롬프트, input=프롬프트, output_text만 쓴다
+src/main/llm/apiKey.ts       # 회사별 API 키 저장·조회 (safeStorage 암호화)
 src/main/llm/check.ts        # 설정 화면 "연결 확인" — 짧은 프롬프트 한 번
 ```
 
@@ -786,13 +794,13 @@ src/main/llm/check.ts        # 설정 화면 "연결 확인" — 짧은 프롬�
 interface LlmCompleteParams {
   system: string
   prompt: string
-  /** 생성 상한. local은 -n, Claude는 max_tokens의 하한(사고 토큰이 포함되므로 16K 아래로 내리지 않는다) */
+  /** 생성 상한. local은 -n, 외부 API는 max_tokens의 하한(사고·추론 토큰이 포함되므로 16K 아래로 내리지 않는다) */
   maxTokens: number
   /** 임시 파일 이름과 로그에 쓰는 꼬리표 */
   label: string
   /** local이 프롬프트·출력 파일을 두는 폴더. 만들고 지우는 것은 호출하는 쪽(요약·용어 초안)의 몫 */
   workDir: string
-  /** local 전용. GBNF 문법, 컨텍스트 크기, 온도. Claude 공급자는 무시한다 */
+  /** local 전용. GBNF 문법, 컨텍스트 크기, 온도. 외부 API 공급자는 무시한다 */
   grammar?: string
   contextTokens?: number
   temperature?: number
@@ -809,7 +817,7 @@ interface LlmClient {
 
 - `createLlmClient()`는 잡이 **시작할 때** 설정을 한 번 읽는다. 진행 중인 잡의 공급자는 바뀌지 않는다 (조용히 처리 옵션과 같은 규칙).
 - 준비되지 않았으면 spawn·요청 전에 한국어 메시지로 멈춘다 (`llmMissingMessage`). 메시지는 renderer의 `SummarySection`도 같은 함수로 만들어 두 곳이 같은 문구를 보여준다.
-- Claude를 써도 **잡 큐는 그대로 하나**다 (`pipeline/queue.ts`, 동시성 1). Claude는 GPU를 쓰지 않아 STT와 동시에 돌 수 있지만,
+- 외부 API를 써도 **잡 큐는 그대로 하나**다 (`pipeline/queue.ts`, 동시성 1). 외부 API는 GPU를 쓰지 않아 STT와 동시에 돌 수 있지만,
   큐를 둘로 나누면 "회의 처리 중이면 그 뒤에 만든다"는 화면 안내와 실패 처리가 공급자마다 갈린다. 단순함을 택했다.
 
 ### Claude Code CLI 호출
@@ -835,16 +843,26 @@ claude -p --output-format json --tools "" --no-session-persistence --setting-sou
 - `new Anthropic({ apiKey })` → `client.messages.stream({...}).finalMessage()`. 스트리밍은 화면에 흘리지 않고 타임아웃 회피용이다.
 - `stop_reason === 'refusal'`이면 "요청을 처리하지 않았습니다"로, `max_tokens`면 "답변이 잘렸습니다"로 안내한다.
 - 오류는 SDK의 타입으로 나눈다: `AuthenticationError`(키 오류) → `RateLimitError`(한도) → `APIConnectionError`(네트워크) → `APIError`(그 외, 상태 코드 포함).
-- **API 키는 `safeStorage.encryptString`으로 암호화해 settings 테이블에 base64로 저장한다** (`llm.claudeApiKey`). renderer에는 키를 돌려주지 않고
-  `hasClaudeApiKey`와 마지막 4자(`claudeApiKeyTail`)만 준다. `safeStorage.isEncryptionAvailable()`이 거짓이면 저장을 거절한다 — 평문으로 남기지 않는다.
+- **API 키는 `safeStorage.encryptString`으로 암호화해 settings 테이블에 base64로 저장한다** (`llm.claudeApiKey`·`llm.openaiApiKey`). renderer에는 키를 돌려주지 않고
+  회사별 유무와 마지막 4자(`apiKeys[vendor].isSaved`·`.tail`)만 준다. `safeStorage.isEncryptionAvailable()`이 거짓이면 저장을 거절한다 — 평문으로 남기지 않는다.
+
+### OpenAI API 호출
+
+- `new OpenAI({ apiKey })` → `client.responses.create({ model, instructions: system, input: prompt, max_output_tokens, reasoning: { effort: 'low' } })`.
+  Chat Completions는 쓰지 않는다 — OpenAI가 Responses API를 기본 인터페이스로 안내한다. 응답은 `output_text`만 쓴다.
+- `status === 'incomplete'`이면 `incomplete_details.reason`을 본다: `max_output_tokens`면 "답변이 잘렸습니다", `content_filter`면 "요청을 처리하지 않았습니다".
+  Claude의 `stop_reason`과 같은 이유로 빈 요약·잘린 요약이 저장되지 않게 오류로 바꾼다.
+- 오류는 SDK의 타입으로 나눈다: `AuthenticationError`(키 오류) → `RateLimitError`(한도·잔액) → `APIConnectionError`(네트워크) → `APIError`(그 외, 상태 코드 포함). Claude와 같은 순서·같은 문구 형식이다.
+- 스트리밍은 쓰지 않는다. SDK 기본 타임아웃(10분)이 요약 한 번에 충분하다.
 
 ### IPC
 
 | 키 | 채널 | 방향 | 용도 |
 | --- | --- | --- | --- |
-| `llm.status` | `llm:status` | invoke | `LlmStatus` 조회 — 공급자, 로컬 모델 준비 여부, 키 유무·꼬리, `claude` 경로·버전 |
+| `llm.status` | `llm:status` | invoke | `LlmStatus` 조회 — 공급자, 로컬 모델 준비 여부, 회사별 키 유무·꼬리, GPT 모델, `claude` 경로·버전 |
 | `llm.setProvider` | `llm:setProvider` | invoke | 공급자 저장. 갱신된 `LlmStatus`를 돌려준다 |
-| `llm.setClaudeApiKey` | `llm:setClaudeApiKey` | invoke | 키 저장(`apiKey: string`) 또는 삭제(`null`). 갱신된 `LlmStatus`를 돌려준다 |
+| `llm.setApiKey` | `llm:setApiKey` | invoke | 회사(`vendor`)의 키 저장(`apiKey: string`) 또는 삭제(`null`). 갱신된 `LlmStatus`를 돌려준다 |
+| `llm.setOpenaiModel` | `llm:setOpenaiModel` | invoke | GPT 모델 저장(`model: OpenaiModelId`). 갱신된 `LlmStatus`를 돌려준다 |
 | `llm.check` | `llm:check` | invoke | 현재 공급자로 짧은 프롬프트 한 번. 성공 메시지를 돌려주고 실패는 reject |
 
 - 공급자는 `AppSettings`에 넣지 않는다 — 키 저장·CLI 탐색·연결 확인 같은 비동기 동작이 붙어 있어 용어 사전과 같은 이유로 **자기 채널**을 쓴다 (`references/data-model.md`).
@@ -853,10 +871,12 @@ claude -p --output-format json --tools "" --no-session-persistence --setting-sou
 ### 화면
 
 - `setting/LlmSection` — 설정의 **"요약 · 용어 초안"** 카테고리. 용도로 이름을 짓는다 — "언어 모델"은 음성 인식 모델과 겹쳐 들린다.
-  "실행 방식" 라디오 세 개(제목·설명·전송 안내), 고른 방식에 따라 아래 행이 바뀐다:
+  "실행 방식" 라디오 네 개(제목·설명·전송 안내), 고른 방식에 따라 아래 행이 바뀐다:
   `local`이면 **로컬 요약 모델 파일** 다운로드 행(`model/SummaryModelSection`, 페이지가 `localModelSlot`으로 넘긴다),
-  `claude-api`면 API 키 입력(`type="password"`)·저장·삭제와 저장 상태(`…abcd`), `claude-cli`면 찾은 경로·버전 또는 설치 안내.
-  "연결 확인" 버튼은 Claude 방식에서만 보인다. 로컬 파일 행은 파일이라는 점을 제목에 드러내고, Claude를 쓰면 필요 없다고 설명에 적는다.
+  `claude-api`·`openai-api`면 그 회사의 API 키 입력(`type="password"`, 같은 `ApiKeyField`에 라벨·안내·자리표시자만 다르게)·저장·삭제와 저장 상태(`…abcd`),
+  `openai-api`면 그 아래 GPT 모델 선택(`OpenaiModelSelect`, `<select>` 하나 — 셋 중 하나라 라디오를 또 쌓지 않는다),
+  `claude-cli`면 찾은 경로·버전 또는 설치 안내.
+  "연결 확인" 버튼은 외부 공급자에서만 보인다. 로컬 파일 행은 파일이라는 점을 제목에 드러내고, 외부 공급자를 쓰면 필요 없다고 설명에 적는다.
 - `meeting/SummarySection`은 `useModelStatus` 대신 `useLlmStatus`로 준비 여부를 본다. 준비되지 않았을 때의 문구는 공급자별로 다르고(`llmMissingMessage`), 설정 링크는 같다.
   캡션 "로컬 모델"은 공급자 라벨로 바뀐다.
 - `setting/GlossarySection`의 "초안에는 요약 모델이 필요합니다" 안내는 공급자 라벨을 쓰도록 바꾼다 (그 위젯을 손대는 작업이 끝난 뒤).
