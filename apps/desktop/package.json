@@ -1,6 +1,6 @@
 {
   "name": "meeting-stt",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "서버 없이 로컬에서 동작하는 STT 회의록 데스크탑 앱 (whisper.cpp + sherpa-onnx)",
   "private": true,
   "main": "./out/main/index.js",
