@@ -135,13 +135,16 @@ export default function TranscriptPanel({
         {result.utterances.map((utterance) => (
           <li key={utterance.ord}>
             <span className="time">{formatTimestamp({ sec: utterance.startSec })}</span>
-            <span
-              className="speaker"
-              style={{ color: speakerColorOf(speakerOrder.indexOf(utterance.speakerLabel)) }}
-            >
-              {names[utterance.speakerLabel]}
-            </span>
-            <span className="text">{utterance.text}</span>
+            <div className="utteranceBody">
+              <span
+                className="speaker"
+                style={{ color: speakerColorOf(speakerOrder.indexOf(utterance.speakerLabel)) }}
+              >
+                <span className="speakerDot" aria-hidden="true" />
+                {names[utterance.speakerLabel]}
+              </span>
+              <p className="text">{utterance.text}</p>
+            </div>
           </li>
         ))}
       </ol>
