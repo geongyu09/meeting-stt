@@ -31,6 +31,7 @@
   "devDependencies": {
     "@electron-toolkit/tsconfig": "^2.0.0",
     "@meeting-stt/core": "workspace:*",
+    "@meeting-stt/design": "workspace:*",
     "@meeting-stt/models": "workspace:*",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.6",

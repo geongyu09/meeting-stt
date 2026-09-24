@@ -57,6 +57,9 @@ importers:
       '@meeting-stt/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@meeting-stt/design':
+        specifier: workspace:*
+        version: link:../../packages/design
       '@meeting-stt/models':
         specifier: workspace:*
         version: link:../../packages/models
@@ -121,6 +124,9 @@ importers:
       '@meeting-stt/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@meeting-stt/design':
+        specifier: workspace:*
+        version: link:../../packages/design
       '@meeting-stt/models':
         specifier: workspace:*
         version: link:../../packages/models
@@ -141,6 +147,8 @@ importers:
         version: 7.3.6(@types/node@22.20.1)(jiti@2.7.0)(tsx@4.23.12)
 
   packages/core: {}
+
+  packages/design: {}
 
   packages/models: {}
 

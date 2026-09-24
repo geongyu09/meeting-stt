@@ -1,4 +1,7 @@
-/* 값의 근거는 .claude/skills/meeting-stt-dev/references/architecture.md "화면 디자인" 절 */
+/*
+ * 데스크탑 앱과 브라우저 프로토타입이 함께 쓰는 디자인 토큰.
+ * 값의 근거는 .claude/skills/meeting-stt-dev/references/architecture.md "화면 디자인" 절
+ */
 :root {
   /* 다크 팔레트를 설계하기 전까지 밝은 화면만 지원한다 */
   color-scheme: light;
@@ -43,11 +46,16 @@
   --font-sans: 'Google Sans', 'Pretendard', -apple-system, sans-serif;
   --font-mono: 'Google Sans Code', 'Google Sans', monospace;
 
+  --font-xs: 12px;
   --font-sm: 13px;
+  --font-base: 14px;
   --font-md: 15px;
   --font-lg: 18px;
   --font-xl: 22px;
+  --font-title: 30px;
   --font-display: 40px;
+  --font-hero: 44px;
+  --font-timer: 88px;
 }
 
 *,
@@ -66,8 +74,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+html,
+body,
 #root {
-  min-height: 100vh;
+  height: 100%;
 }
 
 button,

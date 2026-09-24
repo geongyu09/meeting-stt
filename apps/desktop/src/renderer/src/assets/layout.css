@@ -1,0 +1,6 @@
+/* 데스크탑 창 구조 전용 치수. 공용 토큰은 @meeting-stt/design/base.css */
+:root {
+  --sidebar-width: 272px;
+  --topbar-height: 52px;
+  --rail-width: 300px;
+}
