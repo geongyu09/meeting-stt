@@ -145,6 +145,20 @@ const useRecorder = ({ isReady }: UseRecorderParams) => {
     }
   }, [report, teardownGraph])
 
+  // 다시 마운트되면 ref만 비워지고 이전 그래프가 마이크를 잡은 채 청크를 계속 보낸다.
+  // 그래프를 잃은 녹음은 이어 갈 수 없으므로 여기서 정지까지 마친다 (references/pitfalls.md)
+  useEffect(
+    () => () => {
+      const meetingId = meetingIdRef.current
+      meetingIdRef.current = null
+
+      void teardownGraph()
+        .then(() => (meetingId ? stopRecordingApi({ meetingId }) : undefined))
+        .catch((caught) => report(messageOf(caught)))
+    },
+    [report, teardownGraph]
+  )
+
   // 전역 단축키·Tray·메인 창의 지시는 main을 거쳐 그래프 소유자인 이 창으로 온다
   useEffect(
     () =>

@@ -112,6 +112,11 @@
 - **숨겨지거나 가려진 창은 타이머·메시지 처리가 throttling된다.** 오디오 그래프를 들고 있는 위젯 창에는
   `webPreferences.backgroundThrottling: false`가 필수다. `AudioWorklet` 자체는 별도 오디오 스레드라 살아 있지만,
   `port.onmessage`로 넘어온 청크를 IPC로 넘기는 일은 메인 JS 스레드가 한다.
+- **main의 녹음 세션이 하나여도 청크를 보내는 오디오 그래프가 하나라는 보장은 없다.** 위젯 컴포넌트가 다시 마운트되면
+  (dev Fast Refresh 등) ref만 비워지고 이전 그래프는 마이크를 잡은 채 옛 `meetingId`로 청크를 계속 보낸다.
+  `useRecorder`는 언마운트 cleanup에서 그래프를 닫고 진행 중이던 녹음을 정지한다. main은 세션과 맞지 않는 청크를
+  throw하지 않고 경고 로그만 남기고 버린다 — 이미 끝난 녹음의 청크는 사용자에게 알릴 실패가 아니고,
+  `errorMessage`가 다음 publish까지 대기 화면에 남아 "시작 직전 에러"처럼 보이기 때문이다.
 - **경과 시간을 IPC로 흘려보내지 않는다.** `startedAt`만 주고 각 창이 `Date.now()`로 계산한다. 렌더가 밀려도 값이 정확하고 IPC 횟수도 늘지 않는다.
 - **`BrowserWindow.getAllWindows()[0]`을 메인 창으로 가정하지 않는다.** 위젯이 먼저 잡힐 수 있어
   `app.on('activate')`의 창 재생성과 `second-instance` 포커스가 엉뚱한 창을 집는다. 메인 창 참조를 따로 들고 있는다.

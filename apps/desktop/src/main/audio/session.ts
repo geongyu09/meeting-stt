@@ -11,7 +11,7 @@ import {
   updateMeetingSpeakerCount,
   updateMeetingStatus
 } from '../db/meetings'
-import { info } from '../log'
+import { info, warn } from '../log'
 import { enqueuePipelineJob } from '../pipeline/queue'
 import { createWavWriter, type WavWriter } from './wavWriter'
 
@@ -104,7 +104,13 @@ export const appendRecordingChunk = async ({
   meetingId: string
   pcm: ArrayBuffer
 }) => {
-  const active = sessionOf(meetingId)
+  // 끝난 녹음이나 남은 오디오 그래프가 보낸 청크다. 사용자에게 알릴 실패가 아니라 버린다 (references/pitfalls.md)
+  if (session?.meetingId !== meetingId) {
+    warn(`진행 중이 아닌 녹음의 청크를 버렸습니다 ${meetingId}`)
+    return
+  }
+
+  const active = session
   const samples = new Float32Array(pcm)
 
   await active.writer.appendChunk(samples)
