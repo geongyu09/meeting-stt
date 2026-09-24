@@ -40,10 +40,23 @@
   color: var(--color-text-muted);
 }
 
-/* 용어는 줄 단위로 읽고 고치므로 고정폭으로 보여 준다 */
-.terms {
-  font-family: var(--font-mono);
-  font-size: var(--font-sm);
+/* 열 너비는 ui/TermRow.module.css의 행과 맞춘다. 마지막 열은 삭제 버튼 자리다 */
+.termHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 28px;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+}
+
+.termList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .actions {

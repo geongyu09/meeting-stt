@@ -18,6 +18,20 @@ const NEAREST_SPEAKER_TOLERANCE_SEC = 1
  */
 const MINOR_SPEAKER_TOTAL_SEC = 10
 
+/** 다음 단어까지 이만큼 쉬면 문장부호가 없어도 문장이 끝난 것으로 본다 */
+const SENTENCE_GAP_SEC = 1
+
+/** whisper.cpp는 세그먼트 끝 단어에 길이 0을 자주 주므로 표를 잃지 않게 최소 길이로 센다 */
+const MIN_VOTE_WEIGHT_SEC = 0.05
+
+/**
+ * 문장이 이보다 길어지면 다음 Whisper 세그먼트 경계에서 끊는다. 문장부호가 빠진 전사·반복 환각 구간에서
+ * 한 "문장"이 수십 초로 커져 다른 화자의 말을 삼키는 것을 막는다 (docs/phase1-results.md 9절)
+ */
+const MAX_SENTENCE_SEC = 8
+
+const SENTENCE_END_PATTERN = /[.?!]$/
+
 const joinText = (left: string, right: string) => [left, right].filter(Boolean).join(' ').trim()
 
 /** 화자 구간을 start 순으로 정렬하고, 이진 탐색 종료 조건용 누적 최대 end를 함께 만든다 */
@@ -135,6 +149,64 @@ const unitsOf = (segment: SttSegment): SttWord[] =>
     ? segment.words
     : [{ start: segment.start, end: segment.end, text: segment.text }]
 
+interface VoteBySentenceParams {
+  pieces: SpeakerPiece[]
+  /** pieces와 같은 길이. 그 조각이 Whisper 세그먼트의 마지막 단어인지 */
+  isSegmentEnds: boolean[]
+}
+
+interface IsSentenceEndParams extends VoteBySentenceParams {
+  index: number
+  sentenceStart: number
+}
+
+const isSentenceEnd = ({ pieces, isSegmentEnds, index, sentenceStart }: IsSentenceEndParams) => {
+  const piece = pieces[index]
+  const next = pieces[index + 1]
+  if (!next || SENTENCE_END_PATTERN.test(piece.text)) return true
+  if (next.start - piece.end >= SENTENCE_GAP_SEC) return true
+
+  return isSegmentEnds[index] && piece.end - sentenceStart >= MAX_SENTENCE_SEC
+}
+
+/** 문장부호·긴 쉼·길이 상한을 경계로 조각을 문장 단위로 묶는다 */
+const groupBySentence = ({ pieces, isSegmentEnds }: VoteBySentenceParams) => {
+  const sentences: SpeakerPiece[][] = []
+  let current: SpeakerPiece[] = []
+
+  pieces.forEach((piece, index) => {
+    current.push(piece)
+    const sentenceStart = current[0].start
+    if (!isSentenceEnd({ pieces, isSegmentEnds, index, sentenceStart })) return
+
+    sentences.push(current)
+    current = []
+  })
+
+  return sentences
+}
+
+/** 문장 안에서 발화 시간 합이 가장 긴 화자 */
+const majoritySpeaker = (sentence: SpeakerPiece[]) => {
+  const totals = new Map<string, number>()
+  for (const piece of sentence) {
+    const weight = Math.max(piece.end - piece.start, MIN_VOTE_WEIGHT_SEC)
+    totals.set(piece.speaker, (totals.get(piece.speaker) ?? 0) + weight)
+  }
+
+  return [...totals].reduce((best, entry) => (entry[1] > best[1] ? entry : best))[0]
+}
+
+/**
+ * 단어별 배정을 문장 단위 다수결로 덮어쓴다. 단어 타임스탬프와 화자 구간 경계가 어긋나
+ * 문장 끝 단어가 옆 화자로 넘어가며 한 문장이 두 화자로 쪼개지는 것을 막는다 (references/data-model.md)
+ */
+export const voteBySentence = ({ pieces, isSegmentEnds }: VoteBySentenceParams) =>
+  groupBySentence({ pieces, isSegmentEnds }).flatMap((sentence) => {
+    const speaker = majoritySpeaker(sentence)
+    return sentence.map((piece) => ({ ...piece, speaker }))
+  })
+
 interface AssignSpeakersParams {
   segments: SttSegment[]
   speakerSegments: SpeakerSegment[]
@@ -148,7 +220,7 @@ interface AssignSpeakersParams {
 /**
  * 전사 결과의 각 단어(단어 타임스탬프가 없으면 세그먼트)에 화자를 배정한다.
  * (임계값 폴백이면) 군소 화자를 먼저 흡수한 뒤, 겹치는 구간이 없으면 1초 이내의 가장 가까운 화자 구간,
- * 그것도 없으면 직전 화자, 마지막으로 UNKNOWN 순서로 정한다.
+ * 그것도 없으면 직전 화자, 마지막으로 UNKNOWN 순서로 정한다. 끝으로 문장 단위 다수결로 덮어쓴다.
  */
 export const assignSpeakers = ({
   segments,
@@ -159,10 +231,12 @@ export const assignSpeakers = ({
     isMinorSpeakerAbsorbed ? absorbMinorSpeakers(speakerSegments) : speakerSegments
   )
   const pieces: SpeakerPiece[] = []
+  const isSegmentEnds: boolean[] = []
   let previousSpeaker: string | null = null
 
   for (const segment of segments) {
-    for (const unit of unitsOf(segment)) {
+    const units = unitsOf(segment)
+    units.forEach((unit, unitIndex) => {
       const found =
         findOverlappingSpeaker({ sorted, prefixMaxEnd, start: unit.start, end: unit.end }) ??
         findNearestSpeaker({ sorted, start: unit.start, end: unit.end })
@@ -174,10 +248,11 @@ export const assignSpeakers = ({
         end: unit.end,
         text: unit.text.trim()
       })
-    }
+      isSegmentEnds.push(unitIndex === units.length - 1)
+    })
   }
 
-  return pieces
+  return voteBySentence({ pieces, isSegmentEnds })
 }
 
 const groupBySpeaker = (pieces: SpeakerPiece[]) =>

@@ -3,6 +3,8 @@ import { mergeGlossaryTerms } from '@shared/glossary'
 import type { GlossarySettings } from '@shared/types'
 import { draftGlossaryApi, getGlossaryApi, updateGlossaryApi } from '@renderer/shared/api/glossary'
 
+import useTermRows from './useTermRows'
+
 const LOAD_ERROR_MESSAGE = '용어 사전을 불러오지 못했습니다'
 const SAVE_ERROR_MESSAGE = '용어 사전을 저장하지 못했습니다'
 const DRAFT_ERROR_MESSAGE = '용어 초안을 만들지 못했습니다'
@@ -12,8 +14,6 @@ const EMPTY_GLOSSARY: GlossarySettings = { teamDescription: '', terms: [] }
 const messageOf = ({ caught, fallback }: { caught: unknown; fallback: string }) =>
   caught instanceof Error && caught.message ? caught.message : fallback
 
-const linesOf = (text: string) => text.split('\n')
-
 /**
  * 설정의 용어 사전 카테고리 상태. 초안은 편집 중인 목록 뒤에 덧붙이기만 하고 저장하지 않는다 —
  * 모델 읽기가 틀릴 수 있어 사용자가 확인한 뒤 저장한다 (references/architecture.md "용어 사전").
@@ -21,7 +21,8 @@ const linesOf = (text: string) => text.split('\n')
 const useGlossary = () => {
   const [saved, setSaved] = useState(EMPTY_GLOSSARY)
   const [teamDescription, setTeamDescription] = useState('')
-  const [termsText, setTermsText] = useState('')
+  const { rows, focusId, termLines, resetRows, addRow, updateRow, removeRow, pasteRows } =
+    useTermRows()
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -34,13 +35,14 @@ const useGlossary = () => {
       .then((glossary) => {
         setSaved(glossary)
         setTeamDescription(glossary.teamDescription)
-        setTermsText(glossary.terms.join('\n'))
+        resetRows(glossary.terms)
       })
       .catch((caught: unknown) => setLoadError(messageOf({ caught, fallback: LOAD_ERROR_MESSAGE })))
       .finally(() => setIsLoading(false))
-  }, [])
+  }, [resetRows])
 
-  const isDirty = teamDescription !== saved.teamDescription || termsText !== saved.terms.join('\n')
+  const isDirty =
+    teamDescription !== saved.teamDescription || termLines.join('\n') !== saved.terms.join('\n')
 
   const saveGlossary = async () => {
     setIsSaving(true)
@@ -48,10 +50,10 @@ const useGlossary = () => {
     setNotice(null)
 
     try {
-      const next = await updateGlossaryApi({ teamDescription, terms: linesOf(termsText) })
+      const next = await updateGlossaryApi({ teamDescription, terms: termLines })
       setSaved(next)
       setTeamDescription(next.teamDescription)
-      setTermsText(next.terms.join('\n'))
+      resetRows(next.terms)
       setNotice(`용어 ${next.terms.length}개를 저장했습니다`)
     } catch (caught) {
       setActionError(messageOf({ caught, fallback: SAVE_ERROR_MESSAGE }))
@@ -67,8 +69,8 @@ const useGlossary = () => {
 
     try {
       const { terms: additions } = await draftGlossaryApi({ teamDescription })
-      const { terms, addedCount } = mergeGlossaryTerms({ current: linesOf(termsText), additions })
-      setTermsText(terms.join('\n'))
+      const { terms, addedCount } = mergeGlossaryTerms({ current: termLines, additions })
+      resetRows(terms)
       setNotice(
         addedCount
           ? `새 용어 ${addedCount}개를 덧붙였습니다. 읽기가 맞는지 확인하고 저장해 주세요`
@@ -83,7 +85,9 @@ const useGlossary = () => {
 
   return {
     teamDescription,
-    termsText,
+    rows,
+    focusId,
+    termCount: termLines.length,
     isLoading,
     loadError,
     isDirty,
@@ -92,7 +96,10 @@ const useGlossary = () => {
     actionError,
     notice,
     setTeamDescription,
-    setTermsText,
+    addRow,
+    updateRow,
+    removeRow,
+    pasteRows,
     saveGlossary,
     draftTerms
   }

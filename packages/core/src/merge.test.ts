@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import { absorbMinorSpeakers, assignSpeakers, mergeUtterances, UNKNOWN_SPEAKER } from './merge'
-import type { SpeakerSegment, SttSegment } from './types'
+import {
+  absorbMinorSpeakers,
+  assignSpeakers,
+  mergeUtterances,
+  UNKNOWN_SPEAKER,
+  voteBySentence
+} from './merge'
+import type { SpeakerPiece, SpeakerSegment, SttSegment } from './types'
 
 const speakerSegments: SpeakerSegment[] = [
   { start: 0, end: 5, speaker: 'speaker_00' },
@@ -94,6 +100,129 @@ describe('assignSpeakers', () => {
 
   it('전사 결과가 없으면 빈 배열을 반환한다', () => {
     expect(assignSpeakers({ segments: [], speakerSegments })).toEqual([])
+  })
+
+  it('화자 구간 경계를 넘어간 문장 끝 단어는 문장의 주 화자를 따른다', () => {
+    const segments: SttSegment[] = [
+      {
+        start: 2,
+        end: 5.6,
+        text: '악보가 그려지거든요.',
+        words: [
+          { start: 2, end: 4.8, text: '악보가' },
+          { start: 5.2, end: 5.6, text: '그려지거든요.' }
+        ]
+      },
+      {
+        start: 5.8,
+        end: 8,
+        text: '무슨 느낌인지 알겠어요.',
+        words: [
+          { start: 5.8, end: 7, text: '무슨' },
+          { start: 7, end: 8, text: '느낌인지' },
+          { start: 8, end: 8, text: '알겠어요.' }
+        ]
+      }
+    ]
+
+    const pieces = assignSpeakers({ segments, speakerSegments, isMinorSpeakerAbsorbed: false })
+
+    expect(pieces.map((piece) => piece.speaker)).toEqual([
+      'speaker_00',
+      'speaker_00',
+      'speaker_01',
+      'speaker_01',
+      'speaker_01'
+    ])
+  })
+})
+
+describe('voteBySentence', () => {
+  const piece = (speaker: string, start: number, end: number, text: string): SpeakerPiece => ({
+    speaker,
+    start,
+    end,
+    text
+  })
+
+  const eachSegment = (pieces: SpeakerPiece[]) => ({
+    pieces,
+    isSegmentEnds: pieces.map(() => true)
+  })
+
+  it('문장 안에서 발화 시간이 가장 긴 화자를 문장 전체에 준다', () => {
+    const voted = voteBySentence(
+      eachSegment([
+        piece('speaker_00', 0, 2, '이렇게'),
+        piece('speaker_01', 2, 2.3, '무슨'),
+        piece('speaker_00', 2.3, 3, '뜻인지.')
+      ])
+    )
+
+    expect(voted.map((item) => item.speaker)).toEqual(['speaker_00', 'speaker_00', 'speaker_00'])
+  })
+
+  it('문장부호로 끝나면 다음 문장은 따로 투표한다', () => {
+    const voted = voteBySentence(
+      eachSegment([piece('speaker_00', 0, 2, '질문 있나요?'), piece('speaker_01', 2.1, 2.5, '네.')])
+    )
+
+    expect(voted.map((item) => item.speaker)).toEqual(['speaker_00', 'speaker_01'])
+  })
+
+  it('문장부호가 없어도 1초 이상 쉬면 문장을 나눈다', () => {
+    const voted = voteBySentence(
+      eachSegment([piece('speaker_00', 0, 3, '여기까지 하고'), piece('speaker_01', 4, 4.5, '그럼')])
+    )
+
+    expect(voted.map((item) => item.speaker)).toEqual(['speaker_00', 'speaker_01'])
+  })
+
+  it('길이가 0인 단어도 표를 센다', () => {
+    const voted = voteBySentence(
+      eachSegment([
+        piece('speaker_00', 1, 1, '알'),
+        piece('speaker_00', 1, 1, '것'),
+        piece('speaker_01', 1, 1.06, '같아요.')
+      ])
+    )
+
+    expect(voted.map((item) => item.speaker)).toEqual(['speaker_00', 'speaker_00', 'speaker_00'])
+  })
+
+  it('문장부호 없이 8초를 넘기면 다음 세그먼트 경계에서 문장을 끊는다', () => {
+    const voted = voteBySentence(
+      eachSegment([
+        piece('speaker_00', 0, 4, '그래서 이걸'),
+        piece('speaker_00', 4, 8.5, '바꾸면 되는데'),
+        piece('speaker_01', 8.5, 11, '그건 제가 해볼게요'),
+        piece('speaker_01', 11, 12, '이따가')
+      ])
+    )
+
+    expect(voted.map((item) => item.speaker)).toEqual([
+      'speaker_00',
+      'speaker_00',
+      'speaker_01',
+      'speaker_01'
+    ])
+  })
+
+  it('세그먼트 중간에서는 8초를 넘겨도 문장을 끊지 않는다', () => {
+    const voted = voteBySentence({
+      pieces: [
+        piece('speaker_00', 0, 9, '길게'),
+        piece('speaker_01', 9, 9.5, '이어지는'),
+        piece('speaker_00', 9.5, 10, '말.')
+      ],
+      isSegmentEnds: [false, false, true]
+    })
+
+    expect(voted.map((item) => item.speaker)).toEqual(['speaker_00', 'speaker_00', 'speaker_00'])
+  })
+
+  it('입력이 없으면 빈 배열을 반환한다', () => {
+    expect(voteBySentence({ pieces: [], isSegmentEnds: [] })).toEqual([])
   })
 })
 
