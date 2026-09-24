@@ -419,3 +419,43 @@ describe('TranscriptSection 복사와 삭제', () => {
     expect(screen.getByRole('button', { name: '회의 더보기' })).toBeTruthy()
   })
 })
+
+describe('TranscriptSection 레일 폭 조절', () => {
+  afterEach(() => localStorage.clear())
+
+  const findResizer = () => screen.findByRole('separator', { name: '오른쪽 패널 폭 조절' })
+
+  it('키보드로 폭을 바꾸면 저장하고 다시 열어도 유지한다', async () => {
+    vi.mocked(getMeetingApi).mockResolvedValue(detailOf())
+    const user = userEvent.setup()
+    const { unmount } = renderSection()
+
+    const resizer = await findResizer()
+    expect(resizer.getAttribute('aria-valuenow')).toBe('300')
+
+    resizer.focus()
+    await user.keyboard('{ArrowLeft}{ArrowLeft}')
+    expect(resizer.getAttribute('aria-valuenow')).toBe('332')
+    await user.keyboard('{ArrowRight}')
+    expect(resizer.getAttribute('aria-valuenow')).toBe('316')
+
+    unmount()
+    renderSection()
+    expect((await findResizer()).getAttribute('aria-valuenow')).toBe('316')
+  })
+
+  it('최소 폭 아래로 줄지 않고, 더블클릭하면 기본 폭으로 돌아간다', async () => {
+    localStorage.setItem('meetingDetail.railWidthPx', '250')
+    vi.mocked(getMeetingApi).mockResolvedValue(detailOf())
+    const user = userEvent.setup()
+    renderSection()
+
+    const resizer = await findResizer()
+    resizer.focus()
+    await user.keyboard('{ArrowRight}')
+    expect(resizer.getAttribute('aria-valuenow')).toBe('240')
+
+    await user.dblClick(resizer)
+    expect(resizer.getAttribute('aria-valuenow')).toBe('300')
+  })
+})

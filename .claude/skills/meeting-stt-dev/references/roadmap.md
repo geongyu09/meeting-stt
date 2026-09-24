@@ -218,6 +218,7 @@
 - [x] main: 검색 쿼리, 목록 변경 지점(녹음 시작·정지·제목 변경·삭제·파이프라인 처리 시작/done/error)에서 `meetings:changed` push (2026-09-24)
 - [x] 레이아웃: `AppShellLayout` + `meeting/MeetingSidebarSection`(새 녹음·검색·날짜 묶음 목록·설정 링크), `MeetingListSection` 제거, 홈 빈 상태 (2026-09-24)
 - [x] 상세: 두 칸(회의록 + 레일), `TranscriptSection`의 `aside` 슬롯, 화자 목록 레일로 이동 (2026-09-24)
+- [x] 상세: 레일 폭 드래그 조절(핸들·키보드·더블클릭 초기화, `localStorage` 저장) (2026-09-24)
 - [x] 녹음·위젯: 타이머·파형 레벨 미터(`LevelWaveform`, 녹음 화면만 — 위젯 파형은 2026-09-24 제거)·스테퍼·정지 버튼, 위젯 창 300×304 (2026-09-24)
 - [x] 설정·온보딩: 행 레이아웃, `Switch`, 온보딩 두 칸 (2026-09-24)
 - [x] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과 (2026-09-24)

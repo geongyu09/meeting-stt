@@ -511,7 +511,7 @@ export interface RecordingStateEvent {
 색·간격·반경·글꼴은 `:root` CSS 변수로만 쓴다 (`.claude/rules/general-code-convention.md`). 기존 변수 이름은 유지하고 값만 바꾸며, 모자란 것만 추가한다.
 
 **토큰과 글꼴은 `@meeting-stt/design` 패키지가 단일 정의다** (2026-09-24, `references/monorepo.md` "디자인 패키지"). 브라우저 프로토타입(`apps/web`)도 같은 토큰·글꼴을 import한다.
-데스크탑 전용 레이아웃 치수(`--sidebar-width` 272px, `--topbar-height` 52px, `--rail-width` 300px)는 `assets/layout.css`에 둔다.
+데스크탑 전용 레이아웃 치수(`--sidebar-width` 272px, `--topbar-height` 52px, `--rail-width` 300px)는 `assets/layout.css`에 둔다. `--rail-width`는 기본값이고, 회의 상세에서 사용자가 끌어 바꾼 폭이 인라인 변수로 덮어쓴다 ("화면별 구성").
 
 | 변수 | 값 | 용도 |
 | --- | --- | --- |
@@ -594,6 +594,9 @@ export interface RecordingStateEvent {
 - **회의 상세**: 상단 바(복사·마크다운 복사·더보기) + 두 칸 — 가운데 회의록, 오른쪽 레일 300px에 요약 카드와 화자 목록.
   화자 목록은 회의록과 **같은 `useMeeting` 상태**를 써야 하므로(훅 인스턴스마다 상태가 따로다) `TranscriptSection`이 레일까지 그리고,
   요약은 `aside` 슬롯으로 받는다: `<TranscriptSection meetingId aside={<SummarySection meetingId />} />`. 기존 `SpeakerBar`는 레일의 화자 목록으로 바뀐다.
+  레일 폭은 회의록과 레일 사이의 **세로 핸들을 끌어** 바꾼다(2026-09-24 사용자 요청). 기본 300px, 최소 240px, 최대 560px이면서 본문 폭의 절반을 넘지 않는다(회의록이 레일에 밀려 사라지지 않게 — CSS도 `min(var(--rail-width), 50%)`로 같은 상한을 건다).
+  핸들은 `role="separator"`(`aria-orientation="vertical"`, `aria-valuenow/min/max`)이고 키보드 ←/→로 16px씩 조절, 더블클릭하면 기본 폭으로 돌아간다.
+  폭은 창 단위 화면 선호라 SQLite 설정에 넣지 않고 renderer `localStorage`에 저장한다(읽기·쓰기 실패 시 기본 폭으로 동작). 로직은 `TranscriptSection`의 `model/useRailResize`, 핸들은 `ui/RailResizer`에 둔다.
   요약 카드의 헤더는 접기/펼치기 토글(`aria-expanded`)이다 — 기본은 펼침이고, 접으면 본문·버튼이 숨고 헤더만 남는다. 요약이 진행 중일 때 접으면 헤더 캡션에 진행률을 대신 보여 준다. 접힘 상태는 저장하지 않는다(회의를 옮기면 다시 펼침).
   회의 삭제는 더보기 안으로 들어가지만 2단계 인라인 확인 규칙은 그대로다.
   상단 바 제목은 회의 날짜 묶음("회의록 · 오늘")이다 — 사이드바와 같은 날짜 묶음 함수(`shared/utils/meetingDateGroup`)를 쓴다.

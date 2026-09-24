@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { useRef } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import PipelineProgress from '@renderer/modules/features/pipeline/PipelineProgress'
 import TopBar from '@renderer/shared/components/primitives/layout/TopBar'
@@ -10,8 +11,10 @@ import {
   meetingDateGroupOf
 } from '@renderer/shared/utils/meetingDateGroup'
 
+import useRailResize from './model/useRailResize'
 import useTranscriptCopy from './model/useTranscriptCopy'
 import Placeholder from './ui/Placeholder'
+import RailResizer from './ui/RailResizer'
 import SpeakerPanel from './ui/SpeakerPanel'
 import TranscriptActions from './ui/TranscriptActions'
 import TranscriptHeader from './ui/TranscriptHeader'
@@ -56,6 +59,9 @@ export default function TranscriptSection({ meetingId, aside }: TranscriptSectio
     utterances,
     speakerNames
   })
+  const contentRef = useRef<HTMLDivElement>(null)
+  const { railWidth, isResizing, startResize, moveResize, endResize, resizeByKey, resetWidth } =
+    useRailResize({ containerRef: contentRef })
 
   if (isLoading && !meeting) {
     return <Placeholder title={TOP_BAR_TITLE} message="회의를 불러오는 중입니다" />
@@ -120,7 +126,13 @@ export default function TranscriptSection({ meetingId, aside }: TranscriptSectio
           onDelete={handleDelete}
         />
       </TopBar>
-      <div className={styles.content}>
+      <div
+        ref={contentRef}
+        className={styles.content}
+        data-resizing={isResizing}
+        // 끈 폭은 런타임 값이라 CSS 변수 기본값(assets/layout.css)을 인라인으로 덮어쓴다
+        style={{ '--rail-width': `${railWidth}px` } as CSSProperties}
+      >
         <section className={styles.transcript} aria-label="회의록">
           <TranscriptHeader
             meeting={meeting}
@@ -134,6 +146,15 @@ export default function TranscriptSection({ meetingId, aside }: TranscriptSectio
           ) : null}
           {renderBody()}
         </section>
+        <RailResizer
+          railWidth={railWidth}
+          isResizing={isResizing}
+          onPointerDown={startResize}
+          onPointerMove={moveResize}
+          onPointerEnd={endResize}
+          onKeyDown={resizeByKey}
+          onReset={resetWidth}
+        />
         <aside className={styles.rail}>
           {aside}
           {utterances.length ? (
