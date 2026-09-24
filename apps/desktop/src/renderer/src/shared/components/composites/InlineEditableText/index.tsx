@@ -1,4 +1,7 @@
+import type { MouseEvent } from 'react'
+
 import useInlineEdit from './model/useInlineEdit'
+import getCaretOffset from './model/getCaretOffset'
 import styles from './index.module.css'
 
 interface InlineEditableTextProps {
@@ -21,11 +24,16 @@ export default function InlineEditableText({
   isMultiline = false,
   className
 }: InlineEditableTextProps) {
-  const { isEditing, draft, setDraft, startEditing, commit, handleKeyDown } = useInlineEdit({
-    value,
-    isMultiline,
-    onCommit
-  })
+  const { isEditing, draft, setDraft, startEditing, commit, handleFocus, handleKeyDown } =
+    useInlineEdit({
+      value,
+      isMultiline,
+      onCommit
+    })
+
+  const handleDisplayClick = (event: MouseEvent<HTMLButtonElement>) => {
+    startEditing(getCaretOffset(event))
+  }
 
   const editorClassName = [styles.editor, className].filter(Boolean).join(' ')
 
@@ -35,7 +43,7 @@ export default function InlineEditableText({
         type="button"
         className={[styles.display, className].filter(Boolean).join(' ')}
         aria-label={`${ariaLabel} 수정`}
-        onClick={startEditing}
+        onClick={handleDisplayClick}
       >
         {value}
       </button>
@@ -50,8 +58,8 @@ export default function InlineEditableText({
         className={editorClassName}
         aria-label={ariaLabel}
         value={draft}
-        rows={Math.max(2, draft.split('\n').length)}
         onChange={(event) => setDraft(event.target.value)}
+        onFocus={handleFocus}
         onBlur={commit}
         onKeyDown={handleKeyDown}
       />
@@ -66,6 +74,7 @@ export default function InlineEditableText({
       aria-label={ariaLabel}
       value={draft}
       onChange={(event) => setDraft(event.target.value)}
+      onFocus={handleFocus}
       onBlur={commit}
       onKeyDown={handleKeyDown}
     />
