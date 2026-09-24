@@ -210,15 +210,16 @@
 커밋은 단계마다 나눈다. 설정 화면은 다른 작업(용어 사전)이 끝나 커밋된 뒤에 손댄다.
 
 - [x] 토큰: `base.css` 값 교체·추가, 다크 블록 제거, `color-scheme: light` (2026-09-24)
-- [ ] 글꼴: Google Sans·Pretendard·Google Sans Code 원본 파일과 `OFL.txt` 동봉, `fonts.css`
-- [ ] 메인 창: 1280×800 / 최소 1040×640, `titleBarStyle: 'hiddenInset'`, drag 영역
+- [x] 글꼴: Google Sans·Pretendard·Google Sans Code 원본 파일과 `OFL.txt` 동봉, `fonts.css` (2026-09-24)
+- [x] 메인 창: 1280×800 / 최소 1040×640, `titleBarStyle: 'hiddenInset'`, drag 영역 (2026-09-24)
 - [x] primitives: `Button` 변형(강조·주요·보조·위험), `Badge`, `Switch`, `Stepper` + 통합 테스트 (2026-09-24, 계약은 `architecture.md` "공통 컴포넌트". 설정의 `Switch`·녹음/위젯의 `Stepper` 적용은 각 화면 항목에서)
-- [ ] 계약: `meetings:search`·`meetings:changed` 채널, `SearchMeetingsRequest`/`SearchMeetingsResponse`, LIKE 이스케이프 순수 함수 + vitest
-- [ ] main: 검색 쿼리, 목록 변경 지점(녹음 시작·제목 변경·삭제·파이프라인 done/error)에서 `meetings:changed` push
-- [ ] 레이아웃: `AppShellLayout` + `meeting/MeetingSidebarSection`(새 녹음·검색·날짜 묶음 목록·설정 링크), `MeetingListSection` 제거, 홈 빈 상태
-- [ ] 상세: 두 칸(회의록 + 레일), `TranscriptSection`의 `aside` 슬롯, 화자 목록 레일로 이동
-- [ ] 녹음·위젯: 타이머·레벨 미터·스테퍼·정지 버튼
-- [ ] 설정·온보딩: 행 레이아웃, `Switch`, 온보딩 두 칸
-- [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과
+- [x] 계약: `meetings:search`·`meetings:changed` 채널, `SearchMeetingsRequest`/`SearchMeetingsResponse`, LIKE 이스케이프 순수 함수 + vitest (2026-09-24)
+- [x] main: 검색 쿼리, 목록 변경 지점(녹음 시작·정지·제목 변경·삭제·파이프라인 처리 시작/done/error)에서 `meetings:changed` push (2026-09-24)
+- [x] 레이아웃: `AppShellLayout` + `meeting/MeetingSidebarSection`(새 녹음·검색·날짜 묶음 목록·설정 링크), `MeetingListSection` 제거, 홈 빈 상태 (2026-09-24)
+- [x] 상세: 두 칸(회의록 + 레일), `TranscriptSection`의 `aside` 슬롯, 화자 목록 레일로 이동 (2026-09-24)
+- [x] 녹음·위젯: 타이머·파형 레벨 미터(`LevelWaveform`)·스테퍼·정지 버튼, 위젯 창 300×304 (2026-09-24)
+- [x] 설정·온보딩: 행 레이아웃, `Switch`, 온보딩 두 칸 (2026-09-24)
+- [x] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과 (2026-09-24)
 - [ ] `pnpm dev` 실제 확인 — 창 끌기, 검색(한글 2글자·영문 대소문자·`%` 포함 질의), 제목 변경·삭제 후 사이드바 갱신, 녹음 중 사이드바 표시
+- [x] 디자인 패키지: 토큰·글꼴을 `packages/design`으로 올리고 두 앱이 import, 브라우저 프로토타입에 공통 컴포넌트(계약 동일) 이식 (2026-09-24)
 - [ ] 후속: 다크 모드 팔레트, 검색 결과에서 해당 발화로 스크롤

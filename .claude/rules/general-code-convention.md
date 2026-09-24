@@ -47,7 +47,7 @@ description: 모든 코드에 적용되는 전역 규칙(네이밍, 타입, 컴�
   UI 라이브러리·CSS-in-JS는 도입하지 않음 (의존성 없이 스코프가 격리되고, 코로케이션 규칙과도 맞기 때문).
 - `index.module.css`는 세그먼트가 아니라 `index.tsx` 옆의 플랫 파일. 세그먼트 안의 서브 컴포넌트(`ui/UtteranceRow.tsx`)가 자기 스타일이 필요하면
   같은 이름의 `ui/UtteranceRow.module.css`를 옆에 둠.
-- 색·간격·반경 같은 값은 `src/renderer/src/assets/base.css`의 CSS 변수(`--color-*`, `--space-*`)로만 쓰고 컴포넌트에 하드코딩하지 않음.
+- 색·간격·반경 같은 값은 `@meeting-stt/design/base.css`(`packages/design/src/base.css`)의 CSS 변수(`--color-*`, `--space-*`)로만 쓰고 컴포넌트에 하드코딩하지 않음. 웹 앱도 같음.
 - 클래스명은 카멜 (`.utteranceRow`). 인라인 `style`은 값이 런타임에 계산되는 경우(레벨 미터 너비, 진행률 바)에만 사용.
 
 ## 상수

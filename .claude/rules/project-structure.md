@@ -29,12 +29,14 @@ apps/desktop/      제품 Electron 앱 (패키지 meeting-stt)
 apps/web/          브라우저 추론 프로토타입 (@meeting-stt/web)
 packages/core/     순수 공용 로직 (@meeting-stt/core)
 packages/models/   모델 카탈로그 (@meeting-stt/models)
+packages/design/   디자인 토큰·동봉 글꼴 (@meeting-stt/design, CSS·글꼴만)
 ```
 
 | 새 코드가 이런 것이면 | 여기 |
 | --- | --- |
 | 두 앱이 **같은 값·같은 알고리즘**을 써야 하는 순수 TS (병합, 포맷, 정규화 공식·상수, 참석자 수 규칙, 오디오 형식) | `packages/core/src/<역할>.ts` |
 | 어느 모델을 쓰는지 (저장소·파일명·체크섬·양자화·용량) | `packages/models/src/{desktop,web}.ts` |
+| 두 앱이 같이 쓰는 디자인 토큰(색·간격·반경·글자 크기)·글꼴 | `packages/design/src/{base,fonts}.css`, `packages/design/src/fonts/` |
 | Electron·Node·SQLite·동봉 바이너리를 만지거나 앱 화면·IPC인 것 | `apps/desktop/src/…` |
 | 브라우저 워커·transformers.js·WebGPU를 만지는 것 | `apps/web/src/…` |
 
@@ -94,7 +96,7 @@ src/
     └── src/
         ├── main.tsx
         ├── App.tsx
-        ├── assets/                      # 전역 css (CSS 변수 토큰은 base.css)
+        ├── assets/                      # 진입 css(main.css)·레이아웃 치수(layout.css). 토큰·글꼴은 @meeting-stt/design
         ├── worklet/pcmRecorder.js       # AudioWorkletProcessor (`?url`로 import)
         │
         ├── pages/                       # 라우트 화면. widgets 배치만

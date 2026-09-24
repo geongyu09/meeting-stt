@@ -15,6 +15,7 @@ pnpm 워크스페이스 하나에 데스크탑 앱·브라우저 프로토타입
 | `apps/web` | `@meeting-stt/web` | 브라우저 (WebGPU/WASM) | 브라우저 추론 프로토타입 (`docs/browser-prototype-plan.md`) |
 | `packages/core` | `@meeting-stt/core` | 순수 TS (런타임 의존 없음) | 파이프라인 중간 산출물 타입, 화자 배정·발화 병합, 복사 포맷, 음량 정규화 공식, 참석자 수 규칙, 오디오 형식 상수 |
 | `packages/models` | `@meeting-stt/models` | 순수 TS (데이터) | 모델 카탈로그 SSOT. 데스크탑 자산(URL·sha256·용량)과 웹 저장소 id·dtype |
+| `packages/design` | `@meeting-stt/design` | CSS + 글꼴 파일 (런타임 코드 없음) | 디자인 토큰(`base.css`)과 동봉 글꼴(`fonts.css`, `fonts/`) SSOT. 두 앱이 같은 "여백" 화면을 그린다 |
 
 - **의존 방향은 한 방향**이다: `apps/* → packages/*`. 패키지가 앱을 import하지 않고, 패키지끼리도 의존하지 않는다.
   (`models`는 `core`를 import하지 않는다 — 모델 카탈로그는 파이프라인 로직을 모른다.)
@@ -42,6 +43,21 @@ pnpm 워크스페이스 하나에 데스크탑 앱·브라우저 프로토타입
 음량 정규화가 그 예다 — 데스크탑은 `Int16Array`(WAV 버퍼), 웹은 `Float32Array`(디코딩 결과)를 제자리에서 고치므로
 루프는 각자 갖고, `packages/core/src/normalize.ts`의 프레임 RMS 분위수·게인 계산만 공유한다.
 타입 하나로 억지로 합치면 71분 273MB 배열을 도는 루프가 다형(polymorphic)이 되고 복사본이 생긴다.
+
+## 디자인 패키지 (`packages/design`, 2026-09-24)
+
+두 앱이 같은 디자인 시스템("여백", `references/architecture.md` "화면 디자인")을 쓰기로 해서(사용자 결정) **토큰 값과 글꼴 파일**을 패키지로 올렸다.
+글꼴만 7MB라 앱마다 복사하면 저장소에 두 벌이 쌓이고, 토큰 값을 한쪽만 고치면 조용히 갈라진다.
+
+- 내용물은 CSS와 글꼴뿐이다: `src/base.css`(`:root` 토큰 + 전역 리셋), `src/fonts.css`(`@font-face`), `src/fonts/<글꼴>/`(원본 파일 + `OFL.txt`).
+  exports는 `{ "./*.css": "./src/*.css" }`이고 앱의 진입 CSS가 `@import '@meeting-stt/design/fonts.css'`, `@import '@meeting-stt/design/base.css'`로 가져온다.
+  `fonts.css`의 `url('./fonts/…')`는 번들러(vite/electron-vite)가 패키지 파일 기준으로 풀어 앱 산출물에 자산으로 복사한다.
+- **React 컴포넌트는 패키지로 올리지 않는다.** 패키지는 `react`를 import하지 않는다는 경계(위 구성)를 지키고, 앱마다 레이어 규칙도 다르다.
+  대신 컴포넌트의 **계약**(변형·props·동작)은 `architecture.md` "공통 컴포넌트" 표 하나이고, 두 앱이 그 계약대로 각자 구현한다
+  (데스크탑 `shared/components/primitives/ui/*`, 웹 `apps/web/src/components/*`). 계약을 바꾸면 두 구현을 같이 고친다.
+- 앱 전용 레이아웃 치수(데스크탑의 사이드바 폭·상단 바 높이·레일 폭)는 패키지에 두지 않고 그 앱의 CSS에 둔다.
+- 토큰이 올바른지는 `src/tokens.test.ts`가 본다 — 계약 표의 변수가 모두 정의돼 있는지, `fonts.css`가 가리키는 파일이 전부 있는지.
+  파일 자체를 검사하는 테스트라 이 테스트만 `node:fs`로 읽는다 (vitest는 `?raw` CSS를 빈 문자열로 만든다). 패키지 본체는 여전히 `fs`를 쓰지 않는다.
 
 ## 패키지 형태 — 빌드 단계 없음
 

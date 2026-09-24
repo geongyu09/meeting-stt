@@ -73,7 +73,7 @@ src/
   preload/index.ts            # window.api 타입 노출
   renderer/src/
     main.tsx, App.tsx
-    assets/{base.css,main.css,fonts.css}, assets/fonts/   # 디자인 토큰·동봉 글꼴 (아래 "화면 디자인" 절)
+    assets/{main.css,layout.css}   # 진입 CSS(@meeting-stt/design의 fonts.css·base.css를 import)·데스크탑 레이아웃 치수 (아래 "화면 디자인" 절)
     worklet/pcmRecorder.js    # AudioWorkletProcessor (Vite `?url` import로 로드)
     pages/{Onboarding,Home,Record,MeetingDetail,Settings,Widget}/index.tsx   # widgets 배치만
     shared/routes/{index.tsx,paths.ts,guards.tsx,layout.tsx}   # 라우터·경로 상수·온보딩 진입 가드·메인 창 레이아웃(정지 후 상세 이동)
@@ -496,9 +496,12 @@ export interface RecordingStateEvent {
 
 사용자와 Design 캔버스 시안("여백")으로 확정했다. 시안은 참고 자료이고, 값·구조의 근거는 이 절이다.
 
-### 디자인 토큰 (`assets/base.css`)
+### 디자인 토큰 (`packages/design/src/base.css`)
 
 색·간격·반경·글꼴은 `:root` CSS 변수로만 쓴다 (`.claude/rules/general-code-convention.md`). 기존 변수 이름은 유지하고 값만 바꾸며, 모자란 것만 추가한다.
+
+**토큰과 글꼴은 `@meeting-stt/design` 패키지가 단일 정의다** (2026-09-24, `references/monorepo.md` "디자인 패키지"). 브라우저 프로토타입(`apps/web`)도 같은 토큰·글꼴을 import한다.
+데스크탑 전용 레이아웃 치수(`--sidebar-width` 272px, `--topbar-height` 52px, `--rail-width` 300px)는 `assets/layout.css`에 둔다.
 
 | 변수 | 값 | 용도 |
 | --- | --- | --- |
@@ -531,6 +534,7 @@ export interface RecordingStateEvent {
 ### 공통 컴포넌트 (`shared/components/primitives/ui`)
 
 도메인 로직 없이 UI만 다룬다. 색은 위 토큰만 쓴다.
+**이 표가 두 앱의 계약이다.** 패키지는 `react`를 import하지 않으므로 브라우저 프로토타입은 같은 계약을 `apps/web/src/components/*`에 따로 구현한다 (`Button`·`Badge`·`Icon`·`Switch`·`Stepper`·`ProgressBar`·`LevelWaveform`). 계약을 바꾸면 두 구현을 같이 고친다. 아래 레이아웃 컴포넌트는 데스크탑 창 구조 전용이라 웹에 두지 않는다.
 
 | 컴포넌트 | 계약 |
 | --- | --- |
@@ -538,14 +542,25 @@ export interface RecordingStateEvent {
 | `Badge` | `tone`: `neutral`(회색 면) · `accent`(`--color-accent-soft` 바탕 + 강조 글자) · `success`(초록 글자) · `danger`(`--color-danger-soft` 바탕 + 빨간 글자). 바탕을 칠한 강한 배지는 두지 않는다 |
 | `Switch` | `<button role="switch" aria-checked>`. props `isChecked`, `onChange(next)`, `ariaLabel` 또는 `ariaLabelledBy`(설정 행 제목의 id), `disabled`. 켜짐은 잉크, 꺼짐은 `--color-disabled`. Space·Enter는 네이티브 버튼 동작으로 토글된다 |
 | `Stepper` | 숫자 입력 + −/+ 버튼. **값은 문자열**(`value`, `onChange(text)`) — 입력 중 비어 있거나 잘못된 값을 부모가 그대로 들고 검증하기 때문이다 (`useSpeakerCount`). props `min`, `max`, `label`(입력 이름), `placeholder`, `isInvalid`. 동작: 빈 값(또는 정수가 아닌 값)에서 + 는 `min`, − 는 비활성. `min`에서 − 는 **값을 비운다**("모름"). `max`에서 + 는 비활성. 범위를 넘는 값에서 −/+ 는 범위 안으로 끌어온다 |
+| `LevelWaveform` | 파형형 레벨 미터. `LevelMeter`(가로 막대)를 대체한다. props `levels`(0~1, 오래된 것부터), `barCount`. 값이 모자라면 오른쪽을 `--color-disabled` 빈 막대로 채우고, 넘치면 최근 `barCount`개만 그린다. 레벨 기록은 `useRecordingState`가 `levels`로 들고 있다 (최근 48개, 청크 주기 약 0.5초) |
+
+레이아웃 공통 컴포넌트는 `shared/components/primitives/layout`에 둔다. 여러 위젯이 같은 모양을 써야 해서 위젯의 `ui` 세그먼트가 아니라 공용이다.
+
+| 컴포넌트 | 계약 |
+| --- | --- |
+| `TopBar` | 본문 상단 52px 바. `title`(왼쪽 회색 글자) + `children`(오른쪽 동작). 바 전체가 창 끌기 영역이고 안의 컨트롤은 `no-drag` |
+| `SettingGroup` | 설정 카테고리 — 회색 소제목(`h2`) + 행 목록. `aria-labelledby`로 제목과 묶는다 |
+| `SettingRow` | 설정 한 행 — 왼쪽 제목·설명, 오른쪽 `control`, 아래 `children`(펼침 영역). 제목 id를 `titleId`로 받아 `Switch`의 `ariaLabelledBy`에 넘긴다. 행 사이는 `--color-divider` 선 |
 
 ### 글꼴 동봉
 
-- Google Sans(라틴·숫자), **Pretendard(한글)**, Google Sans Code(숫자·시간)를 `src/renderer/src/assets/fonts/`에 넣고 `assets/fonts.css`의 `@font-face`로 로드한다.
+- Google Sans(라틴·숫자), **Pretendard(한글)**, Google Sans Code(숫자·시간)를 `packages/design/src/fonts/`에 넣고 `packages/design/src/fonts.css`의 `@font-face`로 로드한다. 두 앱이 같은 파일을 쓴다.
   Google Sans에는 한글 글리프가 없어 한글은 스택의 다음 글꼴인 Pretendard로 떨어진다.
 - 셋 다 **SIL OFL**이다. 배포처가 준 파일을 **수정하지 않고** 동봉한다 (OFL의 예약 글꼴 이름 조항 때문에 서브셋·변환한 파일은 원래 이름을 쓸 수 없다).
-  각 글꼴의 `OFL.txt`를 같은 폴더에 둔다.
-- 오프라인 앱이라 Google Fonts CDN을 쓰지 않는다. CSP도 외부 글꼴 출처를 열지 않는다.
+  각 글꼴의 `OFL.txt`를 같은 폴더에 둔다. 폴더는 글꼴마다 하나(`fonts/googleSans`, `fonts/googleSansCode`, `fonts/pretendard`)다.
+- 파일 **이름**만 카멜 규칙에 맞춰 바꾼다 (`GoogleSans[GRAD,opsz,wght].ttf` → `googleSansVariable.ttf`). 대괄호·쉼표가 CSS `url()`과 번들러 경로에서 말썽을 부린다.
+  파일 내용과 글꼴 이름(name 테이블)은 건드리지 않으므로 OFL 조항과 무관하다. 출처: Google Sans·Google Sans Code는 `google/fonts` 저장소의 `ofl/`, Pretendard는 npm `pretendard@1.3.9`의 가변 woff2.
+- 오프라인 앱이라 Google Fonts CDN을 쓰지 않는다. CSP도 외부 글꼴 출처를 열지 않는다. 브라우저 프로토타입도 같은 동봉 파일을 정적 자산으로 배포한다 (CDN 없음).
 
 ### 메인 창과 사이드바 레이아웃
 
@@ -555,11 +570,14 @@ export interface RecordingStateEvent {
 - 라우터: `RequireModels` 아래에 `AppShellLayout`(사이드바 + `<Outlet />`)을 두고 홈·녹음·상세·설정을 그 자식으로 옮긴다. 온보딩·위젯은 셸 밖이다.
   `UpdateBanner`는 홈이 아니라 셸의 본문 위에 둔다 (어느 화면에서든 보이도록).
 - 사이드바(`meeting/MeetingSidebarSection`) 구성: 새 녹음 버튼(녹음 중이면 경과 시간과 함께 "녹음 중"으로 바뀌고 `/record`로 이동) → 검색 입력 →
-  회의 목록(오늘·이번 주·이전으로 묶음, 처리 중이면 `PipelineProgress`, 오류면 한 줄 안내) → 하단 설정 링크와 "이 기기에서만 처리" 표시.
+  회의 목록(오늘·이번 주·이전으로 묶음, 처리 중이면 `PipelineProgress`, 오류면 한 줄 안내) → 하단 설정 링크.
+  (시안 최종본에서 "이 기기에서만 처리" 표시를 뺐다. 온보딩이 같은 내용을 말한다.)
   날짜 묶음 계산은 순수 함수로 두고 vitest로 검증한다.
 - **목록 갱신**: 사이드바는 화면을 옮겨도 언마운트되지 않으므로, 예전처럼 "홈에 들어올 때 다시 불러오기"로는 제목 변경·삭제·처리 완료가 반영되지 않는다.
-  main이 회의 목록에 영향을 주는 변경(녹음 시작, 제목 변경, 삭제, 파이프라인 `done`·`error`) 뒤에 **`meetings:changed` push**를 보내고,
+  main이 회의 목록에 영향을 주는 변경(녹음 시작·정지, 제목 변경, 삭제, 파이프라인 처리 시작·`done`·`error`) 뒤에 **`meetings:changed` push**를 보내고,
   사이드바가 받으면 `meetings:list`(검색 중이면 `meetings:search`)를 다시 부른다. payload는 없다 — 목록 전체를 다시 읽어도 로컬 SQLite라 싸다.
+  녹음 정지·처리 시작을 넣은 이유: 정지 직후 행은 `recording`, 큐가 잡으면 `processing`으로 바뀌는데 이 둘을 놓치면 사이드바가 처리 중 진행률 대신 "녹음 중"을 계속 보여준다.
+  main은 `src/main/meetingsChanged.ts`의 리스너 하나로 모으고(`notifyMeetingsChanged`), `index.ts`가 모든 창에 브로드캐스트한다 — 진행률 리스너와 같은 모양이다.
 
 ### 화면별 구성
 
@@ -567,11 +585,17 @@ export interface RecordingStateEvent {
   화자 목록은 회의록과 **같은 `useMeeting` 상태**를 써야 하므로(훅 인스턴스마다 상태가 따로다) `TranscriptSection`이 레일까지 그리고,
   요약은 `aside` 슬롯으로 받는다: `<TranscriptSection meetingId aside={<SummarySection meetingId />} />`. 기존 `SpeakerBar`는 레일의 화자 목록으로 바뀐다.
   회의 삭제는 더보기 안으로 들어가지만 2단계 인라인 확인 규칙은 그대로다.
+  상단 바 제목은 회의 날짜 묶음("회의록 · 오늘")이다 — 사이드바와 같은 날짜 묶음 함수(`shared/utils/meetingDateGroup`)를 쓴다.
+  발화 행은 시각 열 · (화자 + 본문) · 복사 버튼 세 칸이고, 복사 버튼은 행에 마우스를 올리거나 포커스가 들어올 때만 보인다. 화자는 색 점 + 이름의 `<select>`로 바꾼다.
+  화자 색은 화자 목록 순서대로 `--color-speaker-1`~`4`를 돌려 쓴다. 화자 목록의 "화자 합치기"는 합치기 모드를 켜고, 모드 안에서 행마다 "합치기" → 대상 선택의 기존 두 단계를 거친다.
 - **녹음**: 큰 타이머, 파형형 레벨 미터, 참석자 수 **스테퍼**(−/+와 숫자 입력, "모름"은 값을 비운다), 정지 버튼("녹음 정지하고 회의록 만들기").
   스테퍼는 `shared/components/primitives/ui/Stepper`로 만들어 위젯과 함께 쓴다. 참석자 수 범위·검증은 지금처럼 `@meeting-stt/core/speakerCount`.
-- **위젯**: 같은 스테퍼, 대기 중이면 강조색 "녹음 시작", 녹음 중이면 테두리형 "녹음 정지".
+- **위젯**: 같은 스테퍼, 대기 중이면 강조색 "녹음 시작", 녹음 중이면 테두리형 "녹음 정지". 녹음 중에는 타이머 옆에 작은 파형(14칸).
+  창 크기는 **300×304**(이전 264×248) — 헤더·타이머·스테퍼·버튼·안내 한 줄이 잘리지 않는 높이다.
+  사이드바·위젯에는 단축키 안내를 넣지 않는다 — 두 곳 다 언마운트되지 않아 설정에서 단축키를 바꾸면 틀린 키를 보여준다 (설정 변경 push가 없다). 녹음 화면은 들어올 때마다 설정을 읽으므로 안내한다.
 - **설정**: 카테고리 제목 + 행(제목·설명 왼쪽, 컨트롤 오른쪽). 켜기/끄기는 `role="switch"` 버튼인 `primitives/ui/Switch`로 바꾼다. 용어 사전 카테고리도 같은 행 규칙을 따른다.
-- **온보딩**: 왼쪽 안내, 오른쪽 모델 선택 카드와 다운로드 목록의 두 칸.
+- **온보딩**: 왼쪽 안내, 오른쪽 모델 선택 카드와 다운로드 목록("함께 받는 모델": 완료·퍼센트·대기)의 두 칸. 제목 문구는 "인터넷 사용, 비용, 시간 제한 없는 회의록"(시안).
+  설정의 음성 인식 모델은 같은 `ModelDownloadSection`을 `variant="setting"`으로 그려 한 행(현재 모델 · 설치됨 + "모델 바꾸기")으로 접어 두고, 누르면 선택 카드가 펼쳐진다.
 - 제목은 굵은 산세리프(명조 없음). 아이콘은 인라인 stroke SVG이고 아이콘 전용 버튼에는 `aria-label`을 붙인다.
 
 ### 회의록 검색 (`meetings:search`)
@@ -586,6 +610,7 @@ export interface RecordingStateEvent {
 - 대상은 **회의 제목과 발화 텍스트**. 화자 이름·요약은 넣지 않는다 (필요해지면 추가).
 - main은 `query`를 trim하고 비면 빈 배열을 돌려준다. `LIKE '%' || ? || '%' ESCAPE '\'`로 찾고 `%`·`_`·`\`는 이스케이프한다.
   SQLite `LIKE`는 ASCII 대소문자를 구분하지 않아 영문 용어도 그대로 찾힌다. 정렬은 `created_at DESC`, 최대 50개(`SEARCH_RESULT_LIMIT`).
+  이스케이프 함수(`toLikePattern`)는 `src/main/searchQuery.ts`에 두고 `searchQuery.test.ts`로 검증한다 — `src/main/db/*`는 `better-sqlite3` 때문에 vitest가 import할 수 없다.
 - **FTS5를 쓰지 않는 이유**: 기본 `unicode61` 토크나이저는 띄어쓰기로만 나눠 "회의록을"에서 "회의록"을 못 찾고,
   `trigram`은 3글자 미만 질의를 못 찾는다 (한국어 검색어는 2글자가 흔하다). 데이터가 한 사람의 로컬 회의라 전체 스캔으로 충분하다.
   느려지면(수천 회의) 그때 측정하고 바꾼다. 스키마 변경은 없다.
