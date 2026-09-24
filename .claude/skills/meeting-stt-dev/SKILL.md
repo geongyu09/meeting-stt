@@ -38,6 +38,7 @@ description: 로컬 STT 회의록 데스크탑 앱(meeting-stt)의 개발 방향
 | 저장소 | **SQLite** via `better-sqlite3` (main 프로세스 전용) | 스키마는 `references/data-model.md` |
 | 라우팅 | **react-router v8**의 `createHashRouter` + `RouterProvider` | URL 공유가 없고 `file://`에서도 동작한다. `BrowserRouter` 금지. 경로 상수는 `@renderer/shared/routes`에서만 정의 |
 | 스타일 | **CSS Modules** (`index.module.css` 코로케이션) + `base.css`의 CSS 변수 토큰 | UI 라이브러리·CSS-in-JS 도입 안 함 |
+| 비주얼 디자인 | **"여백" 팔레트**(흰 바탕·옅은 회색 면·잉크 `#111113`, 강조 인디고 `#4338CA`, 빨강은 오류 전용) + **Google Sans(라틴)·Pretendard(한글)·Google Sans Code(숫자)** 를 앱에 동봉 (2026-09-24 리디자인) | 글꼴은 전부 OFL이고 오프라인 앱이라 CDN을 쓰지 않는다. **다크 모드는 보류** — 리디자인 동안 `prefers-color-scheme: dark` 토큰을 두지 않고 밝은 화면만 지원한다. 토큰·레이아웃·검색은 `references/architecture.md` "화면 디자인" 절 |
 | 편집 | 발화 단위 인라인 편집(contentEditable/textarea, blur 시 UPDATE) | 에디터 라이브러리 도입 금지 (필요 생기면 그때 TipTap 검토) |
 | 모델 배포 | 설치 파일에 미동봉, **첫 실행 온보딩에서 다운로드** (Range 이어받기 + 체크섬) | 저장 위치 `app.getPath('userData')/models` |
 | 시스템 오디오 캡처 | **1차 범위 제외** (마이크만) | Phase 5의 두 번째 항목. 로컬 요약을 끝낸 뒤 착수한다 |
@@ -92,6 +93,8 @@ Phase 5-2(시스템 오디오 캡처)는 아직 시작하지 않았다.
 오디오 그래프 소유자·참석자 수의 단일 출처·창 참조 관리가 함께 바뀌므로, 체크리스트의 "계약 변경"을 먼저 끝내고 구현한다.
 **Phase 5-4(LLM 회의록 교정)** 는 2026-09-24 사용자 요청으로 검증 단계만 마쳤다 — 발화를 LLM이 다시 쓰는 방식은 폐기하고,
 용어 사전 + 발음 유사도 후보 + LLM O/X 판정으로 수정 **제안**을 만드는 방식을 채택했다 (`docs/phase5-refine-results.md`). 앱 통합은 **전역 용어 사전**부터 착수했다 (2026-09-24 사용자 결정) — 설정의 팀 소개로 LLM이 초안을 만들고 사용자가 고쳐 저장한다 (`references/architecture.md` "용어 사전"). 교정 제안 UI와 회의별 용어는 그다음이다.
+**UI 리디자인**은 2026-09-24 사용자 요청으로 문서를 먼저 확정했다 — 사이드바 + 본문 두 칸 레이아웃, "여백" 팔레트, 동봉 글꼴, 회의록 검색(`meetings:search`).
+Phase 번호 밖의 별도 작업이며 체크리스트는 `references/roadmap.md` "UI 리디자인" 절이다.
 작업 시작 시 `git log`/디렉터리 상태로 현재 Phase를 먼저 재확인한다.
 
 ## 4. 코드 구조와 규칙

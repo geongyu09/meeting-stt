@@ -133,3 +133,8 @@
   (`useRecordingState`).
 - **설치된 앱이 떠 있으면 `pnpm dev`가 조용히 종료된다.** 단일 인스턴스 잠금(`app.requestSingleInstanceLock`)은 dev 빌드와 설치본을
   같은 앱으로 본다. 로그도 남지 않고 exit 0으로 끝나므로, 개발 확인 전에 `/Applications`의 앱을 먼저 종료한다.
+- **`titleBarStyle: 'hiddenInset'`이면 창을 끌 곳이 없어진다.** 제목 표시줄이 사라지므로 사이드바 상단과 본문 상단 바에
+  `-webkit-app-region: drag`를 주고, 그 안의 버튼·입력·링크는 `no-drag`로 되돌려야 클릭이 먹는다. drag 영역 위의 요소는 마우스 이벤트를 받지 못한다.
+- **사이드바처럼 화면 전환에도 살아 있는 컴포넌트는 "마운트할 때 한 번 불러오기"로 최신 상태를 유지할 수 없다.**
+  상세에서 제목을 바꾸거나 회의를 지워도 목록이 그대로 남는다. main이 목록 변경 뒤 `meetings:changed`를 push하고 사이드바가 다시 불러온다 (`architecture.md` "화면 디자인").
+- **글꼴 서브셋·woff2 변환본은 원래 이름으로 동봉하지 않는다.** OFL 예약 글꼴 이름 조항 때문이다. 배포처가 준 파일을 그대로 넣는다.

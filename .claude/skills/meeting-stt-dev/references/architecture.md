@@ -73,6 +73,7 @@ src/
   preload/index.ts            # window.api 타입 노출
   renderer/src/
     main.tsx, App.tsx
+    assets/{base.css,main.css,fonts.css}, assets/fonts/   # 디자인 토큰·동봉 글꼴 (아래 "화면 디자인" 절)
     worklet/pcmRecorder.js    # AudioWorkletProcessor (Vite `?url` import로 로드)
     pages/{Onboarding,Home,Record,MeetingDetail,Settings,Widget}/index.tsx   # widgets 배치만
     shared/routes/{index.tsx,paths.ts,guards.tsx,layout.tsx}   # 라우터·경로 상수·온보딩 진입 가드·메인 창 레이아웃(정지 후 상세 이동)
@@ -117,6 +118,8 @@ export const IPC = {
   //   events.recordingState / events.recordingCommand
   //   widget.setVisible
   //   shortcuts.setSuspended (단축키 설정, 아래 "전역 단축키" 절)
+  // UI 리디자인 (아래 "화면 디자인" 절)
+  //   meetings.search, events.meetingsChanged
 } as const
 ```
 
@@ -489,6 +492,106 @@ export interface RecordingStateEvent {
 - 설정값 로드는 한 번만 한다. 그래서 `SettingsSection`이 1~3과 5를 모두 그리고, 모델 카테고리는 `children`으로 받아 3과 5 사이에 끼운다.
   페이지는 `<SettingsSection><ModelDownloadSection /><SummaryModelSection /></SettingsSection>` 형태로 배치만 한다.
 
+## 화면 디자인 (UI 리디자인, 2026-09-24)
+
+사용자와 Design 캔버스 시안("여백")으로 확정했다. 시안은 참고 자료이고, 값·구조의 근거는 이 절이다.
+
+### 디자인 토큰 (`assets/base.css`)
+
+색·간격·반경·글꼴은 `:root` CSS 변수로만 쓴다 (`.claude/rules/general-code-convention.md`). 기존 변수 이름은 유지하고 값만 바꾸며, 모자란 것만 추가한다.
+
+| 변수 | 값 | 용도 |
+| --- | --- | --- |
+| `--color-bg` | `#FFFFFF` | 본문 바탕 |
+| `--color-sidebar` (추가) | `#F7F7F8` | 사이드바, 선택·hover 행, 스테퍼 버튼 |
+| `--color-surface` | `#FFFFFF` | 카드·입력 |
+| `--color-surface-hover` | `#F7F7F8` | hover |
+| `--color-border` | `#E7E7EA` | 선 |
+| `--color-border-strong` (추가) | `#DCDCE0` | 버튼·입력 테두리 |
+| `--color-divider` (추가) | `#EDEDF0` | 설정 행 구분선, 상단 바 밑줄 |
+| `--color-disabled` (추가) | `#D4D4D9` | 꺼진 스위치, 비활성 버튼, 레벨 미터 빈 칸 |
+| `--color-text` | `#111113` | 본문 글자, 주요 버튼 바탕 |
+| `--color-text-muted` | `#6B6B73` | 보조 글자 (흰 바탕 대비 5.3:1) |
+| `--color-text-inverse` (추가) | `#FFFFFF` | 주요·강조 버튼 글자. 기존 `--color-accent-text`는 같은 값으로 남긴다 |
+| `--color-accent` | `#4338CA` | 새 녹음·녹음 중 표시·포커스·편집 테두리 (흰 글자 대비 7.9:1) |
+| `--color-accent-soft` (추가) | `#E0E7FF` | 녹음 중 점 둘레 |
+| `--color-danger` | `#B4232A` | 오류 글자·회의 삭제. **빨강은 오류 전용**이고 녹음에 쓰지 않는다 |
+| `--color-danger-soft` (추가) | `#FDECEC` | 오류 배지·삭제 버튼 바탕 |
+| `--color-success` | `#15803D` | 완료 체크 |
+| `--color-speaker-1`~`4` (추가) | `#0F766E` `#C2410C` `#BE185D` `#854D0E` | 화자 점·이름. 5번째 화자부터 1번부터 다시 돈다 |
+| `--font-sans` (추가) | `'Google Sans', 'Pretendard', -apple-system, sans-serif` | 전체 |
+| `--font-mono` (추가) | `'Google Sans Code', 'Google Sans', monospace` + `font-variant-numeric: tabular-nums` | 타이머·타임스탬프·퍼센트·단축키 |
+
+- **다크 모드는 보류한다.** 리디자인 동안 `@media (prefers-color-scheme: dark)` 블록을 지우고 `color-scheme: light`로 고정한다.
+  반쪽짜리 다크 토큰이 남으면 새 화면이 다크에서 깨진 채로 배포된다. 다크 팔레트는 따로 설계해 다시 넣는다.
+- 간격 4·8·12·16·24·32는 기존 `--space-1`~`6`을 그대로 쓴다. 반경은 `--radius-sm` 6 · `--radius-md` 10 · `--radius-lg` 12(추가) · `--radius-full`이다.
+  시안의 8px 반경은 토큰을 따로 두지 않고 `--radius-sm`으로 맞춘다 (2px 차이로 단계를 하나 늘릴 이유가 없다).
+- 포커스 표시는 모든 컨트롤이 `:focus-visible`에 `2px solid var(--color-accent)` 외곽선 + 2px 간격으로 통일한다.
+
+### 공통 컴포넌트 (`shared/components/primitives/ui`)
+
+도메인 로직 없이 UI만 다룬다. 색은 위 토큰만 쓴다.
+
+| 컴포넌트 | 계약 |
+| --- | --- |
+| `Button` | `variant`: `accent`(강조 바탕 — 새 녹음·녹음 시작, 화면당 하나) · `primary`(잉크 바탕, **기본값** — 화면의 주 동작) · `secondary`(흰 바탕 + `--color-border-strong` 테두리) · `danger`(`--color-danger-soft` 바탕 + 빨간 글자 — 삭제 확인에만). `size`: `md`(기본) · `sm`(상단 바·행 안). 비활성은 `--color-disabled` 바탕. **녹음 정지에 `danger`를 쓰지 않는다** (빨강은 오류 전용) — 녹음 화면은 `primary`, 위젯은 `secondary` |
+| `Badge` | `tone`: `neutral`(회색 면) · `accent`(`--color-accent-soft` 바탕 + 강조 글자) · `success`(초록 글자) · `danger`(`--color-danger-soft` 바탕 + 빨간 글자). 바탕을 칠한 강한 배지는 두지 않는다 |
+| `Switch` | `<button role="switch" aria-checked>`. props `isChecked`, `onChange(next)`, `ariaLabel` 또는 `ariaLabelledBy`(설정 행 제목의 id), `disabled`. 켜짐은 잉크, 꺼짐은 `--color-disabled`. Space·Enter는 네이티브 버튼 동작으로 토글된다 |
+| `Stepper` | 숫자 입력 + −/+ 버튼. **값은 문자열**(`value`, `onChange(text)`) — 입력 중 비어 있거나 잘못된 값을 부모가 그대로 들고 검증하기 때문이다 (`useSpeakerCount`). props `min`, `max`, `label`(입력 이름), `placeholder`, `isInvalid`. 동작: 빈 값(또는 정수가 아닌 값)에서 + 는 `min`, − 는 비활성. `min`에서 − 는 **값을 비운다**("모름"). `max`에서 + 는 비활성. 범위를 넘는 값에서 −/+ 는 범위 안으로 끌어온다 |
+
+### 글꼴 동봉
+
+- Google Sans(라틴·숫자), **Pretendard(한글)**, Google Sans Code(숫자·시간)를 `src/renderer/src/assets/fonts/`에 넣고 `assets/fonts.css`의 `@font-face`로 로드한다.
+  Google Sans에는 한글 글리프가 없어 한글은 스택의 다음 글꼴인 Pretendard로 떨어진다.
+- 셋 다 **SIL OFL**이다. 배포처가 준 파일을 **수정하지 않고** 동봉한다 (OFL의 예약 글꼴 이름 조항 때문에 서브셋·변환한 파일은 원래 이름을 쓸 수 없다).
+  각 글꼴의 `OFL.txt`를 같은 폴더에 둔다.
+- 오프라인 앱이라 Google Fonts CDN을 쓰지 않는다. CSP도 외부 글꼴 출처를 열지 않는다.
+
+### 메인 창과 사이드바 레이아웃
+
+- 메인 창 기본 크기 **1280×800**, 최소 **1040×640**. 두 칸(사이드바 272px + 본문)이 최소 폭에서도 회의록 줄 길이를 지키는 크기다.
+- `titleBarStyle: 'hiddenInset'`으로 신호등을 사이드바 위에 겹친다. 사이드바 상단 52px과 본문 상단 바는 `-webkit-app-region: drag`,
+  그 안의 버튼·입력은 `no-drag`로 둔다 (`references/pitfalls.md`에 함정 추가).
+- 라우터: `RequireModels` 아래에 `AppShellLayout`(사이드바 + `<Outlet />`)을 두고 홈·녹음·상세·설정을 그 자식으로 옮긴다. 온보딩·위젯은 셸 밖이다.
+  `UpdateBanner`는 홈이 아니라 셸의 본문 위에 둔다 (어느 화면에서든 보이도록).
+- 사이드바(`meeting/MeetingSidebarSection`) 구성: 새 녹음 버튼(녹음 중이면 경과 시간과 함께 "녹음 중"으로 바뀌고 `/record`로 이동) → 검색 입력 →
+  회의 목록(오늘·이번 주·이전으로 묶음, 처리 중이면 `PipelineProgress`, 오류면 한 줄 안내) → 하단 설정 링크와 "이 기기에서만 처리" 표시.
+  날짜 묶음 계산은 순수 함수로 두고 vitest로 검증한다.
+- **목록 갱신**: 사이드바는 화면을 옮겨도 언마운트되지 않으므로, 예전처럼 "홈에 들어올 때 다시 불러오기"로는 제목 변경·삭제·처리 완료가 반영되지 않는다.
+  main이 회의 목록에 영향을 주는 변경(녹음 시작, 제목 변경, 삭제, 파이프라인 `done`·`error`) 뒤에 **`meetings:changed` push**를 보내고,
+  사이드바가 받으면 `meetings:list`(검색 중이면 `meetings:search`)를 다시 부른다. payload는 없다 — 목록 전체를 다시 읽어도 로컬 SQLite라 싸다.
+
+### 화면별 구성
+
+- **회의 상세**: 상단 바(복사·마크다운 복사·더보기) + 두 칸 — 가운데 회의록, 오른쪽 레일 300px에 요약 카드와 화자 목록.
+  화자 목록은 회의록과 **같은 `useMeeting` 상태**를 써야 하므로(훅 인스턴스마다 상태가 따로다) `TranscriptSection`이 레일까지 그리고,
+  요약은 `aside` 슬롯으로 받는다: `<TranscriptSection meetingId aside={<SummarySection meetingId />} />`. 기존 `SpeakerBar`는 레일의 화자 목록으로 바뀐다.
+  회의 삭제는 더보기 안으로 들어가지만 2단계 인라인 확인 규칙은 그대로다.
+- **녹음**: 큰 타이머, 파형형 레벨 미터, 참석자 수 **스테퍼**(−/+와 숫자 입력, "모름"은 값을 비운다), 정지 버튼("녹음 정지하고 회의록 만들기").
+  스테퍼는 `shared/components/primitives/ui/Stepper`로 만들어 위젯과 함께 쓴다. 참석자 수 범위·검증은 지금처럼 `@meeting-stt/core/speakerCount`.
+- **위젯**: 같은 스테퍼, 대기 중이면 강조색 "녹음 시작", 녹음 중이면 테두리형 "녹음 정지".
+- **설정**: 카테고리 제목 + 행(제목·설명 왼쪽, 컨트롤 오른쪽). 켜기/끄기는 `role="switch"` 버튼인 `primitives/ui/Switch`로 바꾼다. 용어 사전 카테고리도 같은 행 규칙을 따른다.
+- **온보딩**: 왼쪽 안내, 오른쪽 모델 선택 카드와 다운로드 목록의 두 칸.
+- 제목은 굵은 산세리프(명조 없음). 아이콘은 인라인 stroke SVG이고 아이콘 전용 버튼에는 `aria-label`을 붙인다.
+
+### 회의록 검색 (`meetings:search`)
+
+| 키 | 채널 | 방향 | 요청 → 응답 |
+| --- | --- | --- | --- |
+| `meetings.search` | `meetings:search` | invoke | `{ query: string }` → `MeetingSearchResult[]` |
+| `events.meetingsChanged` | `meetings:changed` | push | 없음 (위 "목록 갱신") |
+
+- `MeetingSearchResult = { meeting: Meeting; match: { utteranceId: string; text: string; startSec: number } | null }`.
+  제목으로만 걸리면 `match`는 `null`, 발화로 걸리면 **순서(`ord`)가 가장 앞선 발화 하나**를 준다.
+- 대상은 **회의 제목과 발화 텍스트**. 화자 이름·요약은 넣지 않는다 (필요해지면 추가).
+- main은 `query`를 trim하고 비면 빈 배열을 돌려준다. `LIKE '%' || ? || '%' ESCAPE '\'`로 찾고 `%`·`_`·`\`는 이스케이프한다.
+  SQLite `LIKE`는 ASCII 대소문자를 구분하지 않아 영문 용어도 그대로 찾힌다. 정렬은 `created_at DESC`, 최대 50개(`SEARCH_RESULT_LIMIT`).
+- **FTS5를 쓰지 않는 이유**: 기본 `unicode61` 토크나이저는 띄어쓰기로만 나눠 "회의록을"에서 "회의록"을 못 찾고,
+  `trigram`은 3글자 미만 질의를 못 찾는다 (한국어 검색어는 2글자가 흔하다). 데이터가 한 사람의 로컬 회의라 전체 스캔으로 충분하다.
+  느려지면(수천 회의) 그때 측정하고 바꾼다. 스키마 변경은 없다.
+- renderer: 입력 200ms 디바운스(`SEARCH_DEBOUNCE_MS`), 검색 중에는 사이드바 목록이 결과로 바뀌고 발화 조각의 일치 부분을 `<mark>`로 강조한다.
+  결과를 누르면 그 회의 상세로 간다. **해당 발화로 스크롤하는 것은 후속 과제**다. Esc·지우기 버튼으로 검색을 끝내면 원래 목록으로 돌아간다.
+
 ## 화면 라우트 (Phase 2)
 
 `file://`에서도 동작해야 하므로 `createHashRouter` + `RouterProvider`를 쓴다. 라우팅 관련 코드는 `src/renderer/src/shared/routes/`에만 두고, 다른 코드는 경로 문자열을 직접 쓰지 않는다.
@@ -496,11 +599,14 @@ export interface RecordingStateEvent {
 - `routes/paths.ts` : 경로 상수와 경로 조립 함수(`meetingDetailPath`). **컴포넌트는 여기만 import한다.**
 - `routes/index.tsx` : 페이지를 물린 라우터 정의. 페이지를 import하므로, 컴포넌트가 이 파일에서 경로 상수를 가져오면 `widget → routes → page → widget` 순환 import가 된다.
 
+리디자인(아래 "화면 디자인" 절)부터 홈·녹음·상세·설정은 **사이드바 레이아웃**(`shared/routes/layout.tsx`의 `AppShellLayout`) 안에 그려진다.
+회의 목록은 페이지가 아니라 사이드바(`meeting/MeetingSidebarSection`)가 들고, `MeetingListSection`은 없앤다.
+
 | 경로 | 페이지 | 배치하는 widget |
 | --- | --- | --- |
-| `/` | `pages/Home` | `meeting/MeetingListSection` |
+| `/` | `pages/Home` | 빈 상태 안내 ("회의를 고르거나 새로 녹음하세요") |
 | `/record` | `pages/Record` | `recording/RecorderSection` |
-| `/meetings/:meetingId` | `pages/MeetingDetail` | `meeting/TranscriptSection` |
+| `/meetings/:meetingId` | `pages/MeetingDetail` | `meeting/TranscriptSection` (오른쪽 레일에 `meeting/SummarySection`을 슬롯으로 받음) |
 | `/settings` | `pages/Settings` | `setting/SettingsSection` (카테고리 묶음, 모델 위젯을 `children`으로 받음), `model/ModelDownloadSection`, `model/SummaryModelSection` |
 | `/onboarding` | `pages/Onboarding` | `model/ModelDownloadSection` |
 | `/widget` | `pages/Widget` | `recording/WidgetPanelSection` (위젯 창 전용, 가드 밖) |
@@ -512,8 +618,8 @@ export interface RecordingStateEvent {
   홈·녹음·상세·설정을 자식으로 갖는 경로 없는 레이아웃 라우트로, `models:status`의 `isReady`가 거짓이면 `/onboarding`으로 보낸다.
   온보딩 페이지 자체는 가드 밖에 있고, 다운로드가 끝나면 홈으로 이동한다. 가드는 레이아웃이 처음 마운트될 때 한 번만 조회한다
   (모델은 온보딩 밖에서 사라지지 않는다).
-- 홈 상단의 `features/update/UpdateBanner`는 `update:available` 이벤트를 받았을 때만 나타난다 (`references/distribution.md` 7절).
-- 흐름: 홈에서 "새 회의 녹음" → `/record`(또는 위젯·단축키) → 정지 → main이 잡을 큐에 넣고 `/meetings/:meetingId`로 이동 → 처리 중 상태를 보여주다가 `pipeline:progress`의 `done`을 받으면 회의록을 다시 불러온다.
+- `features/update/UpdateBanner`는 `update:available` 이벤트를 받았을 때만 나타난다 (`references/distribution.md` 7절). 리디자인부터 홈이 아니라 셸 본문 위에 둔다.
+- 흐름: 사이드바(리디자인 전에는 홈)에서 "새 녹음" → `/record`(또는 위젯·단축키) → 정지 → main이 잡을 큐에 넣고 `/meetings/:meetingId`로 이동 → 처리 중 상태를 보여주다가 `pipeline:progress`의 `done`을 받으면 회의록을 다시 불러온다.
 - **Phase 5-3부터 `/record`를 벗어나도 녹음은 계속된다.** 오디오 그래프가 위젯 창으로 옮겨 갔기 때문이다
   (그 전에는 `useRecorder`가 언마운트될 때 녹음을 정지했다). 대신 **앱이 종료될 때**(`before-quit`) 진행 중 녹음이 있으면
   WAV 헤더를 확정하고 잡을 큐에 넣는다. 헤더가 확정되지 않은 WAV는 파이프라인이 읽지 못한다.

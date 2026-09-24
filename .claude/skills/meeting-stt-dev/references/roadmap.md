@@ -202,3 +202,23 @@
 - [ ] **용어 사전을 인식 단계에도 쓸지 결정 — 사용자 확인 대기.** 측정상 효과가 크다(`--prompt --carry-initial-prompt`,
       `docs/phase5-refine-results.md`). 쓰기로 하면 회의별 용어는 파이프라인 전에 받아야 하므로 **녹음 정지 화면**(참석자 수 옆)에서
       입력받고, `buildWhisperArgs`·`meetings` 스키마·큐 잡 payload가 바뀐다. 교정 단계는 남은 오인식(카볼·대포처럼 다른 소리로 들은 말)을 맡는다
+
+## UI 리디자인 (2026-09-24, Phase 번호 밖)
+
+사용자 요청으로 Design 캔버스에서 시안("여백")을 확정하고 문서를 먼저 고쳤다 (`architecture.md` "화면 디자인", `data-model.md` "회의록 검색").
+사용자 결정: 한글 글꼴 **Pretendard**, **다크 모드 보류**, **회의록 검색 포함**.
+커밋은 단계마다 나눈다. 설정 화면은 다른 작업(용어 사전)이 끝나 커밋된 뒤에 손댄다.
+
+- [x] 토큰: `base.css` 값 교체·추가, 다크 블록 제거, `color-scheme: light` (2026-09-24)
+- [ ] 글꼴: Google Sans·Pretendard·Google Sans Code 원본 파일과 `OFL.txt` 동봉, `fonts.css`
+- [ ] 메인 창: 1280×800 / 최소 1040×640, `titleBarStyle: 'hiddenInset'`, drag 영역
+- [x] primitives: `Button` 변형(강조·주요·보조·위험), `Badge`, `Switch`, `Stepper` + 통합 테스트 (2026-09-24, 계약은 `architecture.md` "공통 컴포넌트". 설정의 `Switch`·녹음/위젯의 `Stepper` 적용은 각 화면 항목에서)
+- [ ] 계약: `meetings:search`·`meetings:changed` 채널, `SearchMeetingsRequest`/`SearchMeetingsResponse`, LIKE 이스케이프 순수 함수 + vitest
+- [ ] main: 검색 쿼리, 목록 변경 지점(녹음 시작·제목 변경·삭제·파이프라인 done/error)에서 `meetings:changed` push
+- [ ] 레이아웃: `AppShellLayout` + `meeting/MeetingSidebarSection`(새 녹음·검색·날짜 묶음 목록·설정 링크), `MeetingListSection` 제거, 홈 빈 상태
+- [ ] 상세: 두 칸(회의록 + 레일), `TranscriptSection`의 `aside` 슬롯, 화자 목록 레일로 이동
+- [ ] 녹음·위젯: 타이머·레벨 미터·스테퍼·정지 버튼
+- [ ] 설정·온보딩: 행 레이아웃, `Switch`, 온보딩 두 칸
+- [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과
+- [ ] `pnpm dev` 실제 확인 — 창 끌기, 검색(한글 2글자·영문 대소문자·`%` 포함 질의), 제목 변경·삭제 후 사이드바 갱신, 녹음 중 사이드바 표시
+- [ ] 후속: 다크 모드 팔레트, 검색 결과에서 해당 발화로 스크롤

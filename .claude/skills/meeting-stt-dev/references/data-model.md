@@ -179,6 +179,28 @@ export type SummaryStage = 'summarize' | 'reduce' | 'done' | 'error'
 진행률 이벤트 payload(`PipelineProgressEvent`)는 프로세스 간 계약이므로 `src/shared/types.ts`가 아니라
 `src/shared/ipc.ts`에 둔다 (`.claude/rules/ipc-api-guide.md`).
 
+## 회의록 검색 (UI 리디자인)
+
+스키마를 바꾸지 않는다. `meetings.title`과 `utterances.text`를 `LIKE`로 전체 스캔한다 (FTS5를 쓰지 않는 이유는 `architecture.md` "회의록 검색").
+
+```sql
+-- ? = '%' || escape(query) || '%'   (escape: \ → \\, % → \%, _ → \_)
+SELECT m.*, (
+  SELECT u.id FROM utterances u
+  WHERE u.meeting_id = m.id AND u.text LIKE ? ESCAPE '\'
+  ORDER BY u.ord LIMIT 1
+) AS match_utterance_id
+FROM meetings m
+WHERE m.title LIKE ? ESCAPE '\'
+   OR EXISTS (SELECT 1 FROM utterances u WHERE u.meeting_id = m.id AND u.text LIKE ? ESCAPE '\')
+ORDER BY m.created_at DESC
+LIMIT 50;
+```
+
+- 요청·응답 타입은 IPC 계약이므로 `src/shared/ipc.ts`에 둔다: `SearchMeetingsRequest { query: string }`,
+  `SearchMeetingsResponse = MeetingSearchResult[]`, `MeetingSearchResult { meeting: Meeting; match: { utteranceId; text; startSec } | null }`.
+- 이스케이프 함수는 순수 함수로 두고 vitest로 `%`·`_`·`\`가 글자 그대로 찾히는지 검증한다.
+
 ## 식별자
 
 - `meetings.id`·`utterances.id`는 **uuid 문자열**(`node:crypto`의 `randomUUID`)이다. 정수 자동 증가를 쓰지 않는다 —
