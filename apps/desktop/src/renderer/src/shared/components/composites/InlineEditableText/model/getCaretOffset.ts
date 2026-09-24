@@ -8,6 +8,8 @@ import type { MouseEvent } from 'react'
 const getCaretOffset = (event: MouseEvent<HTMLElement>) => {
   // 키보드(Enter·Space)로 누른 클릭은 detail이 0이라 좌표가 의미 없다
   if (event.detail === 0) return null
+  // Electron의 Chromium에는 있지만 테스트 DOM(happy-dom)에는 없다. 없으면 끝에 커서로 물러난다
+  if (typeof document.caretPositionFromPoint !== 'function') return null
 
   const position = document.caretPositionFromPoint(event.clientX, event.clientY)
   if (!position || !event.currentTarget.contains(position.offsetNode)) return null
