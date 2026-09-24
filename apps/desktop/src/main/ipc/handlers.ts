@@ -5,6 +5,8 @@ import {
   type GetMeetingRequest,
   type GetMeetingResponse,
   type GetMeetingsResponse,
+  type DraftGlossaryResponse,
+  type GetGlossaryResponse,
   type GetSettingsResponse,
   type GetRecordingStateResponse,
   type ModelDownloadProgressEvent,
@@ -15,8 +17,10 @@ import {
   type StartRecordingRequest,
   type StartRecordingResponse,
   type StopRecordingResponse,
+  type UpdateGlossaryResponse,
   type UpdateSettingsResponse
 } from '@shared/ipc'
+import { readGlossarySettings, readTeamDescription } from '@shared/glossary'
 import { isValidAccelerator } from '@shared/shortcut'
 import {
   isWidgetFadeOpacity,
@@ -38,13 +42,19 @@ import {
   stopRecording
 } from '../audio/session'
 import { findMeeting, listMeetings, renameMeeting } from '../db/meetings'
-import { getAppSettings, setWhisperModelId, updateAppSettings } from '../db/settings'
+import {
+  getAppSettings,
+  getGlossarySettings,
+  setWhisperModelId,
+  updateAppSettings,
+  updateGlossarySettings
+} from '../db/settings'
 import { hasSpeaker, listSpeakers, mergeSpeakers, renameSpeaker } from '../db/speakers'
 import { listUtterances, updateUtteranceSpeaker, updateUtteranceText } from '../db/utterances'
 import type { ModelDownloadProgress } from '../models/download'
 import { isWhisperModelId } from '@meeting-stt/models/desktop'
 import { downloadModels, downloadSummaryModel, modelStatus } from '../models/service'
-import { enqueueSummaryJob } from '../pipeline/queue'
+import { enqueueGlossaryDraft, enqueueSummaryJob } from '../pipeline/queue'
 import { checkForUpdatesNow, downloadUpdate, installUpdate } from '../updater'
 import { showMainWindow } from '../windows/main'
 import { replaceGlobalShortcuts, setGlobalShortcutsSuspended } from '../windows/shortcuts'
@@ -440,4 +450,14 @@ export const registerIpcHandlers = () => {
   ipcMain.handle(IPC.summary.create, (_event, payload) =>
     enqueueSummaryJob({ meetingId: readMeetingId(payload) })
   )
+
+  ipcMain.handle(IPC.glossary.get, (): GetGlossaryResponse => getGlossarySettings())
+
+  ipcMain.handle(IPC.glossary.update, (_event, payload): UpdateGlossaryResponse =>
+    updateGlossarySettings(readGlossarySettings(payload))
+  )
+
+  ipcMain.handle(IPC.glossary.draft, async (_event, payload): Promise<DraftGlossaryResponse> => ({
+    terms: await enqueueGlossaryDraft({ teamDescription: readTeamDescription(payload) })
+  }))
 }

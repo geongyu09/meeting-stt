@@ -113,6 +113,23 @@ export interface AppSettings {
   `settings:update`가 아니라 `models:download`가 쓴다 (`references/distribution.md` 3절). 읽기는 앱 시작 시 한 번
   `src/main/db/settings.ts`의 `getWhisperModelId()` → `src/main/models/paths.ts`의 `setSelectedWhisperModelId()`로 넘긴다.
   renderer는 `models:status` 응답의 `selectedWhisperModelId`로 본다.
+- **용어 사전(`glossary.team`, `glossary.terms`)도 `AppSettings`에 넣지 않는다** (Phase 5-4). 설정 화면의 별도 카테고리가
+  자기 채널(`glossary:get`/`glossary:update`)로 읽고 쓴다. 목록이 길어질 수 있어 토글 하나 바꿀 때마다 설정 전체와 함께 오가지 않게 하고,
+  `SettingsSection`의 한 번 로드·전체 저장 흐름에 초안 생성 같은 비동기 동작을 섞지 않기 위해서다.
+
+  | 키 | 타입 | 기본값 | 뜻 |
+  | --- | --- | --- | --- |
+  | `glossary.team` | string | `''` | 팀 소개. 초안 생성의 입력이다. 최대 500자 |
+  | `glossary.terms` | string[] | `[]` | 전역 용어 사전. 한 줄에 용어 하나, 형식은 `용어` 또는 `영어 표기 = 읽기1, 읽기2` (`scripts/refine.ts`의 용어 파일과 같다). 최대 200줄, 줄당 80자 |
+
+  ```ts
+  export interface GlossarySettings {
+    teamDescription: string
+    terms: string[]
+  }
+  ```
+
+  저장할 때 main이 줄 앞뒤 공백을 자르고 빈 줄·중복 용어(`=` 앞부분 기준, 대소문자 무시)를 뺀다. 한도를 넘으면 거절한다.
 - **`widget.bounds`도 `AppSettings`에 넣지 않는다.** 설정 화면에서 사람이 고르는 값이 아니라 창을 옮길 때 main이 적어 두는
   런타임 상태이고, 읽고 쓰는 쪽이 `src/main/windows/widget.ts` 하나뿐이기 때문이다.
 

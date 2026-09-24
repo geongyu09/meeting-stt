@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('@renderer/shared/api/settings', () => ({
@@ -215,5 +215,36 @@ describe('SettingsSection', () => {
     render(<SettingsSection />)
 
     expect(await screen.findByRole('alert')).toBeTruthy()
+  })
+
+  it('설정을 카테고리별로 묶고 children을 단축키와 업데이트 사이에 둔다', async () => {
+    vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
+    render(
+      <SettingsSection>
+        <section aria-label="음성 인식 모델" />
+      </SettingsSection>
+    )
+
+    await screen.findByLabelText(AUDIO_LABEL)
+    const regions = screen.getAllByRole('region').map((region) => region.getAttribute('aria-label'))
+    expect(regions).toEqual(['녹음·처리', '녹음 위젯', '단축키', '음성 인식 모델', '업데이트'])
+    expect(
+      within(screen.getByRole('region', { name: '녹음·처리' })).getByLabelText(QUIET_LABEL)
+    ).toBeTruthy()
+    expect(
+      within(screen.getByRole('region', { name: '녹음 위젯' })).getByLabelText(FADE_LABEL)
+    ).toBeTruthy()
+  })
+
+  it('설정을 못 불러와도 children은 보여준다', async () => {
+    vi.mocked(getSettingsApi).mockRejectedValue(new Error('실패'))
+    render(
+      <SettingsSection>
+        <p>모델 영역</p>
+      </SettingsSection>
+    )
+
+    expect(await screen.findByRole('alert')).toBeTruthy()
+    expect(screen.getByText('모델 영역')).toBeTruthy()
   })
 })

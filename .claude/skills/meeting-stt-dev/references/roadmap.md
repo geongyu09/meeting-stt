@@ -187,8 +187,17 @@
 **앱 (착수 여부 사용자 확인 대기 — 설계를 `architecture.md`·`data-model.md`에 먼저 적는다)**
 - [x] **용어 사전은 전역 + 회의별 두 층** (2026-09-24 사용자 결정). 교정·인식에는 둘을 합쳐 쓴다.
       앱에 고정 목록을 넣지 않는다 — 회의마다 용어가 달라 고정 목록은 모든 회의를 한 분야로 끌고 간다 (`docs/phase5-results.md`)
+- [x] **전역 용어는 설정의 팀 소개로 LLM이 초안을 만들고 사용자가 고쳐 저장한다** (2026-09-24 사용자 결정).
+      완전 자동은 폐기 — 모델 초안에 일반어·틀린 읽기가 섞여 그대로 쓰면 오탐이 늘어난다 (`docs/phase5-refine-results.md` "팀 소개로 용어 초안 만들기").
+      설계: `data-model.md` settings `glossary.*`, `architecture.md` "용어 사전 (Phase 5-4)"
+- [x] 계약: `GlossarySettings` 타입, settings 키 `glossary.team`·`glossary.terms`, IPC `glossary:get`·`glossary:update`·`glossary:draft`, 큐 `kind: 'glossary'`
+- [x] 순수 로직 `src/shared/glossary.ts`(초안 프롬프트·GBNF 문법·출력 파싱·약어 읽기·병합·검증) + vitest
+- [x] main: `src/main/glossary/draft.ts`(llama-cli 실행), `db/settings.ts` 읽기·쓰기, 핸들러
+- [x] renderer: 설정 "용어 사전" 카테고리(`setting/GlossarySection`) — 팀 소개 입력, 초안 만들기, 용어 목록 편집·저장
+- [ ] **`pnpm dev`로 실제 앱에서 확인** — 팀 소개 입력 → 초안 → 편집 → 저장 → 재시작 후 유지
+- [ ] 회의별 용어 층과 입력 위치 (인식 단계 사용 여부 결정 뒤)
 - [ ] 제안 저장 스키마, IPC 계약(`refine:create` + 진행률 push), 큐 `kind: 'refine'`
-- [ ] 용어 사전 입력 UI, 쌍 단위로 묶은 제안 수락·거절 UI
+- [ ] 쌍 단위로 묶은 제안 수락·거절 UI
 - [ ] 후속 후보: Whisper 토큰 확률을 후보 가중치로(스키마 변경 필요)
 - [ ] **용어 사전을 인식 단계에도 쓸지 결정 — 사용자 확인 대기.** 측정상 효과가 크다(`--prompt --carry-initial-prompt`,
       `docs/phase5-refine-results.md`). 쓰기로 하면 회의별 용어는 파이프라인 전에 받아야 하므로 **녹음 정지 화면**(참석자 수 옆)에서

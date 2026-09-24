@@ -1,0 +1,73 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--font-lg);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  font-size: var(--font-md);
+}
+
+.textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-3);
+  font: inherit;
+  font-size: var(--font-md);
+  line-height: 1.6;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+}
+
+.textarea:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.textarea:disabled {
+  color: var(--color-text-muted);
+}
+
+/* 용어는 줄 단위로 읽고 고치므로 고정폭으로 보여 준다 */
+.terms {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--font-sm);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.notice {
+  margin: 0;
+  color: var(--color-success);
+  font-size: var(--font-sm);
+}
+
+.error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--font-sm);
+}

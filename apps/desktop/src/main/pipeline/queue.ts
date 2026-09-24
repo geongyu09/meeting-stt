@@ -10,6 +10,7 @@ import {
 import { getAppSettings } from '../db/settings'
 import { ensureSpeakers } from '../db/speakers'
 import { replaceUtterances } from '../db/utterances'
+import { runGlossaryDraft } from '../glossary/draft'
 import { error as logError, info, messageOf, warn } from '../log'
 import { runSummary } from '../summary/run'
 import { buildTranscriptText } from '../summary/transcript'
@@ -17,11 +18,16 @@ import { runPipeline } from './run'
 
 const DONE_PERCENT = 100
 
+type MeetingJob = { kind: 'pipeline' | 'summary'; meetingId: string }
+
+/** 용어 초안은 회의에 묶이지 않고 결과를 invoke로 돌려줘야 해서, 성공·실패 처리를 `run`이 스스로 한다 */
+type GlossaryJob = { kind: 'glossary'; run: () => Promise<void> }
+
 /**
- * 파이프라인과 요약은 같은 CPU·GPU를 쓴다. 따로 큐를 두면 둘이 동시에 돌아 둘 다 느려지므로
+ * 파이프라인·요약·용어 초안은 같은 CPU·GPU를 쓴다. 따로 큐를 두면 동시에 돌아 모두 느려지므로
  * 한 큐에서 동시성 1로 처리한다 (references/architecture.md).
  */
-type Job = { kind: 'pipeline' | 'summary'; meetingId: string }
+type Job = MeetingJob | GlossaryJob
 
 let notifyPipeline: (event: PipelineProgressEvent) => void = () => {}
 let notifySummary: (event: SummaryProgressEvent) => void = () => {}
@@ -113,7 +119,7 @@ const summarizeMeeting = async (meetingId: string) => {
  * 요약 실패는 회의 상태를 건드리지 않는다 — 회의록은 멀쩡하고 요약만 없는 상태다
  * (references/architecture.md).
  */
-const failJob = ({ kind, meetingId }: Job, message: string) => {
+const failJob = ({ kind, meetingId }: MeetingJob, message: string) => {
   if (kind === 'summary') {
     logError(`회의 ${meetingId} 요약 실패: ${message}`)
     reportSummary({ meetingId, stage: 'error', percent: 0, errorMessage: message })
@@ -132,6 +138,11 @@ const drain = async () => {
   while (pending.length) {
     const [job, ...rest] = pending
     pending = rest
+
+    if (job.kind === 'glossary') {
+      await job.run()
+      continue
+    }
 
     try {
       await (job.kind === 'summary'
@@ -160,3 +171,16 @@ export const enqueueSummaryJob = ({ meetingId }: { meetingId: string }) => {
 
   enqueue({ kind: 'summary', meetingId })
 }
+
+/** 초안이 끝나면 풀리는 Promise. 앞선 회의 처리가 있으면 그 뒤에 돈다 */
+export const enqueueGlossaryDraft = ({ teamDescription }: { teamDescription: string }) =>
+  new Promise<string[]>((resolve, reject) => {
+    enqueue({
+      kind: 'glossary',
+      run: () =>
+        runGlossaryDraft({ teamDescription }).then(resolve, (caught: unknown) => {
+          logError(`용어 초안 실패: ${messageOf(caught)}`)
+          reject(caught)
+        })
+    })
+  })

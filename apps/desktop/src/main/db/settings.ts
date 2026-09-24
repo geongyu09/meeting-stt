@@ -1,4 +1,4 @@
-import type { AppSettings, WhisperModelId } from '@shared/types'
+import type { AppSettings, GlossarySettings, WhisperModelId } from '@shared/types'
 import { DEFAULT_WHISPER_MODEL_ID, isWhisperModelId } from '@meeting-stt/models/desktop'
 import {
   DEFAULT_RECORDING_SHORTCUT,
@@ -19,6 +19,8 @@ const WIDGET_FADE_KEY = 'widget.fade'
 const WIDGET_FADE_OPACITY_KEY = 'widget.fadeOpacity'
 const RECORDING_SHORTCUT_KEY = 'shortcut.recording'
 const WIDGET_SHORTCUT_KEY = 'shortcut.widget'
+const GLOSSARY_TEAM_KEY = 'glossary.team'
+const GLOSSARY_TERMS_KEY = 'glossary.terms'
 
 const DEFAULT_SETTINGS: AppSettings = {
   isAudioKept: false,
@@ -155,3 +157,27 @@ export const getWidgetBounds = () => {
 
 export const setWidgetBounds = ({ x, y }: { x: number; y: number }) =>
   writeValue({ key: WIDGET_BOUNDS_KEY, value: { x, y } })
+
+/**
+ * 전역 용어 사전. `AppSettings`에 넣지 않는다 — 설정 화면의 별도 카테고리가 자기 채널로 읽고 쓴다
+ * (references/data-model.md). 형식이 깨진 값은 빈 값으로 읽는다.
+ */
+export const getGlossarySettings = (): GlossarySettings => {
+  const teamDescription = readValue(GLOSSARY_TEAM_KEY)
+  const terms = readValue(GLOSSARY_TERMS_KEY)
+
+  return {
+    teamDescription: typeof teamDescription === 'string' ? teamDescription : '',
+    terms: Array.isArray(terms)
+      ? terms.filter((term): term is string => typeof term === 'string')
+      : []
+  }
+}
+
+/** 검증·정리는 호출하는 쪽(`readGlossarySettings`)이 끝낸 값이어야 한다 */
+export const updateGlossarySettings = ({ teamDescription, terms }: GlossarySettings) => {
+  writeValue({ key: GLOSSARY_TEAM_KEY, value: teamDescription })
+  writeValue({ key: GLOSSARY_TERMS_KEY, value: terms })
+
+  return getGlossarySettings()
+}

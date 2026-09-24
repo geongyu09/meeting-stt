@@ -5,6 +5,9 @@ import {
   type DeleteMeetingRequest,
   type DownloadModelsRequest,
   type DownloadModelsResponse,
+  type DraftGlossaryRequest,
+  type DraftGlossaryResponse,
+  type GetGlossaryResponse,
   type GetMeetingRequest,
   type GetMeetingResponse,
   type GetMeetingsResponse,
@@ -34,6 +37,8 @@ import {
   type StopRecordingResponse,
   type SummaryProgressEvent,
   type UpdateAvailableEvent,
+  type UpdateGlossaryRequest,
+  type UpdateGlossaryResponse,
   type UpdateSettingsRequest,
   type UpdateSettingsResponse,
   type UpdateUtteranceTextRequest,
@@ -101,6 +106,13 @@ const api = {
   summary: {
     create: (payload: CreateSummaryRequest): Promise<void> =>
       ipcRenderer.invoke(IPC.summary.create, payload)
+  },
+  glossary: {
+    get: (): Promise<GetGlossaryResponse> => ipcRenderer.invoke(IPC.glossary.get),
+    update: (payload: UpdateGlossaryRequest): Promise<UpdateGlossaryResponse> =>
+      ipcRenderer.invoke(IPC.glossary.update, payload),
+    draft: (payload: DraftGlossaryRequest): Promise<DraftGlossaryResponse> =>
+      ipcRenderer.invoke(IPC.glossary.draft, payload)
   },
   models: {
     status: (): Promise<ModelStatusResponse> => ipcRenderer.invoke(IPC.models.status),

@@ -63,6 +63,16 @@ export interface AppSettings {
   widgetShortcut: string
 }
 
+/**
+ * 전역 용어 사전 (Phase 5-4). `AppSettings`와 따로 `glossary:get`/`glossary:update`로 오간다 (references/data-model.md).
+ * 용어 한 줄은 `용어` 또는 `영어 표기 = 읽기1, 읽기2` 형식이다.
+ */
+export interface GlossarySettings {
+  /** 초안 생성의 입력이 되는 팀 소개 */
+  teamDescription: string
+  terms: string[]
+}
+
 /** 디테일 화면이 한 번에 받는 묶음 */
 export interface MeetingDetail {
   meeting: Meeting

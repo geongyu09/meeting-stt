@@ -111,6 +111,7 @@ export const IPC = {
   //   update.check / update.download / update.install, events.updateAvailable
   // Phase 5
   //   summary.create, events.summary
+  //   glossary.get / glossary.update / glossary.draft (Phase 5-4, 아래 "용어 사전" 절)
   // Phase 5-3 (아래 "녹음 위젯 패널" 절)
   //   recording.state / recording.control / recording.setSpeakerCount / recording.reportError
   //   events.recordingState / events.recordingCommand
@@ -473,6 +474,21 @@ export interface RecordingStateEvent {
 두 전역 단축키(`recordingShortcut`, `widgetShortcut`)를 둔다. 불투명도는 저장 즉시 `windows/widget.ts`의 `applyWidgetOpacity`로 반영하고,
 단축키는 위 "전역 단축키" 절의 저장 순서를 따른다.
 
+설정 화면은 **카테고리별로 묶는다** (2026-09-24 사용자 요청). 항목이 늘어 한 줄 나열로는 찾기 어려워졌기 때문이다.
+페이지 제목(`h1` "설정")은 `pages/Settings`가 갖고, 각 카테고리는 `h2` 제목을 가진 `section`이다.
+
+| 순서 | 카테고리 | 항목 | 위치 |
+| --- | --- | --- | --- |
+| 1 | 녹음·처리 | 원본 녹음 파일 보관(`isAudioKept`), 조용히 처리(`isQuietProcessing`) | `SettingsSection` |
+| 2 | 녹음 위젯 | 위젯 패널(`isWidgetEnabled`), 위젯 반투명(`isWidgetFadeEnabled`), 비활성 불투명도(`widgetFadeOpacity`) | `SettingsSection` |
+| 3 | 단축키 | 녹음 시작·정지(`recordingShortcut`), 위젯 표시·숨김(`widgetShortcut`) | `SettingsSection` |
+| 4 | 모델 | 음성 인식 모델, 요약 모델 | `ModelDownloadSection`, `SummaryModelSection` (온보딩과 공유하므로 따로 감싸는 제목 없이 두 위젯의 `h2`를 그대로 카테고리 제목으로 쓴다) |
+| 5 | 용어 사전 | 팀 소개, 초안 만들기, 용어 목록 (Phase 5-4) | `setting/GlossarySection` (자기 채널로 따로 읽고 쓰므로 `SettingsSection`의 한 번 로드와 무관하다. 모델 위젯과 같이 `children`으로 끼운다) |
+| 6 | 업데이트 | 업데이트 확인(`isUpdateCheckEnabled`), 지금 확인(`UpdateCheck`) | `SettingsSection` |
+
+- 설정값 로드는 한 번만 한다. 그래서 `SettingsSection`이 1~3과 5를 모두 그리고, 모델 카테고리는 `children`으로 받아 3과 5 사이에 끼운다.
+  페이지는 `<SettingsSection><ModelDownloadSection /><SummaryModelSection /></SettingsSection>` 형태로 배치만 한다.
+
 ## 화면 라우트 (Phase 2)
 
 `file://`에서도 동작해야 하므로 `createHashRouter` + `RouterProvider`를 쓴다. 라우팅 관련 코드는 `src/renderer/src/shared/routes/`에만 두고, 다른 코드는 경로 문자열을 직접 쓰지 않는다.
@@ -485,7 +501,7 @@ export interface RecordingStateEvent {
 | `/` | `pages/Home` | `meeting/MeetingListSection` |
 | `/record` | `pages/Record` | `recording/RecorderSection` |
 | `/meetings/:meetingId` | `pages/MeetingDetail` | `meeting/TranscriptSection` |
-| `/settings` | `pages/Settings` | `setting/SettingsSection`, `model/ModelDownloadSection`, `model/SummaryModelSection` |
+| `/settings` | `pages/Settings` | `setting/SettingsSection` (카테고리 묶음, 모델 위젯을 `children`으로 받음), `model/ModelDownloadSection`, `model/SummaryModelSection` |
 | `/onboarding` | `pages/Onboarding` | `model/ModelDownloadSection` |
 | `/widget` | `pages/Widget` | `recording/WidgetPanelSection` (위젯 창 전용, 가드 밖) |
 
@@ -550,6 +566,7 @@ STT·화자 분리와 **같은 방식**(외부 바이너리 spawn)으로 붙인�
 
 - 큐 항목은 `string`이 아니라 `{ kind: 'pipeline' | 'summary'; meetingId: string }`이고, `drain`이 종류에 따라
   `runPipeline` 또는 `runSummary`를 부른다.
+  Phase 5-4의 용어 초안은 회의에 묶이지 않고 결과를 돌려받아야 하므로 `{ kind: 'glossary'; run }` 항목으로 넣는다 (아래 "용어 사전" 절).
 - 실패 처리는 종류마다 다르다. 파이프라인 실패는 `meetings.status='error'`로 남기지만,
   **요약 실패는 회의 상태를 건드리지 않는다** — 회의록은 멀쩡하고 요약만 없는 상태이므로 이벤트로만 알린다.
 
@@ -585,3 +602,41 @@ events: { progress: 'pipeline:progress', summary: 'summary:progress' }
 - llama.cpp 실행 파일의 rpath는 `@loader_path`라 **바이너리와 dylib을 같은 폴더에** 두면 그대로 동작한다 (sherpa-onnx와 같은 구조).
 - 아카이브가 `tar.gz`라 `scripts/shell.ts`의 `extractArchive`는 압축 방식을 고정하지 않고 `tar -xf`로 자동 판별한다.
 - 릴리스 빌드 번호(`b10622` 등)는 `scripts/assets.ts`에 상수로 고정한다. 최신 빌드를 자동 추적하면 체크섬이 매번 바뀐다.
+
+## 용어 사전 (Phase 5-4)
+
+교정(발음 유사도 후보 + O/X 판정)과 인식(whisper `--prompt`)은 둘 다 **정답 용어 목록**이 있어야 한다 (`docs/phase5-refine-results.md`).
+용어 사전은 전역 + 회의별 두 층이고, 이 절은 **전역 층**을 설정에서 만드는 방법이다. 회의별 층은 입력 위치가 정해진 뒤 추가한다.
+
+### 초안은 LLM, 확정은 사람
+
+- 설정의 **팀 소개**(예: "프론트엔드 개발팀, 공용 UI 라이브러리와 패키지 배포를 다룸")를 받아 요약과 같은 `llama-cli` + 요약 모델로 **용어 초안**을 만든다.
+- 초안은 저장하지 않는다. renderer가 편집 중인 목록 뒤에 **새 용어만 덧붙이고**(`=` 앞부분 기준, 대소문자 무시) 사용자가 고친 뒤 저장한다.
+  모델 초안에는 틀린 읽기(Yarn=와이어너)와 일반어가 섞이고, 일반어 하나가 교정 오탐 수십 개를 만든다 (측정 문서).
+- 프롬프트는 "음성 인식이 틀리는 종류(영어 기술 용어·제품·도구 이름·약어·외래어)만, 일반어 제외"로 좁히고 읽기 예시를 준다.
+  출력은 GBNF 문법으로 `한글 용어` 또는 `영어 표기 = 한글 읽기` 줄만 허용한다. 문법 파일·프롬프트는 `src/shared/glossary.ts`에 둔다.
+- **대문자 약어의 읽기는 코드가 만든다** (`CI/CD` → `씨아이 씨디`). 모델은 약어를 자주 틀리게 읽는다. 대문자·숫자만으로 된 2~6자 토큰을 `/`로 나눈 것이 약어다.
+- 요약 모델이 없으면 "초안 만들기"를 막고 요약 모델을 먼저 받으라고 안내한다. 직접 입력은 모델 없이도 된다.
+
+### 실행과 큐
+
+- `glossary:draft`는 **초안을 결과로 돌려주는 invoke**다 (`{ teamDescription }` → `{ terms: string[] }`). 요약과 달리 10~20초로 짧고,
+  결과를 DB가 아니라 편집 중인 화면에 넣으므로 push 이벤트·진행률을 두지 않는다.
+- 요약과 같은 GPU를 쓰므로 **같은 큐(동시성 1)** 에 `kind: 'glossary'`로 넣고, 잡이 끝나면 invoke가 풀린다.
+  회의 처리 중이면 그 뒤에 돈다 — 화면은 "다른 작업이 끝난 뒤 만듭니다"를 함께 보여준다. 실패는 invoke reject(한국어 메시지)로만 알린다.
+- 임시 파일은 `userData/glossary/`에 만들고 끝나면 실패해도 지운다 (요약과 같은 규칙).
+
+### IPC
+
+| 키 | 채널 | 방향 | 용도 |
+| --- | --- | --- | --- |
+| `glossary.get` | `glossary:get` | invoke | `GlossarySettings` 조회 |
+| `glossary.update` | `glossary:update` | invoke | `GlossarySettings` 전체 저장. 정리(공백·빈 줄·중복 제거)한 값을 돌려준다 |
+| `glossary.draft` | `glossary:draft` | invoke | 팀 소개로 초안 생성. 저장하지 않는다 |
+
+### 화면
+
+- `setting/GlossarySection` — 팀 소개 `textarea`(최대 500자), "초안 만들기" 버튼, 용어 목록 `textarea`(한 줄에 하나, 형식 안내 포함), "저장" 버튼.
+  목록은 줄 편집이 가장 빠르고 `scripts/refine.ts`의 용어 파일과 형식이 같아 복사해 옮기기도 쉽다. 표 형태 편집 UI는 만들지 않는다.
+- 저장은 버튼으로 한다 (blur 저장 아님). 초안을 덧붙인 직후 사용자가 훑어보고 고칠 시간을 준다. 저장하지 않은 변경이 있으면 버튼 옆에 표시한다.
+

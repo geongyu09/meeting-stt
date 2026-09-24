@@ -16,3 +16,8 @@
 .back:hover {
   color: var(--color-text);
 }
+
+.title {
+  margin: 0;
+  font-size: var(--font-xl);
+}

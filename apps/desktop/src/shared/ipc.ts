@@ -1,5 +1,6 @@
 import type {
   AppSettings,
+  GlossarySettings,
   Meeting,
   MeetingDetail,
   ModelKey,
@@ -36,6 +37,7 @@ export const IPC = {
   settings: { get: 'settings:get', update: 'settings:update' },
   clipboard: { writeText: 'clipboard:writeText' },
   summary: { create: 'summary:create' },
+  glossary: { get: 'glossary:get', update: 'glossary:update', draft: 'glossary:draft' },
   models: {
     status: 'models:status',
     download: 'models:download',
@@ -176,6 +178,22 @@ export interface MergeSpeakersRequest {
 export type GetSettingsResponse = AppSettings
 export type UpdateSettingsRequest = AppSettings
 export type UpdateSettingsResponse = AppSettings
+
+export type GetGlossaryResponse = GlossarySettings
+export type UpdateGlossaryRequest = GlossarySettings
+/** 공백·빈 줄·중복 용어를 정리해 저장한 값 */
+export type UpdateGlossaryResponse = GlossarySettings
+
+/**
+ * 초안은 10~20초로 짧아 invoke로 결과를 기다린다. 요약과 같은 큐에서 돌아 회의 처리 중이면 그 뒤에 풀린다.
+ * 저장하지 않는다 — 사용자가 고친 뒤 `glossary:update`로 저장한다 (references/architecture.md "용어 사전").
+ */
+export interface DraftGlossaryRequest {
+  teamDescription: string
+}
+export interface DraftGlossaryResponse {
+  terms: string[]
+}
 
 export interface WriteClipboardTextRequest {
   text: string
