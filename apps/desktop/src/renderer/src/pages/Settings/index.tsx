@@ -3,6 +3,7 @@ import SummaryModelSection from '@renderer/modules/widgets/model/SummaryModelSec
 import GlossarySection from '@renderer/modules/widgets/setting/GlossarySection'
 import LlmSection from '@renderer/modules/widgets/setting/LlmSection'
 import SettingsSection from '@renderer/modules/widgets/setting/SettingsSection'
+import PageToc from '@renderer/shared/components/composites/PageToc'
 import SettingGroup from '@renderer/shared/components/primitives/layout/SettingGroup'
 import TopBar from '@renderer/shared/components/primitives/layout/TopBar'
 
@@ -12,7 +13,7 @@ export default function Settings() {
   return (
     <>
       <TopBar title="설정" />
-      <div className={styles.scroll}>
+      <PageToc label="설정 목차">
         <div className={styles.page}>
           <h1 className={styles.title}>설정</h1>
           <SettingsSection>
@@ -24,7 +25,7 @@ export default function Settings() {
             <GlossarySection />
           </SettingsSection>
         </div>
-      </div>
+      </PageToc>
     </>
   )
 }

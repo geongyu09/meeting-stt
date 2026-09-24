@@ -1,7 +1,8 @@
+/* 카테고리끼리 한 덩어리로 읽히지 않도록 행 간격(16px)보다 훨씬 넓게 띄운다 */
 .section {
   display: flex;
   flex-direction: column;
-  gap: 36px;
+  gap: 56px;
 }
 
 .message {
