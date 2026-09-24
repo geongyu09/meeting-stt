@@ -63,11 +63,11 @@ export default function WidgetPanelSection() {
         />
       </div>
       {isRecording ? (
-        <Button variant="danger" onClick={stop} disabled={isBusy}>
+        <Button variant="secondary" onClick={stop} disabled={isBusy}>
           녹음 정지
         </Button>
       ) : (
-        <Button onClick={start} disabled={isBusy || !isModelReady}>
+        <Button variant="accent" onClick={start} disabled={isBusy || !isModelReady}>
           녹음 시작
         </Button>
       )}

@@ -59,11 +59,11 @@ export default function RecorderSection() {
         </p>
       </div>
       {isRecording ? (
-        <Button variant="danger" onClick={() => handleControl('stop')}>
-          녹음 정지
-        </Button>
+        <Button onClick={() => handleControl('stop')}>녹음 정지</Button>
       ) : (
-        <Button onClick={() => handleControl('start')}>녹음 시작</Button>
+        <Button variant="accent" onClick={() => handleControl('start')}>
+          녹음 시작
+        </Button>
       )}
       {controlError ? (
         <p className={styles.error} role="alert">
