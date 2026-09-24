@@ -34,7 +34,7 @@ packages/design/   디자인 토큰·동봉 글꼴 (@meeting-stt/design, CSS·�
 
 | 새 코드가 이런 것이면 | 여기 |
 | --- | --- |
-| 두 앱이 **같은 값·같은 알고리즘**을 써야 하는 순수 TS (병합, 포맷, 정규화 공식·상수, 참석자 수 규칙, 오디오 형식) | `packages/core/src/<역할>.ts` |
+| 두 앱이 **같은 값·같은 알고리즘**을 써야 하는 순수 TS (병합, 포맷, 정규화 공식·상수, 참석자 수 규칙, 오디오 형식, 용어 읽기 사전) | `packages/core/src/<역할>.ts` |
 | 어느 모델을 쓰는지 (저장소·파일명·체크섬·양자화·용량) | `packages/models/src/{desktop,web}.ts` |
 | 두 앱이 같이 쓰는 디자인 토큰(색·간격·반경·글자 크기)·글꼴 | `packages/design/src/{base,fonts}.css`, `packages/design/src/fonts/` |
 | Electron·Node·SQLite·동봉 바이너리를 만지거나 앱 화면·IPC인 것 | `apps/desktop/src/…` |
@@ -49,7 +49,7 @@ packages/design/   디자인 토큰·동봉 글꼴 (@meeting-stt/design, CSS·�
 
 | 위치 | 런타임 | 역할 | 금지 |
 | --- | --- | --- | --- |
-| `packages/core/src` | 두 앱 전부 (순수 TS) | 파이프라인 중간 산출물 타입, 화자 배정·발화 병합, 복사 포맷, 정규화 공식·상수, 참석자 수 규칙, 오디오 형식 상수 | 런타임 의존(`electron`, `fs`, `react`, DOM) 일체, 앱·다른 패키지 import |
+| `packages/core/src` | 두 앱 전부 (순수 TS) | 파이프라인 중간 산출물 타입, 화자 배정·발화 병합, 복사 포맷, 정규화 공식·상수, 참석자 수 규칙, 오디오 형식 상수, 용어 읽기 사전 | 런타임 의존(`electron`, `fs`, `react`, DOM) 일체, 앱·다른 패키지 import |
 | `packages/models/src` | 두 앱 전부 (순수 데이터) | 모델 카탈로그 — 데스크탑 자산(URL·sha256·용량), 웹 저장소 id·dtype·ONNX 파일명 | 같음. 다운로드·파일 IO는 앱에 둠 |
 | `src/shared` | 이 앱의 양쪽 (순수 TS) | 도메인 타입, IPC 채널·payload 타입, 병합·포맷 같은 순수 함수 | 런타임 의존(`electron`, `fs`, `react`) 일체 |
 | `src/main` | Node | 창 생성, 녹음 파일 쓰기, 파이프라인(spawn), SQLite, 모델 관리, IPC 핸들러 | `react`, 동기 IO(`spawnSync`, 요청 경로의 `readFileSync`) |
@@ -171,6 +171,7 @@ src/
 | `clipboard` | 시스템 클립보드 쓰기 (api 래퍼 전용 도메인, 컴포넌트 폴더는 만들지 않음) |
 | `widget` | 녹음 위젯 패널 표시·숨김 (api 래퍼 전용 도메인. 패널 UI는 `recording/WidgetPanelSection`) |
 | `glossary` | 전역 용어 사전 조회·저장·초안 생성 (api 래퍼 전용 도메인. 화면은 `setting/GlossarySection`) |
+| `llm` | LLM 공급자 상태 조회·공급자 저장·API 키 저장·연결 확인 (api 래퍼·`useLlmStatus` 훅. 화면은 `setting/LlmSection`) |
 
 ## 레이어별 역할 (renderer)
 

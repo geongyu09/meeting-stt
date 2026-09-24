@@ -9,7 +9,7 @@ import styles from './index.module.css'
 const TEAM_ROWS = 3
 
 const TEAM_PLACEHOLDER =
-  '예: 프론트엔드 개발팀입니다. 공용 UI 라이브러리와 패키지 배포를 주로 다룹니다.'
+  '예: 프론트엔드 개발팀입니다. Electron, React, whisper.cpp로 회의록 앱을 만들고 pnpm 모노레포로 관리합니다.'
 
 /** 교정·인식에 쓰는 전역 용어 사전. 팀 소개로 초안을 만들고 사람이 고쳐 저장한다 */
 export default function GlossarySection() {
@@ -50,6 +50,10 @@ export default function GlossarySection() {
       <>
         <label className={styles.field}>
           <span className={styles.label}>팀 소개</span>
+          <span className={styles.hint}>
+            쓰고 있는 기술·도구·제품 이름을 영어 그대로 적을수록 초안이 정확해집니다. 적은 이름은
+            초안 맨 앞에 들어갑니다.
+          </span>
           <textarea
             className={styles.textarea}
             rows={TEAM_ROWS}

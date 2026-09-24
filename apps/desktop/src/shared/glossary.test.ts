@@ -3,14 +3,17 @@ import { describe, expect, it } from 'vitest'
 import {
   acronymReading,
   buildGlossaryDraftPrompt,
+  codeReadingLineOf,
   GLOSSARY_MAX_TERMS,
   GLOSSARY_TEAM_MAX_CHARS,
   GLOSSARY_TERM_MAX_CHARS,
   mergeGlossaryTerms,
   normalizeGlossaryTerms,
   parseGlossaryDraft,
+  prependTeamTerms,
   readGlossarySettings,
-  readTeamDescription
+  readTeamDescription,
+  teamTermsOf
 } from './glossary'
 
 // Qwen3-4B-Instruct-2507 Q4_K_M 실제 초안 출력에서 옮긴 줄 (docs/phase5-refine-results.md)
@@ -36,11 +39,35 @@ describe('acronymReading', () => {
     expect(acronymReading('CI/CD')).toBe('씨아이 씨디')
   })
 
+  it('약어 안의 숫자는 영어로 읽는다', () => {
+    expect(acronymReading('S3')).toBe('에스쓰리')
+    expect(acronymReading('GA4')).toBe('지에이포')
+  })
+
   it('약어가 아니면 undefined', () => {
     expect(acronymReading('React')).toBeUndefined()
     expect(acronymReading('npm')).toBeUndefined()
     expect(acronymReading('A')).toBeUndefined()
+    expect(acronymReading('2024')).toBeUndefined()
     expect(acronymReading('임상시험')).toBeUndefined()
+  })
+})
+
+describe('codeReadingLineOf', () => {
+  it('사전에 있으면 정식 표기와 사전 읽기로 줄을 만든다', () => {
+    expect(codeReadingLineOf('github')).toBe('GitHub = 깃허브')
+  })
+
+  it('사전에 없는 약어는 약어 읽기로 줄을 만든다', () => {
+    expect(codeReadingLineOf('JWT')).toBe('JWT = 제이더블유티')
+  })
+
+  it('약어 모양이어도 사전이 이긴다', () => {
+    expect(codeReadingLineOf('SQL')).toBe('SQL = 에스큐엘, 시퀄')
+  })
+
+  it('사전에도 없고 약어도 아니면 undefined', () => {
+    expect(codeReadingLineOf('whisper.cpp')).toBeUndefined()
   })
 })
 
@@ -59,6 +86,40 @@ describe('parseGlossaryDraft', () => {
     expect(terms).toContain('ROAS = 알오에이에스')
   })
 
+  it('사전에 있는 용어는 모델 읽기를 버리고 사전 읽기로 바꾼다', () => {
+    expect(terms).toContain('Yarn = 얀')
+    expect(
+      parseGlossaryDraft(
+        'Jira = 재자\nGit = 기트\nRedux = 레덕스\nTailwind = 타일윈드\nESLint = 엔엘식\n'
+      )
+    ).toEqual([
+      'Jira = 지라',
+      'Git = 깃',
+      'Redux = 리덕스',
+      'Tailwind = 테일윈드',
+      'ESLint = 이에스린트'
+    ])
+  })
+
+  it('사전 표기와 대소문자가 달라도 찾고 표기를 사전 표기로 맞춘다', () => {
+    expect(parseGlossaryDraft('Github = 깃헙\nSQL = 에스큐엘엘\n')).toEqual([
+      'GitHub = 깃허브',
+      'SQL = 에스큐엘, 시퀄'
+    ])
+  })
+
+  it('사전에 없는 용어는 모델 읽기를 그대로 둔다', () => {
+    expect(parseGlossaryDraft('whisper.cpp = 위스퍼 씨피피\n')).toEqual([
+      'whisper.cpp = 위스퍼 씨피피'
+    ])
+  })
+
+  it('.js 이름은 읽기 끝을 제이에스로 고친다', () => {
+    expect(
+      parseGlossaryDraft('Next.js = 넥스트 포인트\nVue.js = 뷰\nNode.js = 노드 제이에스\n')
+    ).toEqual(['Next.js = 넥스트 제이에스', 'Vue.js = 뷰 제이에스', 'Node.js = 노드 제이에스'])
+  })
+
   it('같은 용어는 한 번만 남긴다', () => {
     expect(terms.filter((term) => term.startsWith('ROAS'))).toHaveLength(1)
   })
@@ -66,6 +127,40 @@ describe('parseGlossaryDraft', () => {
   it('형식에 맞지 않는 줄은 버린다', () => {
     expect(parseGlossaryDraft('React = 리액트\nReact\n= 리액트\nVue =\n1. 모노레포\n')).toEqual([
       'React = 리액트'
+    ])
+  })
+})
+
+describe('teamTermsOf', () => {
+  it('팀 소개의 영어 이름을 적힌 순서대로 찾는다', () => {
+    expect(
+      teamTermsOf('프론트엔드팀. Electron, React, whisper.cpp로 앱을 만들고 react와 S3를 씁니다.')
+    ).toEqual(['Electron', 'React', 'whisper.cpp', 'S3'])
+  })
+
+  it('한 글자와 숫자만 있는 토큰은 뺀다', () => {
+    expect(teamTermsOf('A팀, 2024년 목표')).toEqual([])
+  })
+})
+
+describe('prependTeamTerms', () => {
+  it('팀 소개 이름을 앞에 두고 모델 줄이 있으면 그 줄을 쓴다', () => {
+    expect(
+      prependTeamTerms({
+        terms: ['Vite = 비트', 'React = 리액트'],
+        teamDescription: 'whisper.cpp, React, sherpa-onnx 앱'
+      })
+    ).toEqual(['whisper.cpp', 'React = 리액트', 'sherpa-onnx', 'Vite = 비트'])
+  })
+
+  it('모델이 빠뜨린 약어는 코드 읽기로 넣는다', () => {
+    expect(prependTeamTerms({ terms: [], teamDescription: 'STT 앱' })).toEqual(['STT = 에스티티'])
+  })
+
+  it('모델이 빠뜨린 사전 용어는 사전 읽기로 넣는다', () => {
+    expect(prependTeamTerms({ terms: [], teamDescription: 'Electron, jira 앱' })).toEqual([
+      'Electron = 일렉트론',
+      'Jira = 지라'
     ])
   })
 })

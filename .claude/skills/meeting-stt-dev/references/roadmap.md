@@ -194,6 +194,7 @@
 - [x] 순수 로직 `src/shared/glossary.ts`(초안 프롬프트·GBNF 문법·출력 파싱·약어 읽기·병합·검증) + vitest
 - [x] main: `src/main/glossary/draft.ts`(llama-cli 실행), `db/settings.ts` 읽기·쓰기, 핸들러
 - [x] renderer: 설정 "용어 사전" 카테고리(`setting/GlossarySection`) — 팀 소개 입력, 초안 만들기, 용어 목록 편집·저장
+- [x] 검수한 읽기 사전 `@meeting-stt/core/termReadings`로 초안의 단어 읽기 덮어쓰기 (2026-09-24, `architecture.md` "용어 사전")
 - [ ] **`pnpm dev`로 실제 앱에서 확인** — 팀 소개 입력 → 초안 → 편집 → 저장 → 재시작 후 유지
 - [ ] 회의별 용어 층과 입력 위치 (인식 단계 사용 여부 결정 뒤)
 - [ ] 제안 저장 스키마, IPC 계약(`refine:create` + 진행률 push), 큐 `kind: 'refine'`
