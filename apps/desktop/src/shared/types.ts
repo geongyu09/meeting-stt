@@ -73,3 +73,29 @@ export type PipelineStage = 'stt' | 'diarize' | 'merge' | 'save' | 'done' | 'err
  * 'reduce'는 부분 요약을 하나로 합치는 단계다. 'done'·'error'는 마지막에 한 번만 보낸다.
  */
 export type SummaryStage = 'summarize' | 'reduce' | 'done' | 'error'
+
+/** 교정 대상 발화 하나 (Phase 5-4). 화자 라벨은 넘기지 않는다 — 모델이 고칠 대상이 아니다 */
+export interface RefineSource {
+  id: string
+  text: string
+}
+
+/**
+ * 치환 후보 한 쌍. 발화의 `from`이 용어 사전의 `to`를 잘못 받아 적은 것일 수 있다는 뜻이다.
+ * 코드가 발음 유사도로 만들고, LLM이 문맥을 보고 맞는지 판정한다 (docs/phase5-refine-results.md)
+ */
+export interface RefinePair {
+  utteranceId: string
+  from: string
+  to: string
+  /** `from`과 용어의 한글 발음의 자모 유사도 (0~1) */
+  similarity: number
+}
+
+/** 발화 하나에 판정을 통과한 쌍을 모두 적용한 수정 제안. 원문은 사용자가 수락할 때만 바뀐다 */
+export interface RefineSuggestion {
+  id: string
+  before: string
+  after: string
+  pairs: Pick<RefinePair, 'from' | 'to'>[]
+}
