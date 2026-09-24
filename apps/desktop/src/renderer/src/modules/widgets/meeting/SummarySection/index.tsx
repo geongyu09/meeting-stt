@@ -1,5 +1,7 @@
+import { useId, useState } from 'react'
 import { Link } from 'react-router'
 import Button from '@renderer/shared/components/primitives/ui/Button'
+import Icon from '@renderer/shared/components/primitives/ui/Icon'
 import ProgressBar from '@renderer/shared/components/primitives/ui/ProgressBar'
 import useMeeting from '@renderer/shared/hooks/domain/meeting/useMeeting'
 import useSummary from '@renderer/shared/hooks/domain/meeting/useSummary'
@@ -14,6 +16,8 @@ interface SummarySectionProps {
   meetingId: string
 }
 
+const CHEVRON_SIZE = 14
+
 export default function SummarySection({ meetingId }: SummarySectionProps) {
   const { meeting, utterances } = useMeeting({ meetingId })
   const { summary, stage, percent, error, isRunning, createSummary } = useSummary({
@@ -22,6 +26,8 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
   })
   const { isCopied, copyError, copySummary } = useSummaryCopy({ summary })
   const { status: modelStatus } = useModelStatus()
+  const [isExpanded, setIsExpanded] = useState(true)
+  const bodyId = useId()
 
   // 회의록이 아직 없으면 요약할 것도 없다
   if (meeting?.status !== 'done') return null
@@ -29,6 +35,8 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
   const hasTranscript = utterances.length > 0
   // 상태를 아직 모르면 막지 않는다. 요약 모델은 선택 모델이라 설정에서 따로 받는다 (references/distribution.md)
   const isModelMissing = modelStatus !== null && !modelStatus.isSummaryReady
+  // 접어 둔 채로 요약이 돌면 진행률이 안 보이므로 캡션이 대신 알려 준다
+  const caption = !isExpanded && isRunning ? `요약 중 ${percent}%` : '로컬 모델'
 
   const renderBody = () => {
     if (isRunning) {
@@ -63,30 +71,45 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
   return (
     <section className={styles.section} aria-label="회의 요약">
       <header className={styles.header}>
-        <h2 className={styles.title}>요약</h2>
-        <span className={styles.caption}>로컬 모델</span>
+        <button
+          type="button"
+          className={styles.toggle}
+          aria-expanded={isExpanded}
+          aria-controls={bodyId}
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <span className={styles.chevron}>
+            <Icon name="chevronDown" size={CHEVRON_SIZE} />
+          </span>
+          <h2 className={styles.title}>요약</h2>
+        </button>
+        <span className={styles.caption}>{caption}</span>
       </header>
 
-      {renderBody()}
+      {isExpanded && (
+        <div id={bodyId} className={styles.body}>
+          {renderBody()}
 
-      {error && <p className={styles.error}>{error}</p>}
-      {copyError && <p className={styles.error}>{copyError}</p>}
+          {error && <p className={styles.error}>{error}</p>}
+          {copyError && <p className={styles.error}>{copyError}</p>}
 
-      <div className={styles.actions}>
-        {summary && !isRunning && (
-          <Button variant="secondary" size="sm" className={styles.action} onClick={copySummary}>
-            {isCopied ? '복사됨' : '요약 복사'}
-          </Button>
-        )}
-        <Button
-          size="sm"
-          className={styles.action}
-          onClick={createSummary}
-          disabled={isRunning || !hasTranscript || isModelMissing}
-        >
-          {summary ? '다시 요약' : '요약 만들기'}
-        </Button>
-      </div>
+          <div className={styles.actions}>
+            {summary && !isRunning && (
+              <Button variant="secondary" size="sm" className={styles.action} onClick={copySummary}>
+                {isCopied ? '복사됨' : '요약 복사'}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              className={styles.action}
+              onClick={createSummary}
+              disabled={isRunning || !hasTranscript || isModelMissing}
+            >
+              {summary ? '다시 요약' : '요약 만들기'}
+            </Button>
+          </div>
+        </div>
+      )}
     </section>
   )
 }

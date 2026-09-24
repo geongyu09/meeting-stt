@@ -213,6 +213,35 @@ describe('SummarySection', () => {
     expect(screen.getByRole('button', { name: '요약 만들기' }).hasAttribute('disabled')).toBe(false)
   })
 
+  it('제목을 누르면 요약 본문과 버튼을 접고 다시 누르면 펼친다', async () => {
+    await renderSection(detailOf({ meeting: meetingOf({ summary: '## 핵심 요약\n- 배포 연기' }) }))
+    const toggle = screen.getByRole('button', { name: '요약' })
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+
+    await userEvent.click(toggle)
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByText(/배포 연기/)).toBeNull()
+    expect(screen.queryByRole('button', { name: '다시 요약' })).toBeNull()
+
+    await userEvent.click(toggle)
+
+    expect(screen.getByText(/배포 연기/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: '다시 요약' })).toBeTruthy()
+  })
+
+  it('접어 둔 채 요약이 돌면 캡션에 진행률을 보여 준다', async () => {
+    await renderSection(detailOf())
+    await userEvent.click(screen.getByRole('button', { name: '요약 만들기' }))
+    await userEvent.click(screen.getByRole('button', { name: '요약' }))
+
+    await emitSummaryProgress({ meetingId: MEETING_ID, stage: 'reduce', percent: 80 })
+
+    expect(screen.getByText('요약 중 80%')).toBeTruthy()
+    expect(screen.queryByRole('progressbar')).toBeNull()
+  })
+
   it('요약을 클립보드에 복사한다', async () => {
     await renderSection(detailOf({ meeting: meetingOf({ summary: '## 핵심 요약\n- 배포 연기' }) }))
 
