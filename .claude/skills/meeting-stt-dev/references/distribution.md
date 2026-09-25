@@ -205,6 +205,14 @@ zip 141MB가 91초(1.6MB/s), dmg 142MB가 101초(1.4MB/s)에 `201 Created`로 �
 electron-builder가 두 파일을 동시에 올리면서 드래프트를 둘로 쪼개던 것이 실패의 큰 몫이었다.
 작은 파일(`*.blockmap`, `latest-mac.yml`)은 `gh release upload`로 한 번에 올려도 문제없었다.
 
+#### v0.2.1 실측 (2026-09-25) — 서명 단계가 타임스탬프 서버 때문에 한 번 실패했다
+
+`build:mac:release`가 `codesign --timestamp` 도중 `The timestamp service is not available`로 죽었다.
+`timestamp.apple.com`이 잠깐 응답하지 않은 것이라 **같은 명령을 그대로 다시 돌리면 통과한다** — 설정을 건드릴 일이 아니다.
+재실행 전에 `dist/`를 지운다 (반쯤 서명된 앱 번들이 남아 있다). 백그라운드로 돌릴 때 셸 마지막 명령이 `echo`면
+종료 코드가 0으로 보이므로 로그의 `notarization successful`·`EXIT=`를 직접 확인한다.
+업로드는 zip 150MB·dmg 150MB가 각 11초(13~14MB/s)에 `201`로 끝났다. 재시도 0회.
+
 ## 7. 자동 업데이트 — 기본은 꺼 둔다
 
 `electron-updater`를 넣되 **기본값은 꺼짐**이고, 설정의 `update.check`(기본 `false`)가 켜져 있을 때만 확인한다.
