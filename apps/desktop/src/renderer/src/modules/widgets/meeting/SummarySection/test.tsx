@@ -29,7 +29,8 @@ vi.mock('@renderer/shared/api/llm', () => ({
 }))
 vi.mock('@renderer/shared/api/events', () => ({
   onPipelineProgress: vi.fn(() => () => {}),
-  onSummaryProgress: vi.fn(() => () => {})
+  onSummaryProgress: vi.fn(() => () => {}),
+  onRefineProgress: vi.fn(() => () => {})
 }))
 
 import { writeClipboardTextApi } from '@renderer/shared/api/clipboard'
@@ -47,6 +48,7 @@ const meetingOf = (overrides: Partial<Meeting> = {}): Meeting => ({
   createdAt: new Date(2026, 7, 26, 15, 12).getTime(),
   durationSec: 125,
   status: 'done',
+  hasAudio: false,
   ...overrides
 })
 
@@ -64,6 +66,7 @@ const detailOf = (overrides: Partial<MeetingDetail> = {}): MeetingDetail => ({
   meeting: meetingOf(),
   utterances: [utteranceOf()],
   speakers: [{ meetingId: MEETING_ID, label: 'speaker_00', displayName: null }],
+  refineResult: null,
   ...overrides
 })
 
@@ -242,7 +245,8 @@ describe('SummarySection', () => {
 
   it('제목을 누르면 요약 본문과 버튼을 접고 다시 누르면 펼친다', async () => {
     await renderSection(detailOf({ meeting: meetingOf({ summary: '## 핵심 요약\n- 배포 연기' }) }))
-    const toggle = screen.getByRole('button', { name: '요약' })
+    // 캡션(공급자·진행률)이 헤더 버튼 안에 있어 이름이 고정되지 않으므로 펼침 상태로 찾는다
+    const toggle = screen.getByRole('button', { expanded: true })
 
     expect(toggle.getAttribute('aria-expanded')).toBe('true')
 
@@ -261,7 +265,7 @@ describe('SummarySection', () => {
   it('접어 둔 채 요약이 돌면 캡션에 진행률을 보여 준다', async () => {
     await renderSection(detailOf())
     await userEvent.click(screen.getByRole('button', { name: '요약 만들기' }))
-    await userEvent.click(screen.getByRole('button', { name: '요약' }))
+    await userEvent.click(screen.getByRole('button', { expanded: true }))
 
     await emitSummaryProgress({ meetingId: MEETING_ID, stage: 'reduce', percent: 80 })
 

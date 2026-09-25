@@ -1,32 +1,32 @@
 .section {
+  --section-padding: 18px;
+
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: 18px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
 }
 
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-/* 제목 자체가 접기 버튼이라 버튼 기본 모양을 지우고 글자만 남긴다 */
+/* 헤더 전체가 접기 버튼이라 카드 위쪽을 좌우 끝까지 채우고, 버튼 기본 모양은 지운다 */
 .toggle {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin: 0 calc(-1 * var(--space-1));
-  padding: var(--space-1);
+  width: 100%;
+  margin: 0;
+  padding: var(--section-padding);
   color: var(--color-text);
+  text-align: left;
   background: none;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: inherit;
   cursor: pointer;
+}
+
+.toggle[aria-expanded='true'] {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
 .toggle:hover {
@@ -35,7 +35,7 @@
 
 .toggle:focus-visible {
   outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+  outline-offset: -2px;
 }
 
 .chevron {
@@ -54,29 +54,25 @@
   font-weight: 700;
 }
 
-.body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
 .caption {
+  margin-left: auto;
   color: var(--color-text-muted);
   font-size: var(--font-xs);
 }
 
-/* 마크다운 라이브러리를 들이지 않고 줄바꿈만 보존해 보여 준다.
-   긴 요약이 회의록을 화면 밖으로 밀어내지 않도록 줄 수 기준으로 높이를 막고 안에서 스크롤한다 */
-.summary {
-  --summary-line-height: 1.75;
-  --summary-max-lines: 22;
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 0 var(--section-padding) var(--section-padding);
+}
 
-  max-height: calc(var(--summary-line-height) * var(--summary-max-lines) * 1em);
+/* 마크다운 라이브러리를 들이지 않고 줄바꿈만 보존해 보여 준다.
+   긴 요약은 레일(오른쪽 열)이 스스로 스크롤하므로 여기서 높이를 막지 않는다 */
+.summary {
   margin: 0;
-  padding-right: var(--space-2);
-  overflow-y: auto;
   font-size: var(--font-base);
-  line-height: var(--summary-line-height);
+  line-height: 1.75;
   white-space: pre-wrap;
 }
 

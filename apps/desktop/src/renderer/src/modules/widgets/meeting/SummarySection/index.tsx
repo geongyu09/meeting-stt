@@ -73,21 +73,20 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
 
   return (
     <section className={styles.section} aria-label="회의 요약">
-      <header className={styles.header}>
-        <button
-          type="button"
-          className={styles.toggle}
-          aria-expanded={isExpanded}
-          aria-controls={bodyId}
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          <span className={styles.chevron}>
-            <Icon name="chevronDown" size={CHEVRON_SIZE} />
-          </span>
-          <h2 className={styles.title}>요약</h2>
-        </button>
+      {/* 헤더 전체가 접기 버튼이라 상단 어디를 눌러도 접힌다 */}
+      <button
+        type="button"
+        className={styles.toggle}
+        aria-expanded={isExpanded}
+        aria-controls={bodyId}
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <span className={styles.chevron}>
+          <Icon name="chevronDown" size={CHEVRON_SIZE} />
+        </span>
+        <h2 className={styles.title}>요약</h2>
         <span className={styles.caption}>{caption}</span>
-      </header>
+      </button>
 
       {isExpanded && (
         <div id={bodyId} className={styles.body}>
