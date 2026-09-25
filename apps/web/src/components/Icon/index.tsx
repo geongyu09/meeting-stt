@@ -1,7 +1,18 @@
 import type { ReactNode } from 'react'
 
 export type IconName =
-  'mic' | 'search' | 'settings' | 'copy' | 'markdown' | 'more' | 'close' | 'check' | 'chevronDown'
+  | 'mic'
+  | 'search'
+  | 'settings'
+  | 'copy'
+  | 'markdown'
+  | 'more'
+  | 'close'
+  | 'check'
+  | 'chevronDown'
+  | 'file'
+  | 'info'
+  | 'trash'
 
 interface IconProps {
   name: IconName
@@ -54,7 +65,28 @@ const PATHS: Record<IconName, ReactNode> = {
   ),
   close: <path d="M6 6l12 12M18 6 6 18" />,
   check: <path d="m5 12 5 5 9-10" />,
-  chevronDown: <path d="m6 9 6 6 6-6" />
+  chevronDown: <path d="m6 9 6 6 6-6" />,
+  file: (
+    <>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M14 3v5h5" />
+    </>
+  ),
+  info: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8h.01" />
+      <path d="M11 12h1v5h1" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M4 7h16" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M6 7l1 13h10l1-13" />
+      <path d="M9 7V4h6v3" />
+    </>
+  )
 }
 
 /** 장식용이다. 아이콘만 있는 버튼은 버튼 쪽에 aria-label을 붙인다 */

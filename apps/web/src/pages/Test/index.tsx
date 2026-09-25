@@ -2,16 +2,18 @@ import { useEffect, useRef, useState } from 'react'
 
 import { isValidSpeakerCount } from '@meeting-stt/core/speakerCount'
 
-import { probeEnvironment, type EnvironmentInfo } from './lib/environment'
-import { mergeMemoryReports, startMemorySampler, type MemoryReport } from './lib/memory'
-import { probeModelCache, type ModelCacheInfo } from './lib/modelCache'
-import { loadAudio, type LoadedAudio } from './pipeline/loadAudio'
-import { runPipeline, type PipelineProgress, type PipelineResult } from './pipeline/runPipeline'
-import AudioPanel from './ui/AudioPanel'
-import EnvironmentPanel from './ui/EnvironmentPanel'
-import RecordPanel from './ui/RecordPanel'
-import RunPanel, { type RunOptions } from './ui/RunPanel'
-import TranscriptPanel from './ui/TranscriptPanel'
+import { probeEnvironment, type EnvironmentInfo } from '../../lib/environment'
+import { mergeMemoryReports, startMemorySampler, type MemoryReport } from '../../lib/memory'
+import { probeModelCache, type ModelCacheInfo } from '../../lib/modelCache'
+import { loadAudio, type LoadedAudio } from '../../pipeline/loadAudio'
+import { runPipeline, type PipelineProgress, type PipelineResult } from '../../pipeline/runPipeline'
+import AudioPanel from '../../ui/AudioPanel'
+import EnvironmentPanel from '../../ui/EnvironmentPanel'
+import RecordPanel from '../../ui/RecordPanel'
+import RunPanel, { type RunOptions } from '../../ui/RunPanel'
+import TranscriptPanel from '../../ui/TranscriptPanel'
+
+import './legacy.css'
 
 const DEFAULT_OPTIONS: RunOptions = {
   speakerCountText: '3',
@@ -28,7 +30,7 @@ const parseSpeakerCount = (text: string) => {
 
 const toMessage = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
-export default function App() {
+export default function Test() {
   const [environment, setEnvironment] = useState<EnvironmentInfo | null>(null)
   const [modelCache, setModelCache] = useState<ModelCacheInfo | null>(null)
   const [file, setFile] = useState<File | null>(null)

@@ -14,7 +14,8 @@ pnpm install          # 저장소 루트에서 (워크스페이스 전체를 한
 pnpm dev:web          # 또는 pnpm --filter @meeting-stt/web run dev
 ```
 
-`http://localhost:5180`에서 Chrome으로 연다. 첫 실행 때 모델을 내려받는다 (q4f16 기준 약 600MB).
+`http://localhost:5180`에서 Chrome으로 연다. 시작 화면에서 참석자 수를 넣고 녹음하면 기록이 이 브라우저(IndexedDB)에 저장되고,
+사이드바에서 다시 열 수 있다. 장치·모델·정밀도를 손으로 바꿔 재야 하면 리디자인 전 페이지인 `/test`를 연다 (계획 §10). 첫 실행 때 모델을 내려받는다 (q4f16 기준 약 600MB).
 브라우저 캐시(Cache Storage)에 남으므로 두 번째부터는 네트워크를 쓰지 않는다.
 
 **진행률에 "내려받는 중"이 떠도 실제로 받는 게 아닐 수 있다.** transformers.js는 캐시에서 읽을 때도
@@ -46,7 +47,11 @@ pnpm --filter @meeting-stt/web exec tsx scripts/smokeModels.ts <16kHz mono wav> 
 | `src/audio/`    | 파일 → 16kHz mono `Float32Array`, 파형, 마이크 녹음(워크릿·Int16 블록·WAV)                           |
 | `src/pipeline/` | 음량 정규화(공식은 core), VAD 후처리, 무음 제거 타임라인, powerset 디코딩, 군집, 워커 오케스트레이션 |
 | `src/workers/`  | 화자 분리 워커, VAD+STT 워커                                                                         |
-| `src/ui/`       | 환경 패널, 녹음 패널, 오디오 패널, 실행 패널, 결과 패널                                              |
+| `src/pages/`    | 화면 — 시작(`/`)·녹음 중(`/record`)·기록(`/meetings/:id`)·리디자인 전 프로토타입(`/test`)            |
+| `src/shell/`    | 사이드바·상단 바 등 모든 화면이 함께 쓰는 틀                                                         |
+| `src/state/`    | 화면을 옮겨도 이어지는 상태 — 저장된 기록 목록, 녹음, 파이프라인 잡 (React context)                  |
+| `src/lib/`      | 환경 확인, 모델 캐시 조회, IndexedDB 기록 저장소, 자동 옵션, 날짜 포맷                               |
+| `src/ui/`       | `/test` 페이지의 패널(환경·녹음·오디오·실행·결과)과 녹음 훅                                          |
 
 ## 녹음
 

@@ -11,21 +11,21 @@
   gap: var(--space-4);
 }
 
-h1 {
+.app h1 {
   margin: 0 0 var(--space-1);
   font-size: var(--font-xl);
   font-weight: 700;
   letter-spacing: -0.01em;
 }
 
-h2 {
+.app h2 {
   margin: 0 0 var(--space-3);
   color: var(--color-text-muted);
   font-size: var(--font-sm);
   font-weight: 600;
 }
 
-header p {
+.app header p {
   margin: 0;
   color: var(--color-text-muted);
 }
@@ -106,7 +106,7 @@ header p {
   font-size: var(--font-xs);
 }
 
-select {
+.app select {
   min-height: 36px;
   padding: 0 var(--space-3);
   color: var(--color-text);
@@ -116,7 +116,7 @@ select {
   border-radius: var(--radius-sm);
 }
 
-select:disabled {
+.app select:disabled {
   color: var(--color-text-muted);
   background: var(--color-sidebar);
 }
