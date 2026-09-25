@@ -15,8 +15,8 @@ interface TranscriptPanelProps {
   memory: MemoryReport | null
 }
 
-/** 화자 색 토큰 개수. 5번째 화자부터 1번 색을 다시 쓴다 (architecture.md "디자인 토큰") */
-const SPEAKER_COLOR_COUNT = 4
+/** 화자 색 토큰 개수. 9번째 화자부터 1번 색을 다시 쓴다 (architecture.md "디자인 토큰") */
+const SPEAKER_COLOR_COUNT = 8
 
 const speakerColorOf = (index: number) =>
   `var(--color-speaker-${(index % SPEAKER_COLOR_COUNT) + 1})`

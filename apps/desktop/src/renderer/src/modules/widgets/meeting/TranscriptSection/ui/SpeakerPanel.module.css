@@ -64,6 +64,22 @@
   background: var(--color-speaker-4);
 }
 
+.tone5 {
+  background: var(--color-speaker-5);
+}
+
+.tone6 {
+  background: var(--color-speaker-6);
+}
+
+.tone7 {
+  background: var(--color-speaker-7);
+}
+
+.tone8 {
+  background: var(--color-speaker-8);
+}
+
 .name {
   flex: 1;
   min-width: 0;

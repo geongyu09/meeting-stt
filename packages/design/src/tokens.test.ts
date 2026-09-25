@@ -28,6 +28,7 @@ const REQUIRED_TOKENS = [
   '--color-success',
   '--color-speaker-1',
   '--color-speaker-4',
+  '--color-speaker-8',
   '--space-1',
   '--space-6',
   '--radius-sm',

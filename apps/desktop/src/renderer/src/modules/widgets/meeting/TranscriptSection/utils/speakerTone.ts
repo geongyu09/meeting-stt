@@ -1,7 +1,7 @@
 import type { SpeakerOption } from '../types/transcript'
 
-/** `--color-speaker-1`~`4`. 다섯 번째 화자부터 처음 색으로 돌아간다 (references/architecture.md "디자인 토큰") */
-export const SPEAKER_TONE_COUNT = 4
+/** `--color-speaker-1`~`8`. 아홉 번째 화자부터 처음 색으로 돌아간다 (references/architecture.md "디자인 토큰") */
+export const SPEAKER_TONE_COUNT = 8
 
 interface SpeakerToneOfParams {
   speakerOptions: SpeakerOption[]

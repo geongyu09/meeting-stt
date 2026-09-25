@@ -531,7 +531,7 @@ export interface RecordingStateEvent {
 | `--color-danger` | `#B4232A` | 오류 글자·회의 삭제. **빨강은 오류 전용**이고 녹음에 쓰지 않는다 |
 | `--color-danger-soft` (추가) | `#FDECEC` | 오류 배지·삭제 버튼 바탕 |
 | `--color-success` | `#15803D` | 완료 체크 |
-| `--color-speaker-1`~`4` (추가) | `#0F766E` `#C2410C` `#BE185D` `#854D0E` | 화자 점·이름. 5번째 화자부터 1번부터 다시 돈다 |
+| `--color-speaker-1`~`8` (추가) | `#0F766E` `#C2410C` `#BE185D` `#854D0E` `#1D4ED8` `#7E22CE` `#4D7C0F` `#475569` | 화자 점·이름. 9번째 화자부터 1번부터 다시 돈다. 모두 흰 바탕 대비 4.5:1 이상이고 오류 빨강(`--color-danger`)과 겹치지 않는다 |
 | `--font-sans` (추가) | `'Google Sans', 'Pretendard', -apple-system, sans-serif` | 전체 |
 | `--font-mono` (추가) | `'Google Sans Code', 'Google Sans', monospace` + `font-variant-numeric: tabular-nums` | 타이머·타임스탬프·퍼센트·단축키 |
 
@@ -601,7 +601,7 @@ export interface RecordingStateEvent {
   회의 삭제는 더보기 안으로 들어가지만 2단계 인라인 확인 규칙은 그대로다.
   상단 바 제목은 회의 날짜 묶음("회의록 · 오늘")이다 — 사이드바와 같은 날짜 묶음 함수(`shared/utils/meetingDateGroup`)를 쓴다.
   발화 행은 시각 열 · (화자 + 본문) · 복사 버튼 세 칸이고, 복사 버튼은 행에 마우스를 올리거나 포커스가 들어올 때만 보인다. 화자는 색 점 + 이름의 `<select>`로 바꾼다.
-  화자 색은 화자 목록 순서대로 `--color-speaker-1`~`4`를 돌려 쓴다. 화자 목록의 "화자 합치기"는 합치기 모드를 켜고, 모드 안에서 행마다 "합치기" → 대상 선택의 기존 두 단계를 거친다.
+  화자 색은 화자 목록 순서대로 `--color-speaker-1`~`8`을 돌려 쓴다. 화자 목록의 "화자 합치기"는 합치기 모드를 켜고, 모드 안에서 행마다 "합치기" → 대상 선택의 기존 두 단계를 거친다.
 - **녹음**: 큰 타이머, 파형형 레벨 미터, 참석자 수 **스테퍼**(−/+와 숫자 입력, "모름"은 값을 비운다), 정지 버튼("녹음 정지하고 회의록 만들기").
   스테퍼는 `shared/components/primitives/ui/Stepper`로 만들어 위젯과 함께 쓴다. 참석자 수 범위·검증은 지금처럼 `@meeting-stt/core/speakerCount`.
 - **위젯**: 같은 스테퍼, 대기 중이면 강조색 "녹음 시작", 녹음 중이면 테두리형 "녹음 정지". 파형은 넣지 않는다 — 좁은 패널에서 타이머·녹음 점만으로 녹음 중임이 충분히 보인다 (2026-09-24 사용자 요청으로 제거).
