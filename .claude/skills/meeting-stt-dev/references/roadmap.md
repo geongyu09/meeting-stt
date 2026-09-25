@@ -245,3 +245,15 @@
       이 카테고리의 로컬 옵션 아래로 옮기고(`localModelSlot`) 제목을 "로컬 요약 모델 파일"로. "모델" 카테고리는 "음성 인식 모델"만 남는다
 - [ ] `pnpm dev` 실제 확인 — 공급자 전환 후 요약, API 키 저장(Anthropic·OpenAI 각각) → 재시작 후 유지, CLI 미설치·미로그인 안내, 연결 확인 성공/실패 문구, GPT 모델 바꾼 뒤 요약
 - [ ] 후속: 교정 O/X 판정(Phase 5-4)도 같은 추상화로 붙이기, `GlossarySection` 안내 문구를 공급자 라벨로, CLI 모델·Claude API 모델 선택 옵션, Codex CLI(구독) 공급자
+
+## 마이크 입력 장치·테스트 (2026-09-25, Phase 번호 밖)
+
+사용자 요청으로 설정 화면에 입력 장치 선택과 마이크 테스트를 둔다. 설계는 `architecture.md` "마이크 입력 장치와 테스트", 저장 규칙은 `data-model.md`의 `audio.inputDevice`. 문서를 먼저 고쳤다.
+
+- [x] 계약: `AudioInputDevice`·`AppSettings.inputDevice`(기본 `null`), `audio.inputDevice` 읽기·검증 (`db/settings.ts`, `ipc/handlers.ts`), `updateSettingsApi` 필드 추가
+- [x] main: `setPermissionCheckHandler`에서 `media` 허용 (장치 라벨 노출)
+- [x] renderer: `utils/microphone` 유틸(+vitest) — 녹음·테스트가 같은 제약을 쓴다, `useRecorder`가 시작 시 설정의 장치를 `ideal`로 요청
+- [x] renderer: `useInputDevices`(목록·라벨·`devicechange`)·`useMicrophoneTest`(AnalyserNode RMS·무음 안내) 훅, 설정 카테고리 "마이크"(입력 장치 select, 테스트 버튼 + 파형)
+- [x] 테스트: `SettingsSection` 통합 테스트(장치 선택 저장, 연결되지 않은 장치 표기, 테스트 시작·정지·녹음 중 차단), 위젯 테스트에 설정 mock 추가
+- [x] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과 (2026-09-25)
+- [ ] `pnpm dev` 실제 확인 — 외장 마이크를 고르고 녹음해 그 장치로 녹음되는지, 장치를 뺀 뒤 녹음이 기본 마이크로 폴백하는지, 테스트 파형이 움직이는지, 음소거 시 무음 안내

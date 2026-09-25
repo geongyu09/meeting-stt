@@ -40,6 +40,15 @@ export interface Speaker {
   displayName: string | null
 }
 
+/**
+ * 녹음에 쓸 마이크 (references/architecture.md "마이크 입력 장치와 테스트").
+ * `deviceId`는 Chromium의 origin별 해시라 사람이 읽을 수 없어, 장치를 뺀 뒤에도 보여줄 `label`을 함께 둔다.
+ */
+export interface AudioInputDevice {
+  deviceId: string
+  label: string
+}
+
 /** 사용자 설정. main의 settings 테이블에 키별 JSON으로 저장한다 (references/data-model.md) */
 export interface AppSettings {
   /** 파이프라인이 성공한 뒤 원본 WAV를 남길지. 기본은 삭제(false) */
@@ -61,6 +70,8 @@ export interface AppSettings {
   recordingShortcut: string
   /** 위젯 표시/숨김 전역 단축키. 녹음 단축키와 같을 수 없다 */
   widgetShortcut: string
+  /** 녹음에 쓸 마이크. null이면 시스템 기본 마이크. 장치가 빠져 있으면 녹음은 기본 마이크로 폴백한다 */
+  inputDevice: AudioInputDevice | null
 }
 
 /**

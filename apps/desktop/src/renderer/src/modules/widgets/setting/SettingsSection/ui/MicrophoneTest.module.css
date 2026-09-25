@@ -1,0 +1,27 @@
+.meter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-hover);
+  border-radius: var(--radius-md);
+}
+
+.status,
+.silent,
+.error {
+  margin: 0;
+  font-size: var(--font-sm);
+}
+
+.status {
+  color: var(--color-text-muted);
+}
+
+.silent {
+  color: var(--color-text);
+}
+
+.error {
+  color: var(--color-danger);
+}

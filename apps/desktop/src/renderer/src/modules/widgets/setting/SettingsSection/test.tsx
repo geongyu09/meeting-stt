@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -14,9 +14,16 @@ vi.mock('@renderer/shared/api/update', () => ({
   installUpdateApi: vi.fn()
 }))
 vi.mock('@renderer/shared/api/events', () => ({
-  onUpdateAvailable: vi.fn(() => () => {})
+  onUpdateAvailable: vi.fn(() => () => {}),
+  onRecordingState: vi.fn(() => () => {})
+}))
+vi.mock('@renderer/shared/api/recording', () => ({
+  requestMicrophonePermissionApi: vi.fn().mockResolvedValue(true),
+  getRecordingStateApi: vi.fn()
 }))
 
+import type { RecordingStateEvent } from '@shared/ipc'
+import { getRecordingStateApi } from '@renderer/shared/api/recording'
 import {
   getSettingsApi,
   setShortcutsSuspendedApi,
@@ -35,6 +42,13 @@ const RECORDING_SHORTCUT_BUTTON = '녹음 시작·정지 변경'
 const findSwitch = (name: string) => screen.findByRole('switch', { name })
 const isOn = (element: HTMLElement) => element.getAttribute('aria-checked') === 'true'
 
+const DEVICE_LABEL = '입력 장치'
+const TEST_START_BUTTON = '테스트 시작'
+const TEST_STOP_BUTTON = '테스트 정지'
+const USB_DEVICE = { deviceId: 'usb-1', label: 'USB 마이크' }
+const BUILT_IN_DEVICE = { deviceId: 'builtin-1', label: 'MacBook Pro 마이크' }
+const IDLE_STATE: RecordingStateEvent = { meetingId: null, startedAt: null, level: 0 }
+
 const DEFAULT_SETTINGS = {
   isAudioKept: false,
   isUpdateCheckEnabled: false,
@@ -43,11 +57,54 @@ const DEFAULT_SETTINGS = {
   isWidgetFadeEnabled: true,
   widgetFadeOpacity: 0.55,
   recordingShortcut: 'Alt+Command+R',
-  widgetShortcut: 'Alt+Command+W'
+  widgetShortcut: 'Alt+Command+W',
+  inputDevice: null
 }
+
+const toDeviceInfo = ({ deviceId, label }: { deviceId: string; label: string }) => ({
+  deviceId,
+  label,
+  kind: 'audioinput' as const,
+  groupId: deviceId
+})
+
+/** happy-dom에는 장치 목록·오디오 그래프가 없어 설정 화면이 쓰는 최소한만 흉내 낸다 */
+const stubMediaDevices = (devices: { deviceId: string; label: string }[]) => {
+  const stream = { getTracks: () => [] }
+  vi.stubGlobal('navigator', {
+    mediaDevices: {
+      enumerateDevices: () => Promise.resolve(devices.map(toDeviceInfo)),
+      getUserMedia: vi.fn(() => Promise.resolve(stream)),
+      addEventListener: () => {},
+      removeEventListener: () => {}
+    }
+  })
+
+  class FakeAnalyserNode {
+    fftSize = 2048
+    connect = <T,>(node: T) => node
+    getFloatTimeDomainData = (samples: Float32Array) => samples.fill(0.2)
+  }
+
+  class FakeAudioContext {
+    sampleRate = 16000
+    destination = {}
+    createAnalyser = () => new FakeAnalyserNode()
+    createGain = () => ({ gain: { value: 1 }, connect: <T,>(node: T) => node })
+    createMediaStreamSource = () => ({ connect: <T,>(node: T) => node })
+    close = () => Promise.resolve()
+  }
+  vi.stubGlobal('AudioContext', FakeAudioContext)
+}
+
+beforeEach(() => {
+  stubMediaDevices([BUILT_IN_DEVICE, USB_DEVICE])
+  vi.mocked(getRecordingStateApi).mockResolvedValue(IDLE_STATE)
+})
 
 afterEach(() => {
   cleanup()
+  vi.unstubAllGlobals()
   vi.clearAllMocks()
 })
 
@@ -230,7 +287,14 @@ describe('SettingsSection', () => {
     const regions = screen
       .getAllByRole('region')
       .map((region) => region.getAttribute('aria-label') ?? region.querySelector('h2')?.textContent)
-    expect(regions).toEqual(['녹음·처리', '녹음 위젯', '단축키', '음성 인식 모델', '업데이트'])
+    expect(regions).toEqual([
+      '마이크',
+      '녹음·처리',
+      '녹음 위젯',
+      '단축키',
+      '음성 인식 모델',
+      '업데이트'
+    ])
     expect(
       within(screen.getByRole('region', { name: '녹음·처리' })).getByRole('switch', {
         name: QUIET_LABEL
@@ -241,6 +305,93 @@ describe('SettingsSection', () => {
         name: FADE_LABEL
       })
     ).toBeTruthy()
+  })
+
+  it('연결된 마이크를 고르면 장치 id와 이름을 함께 저장한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
+    vi.mocked(updateSettingsApi).mockResolvedValue({ ...DEFAULT_SETTINGS, inputDevice: USB_DEVICE })
+    render(<SettingsSection />)
+
+    const select = (await screen.findByRole('combobox', {
+      name: DEVICE_LABEL
+    })) as HTMLSelectElement
+    expect(await screen.findByRole('option', { name: 'USB 마이크' })).toBeTruthy()
+    expect(select.value).toBe('')
+
+    await user.selectOptions(select, 'usb-1')
+
+    expect(updateSettingsApi).toHaveBeenCalledWith({ ...DEFAULT_SETTINGS, inputDevice: USB_DEVICE })
+    expect(
+      ((await screen.findByRole('combobox', { name: DEVICE_LABEL })) as HTMLSelectElement).value
+    ).toBe('usb-1')
+  })
+
+  it('시스템 기본 마이크로 되돌리면 null을 저장한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getSettingsApi).mockResolvedValue({ ...DEFAULT_SETTINGS, inputDevice: USB_DEVICE })
+    vi.mocked(updateSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
+    render(<SettingsSection />)
+
+    const select = await screen.findByRole('combobox', { name: DEVICE_LABEL })
+    await screen.findByRole('option', { name: 'USB 마이크' })
+    await user.selectOptions(select, '')
+
+    expect(updateSettingsApi).toHaveBeenCalledWith(DEFAULT_SETTINGS)
+  })
+
+  it('골라 둔 마이크가 빠져 있으면 연결되지 않았다고 알리고 기본 마이크 폴백을 안내한다', async () => {
+    stubMediaDevices([BUILT_IN_DEVICE])
+    vi.mocked(getSettingsApi).mockResolvedValue({ ...DEFAULT_SETTINGS, inputDevice: USB_DEVICE })
+    render(<SettingsSection />)
+
+    expect(await screen.findByRole('option', { name: 'USB 마이크 (연결되지 않음)' })).toBeTruthy()
+    expect(screen.getByText(/고른 마이크가 연결돼 있지 않습니다/)).toBeTruthy()
+  })
+
+  it('마이크 테스트를 시작하면 입력 세기를 보여주고 정지하면 지운다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
+    render(<SettingsSection />)
+
+    await user.click(await screen.findByRole('button', { name: TEST_START_BUTTON }))
+
+    expect(await screen.findByRole('meter', { name: '마이크 입력 세기' })).toBeTruthy()
+    expect(await screen.findByText('소리가 잘 들어옵니다.')).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: TEST_STOP_BUTTON }))
+
+    expect(await screen.findByRole('button', { name: TEST_START_BUTTON })).toBeTruthy()
+    expect(screen.queryByRole('meter')).toBeNull()
+  })
+
+  it('마이크를 열지 못하면 테스트가 그 이유를 보여준다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
+    render(<SettingsSection />)
+    await screen.findByRole('option', { name: 'USB 마이크' })
+    vi.mocked(navigator.mediaDevices.getUserMedia).mockRejectedValueOnce(
+      new Error('Permission denied')
+    )
+
+    await user.click(await screen.findByRole('button', { name: TEST_START_BUTTON }))
+
+    expect(await screen.findByText('Permission denied')).toBeTruthy()
+    expect(screen.queryByRole('meter')).toBeNull()
+  })
+
+  it('녹음 중에는 마이크 테스트를 막는다', async () => {
+    vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
+    vi.mocked(getRecordingStateApi).mockResolvedValue({
+      meetingId: 'meeting-1',
+      startedAt: Date.now(),
+      level: 0.1
+    })
+    render(<SettingsSection />)
+
+    const button = await screen.findByRole('button', { name: TEST_START_BUTTON })
+    expect(await screen.findByText(/녹음 중에는 테스트할 수 없습니다/)).toBeTruthy()
+    expect(button.hasAttribute('disabled')).toBe(true)
   })
 
   it('설정을 못 불러와도 children은 보여준다', async () => {

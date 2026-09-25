@@ -28,11 +28,18 @@ import { registerGlobalShortcuts, unregisterGlobalShortcuts } from './windows/sh
 import { createTray, destroyTray, refreshTray } from './windows/tray'
 import { createWidgetWindow } from './windows/widget'
 
-/** 로컬 앱이라 마이크 외의 권한 요청은 받지 않는다 */
+/**
+ * 로컬 앱이라 마이크 외의 권한 요청은 받지 않는다.
+ * 확인 핸들러도 같이 두는 이유는 `enumerateDevices`가 장치 라벨을 줄지 이 결과로 정하기 때문이다
+ * (references/architecture.md "마이크 입력 장치와 테스트")
+ */
 const restrictPermissions = () => {
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     callback(permission === 'media')
   })
+  session.defaultSession.setPermissionCheckHandler(
+    (_webContents, permission) => permission === 'media'
+  )
 }
 
 const broadcast = ({ channel, event }: { channel: string; event: unknown }) => {

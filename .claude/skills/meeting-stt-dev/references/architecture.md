@@ -348,7 +348,9 @@ CoreML이 느린 원인은 **임베딩 모델 입력 길이가 호출마다 달�
 **오디오 그래프의 소유자는 위젯 패널 창 하나뿐이다** (Phase 5-3, 아래 절). 메인 창은 녹음을 시작·정지하는
 명령만 보내고 상태는 `recording:state`로 받는다. 아래 규칙은 그래프를 실제로 만드는 쪽(위젯)에 적용된다.
 
-- `getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } })`
+- `getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, deviceId? } })`.
+  `deviceId`는 설정 `audio.inputDevice`가 있을 때만 `{ ideal: deviceId }`로 붙인다 (아래 "마이크 입력 장치와 테스트" 절).
+  제약 객체는 `@renderer/shared/utils/microphone` 한 곳에서 만들고(`buildMicrophoneConstraints`·`openMicrophone`) 녹음·마이크 테스트가 같이 쓴다.
 - `new AudioContext({ sampleRate: 16000 })` → `audioWorklet.addModule(workletUrl)` → 프로세서가 128프레임 단위로 받은 Float32를 `CHUNK_SAMPLES`(8192, 약 0.5초)씩 모아 `port.postMessage`.
 - **워크릿 파일은 `src/renderer/src/worklet/pcmRecorder.js`에 두고 `import workletUrl from '@renderer/worklet/pcmRecorder.js?url'`로 로드한다.**
   `resources/` 아래에 두면 Vite 개발 서버가 서빙하지 않고 패키징 시에도 `process.resourcesPath`로 흩어져 renderer가 URL로 접근할 수 없다.
@@ -367,6 +369,31 @@ CoreML이 느린 원인은 **임베딩 모델 입력 길이가 호출마다 달�
 - Float32 → Int16 PCM 변환은 main의 `audio/wavWriter.ts`에서 수행 (renderer는 원본 Float32 `ArrayBuffer`만 전달).
 - 샘플레이트·청크 크기 상수는 `src/shared/audio.ts`에 한 번만 정의해 renderer와 main이 함께 쓴다.
 - `AudioContext`가 16kHz 요청을 무시할 수 있으므로 실제 `context.sampleRate`를 확인해 다르면 녹음을 시작하지 않고 안내한다 (`references/pitfalls.md`).
+
+### 마이크 입력 장치와 테스트 (2026-09-25)
+
+사용자 요청으로 설정 화면에 **입력 장치 선택**과 **마이크 테스트**를 둔다. 회의 직전에 "어느 마이크로, 소리가 들어오고 있는지"를
+녹음을 시작하지 않고 확인하기 위해서다.
+
+- **입력 장치는 `AppSettings.inputDevice`** (`{ deviceId, label } | null`, DB 키 `audio.inputDevice`, 기본 `null` = 시스템 기본 마이크)다.
+  새 IPC 채널을 만들지 않는다 — 장치 목록은 renderer의 `navigator.mediaDevices.enumerateDevices()`가 주고, 값은 다른 설정과 함께 `settings:update`로 오간다.
+  `label`을 함께 저장하는 이유는 장치를 뺀 뒤에도 설정 화면이 "무엇을 골라 뒀는지"를 보여주기 위해서다 (`deviceId`는 해시라 사람이 읽을 수 없다).
+- **녹음 그래프는 시작할 때 설정을 읽어** `deviceId: { ideal }`로 요청한다. `exact`를 쓰지 않는다 — 골라 둔 마이크가 빠져 있으면
+  녹음 자체가 실패하는 것보다 시스템 기본 마이크로 녹음되는 편이 낫다. 설정 화면의 설명 문구에 이 폴백을 적는다.
+  Chromium의 `deviceId`는 origin별 해시이고 기본 세션(persist)에 소금이 저장되므로 앱을 다시 켜도 같은 값이다.
+- **장치 목록**은 `useInputDevices`(domain 훅)가 `audioinput`만 골라 든다. Chromium의 `default`·`communications` 가상 항목은 뺀다 —
+  "시스템 기본 마이크" 선택지(`null`)가 그 역할이다. 라벨이 비어 있으면(권한 전) `requestMicrophonePermission` 뒤 짧게 `getUserMedia`를 열었다 닫아 라벨을 받고,
+  그래도 비면 `마이크 N`으로 표기한다. `devicechange` 이벤트로 목록을 다시 읽는다. 저장된 장치가 목록에 없으면 `"<label> (연결되지 않음)"`을 비활성 선택지로 보여준다.
+  main은 `session.setPermissionCheckHandler`에서 `media`를 허용한다 — Chromium이 라벨을 줄지 결정할 때 이 핸들러를 본다.
+- **마이크 테스트는 메인 창(설정 화면)에 짧게 사는 별도 그래프**다. "오디오 그래프 소유자는 위젯 창 하나"라는 규칙은 **녹음 그래프**에 대한 것이고,
+  테스트 그래프는 청크를 보내지 않고 세션도 만들지 않는다. 구성은 `getUserMedia(같은 제약) → AudioContext(16kHz) → MediaStreamSource → AnalyserNode → gain 0 → destination`이며
+  100ms마다 `getFloatTimeDomainData`의 RMS(`@shared/audio`의 `rmsOf`)를 파형 미터(`LevelWaveform`)에 밀어 넣는다.
+  16kHz 확인·권한 요청은 녹음과 같은 경로를 타므로 **녹음이 실패할 환경이면 테스트도 같은 안내로 실패한다** — 그것이 테스트의 목적이다.
+  - 녹음 중에는 테스트 버튼을 막는다 (마이크를 두 그래프가 잡아도 되지만 사용자가 헷갈린다). 장치 선택을 바꾸면 테스트를 정지한다.
+  - 3초 넘게 피크가 `0.01` 아래면 "소리가 거의 잡히지 않습니다. 음소거되었거나 다른 장치가 선택됐을 수 있습니다"를, 그 위면 "소리가 잘 들어옵니다"를 보여준다.
+  - 컴포넌트 언마운트·페이지 이탈 시 그래프를 닫는다 (`useEffect` cleanup).
+- 화면은 설정 카테고리 **"마이크"** 하나에 두 행(입력 장치 select, 마이크 테스트 버튼 + 파형)이다. 훅은 `useInputDevices`·`useMicrophoneTest`
+  (`shared/hooks/domain/recording`), 행 컴포넌트는 `SettingsSection/ui/{InputDeviceSelect,MicrophoneTest}.tsx`다.
 
 ## 녹음 위젯 패널 (Phase 5-3)
 
@@ -485,18 +512,19 @@ export interface RecordingStateEvent {
 
 | 순서 | 카테고리 | 항목 | 위치 |
 | --- | --- | --- | --- |
-| 1 | 녹음·처리 | 원본 녹음 파일 보관(`isAudioKept`), 조용히 처리(`isQuietProcessing`) | `SettingsSection` |
-| 2 | 녹음 위젯 | 위젯 패널(`isWidgetEnabled`), 위젯 반투명(`isWidgetFadeEnabled`), 비활성 불투명도(`widgetFadeOpacity`) | `SettingsSection` |
-| 3 | 단축키 | 녹음 시작·정지(`recordingShortcut`), 위젯 표시·숨김(`widgetShortcut`) | `SettingsSection` |
-| 4 | 음성 인식 모델 | 음성 인식 모델 변경 | `ModelDownloadSection` (온보딩과 공유) |
-| 5 | 요약 · 용어 초안 | 실행 방식(로컬 / Claude API 키 / Claude Code / OpenAI API 키), 로컬을 골랐을 때만 **로컬 요약 모델 파일** 다운로드, API 키(공급자별), GPT 모델 선택, CLI 상태, 연결 확인 | `setting/LlmSection` — 파일 다운로드 행 `model/SummaryModelSection`은 페이지가 `localModelSlot`으로 끼운다 (아래 "LLM 공급자" 절). 2026-09-24까지는 "모델" 카테고리에 음성 인식 모델과 나란히 있었는데, 로컬 실행 방식의 부속품이 별개 설정처럼 보여 옮겼다 |
-| 6 | 용어 사전 | 팀 소개, 초안 만들기, 용어 목록 (Phase 5-4) | `setting/GlossarySection` (자기 채널로 따로 읽고 쓰므로 `SettingsSection`의 한 번 로드와 무관하다. 모델 위젯과 같이 `children`으로 끼운다) |
-| 7 | 업데이트 | 업데이트 확인(`isUpdateCheckEnabled`), 지금 확인(`UpdateCheck`) | `SettingsSection` |
+| 1 | 마이크 | 입력 장치(`inputDevice`), 마이크 테스트 (2026-09-25, 위 "마이크 입력 장치와 테스트" 절) | `SettingsSection` |
+| 2 | 녹음·처리 | 원본 녹음 파일 보관(`isAudioKept`), 조용히 처리(`isQuietProcessing`) | `SettingsSection` |
+| 3 | 녹음 위젯 | 위젯 패널(`isWidgetEnabled`), 위젯 반투명(`isWidgetFadeEnabled`), 비활성 불투명도(`widgetFadeOpacity`) | `SettingsSection` |
+| 4 | 단축키 | 녹음 시작·정지(`recordingShortcut`), 위젯 표시·숨김(`widgetShortcut`) | `SettingsSection` |
+| 5 | 음성 인식 모델 | 음성 인식 모델 변경 | `ModelDownloadSection` (온보딩과 공유) |
+| 6 | 요약 · 용어 초안 | 실행 방식(로컬 / Claude API 키 / Claude Code / OpenAI API 키), 로컬을 골랐을 때만 **로컬 요약 모델 파일** 다운로드, API 키(공급자별), GPT 모델 선택, CLI 상태, 연결 확인 | `setting/LlmSection` — 파일 다운로드 행 `model/SummaryModelSection`은 페이지가 `localModelSlot`으로 끼운다 (아래 "LLM 공급자" 절). 2026-09-24까지는 "모델" 카테고리에 음성 인식 모델과 나란히 있었는데, 로컬 실행 방식의 부속품이 별개 설정처럼 보여 옮겼다 |
+| 7 | 용어 사전 | 팀 소개, 초안 만들기, 용어 목록 (Phase 5-4) | `setting/GlossarySection` (자기 채널로 따로 읽고 쓰므로 `SettingsSection`의 한 번 로드와 무관하다. 모델 위젯과 같이 `children`으로 끼운다) |
+| 8 | 업데이트 | 업데이트 확인(`isUpdateCheckEnabled`), 지금 확인(`UpdateCheck`) | `SettingsSection` |
 
-- 설정값 로드는 한 번만 한다. 그래서 `SettingsSection`이 1~3과 7을 모두 그리고, 4~6은 `children`으로 받아 3과 7 사이에 끼운다.
+- 설정값 로드는 한 번만 한다. 그래서 `SettingsSection`이 1~4와 8을 모두 그리고, 5~7은 `children`으로 받아 4와 8 사이에 끼운다.
   페이지는 `<SettingsSection><SettingGroup title="음성 인식 모델"><ModelDownloadSection /></SettingGroup><LlmSection localModelSlot={<SummaryModelSection />} /><GlossarySection /></SettingsSection>` 형태로 배치만 한다.
   widgets는 widgets를 import하지 않으므로(`.claude/rules/component-abstract-pattern.md`) `SummaryModelSection`은 페이지가 슬롯으로 넘긴다.
-- **오른쪽에 목차(TOC)를 둔다** (2026-09-24 사용자 요청). 카테고리가 7개로 늘어 스크롤로 찾기 어려워졌기 때문이다.
+- **오른쪽에 목차(TOC)를 둔다** (2026-09-24 사용자 요청). 카테고리가 7개(지금은 8개)로 늘어 스크롤로 찾기 어려워졌기 때문이다.
   목차는 composite `PageToc`가 스크롤 영역 안의 `h2`를 **DOM에서 읽어** 만든다 — 카테고리가 여러 위젯에 흩어져 있고
   설정 로드 전후로 개수가 달라지므로, 제목 목록을 따로 들고 있으면 순서·문구가 어긋난다. `MutationObserver`로 다시 읽는다.
   항목을 누르면 그 카테고리로 부드럽게 스크롤하고, 스크롤 위치에 맞는 항목을 강조한다(`aria-current`).

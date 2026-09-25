@@ -7,6 +7,7 @@ import type {
   WhisperModelId
 } from '@shared/types'
 import { DEFAULT_WHISPER_MODEL_ID, isWhisperModelId } from '@meeting-stt/models/desktop'
+import { isAudioInputDevice } from '@shared/audio'
 import {
   DEFAULT_LLM_PROVIDER,
   DEFAULT_OPENAI_MODEL_ID,
@@ -23,6 +24,7 @@ import { getDb } from './connection'
 
 /** DB 키와 TS 필드명의 변환은 이 파일에서만 한다 (references/data-model.md) */
 const AUDIO_KEEP_KEY = 'audio.keep'
+const AUDIO_INPUT_DEVICE_KEY = 'audio.inputDevice'
 const UPDATE_CHECK_KEY = 'update.check'
 const STT_MODEL_KEY = 'stt.model'
 const PIPELINE_QUIET_KEY = 'pipeline.quiet'
@@ -50,7 +52,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   isWidgetFadeEnabled: true,
   widgetFadeOpacity: DEFAULT_WIDGET_FADE_OPACITY,
   recordingShortcut: DEFAULT_RECORDING_SHORTCUT,
-  widgetShortcut: DEFAULT_WIDGET_SHORTCUT
+  widgetShortcut: DEFAULT_WIDGET_SHORTCUT,
+  inputDevice: null
 }
 
 /** 값이 없거나 JSON이 깨져도 undefined로 읽는다. 설정 하나 때문에 앱이 멈추면 안 된다 */
@@ -97,6 +100,13 @@ const readShortcut = ({ key, fallback }: { key: string; fallback: string }) => {
   return typeof value === 'string' && isValidAccelerator(value) ? value : fallback
 }
 
+/** 모양이 깨진 값은 시스템 기본 마이크(null)로 읽는다 */
+const readInputDevice = ({ key }: { key: string }) => {
+  const value = readValue(key)
+
+  return isAudioInputDevice(value) ? value : null
+}
+
 export const getAppSettings = (): AppSettings => ({
   isAudioKept: readBoolean({ key: AUDIO_KEEP_KEY, fallback: DEFAULT_SETTINGS.isAudioKept }),
   isUpdateCheckEnabled: readBoolean({
@@ -126,7 +136,8 @@ export const getAppSettings = (): AppSettings => ({
   widgetShortcut: readShortcut({
     key: WIDGET_SHORTCUT_KEY,
     fallback: DEFAULT_SETTINGS.widgetShortcut
-  })
+  }),
+  inputDevice: readInputDevice({ key: AUDIO_INPUT_DEVICE_KEY })
 })
 
 export const updateAppSettings = ({
@@ -137,7 +148,8 @@ export const updateAppSettings = ({
   isWidgetFadeEnabled,
   widgetFadeOpacity,
   recordingShortcut,
-  widgetShortcut
+  widgetShortcut,
+  inputDevice
 }: AppSettings) => {
   writeValue({ key: AUDIO_KEEP_KEY, value: isAudioKept })
   writeValue({ key: UPDATE_CHECK_KEY, value: isUpdateCheckEnabled })
@@ -147,6 +159,7 @@ export const updateAppSettings = ({
   writeValue({ key: WIDGET_FADE_OPACITY_KEY, value: widgetFadeOpacity })
   writeValue({ key: RECORDING_SHORTCUT_KEY, value: recordingShortcut })
   writeValue({ key: WIDGET_SHORTCUT_KEY, value: widgetShortcut })
+  writeValue({ key: AUDIO_INPUT_DEVICE_KEY, value: inputDevice })
 
   return getAppSettings()
 }

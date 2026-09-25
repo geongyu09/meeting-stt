@@ -19,6 +19,7 @@ export const getSettingsApi = async () => window.api.settings.get()
  * @param widgetFadeOpacity - 포커스가 없을 때의 위젯 불투명도 (0.2~0.95)
  * @param recordingShortcut - 녹음 토글 전역 단축키 (Electron accelerator)
  * @param widgetShortcut - 위젯 표시/숨김 전역 단축키 (Electron accelerator)
+ * @param inputDevice - 녹음에 쓸 마이크 (`{ deviceId, label }`). null이면 시스템 기본 마이크
  * @returns 저장된 설정
  * @example
  * const settings = await updateSettingsApi({
@@ -29,7 +30,8 @@ export const getSettingsApi = async () => window.api.settings.get()
  *   isWidgetFadeEnabled: true,
  *   widgetFadeOpacity: 0.55,
  *   recordingShortcut: 'Alt+Command+R',
- *   widgetShortcut: 'Alt+Command+W'
+ *   widgetShortcut: 'Alt+Command+W',
+ *   inputDevice: null
  * })
  */
 export const updateSettingsApi = async ({
@@ -40,7 +42,8 @@ export const updateSettingsApi = async ({
   isWidgetFadeEnabled,
   widgetFadeOpacity,
   recordingShortcut,
-  widgetShortcut
+  widgetShortcut,
+  inputDevice
 }: UpdateSettingsRequest) =>
   window.api.settings.update({
     isAudioKept,
@@ -50,7 +53,8 @@ export const updateSettingsApi = async ({
     isWidgetFadeEnabled,
     widgetFadeOpacity,
     recordingShortcut,
-    widgetShortcut
+    widgetShortcut,
+    inputDevice
   })
 
 /**

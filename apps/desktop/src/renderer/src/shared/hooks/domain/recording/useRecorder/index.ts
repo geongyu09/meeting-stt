@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CHANNELS, CHUNK_SAMPLES, SAMPLE_RATE_HZ } from '@shared/audio'
+import type { AudioInputDevice } from '@shared/types'
+import { CHUNK_SAMPLES } from '@shared/audio'
 import workletUrl from '@renderer/worklet/pcmRecorder.js?url'
 import { onRecordingCommand } from '@renderer/shared/api/events'
 import {
@@ -9,6 +10,8 @@ import {
   startRecordingApi,
   stopRecordingApi
 } from '@renderer/shared/api/recording'
+import { getSettingsApi } from '@renderer/shared/api/settings'
+import { openMicrophone } from '@renderer/shared/utils/microphone'
 
 const PROCESSOR_NAME = 'pcmRecorder'
 const PERMISSION_DENIED_MESSAGE =
@@ -29,24 +32,29 @@ interface UseRecorderParams {
 const messageOf = (caught: unknown) =>
   caught instanceof Error ? caught.message : '녹음 중 알 수 없는 오류가 발생했습니다'
 
+/** 설정을 못 읽어도 녹음은 막지 않는다 — 시스템 기본 마이크로 진행한다 */
+const readInputDevice = (): Promise<AudioInputDevice | null> =>
+  getSettingsApi()
+    .then((settings) => settings.inputDevice)
+    .catch((caught: unknown) => {
+      console.error('입력 장치 설정을 읽지 못해 기본 마이크로 녹음합니다', caught)
+
+      return null
+    })
+
 /**
  * 마이크 → 워크릿 → 무음 싱크 그래프를 만든다.
  * destination까지 이어 두지 않으면 워크릿의 process()가 호출되지 않고,
  * 게인을 0으로 두지 않으면 마이크 소리가 스피커로 되돌아간다 (references/pitfalls.md).
  */
-const buildGraph = async (): Promise<RecordingGraph> => {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: { channelCount: CHANNELS, echoCancellation: true, noiseSuppression: true }
-  })
-  const context = new AudioContext({ sampleRate: SAMPLE_RATE_HZ })
+const buildGraph = async ({
+  inputDevice
+}: {
+  inputDevice: AudioInputDevice | null
+}): Promise<RecordingGraph> => {
+  const { stream, context } = await openMicrophone({ inputDevice })
 
   try {
-    if (context.sampleRate !== SAMPLE_RATE_HZ) {
-      throw new Error(
-        `이 마이크는 ${SAMPLE_RATE_HZ}Hz 녹음을 지원하지 않습니다 (현재 ${context.sampleRate}Hz)`
-      )
-    }
-
     await context.audioWorklet.addModule(workletUrl)
     const node = new AudioWorkletNode(context, PROCESSOR_NAME, {
       processorOptions: { chunkSamples: CHUNK_SAMPLES }
@@ -104,7 +112,7 @@ const useRecorder = ({ isReady }: UseRecorderParams) => {
       if (!isReady) throw new Error(MODEL_NOT_READY_MESSAGE)
       if (!(await requestMicrophonePermissionApi())) throw new Error(PERMISSION_DENIED_MESSAGE)
 
-      const graph = await buildGraph()
+      const graph = await buildGraph({ inputDevice: await readInputDevice() })
 
       try {
         const meetingId = await startRecordingApi({ sampleRate: graph.context.sampleRate })

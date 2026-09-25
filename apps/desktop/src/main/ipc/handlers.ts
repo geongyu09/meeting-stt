@@ -26,6 +26,7 @@ import {
   type UpdateGlossaryResponse,
   type UpdateSettingsResponse
 } from '@shared/ipc'
+import { isAudioInputDevice } from '@shared/audio'
 import { readGlossarySettings, readTeamDescription } from '@shared/glossary'
 import { isLlmProvider, isOpenaiModelId, readApiKeyPayload } from '@shared/llm'
 import { isValidAccelerator } from '@shared/shortcut'
@@ -173,6 +174,15 @@ const readShortcut = ({ payload, key }: { payload: unknown; key: string }) => {
   return value
 }
 
+/** null은 시스템 기본 마이크. 값이 있는데 모양이 다르면 조용히 버리지 않고 거절한다 */
+const readInputDevice = (payload: unknown) => {
+  const value = isRecord(payload) ? payload.inputDevice : undefined
+  if (value === null) return null
+  if (!isAudioInputDevice(value)) throw new Error('입력 장치 정보가 올바르지 않습니다')
+
+  return { deviceId: value.deviceId, label: value.label }
+}
+
 const readSettings = (payload: unknown) => ({
   isAudioKept: readBoolean({ payload, key: 'isAudioKept' }),
   isUpdateCheckEnabled: readBoolean({ payload, key: 'isUpdateCheckEnabled' }),
@@ -181,7 +191,8 @@ const readSettings = (payload: unknown) => ({
   isWidgetFadeEnabled: readBoolean({ payload, key: 'isWidgetFadeEnabled' }),
   widgetFadeOpacity: readFadeOpacity(payload),
   recordingShortcut: readShortcut({ payload, key: 'recordingShortcut' }),
-  widgetShortcut: readShortcut({ payload, key: 'widgetShortcut' })
+  widgetShortcut: readShortcut({ payload, key: 'widgetShortcut' }),
+  inputDevice: readInputDevice(payload)
 })
 
 const RECORDING_COMMAND_KINDS: RecordingCommandEvent['kind'][] = ['start', 'stop', 'toggle']

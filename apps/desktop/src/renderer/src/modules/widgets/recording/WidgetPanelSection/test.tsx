@@ -27,6 +27,9 @@ vi.mock('@renderer/shared/api/models', () => ({
 }))
 
 vi.mock('@renderer/shared/api/widget', () => ({ setWidgetVisibleApi: vi.fn() }))
+vi.mock('@renderer/shared/api/settings', () => ({
+  getSettingsApi: vi.fn().mockResolvedValue({ inputDevice: null })
+}))
 
 import { onRecordingState } from '@renderer/shared/api/events'
 import { getModelStatusApi } from '@renderer/shared/api/models'

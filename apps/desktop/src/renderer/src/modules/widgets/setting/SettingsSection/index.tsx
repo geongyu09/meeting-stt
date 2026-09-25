@@ -11,8 +11,12 @@ import {
   WIDGET_FADE_OPACITY_STEP
 } from '@shared/widget'
 import SettingGroup from '@renderer/shared/components/primitives/layout/SettingGroup'
+import useInputDevices from '@renderer/shared/hooks/domain/recording/useInputDevices'
+import useRecordingState from '@renderer/shared/hooks/domain/recording/useRecordingState'
 import useSettings from '@renderer/shared/hooks/domain/setting/useSettings'
 
+import InputDeviceSelect from './ui/InputDeviceSelect'
+import MicrophoneTest from './ui/MicrophoneTest'
 import OpacitySlider from './ui/OpacitySlider'
 import SettingToggle from './ui/SettingToggle'
 import ShortcutField from './ui/ShortcutField'
@@ -25,6 +29,8 @@ interface SettingsSectionProps {
 
 export default function SettingsSection({ children }: SettingsSectionProps) {
   const { settings, isLoading, error, updateSettings } = useSettings()
+  const { devices, isLoading: isDevicesLoading, error: devicesError } = useInputDevices()
+  const { isRecording } = useRecordingState()
 
   // 모델 카테고리는 설정값과 무관하므로 설정을 못 불러와도 보여준다
   if (isLoading && !settings) {
@@ -53,6 +59,16 @@ export default function SettingsSection({ children }: SettingsSectionProps) {
           {error.message}
         </p>
       ) : null}
+      <SettingGroup title="마이크">
+        <InputDeviceSelect
+          value={settings.inputDevice}
+          devices={devices}
+          isLoading={isDevicesLoading}
+          error={devicesError}
+          onChange={(inputDevice) => updateSettings({ inputDevice })}
+        />
+        <MicrophoneTest inputDevice={settings.inputDevice} isRecording={isRecording} />
+      </SettingGroup>
       <SettingGroup title="녹음·처리">
         <SettingToggle
           title="원본 녹음 파일 보관"
