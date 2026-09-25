@@ -1,5 +1,6 @@
 import type { AudioInputDevice } from '@shared/types'
 import { CHANNELS, SAMPLE_RATE_HZ } from '@shared/audio'
+import { DEFAULT_LOCALE, getMessages, type Messages } from '@shared/i18n'
 
 interface BuildMicrophoneConstraintsParams {
   inputDevice: AudioInputDevice | null
@@ -20,13 +21,18 @@ export const buildMicrophoneConstraints = ({ inputDevice }: BuildMicrophoneConst
 
 interface OpenMicrophoneParams {
   inputDevice: AudioInputDevice | null
+  /** 실패 문구의 언어. 훅이 `useLocale()`의 `t`를 넘긴다. 없으면 기본 언어 */
+  t?: Messages
 }
 
 /**
  * 마이크 스트림과 16kHz AudioContext를 함께 연다. `AudioContext`가 16kHz 요청을 무시하면
  * 잡은 것을 모두 놓고 실패시킨다 (references/pitfalls.md). 그래프 연결은 호출한 쪽이 한다.
  */
-export const openMicrophone = async ({ inputDevice }: OpenMicrophoneParams) => {
+export const openMicrophone = async ({
+  inputDevice,
+  t = getMessages(DEFAULT_LOCALE)
+}: OpenMicrophoneParams) => {
   const stream = await navigator.mediaDevices.getUserMedia(
     buildMicrophoneConstraints({ inputDevice })
   )
@@ -36,7 +42,10 @@ export const openMicrophone = async ({ inputDevice }: OpenMicrophoneParams) => {
     stream.getTracks().forEach((track) => track.stop())
     await context.close()
     throw new Error(
-      `이 마이크는 ${SAMPLE_RATE_HZ}Hz 녹음을 지원하지 않습니다 (현재 ${context.sampleRate}Hz)`
+      t.recording.errors.sampleRateUnsupported({
+        expected: SAMPLE_RATE_HZ,
+        actual: context.sampleRate
+      })
     )
   }
 

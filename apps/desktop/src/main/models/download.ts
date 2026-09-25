@@ -6,6 +6,7 @@ import { pipeline } from 'node:stream/promises'
 import { runBinary } from '../bin/spawn'
 import { messageOf } from '../log'
 import type { ModelAsset } from '@meeting-stt/models/desktop'
+import { t } from '../locale'
 
 const HTTP_PARTIAL_CONTENT = 206
 const TMP_DIR_NAME = 'tmp'
@@ -54,9 +55,7 @@ const fetchToFile = async ({
 
   const response = await fetch(url, { headers })
   if (!response.ok || !response.body) {
-    throw new Error(
-      `모델을 내려받지 못했습니다 (HTTP ${response.status}). 네트워크를 확인해 주세요`
-    )
+    throw new Error(t().main.models.downloadFailed({ status: response.status }))
   }
 
   // 서버가 Range를 무시하면 전체 본문이 오므로 처음부터 다시 쓴다
@@ -84,7 +83,7 @@ const fetchToFile = async ({
 
   if ((await sha256Of(destPath)) !== sha256) {
     await rm(destPath, { force: true })
-    throw new Error('내려받은 파일이 손상되었습니다. 다시 시도해 주세요')
+    throw new Error(t().main.models.checksumMismatch)
   }
 }
 
@@ -103,7 +102,7 @@ const extractEntry = async ({ archivePath, entry, destPath }: ExtractEntryParams
   try {
     await runBinary({ command: 'tar', args: ['-xf', archivePath, '-C', extractDir] })
   } catch (caught) {
-    throw new Error(`압축을 풀지 못했습니다: ${messageOf(caught)}`)
+    throw new Error(t().main.models.extractFailed({ reason: messageOf(caught) }))
   }
 
   await copyFile(path.join(extractDir, entry), destPath)

@@ -1,4 +1,4 @@
-import { resolveSpeakerNames } from '@meeting-stt/core/format'
+import { resolveSpeakerNames, type DefaultSpeakerNames } from '@meeting-stt/core/format'
 import type { Speaker, Utterance } from '@shared/types'
 
 import type { SpeakerOption } from '../types/transcript'
@@ -6,6 +6,8 @@ import type { SpeakerOption } from '../types/transcript'
 interface ToSpeakerOptionsParams {
   speakers: Speaker[]
   utterances: Utterance[]
+  /** UI 언어의 기본 화자 이름. 넘기지 않으면 한국어 */
+  defaultNames?: DefaultSpeakerNames
 }
 
 /**
@@ -13,14 +15,21 @@ interface ToSpeakerOptionsParams {
  * 발화가 하나도 없는 화자는 뒤에 붙인다 (@shared/format).
  * 화자 행이 없는 라벨도 목록에 남겨 발화가 이름 없이 보이는 일이 없게 한다.
  */
-export const toSpeakerOptions = ({ speakers, utterances }: ToSpeakerOptionsParams) => {
+export const toSpeakerOptions = ({
+  speakers,
+  utterances,
+  defaultNames
+}: ToSpeakerOptionsParams) => {
   const labels = [
     ...utterances.map((utterance) => utterance.speakerLabel),
     ...speakers.map((speaker) => speaker.label)
   ]
   const names = resolveSpeakerNames({
     labels,
-    displayNames: Object.fromEntries(speakers.map(({ label, displayName }) => [label, displayName]))
+    displayNames: Object.fromEntries(
+      speakers.map(({ label, displayName }) => [label, displayName])
+    ),
+    defaultNames
   })
 
   return [...new Set(labels)].map<SpeakerOption>((label) => ({ label, name: names[label] }))

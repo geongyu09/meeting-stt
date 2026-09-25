@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Utterance } from '@shared/types'
 import InlineEditableText from '@renderer/shared/components/composites/InlineEditableText'
 import Button from '@renderer/shared/components/primitives/ui/Button'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import type { SpeakerOption } from '../types/transcript'
 import { speakerToneOf } from '../utils/speakerTone'
@@ -24,6 +25,8 @@ export default function SpeakerPanel({
   onRenameSpeaker,
   onMergeSpeakers
 }: SpeakerPanelProps) {
+  const { t } = useLocale()
+  const { speakerPanel: labels } = t.transcript
   const [isMerging, setIsMerging] = useState(false)
   const [mergingLabel, setMergingLabel] = useState<string | null>(null)
 
@@ -43,7 +46,7 @@ export default function SpeakerPanel({
 
   const renderMergeTargets = ({ label, name }: SpeakerOption) => (
     <div className={styles.targets}>
-      <span className={styles.targetsLabel}>{name}을(를) 누구에게 합칠까요?</span>
+      <span className={styles.targetsLabel}>{labels.mergeTargetsLabel({ name })}</span>
       {speakerOptions
         .filter((option) => option.label !== label)
         .map((option) => (
@@ -53,16 +56,16 @@ export default function SpeakerPanel({
             size="sm"
             onClick={() => handleMerge({ fromLabel: label, intoLabel: option.label })}
           >
-            {option.name}에 합치기
+            {labels.mergeInto({ name: option.name })}
           </Button>
         ))}
     </div>
   )
 
   return (
-    <section className={styles.panel} aria-label="화자">
+    <section className={styles.panel} aria-label={labels.sectionLabel}>
       <header className={styles.header}>
-        <h2 className={styles.title}>화자</h2>
+        <h2 className={styles.title}>{labels.title}</h2>
         {speakerOptions.length > 1 ? (
           <Button
             variant="secondary"
@@ -70,7 +73,7 @@ export default function SpeakerPanel({
             aria-expanded={isMerging}
             onClick={handleToggleMerge}
           >
-            {isMerging ? '합치기 끝내기' : '화자 합치기'}
+            {isMerging ? labels.finishMerging : labels.startMerging}
           </Button>
         ) : null}
       </header>
@@ -88,7 +91,7 @@ export default function SpeakerPanel({
               <InlineEditableText
                 className={styles.name}
                 value={option.name}
-                ariaLabel={`${option.name} 이름`}
+                ariaLabel={labels.nameLabel({ name: option.name })}
                 onCommit={(displayName) => onRenameSpeaker({ label: option.label, displayName })}
               />
               {isMerging ? (
@@ -100,17 +103,19 @@ export default function SpeakerPanel({
                     setMergingLabel(mergingLabel === option.label ? null : option.label)
                   }
                 >
-                  {mergingLabel === option.label ? '취소' : '합치기'}
+                  {mergingLabel === option.label ? labels.cancel : labels.merge}
                 </Button>
               ) : (
-                <span className={styles.count}>발화 {countOf(option.label)}</span>
+                <span className={styles.count}>
+                  {labels.utteranceCount({ count: countOf(option.label) })}
+                </span>
               )}
             </span>
             {mergingLabel === option.label ? renderMergeTargets(option) : null}
           </li>
         ))}
       </ul>
-      <p className={styles.hint}>이름을 누르면 바로 바꿀 수 있습니다. Enter로 저장, Esc로 취소.</p>
+      <p className={styles.hint}>{labels.hint}</p>
     </section>
   )
 }

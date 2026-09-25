@@ -1,6 +1,7 @@
 import type { WhisperModelChoice } from '@shared/ipc'
 import Badge from '@renderer/shared/components/primitives/ui/Badge'
 import { formatBytes } from '@renderer/shared/utils/formatBytes'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import styles from './ModelOption.module.css'
 
@@ -19,6 +20,8 @@ export default function ModelOption({
   isDisabled,
   onSelect
 }: ModelOptionProps) {
+  const { t } = useLocale()
+
   return (
     <label className={[styles.option, isSelected ? styles.selected : ''].join(' ')}>
       <input
@@ -33,7 +36,7 @@ export default function ModelOption({
       <span className={styles.body}>
         <span className={styles.titleRow}>
           <span className={styles.title}>{option.label}</span>
-          {isRecommended && <Badge tone="accent">이 컴퓨터에 권장</Badge>}
+          {isRecommended && <Badge tone="accent">{t.models.download.recommended}</Badge>}
           <span className={styles.size}>{formatBytes({ bytes: option.sizeBytes })}</span>
         </span>
         <span className={styles.description}>{option.description}</span>

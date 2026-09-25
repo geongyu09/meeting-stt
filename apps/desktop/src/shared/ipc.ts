@@ -9,6 +9,7 @@ import type {
   MeetingDetail,
   ModelKey,
   PipelineStage,
+  RefineStage,
   SummaryStage,
   WhisperModelId
 } from './types'
@@ -35,7 +36,10 @@ export const IPC = {
     get: 'meetings:get',
     rename: 'meetings:rename',
     delete: 'meetings:delete',
-    search: 'meetings:search'
+    search: 'meetings:search',
+    reprocess: 'meetings:reprocess',
+    exportAudio: 'meetings:exportAudio',
+    import: 'meetings:import'
   },
   utterances: { updateText: 'utterances:updateText', reassign: 'utterances:reassign' },
   speakers: { rename: 'speakers:rename', merge: 'speakers:merge' },
@@ -43,6 +47,7 @@ export const IPC = {
   clipboard: { writeText: 'clipboard:writeText' },
   summary: { create: 'summary:create' },
   glossary: { get: 'glossary:get', update: 'glossary:update', draft: 'glossary:draft' },
+  refine: { run: 'refine:run' },
   llm: {
     status: 'llm:status',
     setProvider: 'llm:setProvider',
@@ -59,12 +64,15 @@ export const IPC = {
   events: {
     progress: 'pipeline:progress',
     summary: 'summary:progress',
+    refine: 'refine:progress',
     modelDownload: 'models:downloadProgress',
     updateAvailable: 'update:available',
     // 조회 채널과 이름이 겹칠 수 없어 이벤트 쪽에 Changed를 붙인다 (references/architecture.md IPC 규약)
     recordingState: 'recording:stateChanged',
     meetingsChanged: 'meetings:changed',
-    recordingCommand: 'recording:command'
+    recordingCommand: 'recording:command',
+    // 설정 화면이 바꾼 값을 위젯 창도 알아야 한다 (UI 언어). payload는 저장된 설정 전체다
+    settingsChanged: 'settings:changed'
   }
 } as const
 
@@ -174,6 +182,40 @@ export interface DeleteMeetingRequest {
   meetingId: string
 }
 
+/**
+ * 남아 있는 원본 WAV로 회의록을 처음부터 다시 만든다. 잡을 예약하고 `status='processing'`인 상세를 바로 돌려준다.
+ * 성공하면 발화·화자(이름 포함)·교정 결과를 새로 만들고 요약은 남긴다 (references/architecture.md "녹음본 재생·내보내기·다시 인식").
+ */
+export interface ReprocessMeetingRequest {
+  meetingId: string
+  /** 화자 분리에 쓸 참석자 수. null이면 임계값 폴백 */
+  speakerCount: number | null
+}
+
+export interface ExportMeetingAudioRequest {
+  meetingId: string
+}
+/** 저장 위치 대화상자를 사용자가 취소하면 false. 취소는 오류가 아니다 */
+export interface ExportMeetingAudioResponse {
+  isSaved: boolean
+}
+
+/**
+ * 앱 밖에서 녹음한 파일을 가져와 회의를 만든다. 요청 payload는 없다 — 파일은 main의 열기 대화상자로 고른다.
+ * 사용자가 대화상자를 취소하면 meeting이 null이고 오류가 아니다 (references/architecture.md "녹음 파일 가져오기").
+ */
+export interface ImportMeetingAudioResponse {
+  meeting: Meeting | null
+}
+
+/** 재생용 원본 WAV 주소. main의 커스텀 프로토콜이 회의 ID로 파일을 찾아 Range 요청에 응답한다 */
+export const MEETING_AUDIO_SCHEME = 'meeting-audio'
+export const MEETING_AUDIO_HOST = 'recording'
+
+/** `<audio src>`에 넣을 회의 하나의 재생 주소 */
+export const meetingAudioUrl = (meetingId: string) =>
+  `${MEETING_AUDIO_SCHEME}://${MEETING_AUDIO_HOST}/${encodeURIComponent(meetingId)}`
+
 export interface UpdateUtteranceTextRequest {
   meetingId: string
   utteranceId: string
@@ -204,6 +246,8 @@ export interface MergeSpeakersRequest {
 export type GetSettingsResponse = AppSettings
 export type UpdateSettingsRequest = AppSettings
 export type UpdateSettingsResponse = AppSettings
+/** `settings:update`가 저장을 마친 뒤 모든 창에 push한다 (references/architecture.md "UI 언어") */
+export type SettingsChangedEvent = AppSettings
 
 export type GetGlossaryResponse = GlossarySettings
 export type UpdateGlossaryRequest = GlossarySettings
@@ -272,6 +316,22 @@ export interface SummaryProgressEvent {
   percent: number
   /** stage가 'done'일 때만. renderer가 다시 조회하지 않도록 결과를 함께 보낸다 */
   summary?: string
+  /** stage가 'error'일 때만. 사용자에게 보여줄 한국어 안내 */
+  errorMessage?: string
+}
+
+/**
+ * 교정은 파이프라인이 끝나면 자동으로 돌지만, 용어 사전을 고친 뒤 다시 돌릴 때는 이 채널로 예약한다.
+ * 요약처럼 큐에 넣고 즉시 반환한다 (references/architecture.md "회의록 교정").
+ */
+export interface RunRefineRequest {
+  meetingId: string
+}
+
+export interface RefineProgressEvent {
+  meetingId: string
+  stage: RefineStage
+  percent: number
   /** stage가 'error'일 때만. 사용자에게 보여줄 한국어 안내 */
   errorMessage?: string
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AudioInputDevice } from '@shared/types'
+import type { Messages } from '@shared/i18n'
 import { CHUNK_SAMPLES } from '@shared/audio'
 import workletUrl from '@renderer/worklet/pcmRecorder.js?url'
 import { onRecordingCommand } from '@renderer/shared/api/events'
@@ -11,12 +12,10 @@ import {
   stopRecordingApi
 } from '@renderer/shared/api/recording'
 import { getSettingsApi } from '@renderer/shared/api/settings'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 import { openMicrophone } from '@renderer/shared/utils/microphone'
 
 const PROCESSOR_NAME = 'pcmRecorder'
-const PERMISSION_DENIED_MESSAGE =
-  '마이크 사용 권한이 없습니다. 시스템 설정에서 마이크 접근을 허용해 주세요'
-const MODEL_NOT_READY_MESSAGE = '메인 창에서 모델을 먼저 준비해 주세요'
 
 interface RecordingGraph {
   context: AudioContext
@@ -29,8 +28,8 @@ interface UseRecorderParams {
   isReady: boolean
 }
 
-const messageOf = (caught: unknown) =>
-  caught instanceof Error ? caught.message : '녹음 중 알 수 없는 오류가 발생했습니다'
+const messageOf = ({ caught, fallback }: { caught: unknown; fallback: string }) =>
+  caught instanceof Error ? caught.message : fallback
 
 /** 설정을 못 읽어도 녹음은 막지 않는다 — 시스템 기본 마이크로 진행한다 */
 const readInputDevice = (): Promise<AudioInputDevice | null> =>
@@ -48,11 +47,13 @@ const readInputDevice = (): Promise<AudioInputDevice | null> =>
  * 게인을 0으로 두지 않으면 마이크 소리가 스피커로 되돌아간다 (references/pitfalls.md).
  */
 const buildGraph = async ({
-  inputDevice
+  inputDevice,
+  t
 }: {
   inputDevice: AudioInputDevice | null
+  t: Messages
 }): Promise<RecordingGraph> => {
-  const { stream, context } = await openMicrophone({ inputDevice })
+  const { stream, context } = await openMicrophone({ inputDevice, t })
 
   try {
     await context.audioWorklet.addModule(workletUrl)
@@ -85,16 +86,21 @@ const closeGraph = async (graph: RecordingGraph) => {
  * main 세션이 들고 있으므로 여기서는 그래프와 실패만 다룬다 (references/architecture.md).
  */
 const useRecorder = ({ isReady }: UseRecorderParams) => {
+  const { t } = useLocale()
   const [isBusy, setIsBusy] = useState(false)
   const graphRef = useRef<RecordingGraph | null>(null)
   const meetingIdRef = useRef<string | null>(null)
 
   /** 실패는 세션에 모아 두 창이 같은 안내를 본다 */
-  const report = useCallback((message: string) => {
-    reportRecordingErrorApi({ message }).catch(() =>
-      console.error(`녹음 오류를 알리지 못했습니다: ${message}`)
-    )
-  }, [])
+  const report = useCallback(
+    (caught: unknown) => {
+      const message = messageOf({ caught, fallback: t.recording.errors.unknown })
+      reportRecordingErrorApi({ message }).catch(() =>
+        console.error(`녹음 오류를 알리지 못했습니다: ${message}`)
+      )
+    },
+    [t]
+  )
 
   /** 오디오 그래프를 먼저 끊어야 정지 요청 뒤에 청크가 더 날아가지 않는다 */
   const teardownGraph = useCallback(async () => {
@@ -109,18 +115,18 @@ const useRecorder = ({ isReady }: UseRecorderParams) => {
     setIsBusy(true)
 
     try {
-      if (!isReady) throw new Error(MODEL_NOT_READY_MESSAGE)
-      if (!(await requestMicrophonePermissionApi())) throw new Error(PERMISSION_DENIED_MESSAGE)
+      if (!isReady) throw new Error(t.recording.widget.modelNotReady)
+      if (!(await requestMicrophonePermissionApi())) {
+        throw new Error(t.recording.errors.permissionDenied)
+      }
 
-      const graph = await buildGraph({ inputDevice: await readInputDevice() })
+      const graph = await buildGraph({ inputDevice: await readInputDevice(), t })
 
       try {
         const meetingId = await startRecordingApi({ sampleRate: graph.context.sampleRate })
 
         graph.node.port.onmessage = ({ data }: MessageEvent<ArrayBuffer>) => {
-          sendRecordingChunkApi({ meetingId, pcm: data }).catch((caught) =>
-            report(messageOf(caught))
-          )
+          sendRecordingChunkApi({ meetingId, pcm: data }).catch(report)
         }
         graphRef.current = graph
         meetingIdRef.current = meetingId
@@ -130,11 +136,11 @@ const useRecorder = ({ isReady }: UseRecorderParams) => {
         throw caught
       }
     } catch (caught) {
-      report(messageOf(caught))
+      report(caught)
     } finally {
       setIsBusy(false)
     }
-  }, [isReady, report])
+  }, [isReady, report, t])
 
   const stop = useCallback(async () => {
     const meetingId = meetingIdRef.current
@@ -147,7 +153,7 @@ const useRecorder = ({ isReady }: UseRecorderParams) => {
       await teardownGraph()
       await stopRecordingApi({ meetingId })
     } catch (caught) {
-      report(messageOf(caught))
+      report(caught)
     } finally {
       setIsBusy(false)
     }
@@ -162,7 +168,7 @@ const useRecorder = ({ isReady }: UseRecorderParams) => {
 
       void teardownGraph()
         .then(() => (meetingId ? stopRecordingApi({ meetingId }) : undefined))
-        .catch((caught) => report(messageOf(caught)))
+        .catch(report)
     },
     [report, teardownGraph]
   )

@@ -1,3 +1,5 @@
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
+
 import styles from './OpacitySlider.module.css'
 
 interface OpacitySliderProps {
@@ -19,9 +21,11 @@ export default function OpacitySlider({
   isDisabled,
   onChange
 }: OpacitySliderProps) {
+  const { t } = useLocale()
+
   return (
     <label className={styles.slider}>
-      <span className={styles.label}>포커스가 없을 때 불투명도</span>
+      <span className={styles.label}>{t.settings.opacity.label}</span>
       <input
         className={styles.input}
         type="range"

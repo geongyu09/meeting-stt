@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { formatAccelerator } from '@shared/shortcut'
 import SettingRow from '@renderer/shared/components/primitives/layout/SettingRow'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import useShortcutCapture from '../model/useShortcutCapture'
 import styles from './ShortcutField.module.css'
@@ -20,6 +21,7 @@ export default function ShortcutField({
   onChange,
   children
 }: ShortcutFieldProps) {
+  const { t } = useLocale()
   const { isCapturing, error, startCapture, stopCapture, handleKeyDown } = useShortcutCapture({
     onCapture: onChange
   })
@@ -43,12 +45,12 @@ export default function ShortcutField({
           <button
             type="button"
             className={isCapturing ? styles.captureActive : styles.capture}
-            aria-label={`${title} 변경`}
+            aria-label={t.settings.shortcutField.changeLabel({ title })}
             onClick={startCapture}
             onKeyDown={handleKeyDown}
             onBlur={stopCapture}
           >
-            {isCapturing ? '키를 누르세요…' : formatAccelerator(accelerator)}
+            {isCapturing ? t.settings.shortcutField.pressKeys : formatAccelerator(accelerator)}
           </button>
           {accelerator === defaultAccelerator ? null : (
             <button
@@ -56,7 +58,9 @@ export default function ShortcutField({
               className={styles.reset}
               onClick={() => onChange(defaultAccelerator)}
             >
-              기본값 {formatAccelerator(defaultAccelerator)}로
+              {t.settings.shortcutField.resetTo({
+                accelerator: formatAccelerator(defaultAccelerator)
+              })}
             </button>
           )}
         </>

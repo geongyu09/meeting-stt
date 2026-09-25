@@ -110,6 +110,17 @@ describe('buildWhisperArgs', () => {
     expect(args.join(' ')).toContain('--vad --vad-model /models/vad.bin')
   })
 
+  it('이전 창 문맥을 넘기지 않아 반복 환각 고리를 막는다', () => {
+    const args = buildWhisperArgs({
+      modelPath: '/models/ggml.bin',
+      audioPath: '/audio/a.wav',
+      outputPath: '/out/a',
+      threads: 8
+    })
+
+    expect(args.join(' ')).toContain('-mc 0')
+  })
+
   it('DTW를 켜면 flash attention을 함께 끈다', () => {
     const args = buildWhisperArgs({
       modelPath: '/models/ggml.bin',

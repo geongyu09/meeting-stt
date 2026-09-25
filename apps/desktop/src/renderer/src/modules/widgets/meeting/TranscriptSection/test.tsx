@@ -1,15 +1,17 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import type { PipelineProgressEvent } from '@shared/ipc'
-import type { Meeting, MeetingDetail, Speaker, Utterance } from '@shared/types'
+import type { LlmStatus, Meeting, MeetingDetail, Speaker, Utterance } from '@shared/types'
 
 vi.mock('@renderer/shared/api/meetings', () => ({
   getMeetingApi: vi.fn(),
   renameMeetingApi: vi.fn(),
-  deleteMeetingApi: vi.fn()
+  deleteMeetingApi: vi.fn(),
+  reprocessMeetingApi: vi.fn(),
+  exportMeetingAudioApi: vi.fn()
 }))
 vi.mock('@renderer/shared/api/utterances', () => ({
   updateUtteranceTextApi: vi.fn(),
@@ -20,11 +22,25 @@ vi.mock('@renderer/shared/api/speakers', () => ({
   mergeSpeakersApi: vi.fn()
 }))
 vi.mock('@renderer/shared/api/clipboard', () => ({ writeClipboardTextApi: vi.fn() }))
-vi.mock('@renderer/shared/api/events', () => ({ onPipelineProgress: vi.fn(() => () => {}) }))
+vi.mock('@renderer/shared/api/events', () => ({
+  onPipelineProgress: vi.fn(() => () => {}),
+  onRefineProgress: vi.fn(() => () => {})
+}))
+vi.mock('@renderer/shared/api/refine', () => ({ runRefineApi: vi.fn() }))
+vi.mock('@renderer/shared/api/llm', () => ({ getLlmStatusApi: vi.fn() }))
+vi.mock('@renderer/shared/api/glossary', () => ({ getGlossaryApi: vi.fn() }))
 
 import { writeClipboardTextApi } from '@renderer/shared/api/clipboard'
-import { onPipelineProgress } from '@renderer/shared/api/events'
-import { deleteMeetingApi, getMeetingApi, renameMeetingApi } from '@renderer/shared/api/meetings'
+import { onPipelineProgress, onRefineProgress } from '@renderer/shared/api/events'
+import { getGlossaryApi } from '@renderer/shared/api/glossary'
+import { getLlmStatusApi } from '@renderer/shared/api/llm'
+import {
+  deleteMeetingApi,
+  exportMeetingAudioApi,
+  getMeetingApi,
+  renameMeetingApi,
+  reprocessMeetingApi
+} from '@renderer/shared/api/meetings'
 import { mergeSpeakersApi, renameSpeakerApi } from '@renderer/shared/api/speakers'
 import { reassignUtteranceApi, updateUtteranceTextApi } from '@renderer/shared/api/utterances'
 import TranscriptSection from './index'
@@ -38,6 +54,7 @@ const meetingOf = (overrides: Partial<Meeting> = {}): Meeting => ({
   createdAt: new Date(2026, 7, 26, 15, 12).getTime(),
   durationSec: 125,
   status: 'done',
+  hasAudio: false,
   ...overrides
 })
 
@@ -74,6 +91,7 @@ const detailOf = (overrides: Partial<MeetingDetail> = {}): MeetingDetail => ({
   meeting: meetingOf(),
   utterances: [utteranceOf()],
   speakers: [speakerOf()],
+  refineResult: null,
   ...overrides
 })
 
@@ -94,10 +112,65 @@ const renderSection = () =>
     </MemoryRouter>
   )
 
+const LLM_STATUS: LlmStatus = {
+  provider: 'local',
+  isLocalModelReady: true,
+  apiKeys: {
+    anthropic: { isSaved: false, tail: null },
+    openai: { isSaved: false, tail: null }
+  },
+  openaiModel: 'gpt-6-sol',
+  claudeCliPath: null,
+  claudeCliVersion: null
+}
+
+// 레일의 교정 패널이 스스로 읽는 값. 이 테스트의 관심사가 아니라 준비된 상태로 고정한다
+beforeEach(() => {
+  vi.mocked(getLlmStatusApi).mockResolvedValue(LLM_STATUS)
+  vi.mocked(getGlossaryApi).mockResolvedValue({ teamDescription: '', terms: [] })
+})
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
   vi.mocked(onPipelineProgress).mockReturnValue(() => {})
+})
+
+describe('TranscriptSection 자동 교정', () => {
+  it('교정 잡이 끝나면 상세를 다시 읽어 바뀐 본문과 고친 용어를 보여준다', async () => {
+    const pair = { utteranceId: 'utterance-1', from: '기터브', to: 'GitHub', similarity: 0.8 }
+    vi.mocked(getMeetingApi)
+      .mockResolvedValueOnce(detailOf({ utterances: [utteranceOf({ text: '기터브에 올립니다' })] }))
+      .mockResolvedValueOnce(
+        detailOf({
+          utterances: [utteranceOf({ text: 'GitHub에 올립니다' })],
+          refineResult: { refinedAt: 1, appliedPairs: [pair] }
+        })
+      )
+    renderSection()
+    expect(await screen.findByText('기터브에 올립니다')).toBeTruthy()
+
+    // useMeeting과 교정 패널이 각각 구독하므로 main처럼 모든 구독자에게 보낸다
+    await act(async () => {
+      vi.mocked(onRefineProgress).mock.calls.forEach(([listener]) =>
+        listener({ meetingId: MEETING_ID, stage: 'done', percent: 100 })
+      )
+    })
+
+    expect(await screen.findByText('GitHub에 올립니다')).toBeTruthy()
+    expect(screen.getByRole('list', { name: '고친 용어' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /수락/ })).toBeNull()
+  })
+
+  it('처리 중인 회의에는 교정 패널을 그리지 않는다', async () => {
+    vi.mocked(getMeetingApi).mockResolvedValue(
+      detailOf({ meeting: meetingOf({ status: 'processing' }), utterances: [], speakers: [] })
+    )
+    renderSection()
+
+    expect(await screen.findByText(/회의록을 만들고 있습니다/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '다시 교정' })).toBeNull()
+  })
 })
 
 describe('TranscriptSection 조회', () => {
@@ -457,5 +530,128 @@ describe('TranscriptSection 레일 폭 조절', () => {
 
     await user.dblClick(resizer)
     expect(resizer.getAttribute('aria-valuenow')).toBe('300')
+  })
+})
+
+describe('TranscriptSection 원본 녹음', () => {
+  const audioDetail = () =>
+    detailOf({
+      meeting: meetingOf({ hasAudio: true, speakerCount: 3 }),
+      utterances: [utteranceOf(), secondUtterance()],
+      speakers: [speakerOf(), speakerOf({ label: 'speaker_01' })]
+    })
+
+  it('원본을 보관하지 않은 회의는 재생 대신 설정 안내를 보여준다', async () => {
+    vi.mocked(getMeetingApi).mockResolvedValue(detailOf())
+    renderSection()
+
+    expect(await screen.findByText(/원본 녹음을 보관하지 않아/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '다시 인식' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /부터 재생/ })).toBeNull()
+  })
+
+  it('발화 시각을 누르면 그 지점부터 재생한다', async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    vi.mocked(getMeetingApi).mockResolvedValue(audioDetail())
+    const { container } = renderSection()
+
+    await user.click(await screen.findByRole('button', { name: '00:01:05부터 재생' }))
+
+    const audio = container.querySelector('audio') as HTMLAudioElement
+    expect(audio.getAttribute('src')).toBe(`meeting-audio://recording/${MEETING_ID}`)
+    expect(audio.currentTime).toBe(65)
+    expect(play).toHaveBeenCalled()
+    play.mockRestore()
+  })
+
+  it('원본 녹음을 WAV로 저장한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getMeetingApi).mockResolvedValue(audioDetail())
+    vi.mocked(exportMeetingAudioApi).mockResolvedValue({ isSaved: true })
+    renderSection()
+
+    await user.click(await screen.findByRole('button', { name: 'WAV로 저장' }))
+
+    expect(exportMeetingAudioApi).toHaveBeenCalledWith({ meetingId: MEETING_ID })
+    expect(await screen.findByRole('button', { name: '저장했습니다' })).toBeTruthy()
+  })
+
+  it('다시 인식은 참석자 수를 고르는 확인 단계를 거친 뒤 처리 중으로 바뀐다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getMeetingApi).mockResolvedValue(audioDetail())
+    vi.mocked(reprocessMeetingApi).mockResolvedValue(
+      detailOf({
+        meeting: meetingOf({ hasAudio: true, speakerCount: 4, status: 'processing' }),
+        utterances: [],
+        speakers: []
+      })
+    )
+    renderSection()
+
+    await user.click(await screen.findByRole('button', { name: '다시 인식' }))
+    expect(reprocessMeetingApi).not.toHaveBeenCalled()
+    expect(screen.getByText(/화자 이름, 직접 고친 내용, 교정 결과가 사라지고/)).toBeTruthy()
+
+    const speakerCount = screen.getByLabelText('참석자 수') as HTMLInputElement
+    expect(speakerCount.value).toBe('3')
+    await user.click(screen.getByRole('button', { name: '참석자 수 늘리기' }))
+    await user.click(screen.getByRole('button', { name: '다시 인식' }))
+
+    expect(reprocessMeetingApi).toHaveBeenCalledWith({ meetingId: MEETING_ID, speakerCount: 4 })
+    expect(await screen.findByText(/회의록을 만들고 있습니다/)).toBeTruthy()
+  })
+
+  it('다시 인식 확인에서 참석자 수를 비우면 자동(null)으로 요청한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getMeetingApi).mockResolvedValue(audioDetail())
+    vi.mocked(reprocessMeetingApi).mockResolvedValue(audioDetail())
+    renderSection()
+
+    await user.click(await screen.findByRole('button', { name: '다시 인식' }))
+    await user.clear(screen.getByLabelText('참석자 수'))
+    await user.click(screen.getByRole('button', { name: '다시 인식' }))
+
+    expect(reprocessMeetingApi).toHaveBeenCalledWith({ meetingId: MEETING_ID, speakerCount: null })
+  })
+
+  it('실패한 회의는 저장된 참석자 수로 바로 다시 시도한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getMeetingApi).mockResolvedValue(
+      detailOf({
+        meeting: meetingOf({
+          status: 'error',
+          errorMessage: '모델이 준비되지 않았습니다',
+          hasAudio: true,
+          speakerCount: 2
+        }),
+        utterances: [],
+        speakers: []
+      })
+    )
+    vi.mocked(reprocessMeetingApi).mockRejectedValue(new Error('이미 처리 중인 회의입니다'))
+    renderSection()
+
+    await user.click(await screen.findByRole('button', { name: '다시 시도' }))
+
+    expect(reprocessMeetingApi).toHaveBeenCalledWith({ meetingId: MEETING_ID, speakerCount: 2 })
+    expect(await screen.findByText('이미 처리 중인 회의입니다')).toBeTruthy()
+  })
+
+  it('원본이 없는 실패 회의에는 다시 시도 버튼이 없다', async () => {
+    vi.mocked(getMeetingApi).mockResolvedValue(
+      detailOf({
+        meeting: meetingOf({
+          status: 'error',
+          errorMessage: '녹음이 너무 짧아 회의록을 만들지 못했습니다'
+        }),
+        utterances: [],
+        speakers: []
+      })
+    )
+    renderSection()
+
+    expect(await screen.findByText(/녹음이 너무 짧아/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull()
   })
 })

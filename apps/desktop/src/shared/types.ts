@@ -5,7 +5,9 @@
  */
 
 import type { MergedUtterance } from '@meeting-stt/core/types'
+import type { Locale } from './i18n'
 
+export type { Locale }
 export type {
   MergedUtterance,
   SpeakerPiece,
@@ -27,6 +29,8 @@ export interface Meeting {
   summary?: string
   /** 녹음 정지 시 입력한 참석자 수. 없으면 임계값 폴백으로 화자를 나눈 회의다 (references/data-model.md) */
   speakerCount?: number
+  /** 원본 WAV가 남아 있는지. 재생·내보내기·다시 인식은 이 값이 true일 때만 할 수 있다 (references/architecture.md) */
+  hasAudio: boolean
 }
 
 export interface Utterance extends MergedUtterance {
@@ -72,6 +76,8 @@ export interface AppSettings {
   widgetShortcut: string
   /** 녹음에 쓸 마이크. null이면 시스템 기본 마이크. 장치가 빠져 있으면 녹음은 기본 마이크로 폴백한다 */
   inputDevice: AudioInputDevice | null
+  /** UI 언어 (기본 'ko'). 인식·요약 언어가 아니라 화면·메뉴바·오류 문구의 언어다 (`src/shared/i18n.ts`) */
+  locale: Locale
 }
 
 /**
@@ -93,7 +99,7 @@ export type LlmProvider = 'local' | 'claude-api' | 'claude-cli' | 'openai-api'
 /** API 키를 저장하는 단위. 공급자가 아니라 회사별이라 공급자를 오가도 키를 다시 넣지 않는다 */
 export type LlmApiVendor = 'anthropic' | 'openai'
 
-/** `openai-api`가 부르는 GPT 모델. 목록·라벨은 `src/shared/llm.ts`의 OPENAI_MODELS */
+/** `openai-api`가 부르는 GPT 모델. 목록은 `src/shared/llm.ts`의 OPENAI_MODEL_IDS, 라벨은 사전 `llm.openaiModels` */
 export type OpenaiModelId = 'gpt-6-astra' | 'gpt-6-sol' | 'gpt-6-luna'
 
 /** 저장된 키의 유무와 마지막 4자. 키 자체는 renderer로 보내지 않는다 */
@@ -117,11 +123,16 @@ export interface LlmStatus {
   claudeCliVersion: string | null
 }
 
-/** 디테일 화면이 한 번에 받는 묶음 */
+/**
+ * 디테일 화면이 한 번에 받는 묶음. 마지막 자동 교정 결과도 함께 실린다 —
+ * 교정이 본문을 바꾸므로 회의록과 결과가 같은 상태여야 한다 (references/architecture.md "회의록 교정")
+ */
 export interface MeetingDetail {
   meeting: Meeting
   utterances: Utterance[]
   speakers: Speaker[]
+  /** 마지막 자동 교정 결과 (Phase 5-4). 아직 교정하지 않았으면 null */
+  refineResult: RefineResult | null
 }
 
 /**
@@ -135,6 +146,27 @@ export type PipelineStage = 'stt' | 'diarize' | 'merge' | 'save' | 'done' | 'err
  * 'reduce'는 부분 요약을 하나로 합치는 단계다. 'done'·'error'는 마지막에 한 번만 보낸다.
  */
 export type SummaryStage = 'summarize' | 'reduce' | 'done' | 'error'
+
+/**
+ * 교정 잡의 단계 (Phase 5-4). 'read'는 읽기가 없는 라틴 문자 용어의 한글 읽기를 묻는 단계,
+ * 'verify'는 후보를 배치로 판정하는 단계다. 'done'·'error'는 마지막에 한 번만 보낸다.
+ */
+export type RefineStage = 'read' | 'verify' | 'done' | 'error'
+
+/** 마지막 자동 교정 결과. `appliedPairs`가 비어 있으면 고칠 곳을 찾지 못한 것이다 */
+export interface RefineResult {
+  /** epoch ms */
+  refinedAt: number
+  /** 실제로 본문을 바꾼 쌍 */
+  appliedPairs: RefinePair[]
+}
+
+/** 같은 쌍(from → to)이 걸린 발화를 묶은 것. 화면은 이 단위로 "몇 곳 고쳤는지"를 보여 준다 */
+export interface RefinePairGroup {
+  from: string
+  to: string
+  utteranceIds: string[]
+}
 
 /** 교정 대상 발화 하나 (Phase 5-4). 화자 라벨은 넘기지 않는다 — 모델이 고칠 대상이 아니다 */
 export interface RefineSource {
@@ -154,7 +186,7 @@ export interface RefinePair {
   similarity: number
 }
 
-/** 발화 하나에 판정을 통과한 쌍을 모두 적용한 수정 제안. 원문은 사용자가 수락할 때만 바뀐다 */
+/** 발화 하나에 판정을 통과한 쌍을 모두 적용한 결과. 앱은 `after`를 본문에 저장하고, 스크립트는 전후를 비교한다 */
 export interface RefineSuggestion {
   id: string
   before: string

@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { app, Menu, nativeImage, Tray } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { getRecordingState } from '../audio/session'
+import { getLocale, t } from '../locale'
 import { messageOf, warn } from '../log'
 import { showMainWindow } from './main'
 import { requestRecordingCommand, toggleWidgetVisible } from './widget'
@@ -14,8 +15,9 @@ const SECONDS_PER_MINUTE = 60
 const MINUTES_PER_HOUR = 60
 
 let tray: Tray | null = null
-/** 메뉴는 녹음 상태가 바뀔 때만 다시 만든다. 레벨 갱신마다 바꾸면 초당 두 번 교체된다 */
+/** 메뉴는 녹음 상태나 언어가 바뀔 때만 다시 만든다. 레벨 갱신마다 바꾸면 초당 두 번 교체된다 */
 let menuRecordingState: boolean | null = null
+let menuLocale: string | null = null
 /** 상시 1초 타이머는 유휴 상태에서도 CPU를 깨운다 → 녹음 중에만 돌린다 */
 let titleTimer: NodeJS.Timeout | null = null
 
@@ -37,18 +39,21 @@ const formatElapsed = (elapsedMs: number) => {
   return `${Math.floor(minutes / MINUTES_PER_HOUR)}:${pad2(minutes % MINUTES_PER_HOUR)}:${pad2(seconds)}`
 }
 
-const buildMenu = ({ isRecording }: { isRecording: boolean }) =>
-  Menu.buildFromTemplate([
+const buildMenu = ({ isRecording }: { isRecording: boolean }) => {
+  const { tray: labels } = t().main
+
+  return Menu.buildFromTemplate([
     {
-      label: isRecording ? '녹음 정지' : '녹음 시작',
+      label: isRecording ? labels.stopRecording : labels.startRecording,
       click: () => requestRecordingCommand({ kind: isRecording ? 'stop' : 'start' })
     },
-    { label: '위젯 표시/숨김', click: toggleWidgetVisible },
+    { label: labels.toggleWidget, click: toggleWidgetVisible },
     { type: 'separator' },
-    { label: '메인 창 열기', click: () => showMainWindow() },
+    { label: labels.openMainWindow, click: () => showMainWindow() },
     { type: 'separator' },
-    { label: '종료', click: () => app.quit() }
+    { label: labels.quit, click: () => app.quit() }
   ])
+}
 
 const setTitle = (title: string) => {
   // setTitle은 macOS 전용이다. 다른 플랫폼에서는 아이콘만 남는다
@@ -68,9 +73,11 @@ export const refreshTray = () => {
 
   const { startedAt } = getRecordingState()
   const isRecording = startedAt !== null
+  const locale = getLocale()
 
-  if (menuRecordingState !== isRecording) {
+  if (menuRecordingState !== isRecording || menuLocale !== locale) {
     menuRecordingState = isRecording
+    menuLocale = locale
     tray.setContextMenu(buildMenu({ isRecording }))
   }
 
@@ -94,7 +101,7 @@ export const refreshTray = () => {
 export const createTray = () => {
   try {
     const icon = nativeImage.createFromPath(trayIconPath())
-    if (icon.isEmpty()) throw new Error(`아이콘을 읽지 못했습니다 (${trayIconPath()})`)
+    if (icon.isEmpty()) throw new Error(`tray icon unreadable (${trayIconPath()})`)
 
     icon.setTemplateImage(true)
     tray = new Tray(icon)

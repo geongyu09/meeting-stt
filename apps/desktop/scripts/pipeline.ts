@@ -3,6 +3,11 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
+import {
+  OVERSPLIT_CLUSTER_COUNT,
+  reclusterChunks,
+  splitIntoChunks
+} from '@meeting-stt/core/cluster'
 import { formatTranscript } from '@meeting-stt/core/format'
 import { assignSpeakers, mergeUtterances } from '@meeting-stt/core/merge'
 import type { SpeakerSegment, SttSegment } from '@shared/types'
@@ -13,6 +18,7 @@ import {
   parseDiarizeProgress
 } from '../src/main/pipeline/diarize'
 import { normalizeWavFile } from '../src/main/pipeline/normalize'
+import { embedChunks } from '../src/main/pipeline/speakerEmbedding'
 import { threadPlan } from '../src/main/bin/threads'
 import {
   buildWhisperArgs,
@@ -46,6 +52,8 @@ interface CliOptions {
   dtwPreset?: string
   speakerCount?: number
   clusterThreshold?: number
+  /** 앱과 같이 CLI 라벨을 버리고 재임베딩 + k-means로 다시 군집한다. `--no-recluster`로 CLI 군집 그대로 본다 */
+  useRecluster: boolean
 }
 
 const parseCliOptions = (argv: string[]): CliOptions => {
@@ -64,7 +72,8 @@ const parseCliOptions = (argv: string[]): CliOptions => {
     useNormalize: !argv.includes('--no-normalize'),
     dtwPreset: wantsDtw ? (valueOf('dtw') ?? DEFAULT_DTW_PRESET) : undefined,
     speakerCount: speakers ? Number(speakers) : undefined,
-    clusterThreshold: threshold ? Number(threshold) : undefined
+    clusterThreshold: threshold ? Number(threshold) : undefined,
+    useRecluster: !argv.includes('--no-recluster')
   }
 }
 
@@ -132,10 +141,39 @@ const runDiarization = async ({ options }: { options: CliOptions }) => {
     throw new Error(`화자 분리 비정상 종료 (${result.code})\n${result.stderr.slice(-800)}`)
   }
 
-  return {
-    speakerSegments: parseDiarizeOutput(result.stdout),
-    elapsedMs: performance.now() - startedAt
-  }
+  const cliSegments = parseDiarizeOutput(result.stdout)
+  const speakerSegments = options.useRecluster
+    ? reclusterLikeApp({ cliSegments, options, threads: diarize })
+    : cliSegments
+
+  return { speakerSegments, elapsedMs: performance.now() - startedAt }
+}
+
+interface ReclusterLikeAppParams {
+  cliSegments: SpeakerSegment[]
+  options: CliOptions
+  threads: number
+}
+
+/** 앱의 `pipeline/recluster.ts`와 같은 흐름. 스크립트는 utilityProcess 없이 동기로 임베딩한다 */
+const reclusterLikeApp = ({ cliSegments, options, threads }: ReclusterLikeAppParams) => {
+  const chunks = splitIntoChunks({ segments: cliSegments })
+  if (options.speakerCount === 1 || chunks.length < 2) return cliSegments
+
+  const startedAt = performance.now()
+  const { embeddings } = embedChunks({
+    modelPath: EMBEDDING_MODEL,
+    audioPath: options.audioPath,
+    chunks,
+    threads
+  })
+  const clusterCount = options.speakerCount ?? OVERSPLIT_CLUSTER_COUNT
+  const speakerSegments = reclusterChunks({ chunks, embeddings, clusterCount })
+  info(
+    `  재군집: 조각 ${chunks.length}개 → K=${clusterCount} → 화자 ${new Set(speakerSegments.map((s) => s.speaker)).size}명 (${((performance.now() - startedAt) / 1000).toFixed(1)}초)`
+  )
+
+  return speakerSegments
 }
 
 const ensureInputs = (options: CliOptions) => {

@@ -1,20 +1,27 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { AudioInputDevice } from '@shared/types'
+import type { Messages } from '@shared/i18n'
 import { requestMicrophonePermissionApi } from '@renderer/shared/api/recording'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 /** Chromium이 끼워 넣는 가상 항목. "시스템 기본 마이크" 선택지가 그 역할이라 목록에서 뺀다 */
 const VIRTUAL_DEVICE_IDS = ['default', 'communications']
-const LOAD_ERROR_MESSAGE = '마이크 목록을 불러오지 못했습니다'
 
 const isInputDevice = (device: MediaDeviceInfo) =>
   device.kind === 'audioinput' &&
   device.deviceId !== '' &&
   !VIRTUAL_DEVICE_IDS.includes(device.deviceId)
 
-const toInputDevices = (devices: MediaDeviceInfo[]): AudioInputDevice[] =>
+const toInputDevices = ({
+  devices,
+  t
+}: {
+  devices: MediaDeviceInfo[]
+  t: Messages
+}): AudioInputDevice[] =>
   devices.filter(isInputDevice).map((device, index) => ({
     deviceId: device.deviceId,
-    label: device.label || `마이크 ${index + 1}`
+    label: device.label || t.recording.devices.unnamed({ index: index + 1 })
   }))
 
 const hasUnlabeledDevice = (devices: MediaDeviceInfo[]) =>
@@ -33,13 +40,13 @@ const unlockLabels = async () => {
   }
 }
 
-const enumerateInputDevices = async () => {
+const enumerateInputDevices = async ({ t }: { t: Messages }) => {
   const devices = await navigator.mediaDevices.enumerateDevices()
-  if (!hasUnlabeledDevice(devices)) return toInputDevices(devices)
+  if (!hasUnlabeledDevice(devices)) return toInputDevices({ devices, t })
 
   await unlockLabels()
 
-  return toInputDevices(await navigator.mediaDevices.enumerateDevices())
+  return toInputDevices({ devices: await navigator.mediaDevices.enumerateDevices(), t })
 }
 
 /**
@@ -47,6 +54,7 @@ const enumerateInputDevices = async () => {
  * (references/architecture.md "마이크 입력 장치와 테스트").
  */
 const useInputDevices = () => {
+  const { t } = useLocale()
   const [devices, setDevices] = useState<AudioInputDevice[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -54,16 +62,18 @@ const useInputDevices = () => {
   // effect에서 부르는 함수라 await 대신 프로미스 체인으로 쓴다 (.claude/rules/hook-guide.md)
   const fetchDevices = useCallback(
     () =>
-      enumerateInputDevices()
+      enumerateInputDevices({ t })
         .then((next) => {
           setDevices(next)
           setError(null)
         })
         .catch((caught: unknown) =>
-          setError(caught instanceof Error ? caught : new Error(LOAD_ERROR_MESSAGE))
+          setError(
+            caught instanceof Error ? caught : new Error(t.recording.errors.devicesUnavailable)
+          )
         )
         .finally(() => setIsLoading(false)),
-    []
+    [t]
   )
 
   const refetch = useCallback(() => {

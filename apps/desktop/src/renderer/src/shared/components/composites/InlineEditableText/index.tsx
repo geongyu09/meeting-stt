@@ -1,4 +1,5 @@
 import type { MouseEvent } from 'react'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import useInlineEdit from './model/useInlineEdit'
 import getCaretOffset from './model/getCaretOffset'
@@ -24,6 +25,7 @@ export default function InlineEditableText({
   isMultiline = false,
   className
 }: InlineEditableTextProps) {
+  const { t } = useLocale()
   const { isEditing, draft, setDraft, startEditing, commit, handleFocus, handleKeyDown } =
     useInlineEdit({
       value,
@@ -42,7 +44,7 @@ export default function InlineEditableText({
       <button
         type="button"
         className={[styles.display, className].filter(Boolean).join(' ')}
-        aria-label={`${ariaLabel} 수정`}
+        aria-label={t.common.inlineEdit.editLabel({ label: ariaLabel })}
         onClick={handleDisplayClick}
       >
         {value}

@@ -37,6 +37,7 @@ const QUIET_LABEL = '조용히 처리'
 const FADE_LABEL = '위젯 반투명'
 const OPACITY_LABEL = /포커스가 없을 때 불투명도/
 const RECORDING_SHORTCUT_BUTTON = '녹음 시작·정지 변경'
+const LOCALE_LABEL = 'UI 언어'
 
 /** 설정 행의 켜기/끄기는 제목을 이름으로 갖는 role="switch" 버튼이다 */
 const findSwitch = (name: string) => screen.findByRole('switch', { name })
@@ -58,7 +59,8 @@ const DEFAULT_SETTINGS = {
   widgetFadeOpacity: 0.55,
   recordingShortcut: 'Alt+Command+R',
   widgetShortcut: 'Alt+Command+W',
-  inputDevice: null
+  inputDevice: null,
+  locale: 'ko' as const
 }
 
 const toDeviceInfo = ({ deviceId, label }: { deviceId: string; label: string }) => ({
@@ -293,7 +295,8 @@ describe('SettingsSection', () => {
       '녹음 위젯',
       '단축키',
       '음성 인식 모델',
-      '업데이트'
+      '업데이트',
+      '언어'
     ])
     expect(
       within(screen.getByRole('region', { name: '녹음·처리' })).getByRole('switch', {
@@ -392,6 +395,26 @@ describe('SettingsSection', () => {
     const button = await screen.findByRole('button', { name: TEST_START_BUTTON })
     expect(await screen.findByText(/녹음 중에는 테스트할 수 없습니다/)).toBeTruthy()
     expect(button.hasAttribute('disabled')).toBe(true)
+  })
+
+  it('UI 언어를 English로 바꾸면 locale을 저장한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
+    vi.mocked(updateSettingsApi).mockResolvedValue({ ...DEFAULT_SETTINGS, locale: 'en' })
+    render(<SettingsSection />)
+
+    const select = (await screen.findByRole('combobox', {
+      name: LOCALE_LABEL
+    })) as HTMLSelectElement
+    expect(select.value).toBe('ko')
+    expect(screen.getByRole('option', { name: 'English' })).toBeTruthy()
+
+    await user.selectOptions(select, 'en')
+
+    expect(updateSettingsApi).toHaveBeenCalledWith({ ...DEFAULT_SETTINGS, locale: 'en' })
+    expect(
+      ((await screen.findByRole('combobox', { name: LOCALE_LABEL })) as HTMLSelectElement).value
+    ).toBe('en')
   })
 
   it('설정을 못 불러와도 children은 보여준다', async () => {

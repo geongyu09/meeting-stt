@@ -3,6 +3,7 @@ import type { LlmApiKeyStatus, LlmApiVendor } from '@shared/types'
 import { apiKeyTailOf, LLM_API_KEY_LABELS } from '@shared/llm'
 import { getEncryptedApiKey, setEncryptedApiKey } from '../db/settings'
 import { messageOf, warn } from '../log'
+import { t } from '../locale'
 
 /**
  * API 키는 회사별로 `safeStorage`로 암호화해 settings 테이블에 base64로 둔다 (references/data-model.md).
@@ -10,7 +11,7 @@ import { messageOf, warn } from '../log'
  */
 const ensureEncryptionAvailable = () => {
   if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('이 환경에서는 키를 안전하게 저장할 수 없습니다 (키체인 접근 불가)')
+    throw new Error(t().main.errors.keychainUnavailable)
   }
 }
 

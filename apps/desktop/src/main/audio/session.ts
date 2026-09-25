@@ -15,9 +15,10 @@ import { info, warn } from '../log'
 import { notifyMeetingsChanged } from '../meetingsChanged'
 import { enqueuePipelineJob } from '../pipeline/queue'
 import { createWavWriter, type WavWriter } from './wavWriter'
+import { t } from '../locale'
 
 /** 이보다 짧으면 사실상 빈 녹음이라 파이프라인을 돌리지 않는다 */
-const MIN_RECORDING_SEC = 1
+export const MIN_RECORDING_SEC = 1
 
 interface RecordingSession {
   meetingId: string
@@ -45,10 +46,12 @@ export const recordingsDir = () => path.join(app.getPath('userData'), 'recording
 const pad2 = (value: number) => String(value).padStart(2, '0')
 
 /** 기본 제목은 "2026-08-26 회의" (references/data-model.md) */
-const defaultTitle = (createdAt: number) => {
+export const defaultTitle = (createdAt: number) => {
   const date = new Date(createdAt)
 
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} 회의`
+  return t().main.recording.defaultTitle({
+    date: `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+  })
 }
 
 /** main이 창을 만든 뒤 한 번 등록한다. 창이 없을 때 보내면 무시된다 */
@@ -70,17 +73,17 @@ const publish = (extra: Partial<RecordingStateEvent> = {}) =>
 export const isRecording = () => session !== null
 
 const sessionOf = (meetingId: string) => {
-  if (session?.meetingId !== meetingId) throw new Error('진행 중인 녹음이 아닙니다')
+  if (session?.meetingId !== meetingId) throw new Error(t().main.recording.notActive)
 
   return session
 }
 
 /** 회의 행과 WAV 파일을 함께 만든다. id를 먼저 정해야 파일 이름이 정해진다 */
 export const startRecording = async ({ sampleRate }: { sampleRate: number }) => {
-  if (session) throw new Error('이미 녹음이 진행 중입니다')
+  if (session) throw new Error(t().main.recording.alreadyActive)
   if (sampleRate !== SAMPLE_RATE_HZ) {
     throw new Error(
-      `이 마이크는 ${SAMPLE_RATE_HZ}Hz 녹음을 지원하지 않습니다 (현재 ${sampleRate}Hz)`
+      t().main.recording.sampleRateUnsupported({ expected: SAMPLE_RATE_HZ, actual: sampleRate })
     )
   }
 
@@ -136,7 +139,7 @@ export const stopRecording = async ({ meetingId }: { meetingId: string }) => {
     updateMeetingStatus({
       meetingId,
       status: 'error',
-      errorMessage: '녹음이 너무 짧아 회의록을 만들지 못했습니다'
+      errorMessage: t().main.recording.tooShort
     })
   } else {
     enqueuePipelineJob({ meetingId })
@@ -146,7 +149,7 @@ export const stopRecording = async ({ meetingId }: { meetingId: string }) => {
   notifyMeetingsChanged()
 
   const meeting = findMeeting({ meetingId })
-  if (!meeting) throw new Error('회의 정보를 찾을 수 없습니다')
+  if (!meeting) throw new Error(t().main.recording.meetingInfoNotFound)
 
   return meeting
 }

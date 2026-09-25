@@ -3,6 +3,8 @@ import {
   IPC,
   type CheckLlmResponse,
   type DownloadModelsResponse,
+  type ExportMeetingAudioResponse,
+  type ImportMeetingAudioResponse,
   type GetLlmStatusResponse,
   type GetMeetingRequest,
   type GetMeetingResponse,
@@ -30,6 +32,7 @@ import { isAudioInputDevice } from '@shared/audio'
 import { readGlossarySettings, readTeamDescription } from '@shared/glossary'
 import { isLlmProvider, isOpenaiModelId, readApiKeyPayload } from '@shared/llm'
 import { isValidAccelerator } from '@shared/shortcut'
+import { isLocale } from '@shared/i18n'
 import {
   isWidgetFadeOpacity,
   MAX_WIDGET_FADE_OPACITY,
@@ -40,6 +43,8 @@ import {
   MAX_SPEAKER_COUNT,
   MIN_SPEAKER_COUNT
 } from '@meeting-stt/core/speakerCount'
+import { exportRecording } from '../audio/exportRecording'
+import { importRecording } from '../audio/importRecording'
 import { deleteMeetingWithRecording } from '../audio/recordings'
 import {
   appendRecordingChunk,
@@ -50,6 +55,7 @@ import {
   stopRecording
 } from '../audio/session'
 import { findMeeting, listMeetings, renameMeeting, searchMeetings } from '../db/meetings'
+import { getRefineResult } from '../db/refine'
 import {
   getAppSettings,
   getGlossarySettings,
@@ -67,11 +73,14 @@ import { listUtterances, updateUtteranceSpeaker, updateUtteranceText } from '../
 import type { ModelDownloadProgress } from '../models/download'
 import { isWhisperModelId } from '@meeting-stt/models/desktop'
 import { notifyMeetingsChanged } from '../meetingsChanged'
+import { setCurrentLocale, t } from '../locale'
 import { downloadModels, downloadSummaryModel, modelStatus } from '../models/service'
-import { enqueueGlossaryDraft, enqueueSummaryJob } from '../pipeline/queue'
+import { enqueueGlossaryDraft, enqueueRefineJob, enqueueSummaryJob } from '../pipeline/queue'
+import { reprocessMeeting } from '../pipeline/reprocess'
 import { checkForUpdatesNow, downloadUpdate, installUpdate } from '../updater'
 import { showMainWindow } from '../windows/main'
 import { replaceGlobalShortcuts, setGlobalShortcutsSuspended } from '../windows/shortcuts'
+import { refreshTray } from '../windows/tray'
 import { applyWidgetOpacity, requestRecordingCommand, setWidgetVisible } from '../windows/widget'
 
 const FULL_PERCENT = 100
@@ -97,30 +106,40 @@ interface ReadTextParams {
 /** renderer가 보낸 payload는 신뢰하지 않는다 (.claude/rules/ipc-api-guide.md) */
 const readText = ({ payload, key, maxLength, label }: ReadTextParams) => {
   if (!isRecord(payload) || typeof payload[key] !== 'string') {
-    throw new Error(`잘못된 요청입니다 (${label} 없음)`)
+    throw new Error(t().main.errors.invalidRequest({ what: label }))
   }
 
   const text = payload[key]
-  if (!text.trim()) throw new Error(`${label}을(를) 비워 둘 수 없습니다`)
+  if (!text.trim()) throw new Error(t().main.errors.fieldEmpty({ label }))
   if (text.length > maxLength) {
-    throw new Error(`${label}이(가) 너무 깁니다 (최대 ${maxLength}자)`)
+    throw new Error(t().main.errors.fieldTooLong({ label, maxLength }))
   }
 
   return text.trim()
 }
 
 const readMeetingId = (payload: unknown) =>
-  readText({ payload, key: 'meetingId', maxLength: LABEL_MAX_LENGTH, label: '회의 ID' })
+  readText({
+    payload,
+    key: 'meetingId',
+    maxLength: LABEL_MAX_LENGTH,
+    label: t().main.fields.meetingId
+  })
 
 const readUtteranceId = (payload: unknown) =>
-  readText({ payload, key: 'utteranceId', maxLength: LABEL_MAX_LENGTH, label: '발화 ID' })
+  readText({
+    payload,
+    key: 'utteranceId',
+    maxLength: LABEL_MAX_LENGTH,
+    label: t().main.fields.utteranceId
+  })
 
 const readSpeakerLabel = ({ payload, key }: { payload: unknown; key: string }) =>
-  readText({ payload, key, maxLength: LABEL_MAX_LENGTH, label: '화자 라벨' })
+  readText({ payload, key, maxLength: LABEL_MAX_LENGTH, label: t().main.fields.speakerLabel })
 
 const readSampleRate = (payload: unknown) => {
   if (!isRecord(payload) || typeof payload.sampleRate !== 'number') {
-    throw new Error('잘못된 요청입니다 (sampleRate 없음)')
+    throw new Error(t().main.errors.invalidRequest({ what: t().main.fields.sampleRate }))
   }
 
   return (payload as unknown as StartRecordingRequest).sampleRate
@@ -132,7 +151,9 @@ const readSpeakerCount = (payload: unknown) => {
     return undefined
   }
   if (!isValidSpeakerCount(payload.speakerCount)) {
-    throw new Error(`참석자 수는 ${MIN_SPEAKER_COUNT}~${MAX_SPEAKER_COUNT} 사이의 정수여야 합니다`)
+    throw new Error(
+      t().main.errors.speakerCountRange({ min: MIN_SPEAKER_COUNT, max: MAX_SPEAKER_COUNT })
+    )
   }
 
   return payload.speakerCount
@@ -140,7 +161,7 @@ const readSpeakerCount = (payload: unknown) => {
 
 const readPcm = (payload: unknown) => {
   if (!isRecord(payload) || !(payload.pcm instanceof ArrayBuffer)) {
-    throw new Error('잘못된 요청입니다 (PCM 청크 없음)')
+    throw new Error(t().main.errors.invalidRequest({ what: t().main.fields.pcmChunk }))
   }
 
   return payload.pcm
@@ -148,7 +169,7 @@ const readPcm = (payload: unknown) => {
 
 const readBoolean = ({ payload, key }: { payload: unknown; key: string }) => {
   if (!isRecord(payload) || typeof payload[key] !== 'boolean') {
-    throw new Error('잘못된 요청입니다 (설정 값 없음)')
+    throw new Error(t().main.errors.invalidRequest({ what: t().main.fields.settingValue }))
   }
 
   return payload[key]
@@ -158,7 +179,10 @@ const readFadeOpacity = (payload: unknown) => {
   const value = isRecord(payload) ? payload.widgetFadeOpacity : undefined
   if (!isWidgetFadeOpacity(value)) {
     throw new Error(
-      `위젯 불투명도는 ${MIN_WIDGET_FADE_OPACITY}~${MAX_WIDGET_FADE_OPACITY} 사이여야 합니다`
+      t().main.errors.fadeOpacityRange({
+        min: MIN_WIDGET_FADE_OPACITY,
+        max: MAX_WIDGET_FADE_OPACITY
+      })
     )
   }
 
@@ -168,7 +192,7 @@ const readFadeOpacity = (payload: unknown) => {
 const readShortcut = ({ payload, key }: { payload: unknown; key: string }) => {
   const value = isRecord(payload) ? payload[key] : undefined
   if (typeof value !== 'string' || !isValidAccelerator(value)) {
-    throw new Error('단축키는 ⌘·⌥·⌃ 중 하나 이상과 문자·숫자·기능키를 함께 눌러 지정해 주세요')
+    throw new Error(t().main.errors.shortcutInvalid)
   }
 
   return value
@@ -178,9 +202,17 @@ const readShortcut = ({ payload, key }: { payload: unknown; key: string }) => {
 const readInputDevice = (payload: unknown) => {
   const value = isRecord(payload) ? payload.inputDevice : undefined
   if (value === null) return null
-  if (!isAudioInputDevice(value)) throw new Error('입력 장치 정보가 올바르지 않습니다')
+  if (!isAudioInputDevice(value)) throw new Error(t().main.errors.inputDeviceInvalid)
 
   return { deviceId: value.deviceId, label: value.label }
+}
+
+/** 모르는 언어는 조용히 기본값으로 바꾸지 않고 거절한다 — 저장 요청은 설정 화면이 고른 값이어야 한다 */
+const readLocale = (payload: unknown) => {
+  const value = isRecord(payload) ? payload.locale : undefined
+  if (!isLocale(value)) throw new Error(t().main.errors.unknownLocale)
+
+  return value
 }
 
 const readSettings = (payload: unknown) => ({
@@ -192,7 +224,8 @@ const readSettings = (payload: unknown) => ({
   widgetFadeOpacity: readFadeOpacity(payload),
   recordingShortcut: readShortcut({ payload, key: 'recordingShortcut' }),
   widgetShortcut: readShortcut({ payload, key: 'widgetShortcut' }),
-  inputDevice: readInputDevice(payload)
+  inputDevice: readInputDevice(payload),
+  locale: readLocale(payload)
 })
 
 const RECORDING_COMMAND_KINDS: RecordingCommandEvent['kind'][] = ['start', 'stop', 'toggle']
@@ -200,7 +233,7 @@ const RECORDING_COMMAND_KINDS: RecordingCommandEvent['kind'][] = ['start', 'stop
 const readRecordingCommandKind = (payload: unknown) => {
   const kind = isRecord(payload) ? payload.kind : undefined
   if (!RECORDING_COMMAND_KINDS.includes(kind as RecordingCommandEvent['kind'])) {
-    throw new Error('알 수 없는 녹음 명령입니다')
+    throw new Error(t().main.errors.unknownRecordingCommand)
   }
 
   return kind as RecordingCommandEvent['kind']
@@ -208,7 +241,7 @@ const readRecordingCommandKind = (payload: unknown) => {
 
 const readLlmProvider = (payload: unknown) => {
   if (!isRecord(payload) || !isLlmProvider(payload.provider)) {
-    throw new Error('알 수 없는 LLM 공급자입니다')
+    throw new Error(t().main.errors.unknownLlmProvider)
   }
 
   return payload.provider
@@ -216,7 +249,7 @@ const readLlmProvider = (payload: unknown) => {
 
 /** 키는 저장·삭제만 하고 renderer로 되돌려주지 않는다 (references/data-model.md) */
 const handleSetLlmApiKey = (payload: unknown): Promise<SetLlmApiKeyResponse> => {
-  const { vendor, apiKey } = readApiKeyPayload(payload)
+  const { vendor, apiKey } = readApiKeyPayload(payload, t().llm.errors)
   if (apiKey === null) clearApiKey({ vendor })
   else saveApiKey({ vendor, apiKey })
 
@@ -225,7 +258,7 @@ const handleSetLlmApiKey = (payload: unknown): Promise<SetLlmApiKeyResponse> => 
 
 const readOpenaiModel = (payload: unknown) => {
   if (!isRecord(payload) || !isOpenaiModelId(payload.model)) {
-    throw new Error('알 수 없는 GPT 모델입니다')
+    throw new Error(t().main.errors.unknownOpenaiModel)
   }
 
   return payload.model
@@ -233,7 +266,7 @@ const readOpenaiModel = (payload: unknown) => {
 
 const readWhisperModelId = (payload: unknown) => {
   if (!isRecord(payload) || !isWhisperModelId(payload.whisperModelId)) {
-    throw new Error('알 수 없는 음성 인식 모델입니다')
+    throw new Error(t().main.errors.unknownWhisperModel)
   }
 
   return payload.whisperModelId
@@ -253,27 +286,33 @@ const getMeetingDetail = ({ meetingId }: GetMeetingRequest): GetMeetingResponse 
   return {
     meeting,
     utterances: listUtterances({ meetingId }),
-    speakers: listSpeakers({ meetingId })
+    speakers: listSpeakers({ meetingId }),
+    refineResult: getRefineResult({ meetingId })
   }
 }
 
 /** 편집 채널은 갱신된 상세를 그대로 돌려준다 (references/architecture.md) */
 const requireMeetingDetail = ({ meetingId }: GetMeetingRequest): MutateMeetingResponse => {
   const detail = getMeetingDetail({ meetingId })
-  if (!detail) throw new Error('회의를 찾을 수 없습니다')
+  if (!detail) throw new Error(t().main.errors.meetingNotFound)
 
   return detail
 }
 
 const requireSpeaker = ({ meetingId, label }: { meetingId: string; label: string }) => {
-  if (!hasSpeaker({ meetingId, label })) throw new Error('이 회의에 없는 화자입니다')
+  if (!hasSpeaker({ meetingId, label })) throw new Error(t().main.errors.speakerNotInMeeting)
 }
 
 const handleRenameMeeting = (payload: unknown) => {
   const meetingId = readMeetingId(payload)
-  const title = readText({ payload, key: 'title', maxLength: TITLE_MAX_LENGTH, label: '회의 제목' })
+  const title = readText({
+    payload,
+    key: 'title',
+    maxLength: TITLE_MAX_LENGTH,
+    label: t().main.fields.meetingTitle
+  })
 
-  if (!renameMeeting({ meetingId, title })) throw new Error('회의를 찾을 수 없습니다')
+  if (!renameMeeting({ meetingId, title })) throw new Error(t().main.errors.meetingNotFound)
   notifyMeetingsChanged()
 
   return requireMeetingDetail({ meetingId })
@@ -283,18 +322,26 @@ const handleDeleteMeeting = async (payload: unknown) => {
   const meetingId = readMeetingId(payload)
 
   if (!(await deleteMeetingWithRecording({ meetingId }))) {
-    throw new Error('회의를 찾을 수 없습니다')
+    throw new Error(t().main.errors.meetingNotFound)
   }
   notifyMeetingsChanged()
+}
+
+/** 참석자 수를 비우면(null) 임계값 폴백으로 다시 인식한다 */
+const handleReprocessMeeting = (payload: unknown) => {
+  const meetingId = readMeetingId(payload)
+  reprocessMeeting({ meetingId, speakerCount: readSpeakerCount(payload) ?? null })
+
+  return requireMeetingDetail({ meetingId })
 }
 
 /** 빈 질의는 오류가 아니라 빈 결과다. 사용자가 입력을 지우는 중에도 부른다 */
 const handleSearchMeetings = (payload: unknown): SearchMeetingsResponse => {
   if (!isRecord(payload) || typeof payload.query !== 'string') {
-    throw new Error('잘못된 요청입니다 (검색어 없음)')
+    throw new Error(t().main.errors.invalidRequest({ what: t().main.fields.searchQuery }))
   }
   if (payload.query.length > SEARCH_QUERY_MAX_LENGTH) {
-    throw new Error(`검색어가 너무 깁니다 (최대 ${SEARCH_QUERY_MAX_LENGTH}자)`)
+    throw new Error(t().main.errors.searchQueryTooLong({ maxLength: SEARCH_QUERY_MAX_LENGTH }))
   }
 
   return searchMeetings({ query: payload.query })
@@ -309,10 +356,10 @@ const handleUpdateUtteranceText = (payload: unknown) => {
       payload,
       key: 'text',
       maxLength: UTTERANCE_TEXT_MAX_LENGTH,
-      label: '발화 내용'
+      label: t().main.fields.utteranceText
     })
   })
-  if (!changed) throw new Error('발화를 찾을 수 없습니다')
+  if (!changed) throw new Error(t().main.errors.utteranceNotFound)
 
   return requireMeetingDetail({ meetingId })
 }
@@ -327,7 +374,7 @@ const handleReassignUtterance = (payload: unknown) => {
     utteranceId: readUtteranceId(payload),
     speakerLabel
   })
-  if (!changed) throw new Error('발화를 찾을 수 없습니다')
+  if (!changed) throw new Error(t().main.errors.utteranceNotFound)
 
   return requireMeetingDetail({ meetingId })
 }
@@ -341,10 +388,10 @@ const handleRenameSpeaker = (payload: unknown) => {
       payload,
       key: 'displayName',
       maxLength: SPEAKER_NAME_MAX_LENGTH,
-      label: '화자 이름'
+      label: t().main.fields.speakerName
     })
   })
-  if (!changed) throw new Error('이 회의에 없는 화자입니다')
+  if (!changed) throw new Error(t().main.errors.speakerNotInMeeting)
 
   return requireMeetingDetail({ meetingId })
 }
@@ -354,7 +401,7 @@ const handleMergeSpeakers = (payload: unknown) => {
   const fromLabel = readSpeakerLabel({ payload, key: 'fromLabel' })
   const intoLabel = readSpeakerLabel({ payload, key: 'intoLabel' })
 
-  if (fromLabel === intoLabel) throw new Error('같은 화자끼리는 합칠 수 없습니다')
+  if (fromLabel === intoLabel) throw new Error(t().main.errors.sameSpeakerMerge)
   requireSpeaker({ meetingId, label: fromLabel })
   requireSpeaker({ meetingId, label: intoLabel })
   mergeSpeakers({ meetingId, fromLabel, intoLabel })
@@ -362,9 +409,22 @@ const handleMergeSpeakers = (payload: unknown) => {
   return requireMeetingDetail({ meetingId })
 }
 
+/** 회의가 없으면 예약하지 않는다. 결과는 refine:progress 이벤트로 온다 */
+const handleRunRefine = (payload: unknown) => {
+  const meetingId = readMeetingId(payload)
+  if (!findMeeting({ meetingId })) throw new Error(t().main.errors.meetingNotFound)
+
+  enqueueRefineJob({ meetingId })
+}
+
 const handleWriteClipboardText = (payload: unknown) => {
   clipboard.writeText(
-    readText({ payload, key: 'text', maxLength: CLIPBOARD_MAX_LENGTH, label: '복사할 내용' })
+    readText({
+      payload,
+      key: 'text',
+      maxLength: CLIPBOARD_MAX_LENGTH,
+      label: t().main.fields.clipboardText
+    })
   )
 }
 
@@ -429,7 +489,7 @@ export const registerIpcHandlers = () => {
         payload,
         key: 'message',
         maxLength: ERROR_MESSAGE_MAX_LENGTH,
-        label: '오류 내용'
+        label: t().main.fields.errorMessage
       })
     })
   )
@@ -453,6 +513,23 @@ export const registerIpcHandlers = () => {
   ipcMain.handle(IPC.meetings.search, (_event, payload): SearchMeetingsResponse =>
     handleSearchMeetings(payload)
   )
+
+  ipcMain.handle(IPC.meetings.reprocess, (_event, payload): MutateMeetingResponse =>
+    handleReprocessMeeting(payload)
+  )
+
+  // 저장 위치 대화상자가 닫힐 때까지 기다린다. 취소는 isSaved: false로 알린다
+  ipcMain.handle(
+    IPC.meetings.exportAudio,
+    async (_event, payload): Promise<ExportMeetingAudioResponse> => ({
+      isSaved: await exportRecording({ meetingId: readMeetingId(payload) })
+    })
+  )
+
+  // 열기 대화상자와 변환이 끝날 때까지 기다린다. 취소는 meeting: null로 알린다
+  ipcMain.handle(IPC.meetings.import, async (): Promise<ImportMeetingAudioResponse> => ({
+    meeting: await importRecording()
+  }))
 
   ipcMain.handle(IPC.utterances.updateText, (_event, payload): MutateMeetingResponse =>
     handleUpdateUtteranceText(payload)
@@ -490,6 +567,14 @@ export const registerIpcHandlers = () => {
       setWidgetVisible({ isVisible: settings.isWidgetEnabled })
     }
     applyWidgetOpacity()
+    // 메뉴바 문구는 언어를 따르고, 위젯 창은 push로만 새 설정을 안다 (references/architecture.md "UI 언어")
+    if (settings.locale !== previous.locale) {
+      setCurrentLocale(settings.locale)
+      refreshTray()
+    }
+    BrowserWindow.getAllWindows().forEach((window) => {
+      window.webContents.send(IPC.events.settingsChanged, settings)
+    })
 
     return settings
   })
@@ -519,14 +604,19 @@ export const registerIpcHandlers = () => {
     enqueueSummaryJob({ meetingId: readMeetingId(payload) })
   )
 
+  // 교정은 파이프라인 뒤에 자동으로 돌고, 이 채널은 수동 재실행이다. 요약처럼 큐에 넣기만 하고 결과는 이벤트로 보낸다
+  ipcMain.handle(IPC.refine.run, (_event, payload) => handleRunRefine(payload))
+
   ipcMain.handle(IPC.glossary.get, (): GetGlossaryResponse => getGlossarySettings())
 
   ipcMain.handle(IPC.glossary.update, (_event, payload): UpdateGlossaryResponse =>
-    updateGlossarySettings(readGlossarySettings(payload))
+    updateGlossarySettings(readGlossarySettings(payload, t().glossary.errors))
   )
 
   ipcMain.handle(IPC.glossary.draft, async (_event, payload): Promise<DraftGlossaryResponse> => ({
-    terms: await enqueueGlossaryDraft({ teamDescription: readTeamDescription(payload) })
+    terms: await enqueueGlossaryDraft({
+      teamDescription: readTeamDescription(payload, t().glossary.errors)
+    })
   }))
 
   ipcMain.handle(IPC.llm.status, (): Promise<GetLlmStatusResponse> => getLlmStatus())

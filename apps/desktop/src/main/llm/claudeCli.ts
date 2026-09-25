@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { app } from 'electron'
 import { buildClaudeCliArgs, parseClaudeCliOutput } from '@shared/llm'
+import { t } from '../locale'
 import { runBinary } from '../bin/spawn'
 import { info, messageOf, warn } from '../log'
 
@@ -118,5 +119,5 @@ export const completeWithClaudeCli = async ({
     env: await spawnEnv()
   })
 
-  return parseClaudeCliOutput(stdout)
+  return parseClaudeCliOutput(stdout, t().llm.errors)
 }

@@ -13,6 +13,7 @@ import {
 import { createLlmClient } from '../llm/provider'
 import { info } from '../log'
 import { GLOSSARY_TEMPERATURE } from '../summary/llama'
+import { t } from '../locale'
 
 /** 초안 중에만 쓰는 프롬프트·문법·출력 파일 자리. 끝나면 실패해도 지운다 (references/architecture.md) */
 const glossaryWorkDir = () => path.join(app.getPath('userData'), 'glossary')
@@ -54,7 +55,7 @@ export const runGlossaryDraft = async ({ teamDescription }: { teamDescription: s
 
     const terms = prependTeamTerms({ terms: parseGlossaryDraft(answer), teamDescription })
     if (!terms.length) {
-      throw new Error('용어 초안이 비어 있습니다. 팀 소개를 조금 더 자세히 적어 주세요')
+      throw new Error(t().main.glossary.draftEmpty)
     }
     info(`용어 초안 생성 완료 (${client.provider}, ${terms.length}개)`)
 

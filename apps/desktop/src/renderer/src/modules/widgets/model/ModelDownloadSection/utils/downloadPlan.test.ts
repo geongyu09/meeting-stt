@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { ModelStatusResponse } from '@shared/ipc'
+import { modelsKo } from '@shared/locales/models'
 import { planDownload } from './downloadPlan'
+
+const whisperLabelOf = modelsKo.download.whisperItemLabel
 
 const statusOf = (overrides: Partial<ModelStatusResponse> = {}): ModelStatusResponse => ({
   isReady: false,
@@ -27,7 +30,11 @@ const statusOf = (overrides: Partial<ModelStatusResponse> = {}): ModelStatusResp
 
 describe('planDownload', () => {
   it('요약 모델은 빼고 설치되지 않은 필수 모델 용량만 더한다', () => {
-    const { items, bytesToDownload } = planDownload({ status: statusOf(), selectedId: 'turbo-q5' })
+    const { items, bytesToDownload } = planDownload({
+      status: statusOf(),
+      selectedId: 'turbo-q5',
+      whisperLabelOf
+    })
 
     expect(items.map((item) => item.key)).toEqual(['whisper', 'vad'])
     expect(bytesToDownload).toBe(500)
@@ -48,7 +55,11 @@ describe('planDownload', () => {
       ]
     })
 
-    const { items, bytesToDownload } = planDownload({ status, selectedId: 'small-q5_1' })
+    const { items, bytesToDownload } = planDownload({
+      status,
+      selectedId: 'small-q5_1',
+      whisperLabelOf
+    })
 
     expect(items[0].label).toBe('음성 인식 모델 (저사양)')
     expect(items[0].isInstalled).toBe(false)
@@ -70,6 +81,6 @@ describe('planDownload', () => {
       ]
     })
 
-    expect(planDownload({ status, selectedId: 'turbo-q5' }).bytesToDownload).toBe(0)
+    expect(planDownload({ status, selectedId: 'turbo-q5', whisperLabelOf }).bytesToDownload).toBe(0)
   })
 })

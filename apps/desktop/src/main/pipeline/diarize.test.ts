@@ -57,16 +57,30 @@ describe('buildDiarizeArgs', () => {
     expect(args.some((arg) => arg.startsWith('--clustering.cluster-threshold'))).toBe(false)
   })
 
-  it('참석자 수를 모르면 cluster-threshold를 쓴다', () => {
+  it('참석자 수를 모르면 과분할 개수(12)로 num-clusters를 쓴다', () => {
+    const args = buildDiarizeArgs({
+      segmentationModelPath: '/models/seg.onnx',
+      embeddingModelPath: '/models/emb.onnx',
+      audioPath: '/audio/a.wav',
+      threads: 4
+    })
+
+    expect(args).toContain('--clustering.num-clusters=12')
+    expect(args.some((arg) => arg.startsWith('--clustering.cluster-threshold'))).toBe(false)
+  })
+
+  it('임계값을 명시하면(스크립트 실험) 참석자 수 대신 cluster-threshold를 쓴다', () => {
     const args = buildDiarizeArgs({
       segmentationModelPath: '/models/seg.onnx',
       embeddingModelPath: '/models/emb.onnx',
       audioPath: '/audio/a.wav',
       threads: 4,
+      speakerCount: 3,
       clusterThreshold: 0.6
     })
 
     expect(args).toContain('--clustering.cluster-threshold=0.6')
+    expect(args.some((arg) => arg.startsWith('--clustering.num-clusters'))).toBe(false)
   })
 
   it('오디오 경로는 항상 마지막 인자다', () => {

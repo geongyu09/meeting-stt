@@ -1,5 +1,6 @@
 import type { LlmStatus, OpenaiModelId } from '@shared/types'
 import { API_CHUNK_BUDGET_CHARS, llmMissingMessage } from '@shared/llm'
+import { t } from '../locale'
 import { getLlmProvider, getOpenaiModel } from '../db/settings'
 
 import { apiKeyStatusOf, readApiKey } from './apiKey'
@@ -57,7 +58,7 @@ const createOpenaiApiClient = ({ apiKey, model }: CreateOpenaiApiClientParams): 
  */
 export const createLlmClient = async (): Promise<LlmClient> => {
   const status = await getLlmStatus()
-  const missing = llmMissingMessage(status)
+  const missing = llmMissingMessage(status, t().llm)
   if (missing) throw new Error(missing)
 
   if (status.provider === 'claude-api') {

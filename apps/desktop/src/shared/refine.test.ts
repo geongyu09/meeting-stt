@@ -7,8 +7,10 @@ import {
   buildVerifyGrammar,
   buildVerifyPrompt,
   findRefineCandidates,
+  groupRefinePairs,
   parseReadings,
   parseVerifyOutput,
+  readRefinePairs,
   splitVerifyBatches,
   VERIFY_BATCH_SIZE
 } from './refine'
@@ -169,5 +171,46 @@ describe('applyRefinePairs', () => {
       pairs: [pair('a', '스패던시', 'dependency'), pair('a', '피어 스패던시', 'peer dependency')]
     })
     expect(suggestion.after).toBe('peer dependency와 dependency')
+  })
+
+  it('긴 쌍에 먹혀 본문에 들어가지 않은 쌍은 적용 목록에서 뺀다', () => {
+    const [suggestion] = applyRefinePairs({
+      sources: [source('a', '기터브 액션으로')],
+      pairs: [pair('a', '기터브', 'GitHub'), pair('a', '기터브 액션', 'GitHub Actions')]
+    })
+    expect(suggestion.after).toBe('GitHub Actions으로')
+    expect(suggestion.pairs).toEqual([{ from: '기터브 액션', to: 'GitHub Actions' }])
+  })
+})
+
+describe('groupRefinePairs', () => {
+  it('같은 쌍이 걸린 발화를 처음 나온 순서로 묶는다', () => {
+    const groups = groupRefinePairs({
+      pairs: [
+        pair('u1', '기터브', 'GitHub'),
+        pair('u2', '카볼', 'tarball'),
+        pair('u5', '기터브', 'GitHub'),
+        pair('u5', '기터브', 'GitHub')
+      ]
+    })
+
+    expect(groups).toEqual([
+      { from: '기터브', to: 'GitHub', utteranceIds: ['u1', 'u5'] },
+      { from: '카볼', to: 'tarball', utteranceIds: ['u2'] }
+    ])
+  })
+
+  it('제안이 없으면 빈 배열이다', () => {
+    expect(groupRefinePairs({ pairs: [] })).toEqual([])
+  })
+})
+
+describe('readRefinePairs', () => {
+  it('형식이 맞는 제안만 남기고 깨진 값은 빈 배열로 읽는다', () => {
+    expect(readRefinePairs([pair('u1', 'a', 'b'), { from: 'x' }, 3])).toEqual([
+      pair('u1', 'a', 'b')
+    ])
+    expect(readRefinePairs(null)).toEqual([])
+    expect(readRefinePairs('[]')).toEqual([])
   })
 })

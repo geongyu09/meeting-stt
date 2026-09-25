@@ -1,5 +1,6 @@
 import { GLOSSARY_CTX_TOKENS, GLOSSARY_MAX_PREDICT_TOKENS } from '@shared/glossary'
 import { cleanSummary, SUMMARY_CTX_TOKENS, SUMMARY_MAX_PREDICT_TOKENS } from '@shared/summary'
+import { t } from '../locale'
 
 /** 요약은 창작이 아니므로 낮게 둔다. 0으로 두면 같은 문장을 반복하는 경향이 있다 */
 export const SUMMARY_TEMPERATURE = 0.3
@@ -99,7 +100,7 @@ export const extractAnswer = ({ raw, prompt }: ExtractAnswerParams) => {
   const markerAt = raw.indexOf(ASSISTANT_MARKER, searchFrom)
 
   if (markerAt < 0) {
-    throw new Error('llama-cli 결과를 읽지 못했습니다 (출력 형식이 예상과 다릅니다)')
+    throw new Error(t().main.summary.llamaOutputUnreadable)
   }
 
   return raw.slice(markerAt + ASSISTANT_MARKER.length)
@@ -107,7 +108,7 @@ export const extractAnswer = ({ raw, prompt }: ExtractAnswerParams) => {
 
 export const parseSummaryOutput = (params: ExtractAnswerParams) => {
   const summary = cleanSummary(extractAnswer(params))
-  if (!summary) throw new Error('요약이 비어 있습니다 (회의록이 너무 짧을 수 있습니다)')
+  if (!summary) throw new Error(t().main.summary.empty)
 
   return summary
 }

@@ -10,7 +10,11 @@
 
 import { termReadingOf } from '@meeting-stt/core/termReadings'
 
+import { glossaryKo } from './locales/glossary'
 import type { GlossarySettings } from './types'
+
+/** 검증 오류 문구. 기본은 한국어 사전이고 main은 현재 언어의 `t().glossary.errors`를 넘긴다 */
+export type GlossaryErrorMessages = typeof glossaryKo.errors
 
 export const GLOSSARY_TEAM_MAX_CHARS = 500
 export const GLOSSARY_MAX_TERMS = 200
@@ -278,56 +282,87 @@ export const mergeGlossaryTerms = ({ current, additions }: MergeGlossaryTermsPar
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
 
-const readDescription = (value: unknown) => {
-  if (typeof value !== 'string') throw new Error('잘못된 요청입니다 (팀 소개 없음)')
+interface ReadDescriptionParams {
+  value: unknown
+  errors: GlossaryErrorMessages
+}
+
+const readDescription = ({ value, errors }: ReadDescriptionParams) => {
+  if (typeof value !== 'string') throw new Error(errors.missingTeam)
 
   const text = value.trim()
   if (text.length > GLOSSARY_TEAM_MAX_CHARS) {
-    throw new Error(`팀 소개는 ${GLOSSARY_TEAM_MAX_CHARS}자까지 적을 수 있습니다`)
+    throw new Error(errors.teamTooLong({ max: GLOSSARY_TEAM_MAX_CHARS }))
   }
 
   return text
 }
 
 /**
- * @description renderer가 보낸 용어 사전 설정을 검증하고 정리합니다. 한도를 넘으면 한국어 메시지로 거절합니다.
+ * @description renderer가 보낸 용어 사전 설정을 검증하고 정리합니다. 한도를 넘으면 안내 메시지로 거절합니다.
  * @param payload - `glossary:update` 요청 payload
+ * @param errors - 오류 문구 사전. 생략하면 한국어
  * @returns 정리한 설정
  * @example
  * const settings = readGlossarySettings(payload)
  */
-export const readGlossarySettings = (payload: unknown): GlossarySettings => {
-  if (!isRecord(payload) || !Array.isArray(payload.terms)) {
-    throw new Error('잘못된 요청입니다 (용어 목록 없음)')
+export const readGlossarySettings = (
+  payload: unknown,
+  errors: GlossaryErrorMessages = glossaryKo.errors
+): GlossarySettings => ({
+  teamDescription: readDescription({
+    value: isRecord(payload) ? payload.teamDescription : undefined,
+    errors
+  }),
+  terms: readTermLines(isRecord(payload) ? payload.terms : undefined, errors)
+})
+
+/**
+ * @description renderer가 보낸 용어 줄 목록을 검증하고 정리합니다.
+ * @param value - 요청 payload의 `terms`
+ * @param errors - 오류 문구 사전. 생략하면 한국어
+ * @returns 정리한 용어 줄 목록
+ * @example
+ * const terms = readTermLines(payload.terms)
+ */
+export const readTermLines = (
+  value: unknown,
+  errors: GlossaryErrorMessages = glossaryKo.errors
+) => {
+  if (!Array.isArray(value)) throw new Error(errors.missingTerms)
+  if (!value.every((line): line is string => typeof line === 'string')) {
+    throw new Error(errors.invalidTerms)
   }
 
-  const lines = payload.terms
-  if (!lines.every((line): line is string => typeof line === 'string')) {
-    throw new Error('잘못된 요청입니다 (용어 형식 오류)')
-  }
-
-  const terms = normalizeGlossaryTerms(lines)
+  const terms = normalizeGlossaryTerms(value)
   const tooLong = terms.find((term) => term.length > GLOSSARY_TERM_MAX_CHARS)
   if (tooLong) {
-    throw new Error(`용어 한 줄은 ${GLOSSARY_TERM_MAX_CHARS}자까지 적을 수 있습니다: ${tooLong}`)
+    throw new Error(errors.termTooLong({ max: GLOSSARY_TERM_MAX_CHARS, term: tooLong }))
   }
   if (terms.length > GLOSSARY_MAX_TERMS) {
-    throw new Error(`용어는 ${GLOSSARY_MAX_TERMS}개까지 저장할 수 있습니다`)
+    throw new Error(errors.tooManyTerms({ max: GLOSSARY_MAX_TERMS }))
   }
 
-  return { teamDescription: readDescription(payload.teamDescription), terms }
+  return terms
 }
 
 /**
  * @description 초안 요청의 팀 소개를 검증합니다. 비어 있으면 거절합니다.
  * @param payload - `glossary:draft` 요청 payload
+ * @param errors - 오류 문구 사전. 생략하면 한국어
  * @returns 앞뒤 공백을 자른 팀 소개
  * @example
  * const teamDescription = readTeamDescription(payload)
  */
-export const readTeamDescription = (payload: unknown) => {
-  const text = readDescription(isRecord(payload) ? payload.teamDescription : undefined)
-  if (!text) throw new Error('팀 소개를 먼저 적어 주세요')
+export const readTeamDescription = (
+  payload: unknown,
+  errors: GlossaryErrorMessages = glossaryKo.errors
+) => {
+  const text = readDescription({
+    value: isRecord(payload) ? payload.teamDescription : undefined,
+    errors
+  })
+  if (!text) throw new Error(errors.emptyTeam)
 
   return text
 }

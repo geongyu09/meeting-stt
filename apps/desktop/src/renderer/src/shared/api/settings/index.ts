@@ -20,6 +20,7 @@ export const getSettingsApi = async () => window.api.settings.get()
  * @param recordingShortcut - 녹음 토글 전역 단축키 (Electron accelerator)
  * @param widgetShortcut - 위젯 표시/숨김 전역 단축키 (Electron accelerator)
  * @param inputDevice - 녹음에 쓸 마이크 (`{ deviceId, label }`). null이면 시스템 기본 마이크
+ * @param locale - UI 언어 (`'ko'` | `'en'`). 인식·요약 언어는 바뀌지 않습니다
  * @returns 저장된 설정
  * @example
  * const settings = await updateSettingsApi({
@@ -31,7 +32,8 @@ export const getSettingsApi = async () => window.api.settings.get()
  *   widgetFadeOpacity: 0.55,
  *   recordingShortcut: 'Alt+Command+R',
  *   widgetShortcut: 'Alt+Command+W',
- *   inputDevice: null
+ *   inputDevice: null,
+ *   locale: 'ko'
  * })
  */
 export const updateSettingsApi = async ({
@@ -43,7 +45,8 @@ export const updateSettingsApi = async ({
   widgetFadeOpacity,
   recordingShortcut,
   widgetShortcut,
-  inputDevice
+  inputDevice,
+  locale
 }: UpdateSettingsRequest) =>
   window.api.settings.update({
     isAudioKept,
@@ -54,7 +57,8 @@ export const updateSettingsApi = async ({
     widgetFadeOpacity,
     recordingShortcut,
     widgetShortcut,
-    inputDevice
+    inputDevice,
+    locale
   })
 
 /**

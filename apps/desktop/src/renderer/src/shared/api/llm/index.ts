@@ -1,13 +1,16 @@
 import type { SetLlmApiKeyRequest, SetLlmProviderRequest, SetOpenaiModelRequest } from '@shared/ipc'
+import { llmKo } from '@shared/locales/llm'
 
 // Electron은 main에서 던진 에러를 "Error invoking remote method '<채널>': Error: <원문>"으로 감싼다
 const REMOTE_ERROR_PREFIX = /^Error invoking remote method '[^']+': (?:Error: )?/
 
-const STATUS_ERROR_MESSAGE = 'LLM 설정을 불러오지 못했습니다'
-const PROVIDER_ERROR_MESSAGE = 'LLM 공급자를 저장하지 못했습니다'
-const API_KEY_ERROR_MESSAGE = 'API 키를 저장하지 못했습니다'
-const OPENAI_MODEL_ERROR_MESSAGE = 'GPT 모델을 저장하지 못했습니다'
-const CHECK_ERROR_MESSAGE = '연결을 확인하지 못했습니다'
+// 요청 함수는 훅 밖의 순수 함수라 컨텍스트의 언어를 모른다. 브리지 예외는 한국어 기본 문구로 바꾸고,
+// 부르는 훅(`useLlmSettings`)이 자기 언어의 안내로 다시 감싼다
+const STATUS_ERROR_MESSAGE = llmKo.section.loadError
+const PROVIDER_ERROR_MESSAGE = llmKo.actions.providerError
+const API_KEY_ERROR_MESSAGE = llmKo.actions.keyError
+const OPENAI_MODEL_ERROR_MESSAGE = llmKo.actions.modelError
+const CHECK_ERROR_MESSAGE = llmKo.actions.checkError
 
 interface ToUserErrorParams {
   caught: unknown

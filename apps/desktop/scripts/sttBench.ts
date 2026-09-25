@@ -25,6 +25,7 @@ const RESULTS_PATH = path.join(OUTPUT_DIR, 'sttBench.tsv')
 const PROGRESS_STEP_PERCENT = 10
 const MS_PER_SEC = 1000
 const PERCENT = 100
+const REPEAT_WINDOW_SEGMENTS = 4
 
 interface BenchOptions {
   audioPath: string
@@ -70,20 +71,23 @@ const ensureNormalized = async (audioPath: string) => {
 }
 
 /**
- * 직전 세그먼트와 글자가 똑같은 세그먼트를 반복 환각으로 본다.
+ * 최근 몇 세그먼트 안에 글자가 똑같은 세그먼트가 있으면 반복 환각으로 본다.
+ * 한 문장만 반복하지 않고 "6월이." / "한."처럼 두세 문장이 번갈아 도는 고리도 있어서 직전 하나만 보면 놓친다.
  * 사람이 같은 말을 연달아 할 때(네, 네)도 걸리지만 그 길이는 몇 초라 수백 초짜리 환각과 구분된다.
  */
-const measureRepetition = (segments: SttSegment[]) =>
-  segments.reduce(
+const measureRepetition = (segments: SttSegment[]) => {
+  const texts = segments.map((segment) => normalizeForCer(segment.text))
+
+  return segments.reduce(
     (acc, segment, index) => {
-      const text = normalizeForCer(segment.text)
-      const isRepeat =
-        index > 0 && text !== '' && text === normalizeForCer(segments[index - 1].text)
+      const recent = texts.slice(Math.max(0, index - REPEAT_WINDOW_SEGMENTS), index)
+      const isRepeat = texts[index] !== '' && recent.includes(texts[index])
       if (!isRepeat) return acc
       return { count: acc.count + 1, seconds: acc.seconds + (segment.end - segment.start) }
     },
     { count: 0, seconds: 0 }
   )
+}
 
 const runWhisper = async ({ options, audioPath }: { options: BenchOptions; audioPath: string }) => {
   const outputPath = path.join(
@@ -127,12 +131,7 @@ const runWhisper = async ({ options, audioPath }: { options: BenchOptions; audio
 
 const main = async () => {
   const options = parseOptions(process.argv.slice(2))
-  for (const target of [
-    options.audioPath,
-    options.binPath,
-    options.modelPath,
-    options.referencePath
-  ]) {
+  for (const target of [options.audioPath, options.binPath, options.modelPath]) {
     if (!existsSync(target)) fail(`${target} 이(가) 없습니다`)
   }
   await mkdir(OUTPUT_DIR, { recursive: true })
@@ -142,18 +141,26 @@ const main = async () => {
 
   const audioPath = await ensureNormalized(options.audioPath)
   const stt = await runWhisper({ options, audioPath })
-  const score = computeCer({
-    hypothesis: stt.text,
-    reference: await readFile(options.referencePath, 'utf-8')
-  })
   const repetition = measureRepetition(stt.segments)
+  // 정답이 없는 녹음(금토로 등)은 반복 환각·글자 수·시간만 잰다
+  const score = existsSync(options.referencePath)
+    ? computeCer({
+        hypothesis: stt.text,
+        reference: await readFile(options.referencePath, 'utf-8')
+      })
+    : null
+  const hypothesisChars = normalizeForCer(stt.text).length
+  const cerPercent = score ? (score.cer * PERCENT).toFixed(2) : '-'
 
-  const cerPercent = (score.cer * PERCENT).toFixed(2)
   info('')
-  info(
-    `CER ${cerPercent}% (치환 ${score.substitutions} · 삭제 ${score.deletions} · 삽입 ${score.insertions})`
-  )
-  info(`글자 수 정답 ${score.referenceChars} · 인식 ${score.hypothesisChars}`)
+  if (score) {
+    info(
+      `CER ${cerPercent}% (치환 ${score.substitutions} · 삭제 ${score.deletions} · 삽입 ${score.insertions})`
+    )
+  } else {
+    info(`정답 전사본이 없어 CER은 건너뜀 (${options.referencePath})`)
+  }
+  info(`글자 수 정답 ${score?.referenceChars ?? '-'} · 인식 ${hypothesisChars}`)
   info(`반복 세그먼트 ${repetition.count}개 · ${repetition.seconds.toFixed(0)}초`)
   info(`처리 시간 ${stt.elapsedSec.toFixed(1)}초`)
   info(`결과 ${stt.outputPath}.txt`)
@@ -173,11 +180,11 @@ const main = async () => {
       path.basename(options.modelPath),
       options.extraArgs.join(' '),
       cerPercent,
-      score.substitutions,
-      score.deletions,
-      score.insertions,
-      score.referenceChars,
-      score.hypothesisChars,
+      score?.substitutions ?? '-',
+      score?.deletions ?? '-',
+      score?.insertions ?? '-',
+      score?.referenceChars ?? '-',
+      hypothesisChars,
       repetition.count,
       repetition.seconds.toFixed(0),
       stt.elapsedSec.toFixed(1)

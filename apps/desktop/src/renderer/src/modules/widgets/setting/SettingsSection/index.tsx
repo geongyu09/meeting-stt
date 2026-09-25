@@ -14,8 +14,10 @@ import SettingGroup from '@renderer/shared/components/primitives/layout/SettingG
 import useInputDevices from '@renderer/shared/hooks/domain/recording/useInputDevices'
 import useRecordingState from '@renderer/shared/hooks/domain/recording/useRecordingState'
 import useSettings from '@renderer/shared/hooks/domain/setting/useSettings'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import InputDeviceSelect from './ui/InputDeviceSelect'
+import LocaleSelect from './ui/LocaleSelect'
 import MicrophoneTest from './ui/MicrophoneTest'
 import OpacitySlider from './ui/OpacitySlider'
 import SettingToggle from './ui/SettingToggle'
@@ -28,6 +30,7 @@ interface SettingsSectionProps {
 }
 
 export default function SettingsSection({ children }: SettingsSectionProps) {
+  const { t } = useLocale()
   const { settings, isLoading, error, updateSettings } = useSettings()
   const { devices, isLoading: isDevicesLoading, error: devicesError } = useInputDevices()
   const { isRecording } = useRecordingState()
@@ -36,7 +39,7 @@ export default function SettingsSection({ children }: SettingsSectionProps) {
   if (isLoading && !settings) {
     return (
       <div className={styles.section}>
-        <p className={styles.message}>설정을 불러오는 중입니다</p>
+        <p className={styles.message}>{t.settings.loading}</p>
         {children}
       </div>
     )
@@ -45,7 +48,7 @@ export default function SettingsSection({ children }: SettingsSectionProps) {
     return (
       <div className={styles.section}>
         <p className={styles.error} role="alert">
-          {error?.message ?? '설정을 불러오지 못했습니다'}
+          {error?.message ?? t.settings.loadError}
         </p>
         {children}
       </div>
@@ -59,7 +62,7 @@ export default function SettingsSection({ children }: SettingsSectionProps) {
           {error.message}
         </p>
       ) : null}
-      <SettingGroup title="마이크">
+      <SettingGroup title={t.settings.groups.microphone}>
         <InputDeviceSelect
           value={settings.inputDevice}
           devices={devices}
@@ -69,41 +72,39 @@ export default function SettingsSection({ children }: SettingsSectionProps) {
         />
         <MicrophoneTest inputDevice={settings.inputDevice} isRecording={isRecording} />
       </SettingGroup>
-      <SettingGroup title="녹음·처리">
+      <SettingGroup title={t.settings.groups.recording}>
         <SettingToggle
-          title="원본 녹음 파일 보관"
+          title={t.settings.audioKeep.title}
           isChecked={settings.isAudioKept}
           onChange={(isAudioKept) => updateSettings({ isAudioKept })}
         >
-          꺼 두면 회의록을 만든 뒤 원본 녹음을 지웁니다. 16kHz 녹음은 한 시간에 약 115MB를 차지하며,
-          보관하지 않은 회의는 나중에 다시 처리할 수 없습니다.
+          {t.settings.audioKeep.description}
         </SettingToggle>
         <SettingToggle
-          title="조용히 처리"
+          title={t.settings.quietProcessing.title}
           isChecked={settings.isQuietProcessing}
           onChange={(isQuietProcessing) => updateSettings({ isQuietProcessing })}
         >
-          회의록을 만들 때 CPU를 절반만 써서 발열과 팬 소음을 줄입니다. 대신 처리 시간이 길어지고,
-          이미 처리 중인 회의에는 적용되지 않습니다.
+          {t.settings.quietProcessing.description}
         </SettingToggle>
       </SettingGroup>
-      <SettingGroup title="녹음 위젯">
+      <SettingGroup title={t.settings.groups.widget}>
         <SettingToggle
-          title="녹음 위젯 패널"
+          title={t.settings.widgetPanel.title}
           isChecked={settings.isWidgetEnabled}
           onChange={(isWidgetEnabled) => updateSettings({ isWidgetEnabled })}
         >
-          화면 오른쪽에 떠 있는 작은 패널에서 회의 중에도 녹음을 시작하고 정지합니다. 꺼도 메뉴바
-          아이콘과 {formatAccelerator(settings.recordingShortcut)} 단축키로 녹음할 수 있고,{' '}
-          {formatAccelerator(settings.widgetShortcut)}로 패널을 다시 부를 수 있습니다.
+          {t.settings.widgetPanel.description({
+            recordingShortcut: formatAccelerator(settings.recordingShortcut),
+            widgetShortcut: formatAccelerator(settings.widgetShortcut)
+          })}
         </SettingToggle>
         <SettingToggle
-          title="위젯 반투명"
+          title={t.settings.widgetFade.title}
           isChecked={settings.isWidgetFadeEnabled}
           onChange={(isWidgetFadeEnabled) => updateSettings({ isWidgetFadeEnabled })}
         >
-          다른 창을 쓰는 동안 위젯을 반투명하게 보여 회의 화면을 덜 가립니다. 패널을 클릭하면 다시
-          선명해집니다.
+          {t.settings.widgetFade.description}
         </SettingToggle>
         <OpacitySlider
           value={settings.widgetFadeOpacity}
@@ -114,34 +115,37 @@ export default function SettingsSection({ children }: SettingsSectionProps) {
           onChange={(widgetFadeOpacity) => updateSettings({ widgetFadeOpacity })}
         />
       </SettingGroup>
-      <SettingGroup title="단축키">
+      <SettingGroup title={t.settings.groups.shortcut}>
         <ShortcutField
-          title="녹음 시작·정지"
+          title={t.settings.recordingShortcut.title}
           accelerator={settings.recordingShortcut}
           defaultAccelerator={DEFAULT_RECORDING_SHORTCUT}
           onChange={(recordingShortcut) => updateSettings({ recordingShortcut })}
         >
-          다른 앱을 쓰는 중에도 이 키로 녹음을 시작하고 정지합니다.
+          {t.settings.recordingShortcut.description}
         </ShortcutField>
         <ShortcutField
-          title="위젯 표시·숨김"
+          title={t.settings.widgetShortcut.title}
           accelerator={settings.widgetShortcut}
           defaultAccelerator={DEFAULT_WIDGET_SHORTCUT}
           onChange={(widgetShortcut) => updateSettings({ widgetShortcut })}
         >
-          ⌘·⌥·⌃ 중 하나 이상과 문자·숫자·기능키를 함께 누르세요. Esc를 누르면 취소합니다.
+          {t.settings.widgetShortcut.description}
         </ShortcutField>
       </SettingGroup>
       {children}
-      <SettingGroup title="업데이트">
+      <SettingGroup title={t.settings.groups.update}>
         <SettingToggle
-          title="시작할 때 업데이트 확인"
+          title={t.settings.updateCheck.title}
           isChecked={settings.isUpdateCheckEnabled}
           onChange={(isUpdateCheckEnabled) => updateSettings({ isUpdateCheckEnabled })}
         >
-          기본은 꺼짐이며, 켜도 다음 실행부터 확인합니다. 회의 내용은 보내지 않습니다.
+          {t.settings.updateCheck.description}
         </SettingToggle>
         <UpdateCheck />
+      </SettingGroup>
+      <SettingGroup title={t.settings.groups.language}>
+        <LocaleSelect value={settings.locale} onChange={(locale) => updateSettings({ locale })} />
       </SettingGroup>
     </div>
   )

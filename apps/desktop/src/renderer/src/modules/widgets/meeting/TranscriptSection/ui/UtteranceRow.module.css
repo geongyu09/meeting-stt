@@ -19,6 +19,24 @@
   font-variant-numeric: tabular-nums;
 }
 
+.seek {
+  align-self: start;
+  margin: 0;
+  padding-right: 0;
+  padding-bottom: 0;
+  padding-left: 0;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.seek:hover,
+.seek:focus-visible {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
 .body {
   display: flex;
   flex-direction: column;

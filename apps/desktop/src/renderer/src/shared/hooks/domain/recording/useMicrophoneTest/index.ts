@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AudioInputDevice } from '@shared/types'
 import { rmsOf } from '@shared/audio'
 import { requestMicrophonePermissionApi } from '@renderer/shared/api/recording'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 import { openMicrophone } from '@renderer/shared/utils/microphone'
 
 const LEVEL_POLL_MS = 100
@@ -11,9 +12,6 @@ const SILENCE_WARN_MS = 3000
 /** 녹음 화면의 파형과 같은 칸 수. 100ms 간격이라 약 5초 분량이다 */
 const LEVEL_HISTORY_SIZE = 48
 const ANALYSER_FFT_SIZE = 2048
-const PERMISSION_DENIED_MESSAGE =
-  '마이크 사용 권한이 없습니다. 시스템 설정에서 마이크 접근을 허용해 주세요'
-const UNKNOWN_ERROR_MESSAGE = '마이크를 열지 못했습니다'
 
 export type MicrophoneTestStatus = 'idle' | 'listening' | 'silent'
 
@@ -27,8 +25,8 @@ interface UseMicrophoneTestParams {
   inputDevice: AudioInputDevice | null
 }
 
-const messageOf = (caught: unknown) =>
-  caught instanceof Error ? caught.message : UNKNOWN_ERROR_MESSAGE
+const messageOf = ({ caught, fallback }: { caught: unknown; fallback: string }) =>
+  caught instanceof Error ? caught.message : fallback
 
 const closeGraph = async ({ context, stream, timer }: TestGraph) => {
   clearInterval(timer)
@@ -41,6 +39,7 @@ const closeGraph = async ({ context, stream, timer }: TestGraph) => {
  * 녹음이 실패할 환경이면 테스트도 같은 안내로 실패한다 (references/architecture.md "마이크 입력 장치와 테스트").
  */
 const useMicrophoneTest = ({ inputDevice }: UseMicrophoneTestParams) => {
+  const { t } = useLocale()
   const [isRunning, setIsRunning] = useState(false)
   const [isStarting, setIsStarting] = useState(false)
   const [levels, setLevels] = useState<number[]>([])
@@ -69,9 +68,11 @@ const useMicrophoneTest = ({ inputDevice }: UseMicrophoneTestParams) => {
     setError(null)
 
     try {
-      if (!(await requestMicrophonePermissionApi())) throw new Error(PERMISSION_DENIED_MESSAGE)
+      if (!(await requestMicrophonePermissionApi())) {
+        throw new Error(t.recording.errors.permissionDenied)
+      }
 
-      const { stream, context } = await openMicrophone({ inputDevice })
+      const { stream, context } = await openMicrophone({ inputDevice, t })
       const analyser = context.createAnalyser()
       analyser.fftSize = ANALYSER_FFT_SIZE
       // destination까지 이어야 그래프가 돈다. 게인 0은 마이크 소리가 스피커로 되돌아가지 않게 한다
@@ -96,11 +97,11 @@ const useMicrophoneTest = ({ inputDevice }: UseMicrophoneTestParams) => {
       setIsRunning(true)
       setStatus('listening')
     } catch (caught) {
-      setError(messageOf(caught))
+      setError(messageOf({ caught, fallback: t.recording.errors.microphoneOpenFailed }))
     } finally {
       setIsStarting(false)
     }
-  }, [inputDevice, isStarting])
+  }, [inputDevice, isStarting, t])
 
   // 장치를 바꾸면 이전 장치를 듣고 있는 테스트는 의미가 없다
   useEffect(() => {

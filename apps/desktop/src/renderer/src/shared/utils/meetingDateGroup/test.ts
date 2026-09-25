@@ -9,7 +9,8 @@ const meetingAt = (id: string, date: Date): Meeting => ({
   title: id,
   createdAt: date.getTime(),
   durationSec: 60,
-  status: 'done'
+  status: 'done',
+  hasAudio: false
 })
 
 describe('meetingDateGroupOf', () => {
@@ -48,7 +49,8 @@ describe('groupMeetingsByDate', () => {
         meetingAt('c', new Date(2026, 8, 22, 10, 0)),
         meetingAt('d', new Date(2026, 7, 1, 10, 0))
       ],
-      now: NOW
+      now: NOW,
+      locale: 'ko'
     })
 
     expect(groups.map(({ label, meetings }) => [label, meetings.map(({ id }) => id)])).toEqual([
@@ -58,16 +60,31 @@ describe('groupMeetingsByDate', () => {
     ])
   })
 
+  it('영어 화면에서는 영어 묶음 라벨을 쓴다', () => {
+    const groups = groupMeetingsByDate({
+      meetings: [
+        meetingAt('a', new Date(2026, 8, 24, 14, 0)),
+        meetingAt('c', new Date(2026, 8, 22, 10, 0)),
+        meetingAt('d', new Date(2026, 7, 1, 10, 0))
+      ],
+      now: NOW,
+      locale: 'en'
+    })
+
+    expect(groups.map(({ label }) => label)).toEqual(['Today', 'This week', 'Earlier'])
+  })
+
   it('회의가 없는 묶음은 뺀다', () => {
     const groups = groupMeetingsByDate({
       meetings: [meetingAt('d', new Date(2026, 7, 1, 10, 0))],
-      now: NOW
+      now: NOW,
+      locale: 'ko'
     })
 
     expect(groups.map(({ group }) => group)).toEqual(['earlier'])
   })
 
   it('회의가 없으면 빈 배열이다', () => {
-    expect(groupMeetingsByDate({ meetings: [], now: NOW })).toEqual([])
+    expect(groupMeetingsByDate({ meetings: [], now: NOW, locale: 'ko' })).toEqual([])
   })
 })

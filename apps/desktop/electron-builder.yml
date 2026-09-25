@@ -13,9 +13,11 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json,vitest.config.ts}'
   # macOS 전용 앱이라 리포지토리에 남은 Windows 바이너리는 넣지 않는다
   - '!resources/bin/win32-*'
-# whisper-cli·sherpa-onnx와 동적 라이브러리는 asar 안에서 실행할 수 없다
+# whisper-cli·sherpa-onnx와 동적 라이브러리는 asar 안에서 실행할 수 없다.
+# 화자 재임베딩 애드온(sherpa-onnx-node)의 .node와 dylib도 같다 (references/distribution.md 5절)
 asarUnpack:
   - resources/**
+  - node_modules/sherpa-onnx-darwin-arm64/**
 win:
   executableName: meeting-stt
   # 코드 사이닝은 CSC_LINK·CSC_KEY_PASSWORD 환경변수가 있을 때만 수행된다 (없으면 서명 없이 빌드)

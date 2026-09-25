@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes } from 'react-router'
 import type { RecordingStateEvent } from '@shared/ipc'
 
 vi.mock('@renderer/shared/api/recording', () => ({
@@ -10,12 +11,16 @@ vi.mock('@renderer/shared/api/recording', () => ({
   setSpeakerCountApi: vi.fn()
 }))
 
+vi.mock('@renderer/shared/api/meetings', () => ({ importMeetingAudioApi: vi.fn() }))
+
 vi.mock('@renderer/shared/api/events', () => ({ onRecordingState: vi.fn() }))
 vi.mock('@renderer/shared/api/settings', () => ({
   getSettingsApi: vi.fn().mockResolvedValue({ recordingShortcut: 'Alt+Command+R' })
 }))
 
+import type { Meeting } from '@shared/types'
 import { onRecordingState } from '@renderer/shared/api/events'
+import { importMeetingAudioApi } from '@renderer/shared/api/meetings'
 import {
   controlRecordingApi,
   getRecordingStateApi,
@@ -25,6 +30,17 @@ import RecorderSection from './index'
 
 const MEETING_ID = 'meeting-1'
 const IDLE_STATE: RecordingStateEvent = { meetingId: null, startedAt: null, level: 0 }
+
+/** 가져오기가 성공하면 회의 상세로 이동하므로 상세 경로를 함께 둔다 */
+const renderSection = () =>
+  render(
+    <MemoryRouter initialEntries={['/record']}>
+      <Routes>
+        <Route path="/record" element={<RecorderSection />} />
+        <Route path="/meetings/:meetingId" element={<p>회의 상세 화면</p>} />
+      </Routes>
+    </MemoryRouter>
+  )
 
 /** main이 보내는 상태 이벤트를 테스트에서 직접 흘려보내기 위해 구독자를 잡아 둔다 */
 let pushState: (event: RecordingStateEvent) => void = () => {}
@@ -48,7 +64,7 @@ afterEach(() => {
 describe('RecorderSection', () => {
   it('녹음 시작을 누르면 main에 시작 명령을 보낸다', async () => {
     const user = userEvent.setup()
-    render(<RecorderSection />)
+    renderSection()
 
     await user.click(screen.getByRole('button', { name: '녹음 시작' }))
 
@@ -57,7 +73,7 @@ describe('RecorderSection', () => {
 
   it('다른 창에서 시작한 녹음의 경과 시간과 정지 버튼을 보여준다', async () => {
     const user = userEvent.setup()
-    render(<RecorderSection />)
+    renderSection()
 
     act(() => {
       pushState({ meetingId: MEETING_ID, startedAt: Date.now() - 125_000, level: 0.2 })
@@ -72,7 +88,7 @@ describe('RecorderSection', () => {
 
   it('참석자 수를 입력하면 세션에 저장한다', async () => {
     const user = userEvent.setup()
-    render(<RecorderSection />)
+    renderSection()
 
     await user.type(screen.getByLabelText('참석자 수'), '4')
 
@@ -80,7 +96,7 @@ describe('RecorderSection', () => {
   })
 
   it('다른 창에서 바꾼 참석자 수를 그대로 보여준다', () => {
-    render(<RecorderSection />)
+    renderSection()
 
     act(() => {
       pushState({ ...IDLE_STATE, speakerCount: 7 })
@@ -91,7 +107,7 @@ describe('RecorderSection', () => {
 
   it('범위를 벗어난 참석자 수는 보내지 않고 안내한다', async () => {
     const user = userEvent.setup()
-    render(<RecorderSection />)
+    renderSection()
 
     await user.type(screen.getByLabelText('참석자 수'), '99')
 
@@ -100,7 +116,7 @@ describe('RecorderSection', () => {
   })
 
   it('위젯에서 일어난 녹음 실패를 메인 창에도 보여준다', () => {
-    render(<RecorderSection />)
+    renderSection()
 
     act(() => {
       pushState({ ...IDLE_STATE, errorMessage: '마이크 사용 권한이 없습니다' })
@@ -112,11 +128,54 @@ describe('RecorderSection', () => {
   it('명령 전달에 실패하면 안내를 보여준다', async () => {
     const user = userEvent.setup()
     vi.mocked(controlRecordingApi).mockRejectedValue(new Error('연결 실패'))
-    render(<RecorderSection />)
+    renderSection()
 
     await user.click(screen.getByRole('button', { name: '녹음 시작' }))
 
     expect(await screen.findByRole('alert')).toBeTruthy()
     expect(screen.getByText(/녹음 요청을 보내지 못했습니다/)).toBeTruthy()
+  })
+
+  it('녹음 파일을 가져오면 만들어진 회의 상세로 이동한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(importMeetingAudioApi).mockResolvedValue({
+      meeting: { id: 'imported-1' } as Meeting
+    })
+    renderSection()
+
+    await user.click(screen.getByRole('button', { name: '녹음 파일 가져오기' }))
+
+    expect(await screen.findByText('회의 상세 화면')).toBeTruthy()
+  })
+
+  it('파일 선택을 취소하면 그대로 머문다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(importMeetingAudioApi).mockResolvedValue({ meeting: null })
+    renderSection()
+
+    await user.click(screen.getByRole('button', { name: '녹음 파일 가져오기' }))
+
+    expect(await screen.findByRole('button', { name: '녹음 파일 가져오기' })).toBeTruthy()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('가져오기에 실패하면 main의 안내를 보여준다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(importMeetingAudioApi).mockRejectedValue(new Error('이 파일을 읽지 못했습니다'))
+    renderSection()
+
+    await user.click(screen.getByRole('button', { name: '녹음 파일 가져오기' }))
+
+    expect((await screen.findByRole('alert')).textContent).toBe('이 파일을 읽지 못했습니다')
+  })
+
+  it('녹음 중에는 가져오기 버튼을 숨긴다', () => {
+    renderSection()
+
+    act(() => {
+      pushState({ meetingId: MEETING_ID, startedAt: Date.now(), level: 0 })
+    })
+
+    expect(screen.queryByRole('button', { name: '녹음 파일 가져오기' })).toBeNull()
   })
 })

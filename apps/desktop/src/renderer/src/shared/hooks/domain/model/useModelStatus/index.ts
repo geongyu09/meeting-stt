@@ -7,13 +7,12 @@ import {
   downloadSummaryModelApi,
   getModelStatusApi
 } from '@renderer/shared/api/models'
-
-const LOAD_ERROR_MESSAGE = '모델 상태를 확인하지 못했습니다'
-const DOWNLOAD_ERROR_MESSAGE = '모델을 내려받지 못했습니다'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 type DownloadProgressMap = Partial<Record<ModelKey, ModelDownloadProgressEvent>>
 
 const useModelStatus = () => {
+  const { t } = useLocale()
   const [status, setStatus] = useState<ModelStatusResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -30,10 +29,10 @@ const useModelStatus = () => {
           setError(null)
         })
         .catch((caught: unknown) =>
-          setError(caught instanceof Error ? caught : new Error(LOAD_ERROR_MESSAGE))
+          setError(caught instanceof Error ? caught : new Error(t.models.status.loadError))
         )
         .finally(() => setIsLoading(false)),
-    []
+    [t]
   )
 
   const refetch = useCallback(() => {
@@ -65,7 +64,7 @@ const useModelStatus = () => {
 
       return true
     } catch (caught) {
-      setDownloadError(caught instanceof Error ? caught : new Error(DOWNLOAD_ERROR_MESSAGE))
+      setDownloadError(caught instanceof Error ? caught : new Error(t.models.status.downloadError))
 
       return false
     } finally {

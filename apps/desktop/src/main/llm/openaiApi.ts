@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import type { OpenaiModelId } from '@shared/types'
 import { API_MIN_MAX_TOKENS } from '@shared/llm'
+import { t } from '../locale'
 
 /** 요약·초안은 정형 작업이라 깊은 추론이 필요 없다 (references/architecture.md "OpenAI API 호출") */
 const REASONING_EFFORT = 'low'
@@ -16,16 +17,21 @@ interface CompleteWithOpenaiApiParams {
 /** SDK 오류를 사용자에게 보여줄 한국어 안내로 바꾼다. 구체적인 것부터 본다 */
 const toUserError = (caught: unknown) => {
   if (caught instanceof OpenAI.AuthenticationError) {
-    return new Error('OpenAI API 키가 올바르지 않습니다. 설정에서 키를 다시 저장해 주세요')
+    return new Error(t().main.llm.openaiKeyInvalid)
   }
   if (caught instanceof OpenAI.RateLimitError) {
-    return new Error('OpenAI API 요청 한도나 잔액이 부족합니다. 잠시 뒤 다시 시도해 주세요')
+    return new Error(t().main.llm.openaiQuotaExceeded)
   }
   if (caught instanceof OpenAI.APIConnectionError) {
-    return new Error('OpenAI 서버에 연결할 수 없습니다. 네트워크를 확인해 주세요')
+    return new Error(t().main.llm.openaiUnreachable)
   }
   if (caught instanceof OpenAI.APIError) {
-    return new Error(`OpenAI API 오류 (${caught.status ?? '알 수 없음'}): ${caught.message}`)
+    return new Error(
+      t().main.llm.openaiApiError({
+        status: String(caught.status ?? t().main.llm.unknownStatus),
+        message: caught.message
+      })
+    )
   }
 
   return caught instanceof Error ? caught : new Error(String(caught))
@@ -56,9 +62,9 @@ export const completeWithOpenaiApi = async ({
 
     if (response.status === 'incomplete') {
       const reason = response.incomplete_details?.reason
-      if (reason === 'content_filter') throw new Error('GPT가 이 요청을 처리하지 않았습니다')
+      if (reason === 'content_filter') throw new Error(t().main.llm.openaiRefused)
 
-      throw new Error('GPT 답변이 길어 잘렸습니다. 회의록을 나눠 다시 시도해 주세요')
+      throw new Error(t().main.llm.openaiTruncated)
     }
 
     return response.output_text

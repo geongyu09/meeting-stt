@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { frameSamplesOf, gainDbFor, gainOf, speechRmsDbOf } from '@meeting-stt/core/normalize'
+import { t } from '../locale'
 
 /**
  * STT 전에 WAV 음량을 맞추는 RMS 게인 정규화.
@@ -47,12 +48,12 @@ export const readWavPcm = (buffer: Buffer): WavPcm => {
   const chunks = listChunks(buffer)
   const fmt = chunks.find((chunk) => chunk.id === 'fmt ')
   const data = chunks.find((chunk) => chunk.id === 'data')
-  if (!fmt || !data) throw new Error('WAV 헤더에 fmt 또는 data 청크가 없습니다')
+  if (!fmt || !data) throw new Error(t().main.pipeline.wavChunkMissing)
 
   const formatTag = buffer.readUInt16LE(fmt.dataOffset)
   const bitsPerSample = buffer.readUInt16LE(fmt.dataOffset + 14)
   if (formatTag !== PCM_FORMAT_TAG || bitsPerSample !== SUPPORTED_BITS_PER_SAMPLE) {
-    throw new Error('16bit PCM WAV만 정규화할 수 있습니다')
+    throw new Error(t().main.pipeline.wavNot16Bit)
   }
 
   const size = Math.min(data.size, buffer.length - data.dataOffset)

@@ -29,12 +29,12 @@ description: 로컬 STT 회의록 데스크탑 앱(meeting-stt)의 개발 방향
 | 데스크탑 프레임워크 | **Electron** (electron-vite + React 19 + TS) | 이미 스캐폴드됨. Tauri로 전환하지 않는다 |
 | 패키지 매니저 / 스크립트 러너 | **pnpm 10** (`pnpm install`, `pnpm dev`, `pnpm test`, `pnpm --filter meeting-stt exec tsx scripts/*.ts`) | 런타임은 **Node 22+**. 단위 테스트는 **vitest**, TS 스크립트 실행은 **tsx**. bun/npm/yarn 명령을 문서·스크립트에 섞지 않는다 |
 | 리포지토리 구조 | **pnpm 워크스페이스 모노레포** — `apps/desktop`(제품 Electron 앱) · `apps/web`(브라우저 프로토타입) · `packages/core`(순수 공용 로직) · `packages/models`(모델 카탈로그) · `packages/design`(디자인 토큰·글꼴) | 두 앱이 같은 파이프라인을 다른 런타임에서 돌리므로 병합·포맷·정규화 공식·참석자 수 규칙·모델 카탈로그는 `packages/*`에 **한 번만** 정의한다. 의존 방향은 `apps/* → packages/*` 한 방향이고 패키지는 electron·fs·DOM을 import하지 않는다. 워크스페이스 경계·스크립트 규약·새 패키지 추가 절차는 `references/monorepo.md` |
-| STT 엔진 | **whisper.cpp** `whisper-cli` 바이너리를 `child_process`로 spawn (방식 A) | 기본 모델 `ggml-large-v3-turbo-q5_0.bin`, 고품질 옵션 `large-v3-q5_0`, 저사양 옵션 `small-q5_1`. `-l ko --output-json-full` + 토큰 타임스탬프. **`-dtw`는 끔** (Phase 1에서 이득 없음, `--no-flash-attn`을 강제해 느려짐) |
-| 화자 분리 | **sherpa-onnx** (pyannote segmentation-3.0 ONNX + 3D-Speaker ERes2Net 임베딩) | `sherpa-onnx-offline-speaker-diarization` CLI spawn (v1.13.6), **CPU 프로바이더** (`coreml`은 CPU보다 훨씬 느려 사용 안 함). **참석자 수를 받아 `--clustering.num-clusters`로 돌리는 것이 기본 경로**(녹음 정지 시 입력, `meetings.speaker_count`). sherpa-onnx의 군집은 complete-linkage + 코사인 거리 고정 임계값이라 **임계값 방식은 클러스터 수가 참석자 수가 아니라 녹음 길이·발화 교대에 비례해 늘어난다** (71분 발표: 0.9에서 115개·10초 이상 38명, 앱 26분 회의: 129개·23명). 참석자 수가 없을 때만 `--clustering.cluster-threshold=0.8` + 군소 화자 흡수(10초 미만, `assignSpeakers`)로 폴백하고 과분할될 수 있음을 UI에 안내한다. 참석자 수가 있으면 군소 화자 흡수를 하지 않는다 (`docs/phase1-results.md` 6·7절) |
+| STT 엔진 | **whisper.cpp** `whisper-cli` 바이너리를 `child_process`로 spawn (방식 A) | 기본 모델 `ggml-large-v3-turbo-q5_0.bin`, 고품질 옵션 `large-v3-q5_0`, 저사양 옵션 `small-q5_1`. `-l ko --output-json-full` + 토큰 타임스탬프. **`-mc 0`**(이전 창의 출력을 다음 창 문맥으로 넘기지 않음) — 긴 회의의 반복 환각 고리를 끊는다 (2026-09-25, `docs/stt-tuning-results.md`). **`-dtw`는 끔** (Phase 1에서 이득 없음, `--no-flash-attn`을 강제해 느려짐) |
+| 화자 분리 | **sherpa-onnx** (pyannote segmentation-3.0 ONNX + 3D-Speaker ERes2Net 임베딩)로 **분할·구간**을 만들고, **군집은 앱이 다시 한다** (2026-09-25 결정) | `sherpa-onnx-offline-speaker-diarization` CLI spawn (v1.13.6), **CPU 프로바이더** (`coreml`은 CPU보다 훨씬 느려 사용 안 함). CLI는 `--clustering.num-clusters=<참석자 수, 모르면 12>`로 돌리되 **그 라벨은 버린다** — sherpa-onnx 내장 군집(complete-linkage)은 튀는 임베딩 하나가 클러스터 하나를 차지해 실제 화자 둘을 합치고(7명 회의에서 한 명이 통째로 사라짐, 83.4%), 임계값 방식은 클러스터 수가 녹음 길이에 비례해 늘어난다(63.8%, 32명). 대신 CLI 결과 구간을 **5초 이하 조각으로 잘라 `sherpa-onnx-node`(같은 ERes2Net 모델)로 다시 임베딩**하고, `@meeting-stt/core/cluster`의 **k-means(K = 참석자 수, 모르면 12) + 중심 코사인 0.75 이상 클러스터 병합**으로 라벨을 새로 붙인다 → 같은 회의에서 **92.7% / 7명**, 참석자 수를 몰라도 **92.9%**(여분 화자 2명은 UI에서 병합) (`docs/diarization-clustering-results.md` 11절). 발표형 원거리 녹음은 참석자 수 없이는 여전히 과분할(10명)되므로 참석자 수 입력을 계속 권장한다. 참석자 수 입력(녹음 정지 시, `meetings.speaker_count`)은 여전히 권장하고, 없을 때만 군소 화자 흡수(10초 미만, `assignSpeakers`)를 적용한다. 임베딩은 main을 막지 않도록 `utilityProcess`에서 돌리고, 재군집이 실패하면 CLI 라벨로 폴백해 경고 로그를 남긴다. 설계는 `references/architecture.md` "화자 재군집" 절 |
 | 가속 · 스레드 | whisper.cpp·llama.cpp는 **Metal GPU**(전 레이어 offload), sherpa-onnx는 CPU. spawn에 넘기는 스레드 수는 **성능 코어(P) 수 기준**으로 프로세스마다 따로 정한다 | `os.cpus().length - 2`처럼 효율 코어까지 세면 **더 느려지면서 발열만 는다** (M3 Pro 실측: 화자 분리 `-t 10` 18.2초·CPU 915% → `-t 6` 10.8초·CPU 593%). **설정 '조용히 처리'(`pipeline.quiet`, 기본 꺼짐)** 를 켜면 화자 분리 스레드를 성능 코어의 절반으로 줄이고 STT와 순차로 돌린다 (화자 분리 +44%, CPU 부하 절반). 화자 분리를 CoreML로 옮기지 않는 이유(임베딩 입력 길이가 호출마다 달라 CPU보다 느림)도 같은 문서에 있다. 정책과 실측표는 `references/architecture.md` |
 | 음량 정규화 | STT·화자 분리 **전에** WAV 전체에 **순수 TS RMS 게인 정규화** (`src/main/pipeline/normalize.ts`) | ffmpeg를 동봉하지 않는다. 50ms 프레임 RMS의 90퍼센타일을 −20 dBFS로 맞추고 게인은 최대 +30 dB, 초과 샘플은 하드 클립. 원거리 마이크 녹음(발화 −44 dBFS)에서 Whisper가 수십 초를 통째로 놓치던 것을 복구한다 (글자수 +36%, ffmpeg `loudnorm`과 동등). 화자 분리에는 효과 없음. `docs/phase1-results.md` |
 | VAD | **whisper.cpp 내장 VAD** (`--vad --vad-model ggml-silero-v5.1.2.bin`) | 환각 억제뿐 아니라 **타임스탬프 정확도에도 필수**. 끄면 화자 경계 단어가 앞 화자에게 붙는다 (`docs/phase1-results.md`) |
-| 녹음 | `getUserMedia` + **AudioWorklet**으로 16kHz mono Float32 PCM 직접 수집 → WAV | MediaRecorder/ffmpeg 경로 사용 안 함. 주기적으로 디스크에 append. **입력 장치는 설정에서 고른다**(`audio.inputDevice`, 기본 시스템 마이크, 없으면 기본으로 폴백) — 새 IPC 없이 renderer의 `enumerateDevices`로 목록을 읽고 `settings:update`로 저장. **마이크 테스트**는 설정 화면의 짧은 별도 그래프(AnalyserNode RMS)로, 녹음 그래프 소유자 규칙의 예외다 (2026-09-25, `references/architecture.md` "마이크 입력 장치와 테스트") |
+| 녹음 | `getUserMedia` + **AudioWorklet**으로 16kHz mono Float32 PCM 직접 수집 → WAV. **앱 밖에서 녹음한 파일도 가져온다** — main이 macOS 내장 `/usr/bin/afconvert`로 16kHz mono WAV로 변환한 뒤 같은 파이프라인에 넣는다 (2026-09-25, `references/architecture.md` "녹음 파일 가져오기") | MediaRecorder/ffmpeg 경로 사용 안 함. 주기적으로 디스크에 append. **입력 장치는 설정에서 고른다**(`audio.inputDevice`, 기본 시스템 마이크, 없으면 기본으로 폴백) — 새 IPC 없이 renderer의 `enumerateDevices`로 목록을 읽고 `settings:update`로 저장. **마이크 테스트**는 설정 화면의 짧은 별도 그래프(AnalyserNode RMS)로, 녹음 그래프 소유자 규칙의 예외다 (2026-09-25, `references/architecture.md` "마이크 입력 장치와 테스트") |
 | 저장소 | **SQLite** via `better-sqlite3` (main 프로세스 전용) | 스키마는 `references/data-model.md` |
 | 라우팅 | **react-router v8**의 `createHashRouter` + `RouterProvider` | URL 공유가 없고 `file://`에서도 동작한다. `BrowserRouter` 금지. 경로 상수는 `@renderer/shared/routes`에서만 정의 |
 | 스타일 | **CSS Modules** (`index.module.css` 코로케이션) + `@meeting-stt/design/base.css`의 CSS 변수 토큰 | UI 라이브러리·CSS-in-JS 도입 안 함 |
@@ -44,10 +44,11 @@ description: 로컬 STT 회의록 데스크탑 앱(meeting-stt)의 개발 방향
 | 시스템 오디오 캡처 | **1차 범위 제외** (마이크만) | Phase 5의 두 번째 항목. 로컬 요약을 끝낸 뒤 착수한다 |
 | 로컬 요약 | **llama.cpp `llama-cli`** 를 `child_process`로 spawn. 모델 `Qwen3-4B-Instruct-2507-Q4_K_M.gguf` (Apache-2.0, 비사고형 instruct) | `llama-server`(HTTP)는 쓰지 않는다 — 단발 요약에 상주 서버·포트 관리가 필요 없다. 프롬프트·시스템 프롬프트·출력은 **전부 파일**로 주고받고(`-f`/`-sysf`/`-o`), 회의록이 길면 map-reduce 청킹. 자동 실행이 아니라 사용자가 버튼으로 요청한다 (`references/architecture.md`) |
 | LLM 공급자 | 요약·용어 초안처럼 LLM을 쓰는 곳은 **공급자 추상화(`src/main/llm/*`)** 를 거치고, 사용자가 설정에서 넷 중 하나를 고른다 — **로컬 모델(기본, llama.cpp)** / **Claude API 키**(Anthropic SDK, 토큰 요금) / **Claude Code CLI**(설치된 `claude -p`를 서브프로세스로 실행, 구독 계정 사용) / **OpenAI API 키**(OpenAI SDK Responses API, GPT-6 계열 중 모델 선택, 토큰 요금). 지원 외부 LLM은 **Claude와 GPT** (2026-09-24 Claude만 → 같은 날 GPT 추가, 사용자 결정) | "네트워크는 모델 다운로드 한 번"이라는 로컬 우선 약속의 **명시적 예외**다 — 기본은 여전히 로컬이고, 외부 공급자를 고르는 순간 회의록이 그 회사 서버(Anthropic·OpenAI)로 전송된다는 사실을 설정 화면에 적는다. 파이프라인(STT·화자 분리)은 어느 공급자를 골라도 로컬이다. 그 밖의 공급자(Gemini, Codex CLI 등)는 제안만 하고 구현하지 않는다. 설계는 `references/architecture.md` "LLM 공급자" 절 |
-| 녹음본 재생 | 요구사항 아님 → 파이프라인 완료 후 원본 WAV **삭제가 기본**, 보관은 설정 옵션(`audio.keep`, `/settings`) | 실패한 잡은 재시도용으로 원본을 남긴다 |
+| 녹음본 보관·활용 | 파이프라인 완료 후 원본 WAV **삭제가 기본**, 보관은 설정 옵션(`audio.keep`, `/settings`). **원본이 남아 있는 회의는 상세 화면에서 재생(발화 시각 클릭 시 그 지점으로 이동)·WAV 내보내기·다시 인식**을 할 수 있다 (2026-09-25 사용자 요청으로 "재생은 요구사항 아님"을 뒤집음) | 실패한 잡은 재시도용으로 원본을 남기고 "다시 시도" 버튼을 둔다. 재생은 커스텀 프로토콜 `meeting-audio://`(Range 지원), 내보내기는 네이티브 저장 대화상자. 설계는 `references/architecture.md` "녹음본 재생·내보내기·다시 인식" 절 |
 | 클립보드 | 복사는 main의 `electron.clipboard` 경유(`clipboard:writeText`) | `file://` 문서와 권한 핸들러에 걸릴 여지를 없앤다. 텍스트 조립은 renderer가 `@meeting-stt/core/format`으로 |
 | 녹음 위젯 | **Electron 플로팅 패널 창**(화면 우측, `type: 'panel'`, alwaysOnTop) + 메뉴바 Tray 시간 + 전역 단축키(기본 `⌥⌘R`/`⌥⌘W`, 설정에서 변경) | macOS WidgetKit 위젯(SwiftUI 앱 확장)은 만들지 않는다 — 서명·공증 대상이 늘고 상태를 프로세스 밖으로 복제해야 하는데 얻는 건 외형뿐이다. **오디오 그래프의 소유자는 위젯 창 하나**이고 메인 창은 명령 전송·상태 구독만 한다. 진행 중 녹음의 단일 출처는 main의 녹음 세션이며 `recording:state`로 두 창에 push한다. 설계는 `references/architecture.md`의 "녹음 위젯 패널" 절 |
 | 확인 UI | 되돌릴 수 없는 동작(회의 삭제, 화자 병합)은 **2단계 인라인 확인**. `window.confirm`·네이티브 대화상자 금지 | renderer를 멈추지 않고 통합 테스트로 검증할 수 있다 |
+| UI 언어 | 설정에서 **한국어(기본) / 영어**를 고른다 (`AppSettings.locale`, DB 키 `ui.locale`, 2026-09-25 사용자 요청). 사전은 `src/shared/locales/<domain>.ts`에 도메인별로 `ko`·`en`을 나란히 두고 `src/shared/i18n.ts`가 모은다. renderer는 `useLocale()`의 `t`, main은 `src/main/locale.ts`의 `t()`로 읽는다. i18n 라이브러리는 도입하지 않는다 | **UI 언어일 뿐 인식·요약 언어가 아니다** — whisper `-l ko`, 요약·용어 초안 프롬프트, 교정의 한글 읽기는 그대로 한국어다. 문서·커밋 메시지도 계속 한국어. 설계는 `references/architecture.md` "UI 언어" 절 |
 
 ## 2. 처리 파이프라인 (불변)
 
@@ -93,7 +94,8 @@ Phase 5-2(시스템 오디오 캡처)는 아직 시작하지 않았다.
 **Phase 5-3(녹음 위젯 패널)** 은 2026-09-18에 문서를 먼저 확정했다. 녹음 제어가 메인 창 밖으로 나가면서
 오디오 그래프 소유자·참석자 수의 단일 출처·창 참조 관리가 함께 바뀌므로, 체크리스트의 "계약 변경"을 먼저 끝내고 구현한다.
 **Phase 5-4(LLM 회의록 교정)** 는 2026-09-24 사용자 요청으로 검증 단계만 마쳤다 — 발화를 LLM이 다시 쓰는 방식은 폐기하고,
-용어 사전 + 발음 유사도 후보 + LLM O/X 판정으로 수정 **제안**을 만드는 방식을 채택했다 (`docs/phase5-refine-results.md`). 앱 통합은 **전역 용어 사전**부터 착수했다 (2026-09-24 사용자 결정) — 설정의 팀 소개로 LLM이 초안을 만들고 사용자가 고쳐 저장한다 (`references/architecture.md` "용어 사전"). 교정 제안 UI와 회의별 용어는 그다음이다.
+용어 사전 + 발음 유사도 후보 + LLM O/X 판정으로 수정 **제안**을 만드는 방식을 채택했다 (`docs/phase5-refine-results.md`). 앱 통합은 **전역 용어 사전**부터 착수했다 (2026-09-24 사용자 결정) — 설정의 팀 소개로 LLM이 초안을 만들고 사용자가 고쳐 저장한다 (`references/architecture.md` "용어 사전").
+**2026-09-25 사용자 결정으로 교정 단계를 앱에 붙였다** — 인식 단계(`--prompt`)는 건드리지 않는다. 같은 날 두 번째 결정으로 **회의별 용어 층을 없애 전역 용어 사전만 쓰고, 제안·수락 흐름 대신 파이프라인 뒤에 자동으로 돌려 통과한 쌍을 바로 본문에 반영**한다. 상세 레일에는 고친 쌍 목록과 "다시 교정"만 남는다 (`references/architecture.md` "회의록 교정", `data-model.md` "자동 교정 결과 저장"). `pnpm dev` 실제 확인이 남았다.
 **UI 리디자인**은 2026-09-24 사용자 요청으로 문서를 먼저 확정했다 — 사이드바 + 본문 두 칸 레이아웃, "여백" 팔레트, 동봉 글꼴, 회의록 검색(`meetings:search`).
 Phase 번호 밖의 별도 작업이며 체크리스트는 `references/roadmap.md` "UI 리디자인" 절이다.
 **LLM 공급자 선택**도 2026-09-24 사용자 요청으로 문서를 먼저 확정했다 — 요약·용어 초안이 로컬 모델 대신 사용자의 Claude API 키나
@@ -109,7 +111,7 @@ Claude Code CLI(구독)를 쓸 수 있게 한다. 같은 날 사용자 요청으
 - **IPC**: 채널 이름과 payload 타입은 `src/shared/ipc.ts`에 단일 정의. 요청-응답은 `ipcMain.handle`/`ipcRenderer.invoke`, 진행률 등 push는 `webContents.send`. preload는 `window.api`에 **타입이 붙은 함수만** 노출하고 `ipcRenderer`를 직접 노출하지 않는다.
 - **외부 바이너리**: `resources/bin/<platform>-<arch>/` 에 두고 `asarUnpack` 대상으로 유지. 실행 전 존재·실행권한 확인, stdout JSON 파싱 실패/비정상 종료는 `status='error'`로 기록하고 사용자에게 안내한다.
 - **데이터**: 화자 이름은 `utterances`에 쓰지 않고 `speakers(meeting_id, label) → display_name` 매핑으로 관리한다(한 번 바꾸면 전체 반영). 모든 시간 값은 초(sec, REAL), 생성 시각은 epoch ms.
-- **한국어 우선**: 기본 언어 `ko`, UI 문구·문서·커밋 메시지는 한국어. 코드 식별자는 영어.
+- **한국어 우선**: 기본 언어 `ko`, 문서·커밋 메시지는 한국어. 코드 식별자는 영어. **UI 문구는 사전(`src/shared/locales/*.ts`)에 `ko`·`en`을 함께 적고 컴포넌트·main에 직접 쓰지 않는다** (2026-09-25 언어 설정). 새 문구를 추가할 때 한쪽 언어만 적으면 타입 오류다.
 - **pnpm 주의**: pnpm 10은 의존성의 install/postinstall 스크립트를 기본 차단한다. 네이티브 애드온·바이너리 다운로드 패키지(`electron`, `esbuild`, `electron-winstaller`, `better-sqlite3`)는 **워크스페이스 루트** `package.json`의 `pnpm.onlyBuiltDependencies`에 등록해야 한다 (앱 `package.json`에 적으면 무시된다). 새 네이티브 의존성을 추가하면 이 목록도 갱신한다. `.npmrc`의 `node-linker=hoisted`는 electron-builder 패키징을 위한 설정이므로 지우지 않는다. `package.json` scripts 내부 호출은 `pnpm run <script>`로 통일한다.
 - **범위 절제**: plan.md에 없는 기능(클라우드 동기화, 실시간 스트리밍 STT, 계정 등)은 제안만 하고 구현하지 않는다.
 
@@ -119,7 +121,8 @@ Claude Code CLI(구독)를 쓸 수 있게 한다. 같은 날 사용자 요청으
 
 - Whisper는 무음에서 환각 텍스트를 만든다 → VAD 없이 추론 금지.
 - 음량이 작은 녹음(원거리 마이크)에서는 Whisper가 수십 초 구간을 한두 단어로 뭉갠다 → STT 전에 RMS 정규화 필수.
-- 임계값 군집(`cluster-threshold`)은 긴 녹음에서 화자가 무한정 늘어나고 같은 사람도 여러 클러스터로 갈라진다 → 참석자 수를 받아 `num-clusters`로 돌리는 것이 기본. 임계값 경로는 폴백이며 군소 화자 흡수로도 못 막는다.
+- sherpa-onnx 내장 군집(complete-linkage)은 믿지 않는다 → 임계값 방식은 긴 녹음에서 화자가 무한정 늘어나고, `num-clusters`를 줘도 잡음 조각이 클러스터를 차지해 실제 화자 둘이 합쳐진다. CLI 라벨은 버리고 앱이 재임베딩 + k-means로 다시 군집한다 (`references/architecture.md` "화자 재군집").
+- k-means는 K를 실제보다 크게 주면 큰 화자를 쪼갠다(K=9에서 79%) → 군집 뒤 중심 코사인 0.75 이상 쌍을 합치는 병합 보호를 반드시 같이 쓴다. 임계값을 더 낮추지 않는 이유는 UI에 화자 병합은 있어도 분리는 없기 때문이다.
 - Whisper 세그먼트 안에서 화자가 바뀔 수 있다 → 단어 단위 타임스탬프로 배정 후 재문장화.
 - 장시간 녹음 PCM을 메모리에 전부 들고 있지 않는다 → 청크 단위 디스크 append.
 - 저사양 CPU에서 STT+화자분리 병렬 실행은 오히려 느리다 → `os.cpus().length` 기준 분기.

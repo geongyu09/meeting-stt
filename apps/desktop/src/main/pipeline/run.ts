@@ -11,13 +11,20 @@ import { info } from '../log'
 import { missingModelLabels, modelPath } from '../models/paths'
 import { buildDiarizeArgs, parseDiarizeOutput, parseDiarizeProgress } from './diarize'
 import { normalizeWavFile } from './normalize'
+import { reclusterSpeakers } from './recluster'
 import { buildWhisperArgs, parseWhisperOutput, parseWhisperProgress } from './whisper'
+import { t } from '../locale'
 
 /** 코어가 적으면 STT와 화자 분리를 동시에 돌리는 게 오히려 느리다 (references/pitfalls.md) */
 const PARALLEL_MIN_CORES = 8
 const WHISPER_OUTPUT_SUFFIX = '.whisper'
 const NORMALIZED_SUFFIX = '.norm.wav'
 const FULL_PERCENT = 100
+/**
+ * 화자 분리 단계 안에서 CLI가 차지하는 몫. 나머지는 재임베딩(CLI 임베딩의 약 10분의 1 시간)이다.
+ * 별도 단계를 두면 IPC 계약·진행률 UI가 함께 바뀐다 (references/architecture.md "화자 재군집")
+ */
+const DIARIZE_CLI_PERCENT = 90
 
 interface ProgressParams {
   stage: PipelineStage
@@ -53,14 +60,12 @@ export const removeStalePipelineArtifacts = async ({ dir }: { dir: string }) => 
 const ensureReady = () => {
   const missingBins = [whisperBinPath(), diarizeBinPath()].filter((bin) => !existsSync(bin))
   if (missingBins.length) {
-    throw new Error(
-      `실행 파일이 없습니다: ${missingBins.join(', ')}. \`pnpm tsx scripts/setupBin.ts\`로 준비해 주세요`
-    )
+    throw new Error(t().main.pipeline.binariesMissing({ paths: missingBins.join(', ') }))
   }
 
   const missingModels = missingModelLabels()
   if (missingModels.length) {
-    throw new Error(`모델이 준비되지 않았습니다: ${missingModels.join(', ')}`)
+    throw new Error(t().main.pipeline.modelsNotReady({ labels: missingModels.join(', ') }))
   }
 }
 
@@ -123,13 +128,29 @@ const runDiarization = async ({
     }),
     onStderrLine: (line) => {
       const percent = parseDiarizeProgress(line)
-      if (percent !== null) onProgress({ stage: 'diarize', percent })
+      if (percent !== null) {
+        onProgress({ stage: 'diarize', percent: (percent * DIARIZE_CLI_PERCENT) / FULL_PERCENT })
+      }
     }
+  })
+  onProgress({ stage: 'diarize', percent: DIARIZE_CLI_PERCENT })
+
+  // CLI 라벨은 버리고 구간만 쓴다. 군집은 재임베딩 + k-means로 다시 한다
+  const speakerSegments = await reclusterSpeakers({
+    speakerSegments: parseDiarizeOutput(stdout),
+    audioPath,
+    speakerCount,
+    threads: diarize,
+    onProgress: ({ done, total }) =>
+      onProgress({
+        stage: 'diarize',
+        percent: DIARIZE_CLI_PERCENT + ((FULL_PERCENT - DIARIZE_CLI_PERCENT) * done) / total
+      })
   })
 
   onProgress({ stage: 'diarize', percent: FULL_PERCENT })
 
-  return parseDiarizeOutput(stdout)
+  return speakerSegments
 }
 
 interface TranscribeParams {
@@ -186,7 +207,11 @@ export const runPipeline = async ({
   info(`음량 정규화: 발화 ${speechRmsDb.toFixed(1)}dBFS → 게인 ${gainDb.toFixed(1)}dB`)
 
   try {
-    info(speakerCount ? `화자 분리: 참석자 ${speakerCount}명으로 고정` : '화자 분리: 임계값 폴백')
+    info(
+      speakerCount
+        ? `화자 분리: 참석자 ${speakerCount}명`
+        : '화자 분리: 참석자 수 없음, 과분할 뒤 병합으로 추정'
+    )
     if (isQuiet) info('조용히 처리: 화자 분리 스레드를 줄이고 순차 실행')
     const [segments, speakerSegments] = await transcribeAndDiarize({
       audioPath: normalizedPath,

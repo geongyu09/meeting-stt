@@ -1,6 +1,7 @@
 import type { Meeting } from '@shared/types'
 import Button from '@renderer/shared/components/primitives/ui/Button'
 import useNow from '@renderer/shared/hooks/common/useNow'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 import { groupMeetingsByDate } from '@renderer/shared/utils/meetingDateGroup'
 
 import MeetingListItem from './MeetingListItem'
@@ -17,26 +18,27 @@ interface MeetingListProps {
 }
 
 export default function MeetingList({ meetings, isLoading, error, onRetry }: MeetingListProps) {
+  const { t, locale } = useLocale()
   const { now } = useNow({ intervalMs: NOW_REFRESH_MS })
 
-  if (isLoading && !meetings.length) return <p className={styles.message}>불러오는 중입니다</p>
+  if (isLoading && !meetings.length) return <p className={styles.message}>{t.common.loading}</p>
   if (error) {
     return (
       <div className={styles.error}>
         <p className={styles.errorMessage}>{error.message}</p>
         <Button variant="secondary" size="sm" onClick={onRetry}>
-          다시 시도
+          {t.common.retry}
         </Button>
       </div>
     )
   }
   if (!meetings.length) {
-    return <p className={styles.message}>아직 녹음한 회의가 없습니다. 새 녹음으로 시작해 보세요</p>
+    return <p className={styles.message}>{t.sidebar.list.empty}</p>
   }
 
   return (
     <>
-      {groupMeetingsByDate({ meetings, now }).map(({ group, label, meetings: grouped }) => (
+      {groupMeetingsByDate({ meetings, now, locale }).map(({ group, label, meetings: grouped }) => (
         <section key={group} className={styles.group} aria-label={label}>
           <h2 className={styles.heading}>{label}</h2>
           <ul className={styles.list}>

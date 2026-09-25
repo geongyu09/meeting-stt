@@ -5,9 +5,7 @@ import type { CheckUpdateResponse } from '@shared/ipc'
 
 import { info, messageOf, warn } from './log'
 import { pickAvailableVersion } from './updateResult'
-
-const DEV_MODE_MESSAGE = '개발 모드에서는 업데이트를 확인할 수 없습니다'
-const CHECK_FAILED_MESSAGE = '업데이트를 확인하지 못했습니다. 네트워크 연결을 확인해 주세요'
+import { t } from './locale'
 
 /** 새 버전을 찾아도 내려받지 않는다. 받기·설치는 사용자가 누를 때만 한다 */
 const findAvailableVersion = async () => {
@@ -45,7 +43,7 @@ export const checkForUpdates = async ({ isEnabled }: { isEnabled: boolean }) => 
  * 실패는 삼키지 않고 안내 문구로 던진다 (`references/distribution.md` 7절).
  */
 export const checkForUpdatesNow = async () => {
-  if (is.dev) throw new Error(DEV_MODE_MESSAGE)
+  if (is.dev) throw new Error(t().main.update.devMode)
 
   const currentVersion = app.getVersion()
   try {
@@ -57,7 +55,7 @@ export const checkForUpdatesNow = async () => {
     return response
   } catch (caught) {
     warn(`업데이트 수동 확인 실패: ${messageOf(caught)}`)
-    throw new Error(CHECK_FAILED_MESSAGE)
+    throw new Error(t().main.update.checkFailed)
   }
 }
 

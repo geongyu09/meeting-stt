@@ -1,6 +1,7 @@
 import { GLOSSARY_MAX_TERMS, GLOSSARY_TEAM_MAX_CHARS } from '@shared/glossary'
 import SettingGroup from '@renderer/shared/components/primitives/layout/SettingGroup'
 import Button from '@renderer/shared/components/primitives/ui/Button'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import useGlossary from './model/useGlossary'
 import TermRow from './ui/TermRow'
@@ -8,11 +9,9 @@ import styles from './index.module.css'
 
 const TEAM_ROWS = 3
 
-const TEAM_PLACEHOLDER =
-  '예: 프론트엔드 개발팀입니다. Electron, React, whisper.cpp로 회의록 앱을 만들고 pnpm 모노레포로 관리합니다.'
-
 /** 교정·인식에 쓰는 전역 용어 사전. 팀 소개로 초안을 만들고 사람이 고쳐 저장한다 */
 export default function GlossarySection() {
+  const { t } = useLocale()
   const {
     teamDescription,
     rows,
@@ -35,7 +34,7 @@ export default function GlossarySection() {
   } = useGlossary()
 
   const renderBody = () => {
-    if (isLoading) return <p className={styles.hint}>용어 사전을 불러오는 중입니다</p>
+    if (isLoading) return <p className={styles.hint}>{t.glossary.section.loading}</p>
     if (loadError) {
       return (
         <p className={styles.error} role="alert">
@@ -49,16 +48,13 @@ export default function GlossarySection() {
     return (
       <>
         <label className={styles.field}>
-          <span className={styles.label}>팀 소개</span>
-          <span className={styles.hint}>
-            쓰고 있는 기술·도구·제품 이름을 영어 그대로 적을수록 초안이 정확해집니다. 적은 이름은
-            초안 맨 앞에 들어갑니다.
-          </span>
+          <span className={styles.label}>{t.glossary.section.teamLabel}</span>
+          <span className={styles.hint}>{t.glossary.section.teamHint}</span>
           <textarea
             className={styles.textarea}
             rows={TEAM_ROWS}
             maxLength={GLOSSARY_TEAM_MAX_CHARS}
-            placeholder={TEAM_PLACEHOLDER}
+            placeholder={t.glossary.section.teamPlaceholder}
             value={teamDescription}
             onChange={(event) => setTeamDescription(event.target.value)}
             disabled={isDrafting}
@@ -71,29 +67,21 @@ export default function GlossarySection() {
             onClick={draftTerms}
             disabled={isBusy || !teamDescription.trim()}
           >
-            {isDrafting ? '초안을 만드는 중…' : '용어 초안 만들기'}
+            {isDrafting ? t.glossary.section.drafting : t.glossary.section.draft}
           </Button>
-          {isDrafting && (
-            <span className={styles.hint}>
-              10~20초 걸립니다. 회의록을 처리 중이면 그 작업이 끝난 뒤 만듭니다
-            </span>
-          )}
+          {isDrafting && <span className={styles.hint}>{t.glossary.section.draftHint}</span>}
         </div>
 
         <div className={styles.field}>
           <span className={styles.label}>
-            용어 목록 ({termCount}/{GLOSSARY_MAX_TERMS})
+            {t.glossary.section.termsLabel({ count: termCount, max: GLOSSARY_MAX_TERMS })}
           </span>
-          <span className={styles.hint}>
-            한 칸에 용어 하나를 적습니다. 한글 읽기는 선택입니다 — 영어 용어의 읽기를 적어 두면 비워
-            둘 때보다 잘못 받아 적힌 말을 정확하게 찾습니다. 읽기가 여러 개면 쉼표로 잇습니다.
-            목록을 용어 칸에 붙여 넣으면 줄마다 나눠 넣습니다.
-          </span>
+          <span className={styles.hint}>{t.glossary.section.termsHint}</span>
           <div className={styles.termHeader} aria-hidden="true">
-            <span>용어</span>
-            <span>한글 읽기 (선택)</span>
+            <span>{t.glossary.section.termColumn}</span>
+            <span>{t.glossary.section.readingColumn}</span>
           </div>
-          <ol className={styles.termList} aria-label="용어 목록">
+          <ol className={styles.termList} aria-label={t.glossary.section.termList}>
             {rows.map((row, index) => (
               <TermRow
                 key={row.id}
@@ -116,15 +104,15 @@ export default function GlossarySection() {
               onClick={() => addRow()}
               disabled={isDrafting || rows.length >= GLOSSARY_MAX_TERMS}
             >
-              용어 추가
+              {t.glossary.section.addTerm}
             </Button>
           </div>
         </div>
         <div className={styles.actions}>
           <Button size="sm" onClick={saveGlossary} disabled={isBusy || !isDirty}>
-            {isSaving ? '저장하는 중…' : '저장'}
+            {isSaving ? t.glossary.section.saving : t.glossary.section.save}
           </Button>
-          {isDirty && !isBusy && <span className={styles.hint}>저장하지 않은 변경이 있습니다</span>}
+          {isDirty && !isBusy && <span className={styles.hint}>{t.glossary.section.unsaved}</span>}
         </div>
 
         {notice && (
@@ -142,13 +130,9 @@ export default function GlossarySection() {
   }
 
   return (
-    <SettingGroup title="용어 사전">
+    <SettingGroup title={t.glossary.section.title}>
       <div className={styles.body}>
-        <p className={styles.hint}>
-          회의에 자주 나오는 영어 용어·제품 이름·약어를 적어 두면 회의록 교정에 씁니다. 팀 소개를
-          적고 초안을 만들면 로컬 요약 모델이 후보를 채워 주고, 확인한 뒤 저장하면 됩니다. 초안에는
-          요약 모델이 필요합니다.
-        </p>
+        <p className={styles.hint}>{t.glossary.section.intro}</p>
         {renderBody()}
       </div>
     </SettingGroup>

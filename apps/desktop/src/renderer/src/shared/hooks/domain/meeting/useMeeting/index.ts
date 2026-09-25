@@ -1,17 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { MeetingDetail } from '@shared/types'
-import { onPipelineProgress } from '@renderer/shared/api/events'
-import { deleteMeetingApi, getMeetingApi, renameMeetingApi } from '@renderer/shared/api/meetings'
+import { onPipelineProgress, onRefineProgress } from '@renderer/shared/api/events'
+import {
+  deleteMeetingApi,
+  getMeetingApi,
+  renameMeetingApi,
+  reprocessMeetingApi
+} from '@renderer/shared/api/meetings'
 import { mergeSpeakersApi, renameSpeakerApi } from '@renderer/shared/api/speakers'
 import { reassignUtteranceApi, updateUtteranceTextApi } from '@renderer/shared/api/utterances'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 interface UseMeetingParams {
   meetingId: string
 }
 
-const SAVE_ERROR_MESSAGE = '변경 사항을 저장하지 못했습니다'
-
 const useMeeting = ({ meetingId }: UseMeetingParams) => {
+  const { t } = useLocale()
   const [detail, setDetail] = useState<MeetingDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -26,10 +31,10 @@ const useMeeting = ({ meetingId }: UseMeetingParams) => {
           setError(null)
         })
         .catch((caught: unknown) =>
-          setError(caught instanceof Error ? caught : new Error('회의를 불러오지 못했습니다'))
+          setError(caught instanceof Error ? caught : new Error(t.transcript.errors.load))
         )
         .finally(() => setIsLoading(false)),
-    [meetingId]
+    [meetingId, t]
   )
 
   const refetch = useCallback(() => {
@@ -52,6 +57,15 @@ const useMeeting = ({ meetingId }: UseMeetingParams) => {
     [meetingId, fetchMeeting]
   )
 
+  // 자동 교정이 본문을 바꾸므로 잡이 끝나면 다시 읽는다 (references/architecture.md "회의록 교정")
+  useEffect(
+    () =>
+      onRefineProgress((event) => {
+        if (event.meetingId === meetingId && event.stage === 'done') fetchMeeting()
+      }),
+    [meetingId, fetchMeeting]
+  )
+
   /** 편집 채널은 갱신된 상세를 그대로 돌려준다 (references/architecture.md) */
   const applyMutation = async (mutate: () => Promise<MeetingDetail>) => {
     try {
@@ -60,7 +74,7 @@ const useMeeting = ({ meetingId }: UseMeetingParams) => {
 
       return true
     } catch (caught) {
-      setSaveError(caught instanceof Error ? caught : new Error(SAVE_ERROR_MESSAGE))
+      setSaveError(caught instanceof Error ? caught : new Error(t.transcript.errors.save))
 
       return false
     }
@@ -86,6 +100,10 @@ const useMeeting = ({ meetingId }: UseMeetingParams) => {
   const mergeSpeakers = ({ fromLabel, intoLabel }: { fromLabel: string; intoLabel: string }) =>
     applyMutation(() => mergeSpeakersApi({ meetingId, fromLabel, intoLabel }))
 
+  /** 응답은 처리 중으로 바뀐 상세다. 끝나면 진행률 이벤트의 done·error로 다시 읽는다 */
+  const reprocessMeeting = ({ speakerCount }: { speakerCount: number | null }) =>
+    applyMutation(() => reprocessMeetingApi({ meetingId, speakerCount }))
+
   /** 성공하면 상세가 사라지므로 호출한 쪽이 화면을 옮긴다 */
   const removeMeeting = async () => {
     try {
@@ -94,7 +112,7 @@ const useMeeting = ({ meetingId }: UseMeetingParams) => {
 
       return true
     } catch (caught) {
-      setSaveError(caught instanceof Error ? caught : new Error('회의를 지우지 못했습니다'))
+      setSaveError(caught instanceof Error ? caught : new Error(t.transcript.errors.remove))
 
       return false
     }
@@ -104,6 +122,7 @@ const useMeeting = ({ meetingId }: UseMeetingParams) => {
     meeting: detail?.meeting ?? null,
     utterances: detail?.utterances ?? [],
     speakers: detail?.speakers ?? [],
+    refineResult: detail?.refineResult ?? null,
     isLoading,
     error,
     saveError,
@@ -113,6 +132,7 @@ const useMeeting = ({ meetingId }: UseMeetingParams) => {
     reassignUtterance,
     renameSpeaker,
     mergeSpeakers,
+    reprocessMeeting,
     removeMeeting
   }
 }

@@ -1,6 +1,8 @@
 import { NavLink } from 'react-router'
 import type { Meeting } from '@shared/types'
+import type { Locale } from '@shared/i18n'
 import PipelineProgress from '@renderer/modules/features/pipeline/PipelineProgress'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 import { meetingDetailPath } from '@renderer/shared/routes/paths'
 import { formatDurationShort } from '@renderer/shared/utils/formatDuration'
 import { formatMeetingDay, formatMeetingTime } from '@renderer/shared/utils/formatMeetingDate'
@@ -13,25 +15,36 @@ interface MeetingListItemProps {
   now: number
 }
 
-const DEFAULT_ERROR_MESSAGE = '회의록을 만들지 못했습니다'
+interface WhenOfParams extends MeetingListItemProps {
+  locale: Locale
+}
 
 /** 오늘 회의는 시각을, 그 전 회의는 날짜를 보여 준다 */
-const whenOf = ({ meeting, now }: MeetingListItemProps) =>
+const whenOf = ({ meeting, now, locale }: WhenOfParams) =>
   meetingDateGroupOf({ epochMs: meeting.createdAt, now }) === 'today'
-    ? formatMeetingTime({ epochMs: meeting.createdAt })
-    : formatMeetingDay({ epochMs: meeting.createdAt, now })
+    ? formatMeetingTime({ epochMs: meeting.createdAt, locale })
+    : formatMeetingDay({ epochMs: meeting.createdAt, now, locale })
 
 export default function MeetingListItem({ meeting, now }: MeetingListItemProps) {
+  const { t, locale } = useLocale()
+
   const renderStatus = () => {
-    if (meeting.status === 'recording') return <span className={styles.recording}>녹음 중</span>
+    if (meeting.status === 'recording') {
+      return <span className={styles.recording}>{t.sidebar.listItem.recording}</span>
+    }
     if (meeting.status === 'processing') return <PipelineProgress meetingId={meeting.id} />
     if (meeting.status === 'error') {
-      return <span className={styles.error}>{meeting.errorMessage ?? DEFAULT_ERROR_MESSAGE}</span>
+      return (
+        <span className={styles.error}>
+          {meeting.errorMessage ?? t.sidebar.listItem.defaultError}
+        </span>
+      )
     }
 
     return (
       <span className={styles.meta}>
-        {whenOf({ meeting, now })} · {formatDurationShort({ sec: meeting.durationSec })}
+        {whenOf({ meeting, now, locale })} ·{' '}
+        {formatDurationShort({ sec: meeting.durationSec, locale })}
       </span>
     )
   }

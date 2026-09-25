@@ -1,3 +1,5 @@
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
+
 import styles from './index.module.css'
 
 interface StepperProps {
@@ -52,6 +54,7 @@ export default function Stepper({
   placeholder,
   isInvalid = false
 }: StepperProps) {
+  const { t } = useLocale()
   const current = parseInteger(value)
   const isDecrementDisabled = current === null
   const isIncrementDisabled = current !== null && current >= max
@@ -61,7 +64,7 @@ export default function Stepper({
       <button
         type="button"
         className={styles.stepButton}
-        aria-label={`${label} 줄이기`}
+        aria-label={t.common.stepper.decrease({ label })}
         disabled={isDecrementDisabled}
         onClick={() => onChange(decrement({ value, min, max }))}
       >
@@ -81,7 +84,7 @@ export default function Stepper({
       <button
         type="button"
         className={styles.stepButton}
-        aria-label={`${label} 늘리기`}
+        aria-label={t.common.stepper.increase({ label })}
         disabled={isIncrementDisabled}
         onClick={() => onChange(increment({ value, min, max }))}
       >

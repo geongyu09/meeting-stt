@@ -127,6 +127,19 @@ Homebrew 설치본은 `@rpath`로 Cellar의 dylib(`libggml`, `libwhisper`)을 �
 `asarUnpack: resources/**`는 `resources/bin/` 아래를 통째로 앱에 넣는다. 리포지토리에 남은 `resources/bin/win32-x64/`(약 78MB)가
 mac 앱에 딸려 들어가던 것을 `electron-builder.yml`의 `files`에서 `!resources/bin/win32-*`로 뺀다.
 
+### 화자 재임베딩 애드온 `sherpa-onnx-node` (2026-09-25)
+
+화자 재군집(`references/architecture.md` "화자 재군집")은 CLI 대신 npm 패키지 `sherpa-onnx-node`(1.13.8)의 N-API 애드온으로 임베딩을 뽑는다.
+실제 바이너리는 optionalDependency `sherpa-onnx-darwin-arm64`에 있다 — `sherpa-onnx.node`(0.6MB) + `libsherpa-onnx-c-api.dylib`(4MB) + `libonnxruntime.dylib`(29MB).
+CLI가 쓰는 `resources/bin/darwin-arm64/libonnxruntime.dylib`과 별개 복사본이라 앱이 약 34MB 커진다. 하나로 합치려면 sherpa-onnx를 직접 빌드해야 해서 하지 않는다.
+
+- N-API라 Electron ABI 리빌드가 없고 install 스크립트도 없다. `pnpm.onlyBuiltDependencies`에 넣지 않는다.
+- 애드온의 rpath는 `@loader_path`라 같은 폴더의 dylib을 스스로 찾는다. sherpa-onnx-node README가 말하는 `DYLD_LIBRARY_PATH`는 필요 없다 (hardened runtime에서는 어차피 무시된다).
+- `.node`가 든 모듈은 electron-builder가 asar 밖(`app.asar.unpacked/node_modules/sherpa-onnx-darwin-arm64/`)으로 풀고 서명·공증 대상에 넣는다.
+  자동 감지에 기대지 않고 `electron-builder.yml`의 `asarUnpack`에 `node_modules/sherpa-onnx-darwin-arm64/**`를 적어 둔다.
+  `sherpa-onnx-node`(순수 JS)는 asar 안에 남아도 된다 — `require('../sherpa-onnx-darwin-arm64/sherpa-onnx.node')`는 Electron의 asar 리다이렉트로 풀린 파일을 연다 (`better-sqlite3`와 같은 구조).
+- 임베딩은 `utilityProcess`에서 돌린다. 워커 파일(`out/main/embedWorker-*.js`)은 electron-vite가 `?modulePath` import로 따로 번들한다.
+
 ## 6. 코드 사이닝 · notarization · 릴리스
 
 - macOS: `hardenedRuntime: true` + `build/entitlements.mac.plist`(마이크·JIT 권한) + `notarize`.

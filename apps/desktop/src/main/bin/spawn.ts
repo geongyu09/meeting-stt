@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { t } from '../locale'
 
 /** 실패 안내에 붙일 stderr 꼬리 길이 */
 const STDERR_TAIL_CHARS = 800
@@ -74,7 +75,7 @@ export const runBinary = ({
     })
 
     child.on('error', () => {
-      reject(new Error(`${command} 실행에 실패했습니다. 파일이 있는지 확인해 주세요`))
+      reject(new Error(t().main.pipeline.spawnFailed({ command })))
     })
 
     child.on('close', (code) => {
@@ -85,7 +86,7 @@ export const runBinary = ({
 
       reject(
         new Error(
-          `${command} 이(가) 비정상 종료했습니다 (코드 ${code})\n${stderr.slice(-STDERR_TAIL_CHARS)}`
+          `${t().main.pipeline.exitedAbnormally({ command, code })}\n${stderr.slice(-STDERR_TAIL_CHARS)}`
         )
       )
     })

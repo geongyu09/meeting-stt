@@ -12,7 +12,7 @@
 | ----------------- | --------------------- | ----------------------------------------------------------------------------------------------- |
 | `apps/desktop`    | `meeting-stt`         | 제품 Electron 앱 (녹음 → 파이프라인 → SQLite → UI → 패키징)                                     |
 | `apps/web`        | `@meeting-stt/web`    | 브라우저 추론 프로토타입 (`docs/browser-prototype-plan.md`)                                     |
-| `packages/core`   | `@meeting-stt/core`   | 두 앱 공용 순수 TS — 파이프라인 타입, 병합, 복사 포맷, 정규화 공식, 참석자 수 규칙, 오디오 형식, 용어 읽기 사전 |
+| `packages/core`   | `@meeting-stt/core`   | 두 앱 공용 순수 TS — 파이프라인 타입, 병합, 화자 재군집(k-means), 복사 포맷, 정규화 공식, 참석자 수 규칙, 오디오 형식, 용어 읽기 사전 |
 | `packages/models` | `@meeting-stt/models` | 모델 카탈로그 SSOT — 데스크탑 자산(URL·sha256), 웹 저장소 id·dtype                              |
 | `packages/design` | `@meeting-stt/design` | 디자인 토큰(`base.css`)·동봉 글꼴(`fonts.css`, `fonts/`) — CSS·글꼴만, React 컴포넌트는 앱별 |
 

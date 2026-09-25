@@ -58,15 +58,20 @@ src/
     audio.ts                  # 녹음 청크 크기·레벨 미터 (형식 상수 SAMPLE_RATE_HZ 등은 core에서 재노출)
     progress.ts               # 단계별 퍼센트 → 전체 진행률 (가중치, 순수 함수, vitest)
     summary.ts                # 요약 프롬프트·청킹 (Phase 5, 순수 함수)
+    glossary.ts, refine.ts, phonetic.ts   # 용어 사전 초안·정리, 교정 후보·판정 프롬프트·쌍 적용·쌍 묶기, 자모 발음 유사도 (Phase 5-4, 순수 함수)
+    llm.ts                    # LLM 공급자 라벨·준비 판정·CLI 인자 (순수 함수)
   main/
     index.ts                  # 앱 수명주기, 권한 요청, ipc 등록
     log.ts                    # 운영 로그 (console 직접 호출 금지)
     windows/{main,widget,tray,shortcuts}.ts   # 메인 창·위젯 패널·메뉴바·전역 단축키 (Phase 5-3)
     audio/{session,wavWriter,recordings}.ts   # 녹음 세션 상태·WAV append·파일 정리
     pipeline/{queue,run,normalize,whisper,diarize}.ts   # normalize는 RMS 게인 정규화(공식·상수는 @meeting-stt/core), vad는 whisper 내장이라 별도 단계 없음
-    db/{connection,migrations,meetings,utterances,speakers,settings}.ts
+    pipeline/{recluster,speakerEmbedding,embedWorker}.ts   # 화자 재군집 — CLI 구간 재임베딩(sherpa-onnx-node, utilityProcess) + k-means(@meeting-stt/core/cluster) (2026-09-25)
+    types/sherpaOnnxNode.d.ts # sherpa-onnx-node에 타입 선언이 없어 쓰는 부분만 선언
+    db/{connection,migrations,meetings,utterances,speakers,settings,refine}.ts   # refine은 자동 교정 결과 컬럼(refine_applied·refined_at) (Phase 5-4)
     models/{paths,download,recommend,service}.ts   # 경로 해석·다운로드·저사양 권장 (자산 목록은 @meeting-stt/models/desktop)
     summary/{llama,run,paths,transcript}.ts        # 요약 (Phase 5). LLM 호출은 llm/*을 거친다
+    glossary/draft.ts, refine/{run,paths}.ts       # 용어 초안·회의록 자동 교정 (Phase 5-4). LLM 호출은 llm/*을 거친다
     llm/{provider,local,claudeApi,claudeCli,openaiApi,apiKey,check}.ts  # LLM 공급자 추상화 (아래 "LLM 공급자" 절)
     updater.ts                # electron-updater, 기본 꺼짐 (references/distribution.md)
     bin/{paths,spawn}.ts
@@ -114,6 +119,7 @@ export const IPC = {
   // Phase 5
   //   summary.create, events.summary
   //   glossary.get / glossary.update / glossary.draft (Phase 5-4, 아래 "용어 사전" 절)
+  //   refine.run, events.refine (Phase 5-4, 아래 "회의록 교정" 절 — 파이프라인 뒤 자동 실행, run은 수동 재실행)
   // Phase 5-3 (아래 "녹음 위젯 패널" 절)
   //   recording.state / recording.control / recording.setSpeakerCount / recording.reportError
   //   events.recordingState / events.recordingCommand
@@ -121,6 +127,10 @@ export const IPC = {
   //   shortcuts.setSuspended (단축키 설정, 아래 "전역 단축키" 절)
   // UI 리디자인 (아래 "화면 디자인" 절)
   //   meetings.search, events.meetingsChanged
+  // 녹음본 재생·내보내기·다시 인식 (아래 같은 이름의 절)
+  //   meetings.reprocess / meetings.exportAudio (재생은 IPC가 아니라 meeting-audio:// 프로토콜)
+  // 녹음 파일 가져오기 (아래 같은 이름의 절)
+  //   meetings.import
   // LLM 공급자 선택 (아래 "LLM 공급자" 절)
   //   llm.status / llm.setProvider / llm.setApiKey / llm.setOpenaiModel / llm.check
 } as const
@@ -191,11 +201,53 @@ spawn(binPath, args, { windowsHide: true })
 ```
 
 - 바이너리 경로: 개발 시 `resources/bin/...`, 패키징 시 `process.resourcesPath` 아래 `app.asar.unpacked/resources/bin/...`. 경로 해석은 `src/main/bin/paths.ts`에서만 한다.
-- whisper 호출 예: `whisper-cli -m <model> -f <wav> -l ko --output-json-full -of <out> --print-progress` (+ 단어 타임스탬프 옵션, VAD 옵션은 Phase 1 튜닝 결과 반영).
-- diarization 호출 파라미터: **`--clustering.num-clusters=<참석자 수>`가 기본 경로**(녹음 정지 시 사용자가 입력, `meetings.speaker_count`). 참석자 수가 없을 때만 `--clustering.cluster-threshold=0.8`로 폴백한다 — 임계값 군집은 녹음 길이에 비례해 화자가 늘어나므로(`docs/phase1-results.md` 6절) 참석자 수 입력을 UI에서 권장한다. 최소 지속 시간은 기본값 유지. 프로바이더는 CPU 고정(`coreml`은 훨씬 느림).
-- 참석자 수가 있으면 병합 단계의 군소 화자 흡수(`absorbMinorSpeakers`)를 건너뛴다 — k개로 자른 클러스터는 전부 실제 화자로 보고, 짧게 한 마디 한 참석자를 지우지 않기 위해서다.
-- 참석자 수를 실제보다 크게 넣어도 sherpa-onnx는 실패하지 않고 **k개 이하**로 나눈다(합성 3화자 115초에 `num-clusters=10` → 7개, 5초 녹음에 3 → 2개). 과분할은 Phase 3의 화자 병합 UI로 고칠 수 있으므로 main에서 따로 막지 않는다.
+- whisper 호출 예: `whisper-cli -m <model> -f <wav> -l ko -mc 0 --output-json-full -of <out> --print-progress` (+ 단어 타임스탬프 옵션, VAD 옵션은 Phase 1 튜닝 결과 반영).
+- diarization 호출 파라미터: **항상 `--clustering.num-clusters=<참석자 수, 모르면 12>`** 로 돌린다(참석자 수는 녹음 정지 시 사용자가 입력, `meetings.speaker_count`). 2026-09-25부터 CLI의 화자 라벨은 쓰지 않고 구간 경계만 쓴다 — 군집은 아래 "화자 재군집"이 다시 한다. 임계값(`--clustering.cluster-threshold`)은 스크립트 실험용으로만 남긴다(임계값 군집은 녹음 길이에 비례해 화자가 늘어난다, `docs/phase1-results.md` 6절). 참석자 수를 모를 때 12를 주는 이유는 임계값보다 구간이 덜 잘게 쪼개져 재임베딩 조각이 길어지고, 재군집이 실패했을 때의 폴백 결과도 32명보다 낫기 때문이다. 최소 지속 시간은 기본값 유지. 프로바이더는 CPU 고정(`coreml`은 훨씬 느림).
+- 참석자 수가 있으면 병합 단계의 군소 화자 흡수(`absorbMinorSpeakers`)를 건너뛴다 — K개로 자른 클러스터는 전부 실제 화자로 보고, 짧게 한 마디 한 참석자를 지우지 않기 위해서다. 참석자 수가 없으면 과분할(K=12)에서 병합 보호로 되돌아오지 못한 몇십 초짜리 여분 클러스터가 남을 수 있어 흡수를 적용한다.
+- 참석자 수를 실제보다 크게 넣어도 sherpa-onnx는 실패하지 않고 **K개 이하**로 나눈다(합성 3화자 115초에 `num-clusters=10` → 7개, 5초 녹음에 3 → 2개). 재군집의 k-means도 조각 수가 K보다 적으면 조각 수로 줄인다. 그래도 남는 과분할은 Phase 3의 화자 병합 UI로 고칠 수 있으므로 main에서 따로 막지 않는다.
 - 음량 정규화: whisper·diarization을 spawn하기 **전에** `src/main/pipeline/normalize.ts`가 녹음 WAV의 PCM에 RMS 게인을 적용한 WAV를 만들고, 두 바이너리는 그 파일을 읽는다. 원본은 정규화본과 별개로 두며 삭제 정책은 원본에만 적용된다. 파라미터는 SKILL.md 결정 표 참고.
+
+### 화자 재군집 (2026-09-25)
+
+sherpa-onnx CLI는 분할(pyannote)·임베딩(ERes2Net)·군집(complete-linkage)을 한 번에 하지만 **군집만 품질을 깎는다.**
+같은 임베딩으로 군집만 바꾸면 7명·103분 회의에서 화자 정확도 83.4% → **92.7%**(참석자 수 7), 참석자 수를 모를 때 63.8%(32명) → **92.9%**(9명, 여분은 20~80초짜리)다 — 앱과 같은 TS 코드로 잰 값.
+임베딩 모델을 바꿔도 이득이 없다(상한 94~95%로 같음). 실측과 대안 비교는 `docs/diarization-clustering-results.md`(TS 검증은 11절), 채택한 것은 그 문서의 "안 A"다.
+발표형 원거리 녹음(geumtoro)은 참석자 수 없이는 발표자가 여러 클러스터(10명)로 남는다 — 참석자 수 입력을 계속 권장하는 이유다.
+CLI가 임베딩을 내보내지 않으므로 앱이 **구간을 다시 임베딩**한다. 분할·바이너리·온보딩 모델은 바꾸지 않는다.
+
+흐름 (`src/main/pipeline/recluster.ts`, `diarize` 단계 안):
+
+1. CLI 결과 구간(`SpeakerSegment[]`)에서 라벨을 버리고 각 구간을 **5초 이하 조각으로 균등 분할**한다 (`splitIntoChunks`, `@meeting-stt/core/cluster`).
+   pyannote 창 조각(평균 1~2초)보다 길어 임베딩이 안정된다 — 1초 미만 조각은 정답 중심 최근접으로도 45%뿐이다. 3초로 잘라도 결과는 같다.
+2. 조각마다 정규화본 WAV의 해당 샘플을 `sherpa-onnx-node`의 `SpeakerEmbeddingExtractor`(온보딩에서 받은 것과 같은 ERes2Net 모델 파일)에 넣어 임베딩을 뽑는다
+   (`src/main/pipeline/speakerEmbedding.ts`, 순수 Node 함수 — 스크립트도 같은 함수를 쓴다). 준비되지 않은 조각(`isReady`가 false, 너무 짧음)은 건너뛴다.
+   - 임베딩 계산은 **동기 API**라 main에서 부르면 70초 넘게 이벤트 루프가 멈춘다. `src/main/pipeline/embedWorker.ts`를 `utilityProcess.fork`로 띄워 그 안에서 돌리고
+     (`import embedWorkerPath from './embedWorker?modulePath'`), 진행률·결과를 `parentPort` 메시지로 받는다 (`src/main/pipeline/embed.ts`).
+     WAV 읽기는 워커가 `sherpa-onnx-node`의 `readWave`로 직접 한다 — main이 200MB 샘플을 워커로 복사하지 않는다.
+   - 스레드 수는 화자 분리 CLI와 같은 `threadPlan().diarize`다 ('조용히 처리'도 그대로 적용).
+3. 임베딩을 L2 정규화해 **k-means**(k-means++ 초기화, 고정 시드, 10회 재시작 중 관성 최소)로 K개로 묶는다.
+   K는 참석자 수, 모르면 **12** (`OVERSPLIT_CLUSTER_COUNT`). 조각 수가 K보다 적으면 조각 수.
+4. **중심 병합 보호**: 클러스터 중심(정규화 평균) 간 코사인이 **0.75 이상**인 쌍을 가까운 순으로 반복해 합친다 (`CENTROID_MERGE_MIN_COSINE`).
+   k-means는 K가 실제보다 크면 큰 화자를 쪼개는데(K=9에서 79%), 쪼개진 조각의 중심은 서로 가깝고(0.7~0.9) 실제 화자끼리는 멀어서(정답 중심 최대 0.69, 5초 조각의 K=7 중심은 0.6 미만)
+   이 값이면 조각만 되돌아간다. 0.7이 K를 크게 넣었을 때는 조금 더 좋지만(K=9에서 8명 → 7명, +1.3%p) K를 적게 넣었을 때 실제 화자를 하나 더 합친다(K=6: 92.7% → 87.0%). 0.75를 택한다 —
+   **UI에 화자 병합은 있어도 분리는 없으므로** 덜 합쳐서 남은 여분 화자는 사용자가 고칠 수 있고, 목소리가 비슷한 두 사람을 합쳐 버리면 복구할 수 없다.
+   임계값은 임베딩 모델에 묶인 값이다(eres2netv2·titanet은 0.75에서 실제 화자까지 합친다). 모델을 바꾸면 다시 잰다.
+5. 라벨을 등장 순서로 `speaker_00`, `speaker_01`…로 다시 매기고 조각을 `SpeakerSegment[]`로 돌려준다. 이후 `assignSpeakers` → `mergeUtterances`는 그대로다.
+
+건너뛰는 경우와 폴백:
+
+- 참석자 수가 1이거나 조각이 2개 미만이면 재군집하지 않는다 (CLI 결과 그대로).
+- 임베딩 애드온 로드 실패·모델 오류·워커 비정상 종료 등 **재군집이 실패하면 CLI 라벨로 폴백**하고 `warn` 로그를 남긴다. 회의록이 아예 안 나오는 것보다 낫다.
+  잡은 `status='done'`으로 끝나며 사용자에게 따로 알리지 않는다 (폴백 품질은 2026-09-24까지의 앱과 같다).
+- 진행률: 별도 `PipelineStage`를 두지 않는다 (정규화와 같은 이유 — IPC 계약·진행률 UI가 함께 바뀐다). `diarize` 단계 안에서 CLI 퍼센트를 **0~90%**, 임베딩 진행을 **90~100%** 로 매핑한다.
+  재임베딩은 조각이 1,500~2,000개뿐이라 CLI 임베딩(창마다 겹쳐 8,000개 이상)의 10분의 1 시간이다 (103분 회의: CLI 864초 + 70초, 3스레드 기준).
+
+의존성·배포:
+
+- `sherpa-onnx-node`(1.13.8, N-API 애드온)를 `apps/desktop`의 `dependencies`에 둔다. 플랫폼 패키지 `sherpa-onnx-darwin-arm64`(약 34MB, 자체 `libonnxruntime.dylib` 포함)가 optionalDependency로 따라온다.
+  N-API라 Electron ABI 리빌드가 필요 없고 install 스크립트도 없다(`onlyBuiltDependencies`에 넣지 않는다). 애드온은 `@loader_path` rpath로 옆의 dylib을 찾으므로 `DYLD_LIBRARY_PATH`가 필요 없다.
+- 패키징에서 `.node`가 든 모듈은 electron-builder가 asar 밖으로 풀고 서명한다. 명시적으로 `asarUnpack`에 `node_modules/sherpa-onnx-darwin-arm64/**`를 적어 둔다 (`references/distribution.md` 5절).
+- 순수 로직(조각 분할·k-means·병합·라벨 재배정)은 `packages/core/src/cluster.ts`에 두고 vitest로 검증한다. 브라우저 프로토타입도 같은 군집을 쓸 수 있다(현재는 complete-linkage 그대로).
 
 ## 가속·스레드 정책
 
@@ -324,13 +376,70 @@ CoreML이 느린 원인은 **임베딩 모델 입력 길이가 호출마다 달�
   정규화에는 별도 `PipelineStage`를 두지 않고 `stt` 0%에 묶는다. 단계를 늘리면 `src/shared/ipc.ts` 계약과 Phase 3 진행률 UI가 함께 바뀌는데, 정규화는 spawn 없이 끝나는 짧은 단계다.
 - 실패하면 `status='error'`, `error_message`에 한국어 안내를 남기고 **원본 WAV는 지우지 않는다**(재시도용).
 - 잡이 **성공**하면 설정 `audio.keep`(기본 꺼짐)에 따라 원본 WAV를 지우고 `meetings.audio_path`를 `NULL`로 만든다 (Phase 3).
-  녹음본 재생은 요구사항이 아니고, 71분 16kHz mono WAV가 약 136MB라 기본값을 보관으로 두면 디스크가 빠르게 찬다.
-  대신 지운 회의는 재처리할 수 없다 — 그래서 실패한 잡에는 이 정책을 적용하지 않는다.
+  71분 16kHz mono WAV가 약 136MB라 기본값을 보관으로 두면 디스크가 빠르게 찬다.
+  지운 회의는 재생·내보내기·다시 인식을 할 수 없다 — 그래서 실패한 잡에는 이 정책을 적용하지 않는다 (아래 "녹음본 재생·내보내기·다시 인식").
 - 진행률은 각 단계 시작·종료와 whisper/sherpa의 퍼센트 로그를 `pipeline:progress`로 push한다. 마지막에 `stage='done'` 또는 `'error'`를 한 번 보낸다.
   `percent`는 **그 단계 안에서의 퍼센트**다. 여러 단계를 하나의 막대로 합치는 계산은 renderer가 `src/shared/progress.ts`로 한다.
+  `diarize`는 CLI(0~90%)와 재임베딩(90~100%)을 한 단계로 묶는다 ("화자 재군집").
 - 앱 시작 시 `status`가 `'recording'`·`'processing'`인 채로 남은 회의는 이전 실행이 비정상 종료된 것이므로 `'error'`로 정리한다. (미완료 녹음 복구는 Phase 3)
   같은 시점에 `recordings/`의 파생물(`*.norm.wav`, `*.whisper.json`)도 지운다 — 잡 중간에 앱이 죽으면 `finally`가 돌지 않아 남는다(2026-08-26 관통 검증에서 확인). 원본 `<meetingId>.wav`는 건드리지 않는다.
 - **앱 인스턴스는 한 번에 하나만 띄운다.** 두 인스턴스가 같은 `userData/meetings.db`를 공유하면 나중에 뜬 인스턴스의 시작 정리가 먼저 뜬 인스턴스의 처리 중 회의를 `'error'`로 덮어쓴다. 개발 중 `pnpm dev`를 겹쳐 실행하지 않는다 (단일 인스턴스 강제는 Phase 4에서 `app.requestSingleInstanceLock`으로).
+
+## 녹음본 재생·내보내기·다시 인식 (2026-09-25)
+
+사용자 요청으로 "녹음본 재생은 요구사항 아님" 결정을 뒤집었다. **원본 WAV가 남아 있는 회의**(설정 `audio.keep`을 켠 뒤 녹음했거나, 파이프라인이 실패한 회의)에서만 동작한다.
+보관 기본값(삭제)은 그대로다 — 디스크 사용량 판단은 바뀌지 않았다.
+
+- **원본 유무**: `Meeting.hasAudio`(`audio_path IS NOT NULL`)로 renderer에 알린다. 목록 조회마다 파일을 `stat`하지 않는다 —
+  경로는 있는데 파일이 사라진 경우는 재생 실패·다시 인식 실패(`status='error'`)로 드러난다.
+- **재생**: 커스텀 프로토콜 `meeting-audio://recording/<meetingId>`를 `src/main/audio/playback.ts`가 처리한다.
+  - `file://`을 쓰지 않는 이유: 개발 모드 renderer는 `http://localhost` 출처라 `file://`을 불러올 수 없고, renderer에 파일 경로를 노출하지 않기 위해서다.
+    핸들러는 회의 ID만 받아 DB의 `audio_path`로 파일을 찾는다. 없는 회의·원본 없음은 404.
+  - `<audio>`의 시킹은 `Range` 요청이다. 핸들러가 `Range: bytes=a-b`를 직접 해석해 `206` + `Content-Range`로 그 구간만 스트림한다 (파일 전체를 메모리에 올리지 않는다).
+  - 스킴은 `app.whenReady()` **전에** `protocol.registerSchemesAsPrivileged`로 `standard·secure·stream·supportFetchAPI` 권한을 준다. renderer CSP에 `media-src 'self' meeting-audio:`를 더한다.
+- **재생 UI**: 상세 레일의 "녹음" 패널에 `<audio controls>` 하나를 둔다. 원본이 있으면 발화 행의 시각이 버튼이 되고, 누르면 그 발화의 `startSec`으로 이동해 재생한다.
+  재생 중인 발화 강조는 범위 밖이다.
+- **내보내기**: `meetings:exportAudio`(invoke) → main이 `dialog.showSaveDialog`(메인 창에 붙은 시트)로 저장 위치를 받아 `copyFile`한다.
+  기본 파일명은 `<회의 제목>.wav`(파일명에 못 쓰는 문자는 `_`). 응답 `{ isSaved }` — 사용자가 취소하면 `false`이고 오류가 아니다.
+  저장 위치 선택은 확인 UI가 아니므로 "네이티브 대화상자 금지" 규칙(1절 확인 UI)의 대상이 아니다.
+- **다시 인식**: `meetings:reprocess`(invoke, `{ meetingId, speakerCount: number | null }`) → 참석자 수를 저장하고(`null`이면 임계값 폴백)
+  `status='processing'`으로 바꾼 뒤 파이프라인 잡을 큐에 넣는다. 응답은 편집 채널처럼 갱신된 `MeetingDetail`이다.
+  - 거절 조건: 회의 없음, 원본 없음, `status`가 `recording`·`processing`(이미 처리 중이거나 줄 서 있음).
+  - 성공하면 **회의록을 통째로 새로 만든다**: 발화 전체 교체 + **화자 행 전부 삭제 후 새 라벨로 생성**(새 군집의 라벨은 이전 라벨과 대응하지 않으므로 화자 이름이 초기화된다)
+    + 자동 교정 결과(`refine_applied`·`refined_at`) 비움. 이후 자동 교정이 다시 돈다. **요약은 남긴다** — 같은 회의의 내용이고, 사용자가 원하면 다시 요약한다.
+    이 교체는 한 트랜잭션이다 (`data-model.md` "다시 인식").
+  - 실패하면 첫 처리와 같다 — `status='error'`, 원본 유지. 이전 회의록 행은 성공할 때까지 교체되지 않는다.
+  - 성공 뒤에는 첫 처리와 같이 `audio.keep`을 적용한다. 보관을 끈 상태에서 실패 회의를 다시 시도해 성공하면 원본이 지워진다.
+  - UI: 레일 "녹음" 패널의 "다시 인식" → 2단계 인라인 확인(참석자 수 `Stepper` + "화자 이름·직접 고친 내용·교정 결과가 사라집니다" 안내).
+    실패한 회의는 본문 오류 문구 아래 "다시 시도" 버튼(저장된 참석자 수 그대로, 확인 없음 — 잃을 회의록이 보이지 않는 상태다).
+- 원본이 없는 회의의 "녹음" 패널은 "원본 녹음을 보관하지 않아 재생·다시 인식을 할 수 없습니다"와 설정 안내만 보인다.
+
+## 녹음 파일 가져오기 (2026-09-25)
+
+사용자 요청으로 앱 밖에서 녹음한 파일(음성 메모 m4a, 회의 녹화 mp4 등)로도 회의록을 만든다. 브라우저 프로토타입의 파일 입력과 같은 기능이지만
+**디코딩은 renderer의 `decodeAudioData`가 아니라 main에서 macOS 내장 `afconvert`로 한다.**
+
+- **왜 `afconvert`인가**: ffmpeg를 동봉하지 않는다는 결정(1절 음량 정규화)은 그대로다. 대상 플랫폼이 macOS 전용이라 시스템 바이너리 `/usr/bin/afconvert`(Core Audio)가 항상 있고,
+  서명·다운로드·라이선스 부담이 없다. renderer에서 디코딩하면 1시간 파일의 Float32 PCM(약 230MB)을 IPC로 넘겨야 하고 "무거운 작업은 main" 원칙에도 어긋난다.
+  경로는 `/usr/bin/afconvert`로 고정한다 (GUI 앱의 PATH를 믿지 않는다).
+- **변환 명령**: `afconvert -f WAVE -d LEI16@16000 -c 1 --mix --no-filler <원본> <recordings/<meetingId>.wav>`.
+  `--mix`는 스테레오를 한 채널로 섞고(없으면 채널을 버린다), `--no-filler`는 `FLLR` 패딩 청크를 빼서 **녹음과 똑같은 44바이트 헤더**를 만든다.
+  이후 단계(정규화·whisper·sherpa·재생·내보내기)는 녹음한 회의와 구분하지 않는다.
+- **받는 형식**: `m4a mp3 wav aac aif aiff caf flac mp4 mov` (2026-09-25 실측, 영상 파일은 오디오 트랙만 읽는다). webm·ogg(Opus/Vorbis)는 `afconvert`가 못 읽어 목록에서 뺀다.
+  확장자는 열기 대화상자의 필터일 뿐이고, 실제로 못 읽으면 변환 실패 안내로 끝난다.
+- **흐름** (`src/main/audio/importRecording.ts`):
+  1. `dialog.showOpenDialog`(메인 창 시트, 파일 하나) — 취소하면 `{ meeting: null }`, 오류 아님. 열기 대화상자는 확인 UI가 아니므로 "네이티브 대화상자 금지"의 대상이 아니다.
+  2. 회의 ID를 정하고 `afconvert`로 변환. 실패하면 반쯤 쓴 출력 파일을 지우고 안내 문구를 던진다. **회의 행은 변환이 성공한 뒤에 만든다** — 못 읽은 파일로 빈 오류 회의가 목록에 남지 않는다.
+  3. WAV 헤더의 `data` 크기로 길이를 계산한다. `MIN_RECORDING_SEC`(1초) 미만이면 녹음과 같은 "너무 짧음" 오류로 끝낸다(파일은 남기지 않는다).
+  4. `insertMeeting` → `duration_sec`·참석자 수 저장 → `status='processing'` → 파이프라인 잡 큐. 큐에서 기다리는 동안 사이드바가 "녹음 중"이 아니라 처리 대기로 보이도록 바로 `processing`으로 둔다.
+- **제목**은 파일 이름(확장자 제외, 200자까지)이고 비어 있으면 녹음과 같은 기본 제목. **생성 시각**은 가져온 시각이다 — 파일의 수정 시각은 복사·동기화로 쉽게 바뀌어 녹음 날짜를 보장하지 않는다.
+- **참석자 수**는 녹음 화면 스테퍼의 값, 즉 main 녹음 세션의 보관값을 그대로 쓴다. 같은 화면의 입력이 녹음과 가져오기에 함께 적용되고, 값의 출처는 여전히 하나다.
+- **원본 파일은 건드리지 않는다.** 앱이 관리하는 것은 변환한 WAV뿐이고 `audio.keep` 보관 정책도 그 WAV에만 적용된다.
+- 녹음 중에도 가져올 수 있다 — 변환은 짧고, 파이프라인은 큐가 순서대로 처리한다. 다만 UI는 녹음 중이 아닐 때만 버튼을 보인다(아래).
+- **IPC**: `meetings:import`(invoke, payload 없음) → `ImportMeetingAudioResponse = { meeting: Meeting | null }`.
+- **UI**: 녹음 화면(`recording/RecorderSection`)이 대기 중일 때 "녹음 시작" 아래에 보조 버튼 "녹음 파일 가져오기". 변환 중에는 비활성 + "가져오는 중…",
+  성공하면 그 회의 상세로 이동하고, 실패 문구는 버튼 아래 한 줄로 보인다.
+- **범위 밖**: 창에 파일을 끌어다 놓기, 여러 파일 한 번에 가져오기. 필요해지면 같은 `importRecording`에 경로를 넘기는 채널을 더한다.
 
 ## 진행률 표시 (Phase 3)
 
@@ -478,6 +587,8 @@ export interface RecordingStateEvent {
 ### 메뉴바 (Tray)
 
 - 아이콘은 `resources/trayTemplate.png`(+`@2x`). 파일명이 `Template`으로 끝나야 macOS가 다크/라이트에 맞춰 반전한다.
+- 아이콘 원본은 SVG다: 앱 아이콘 `build/icon.svg`(→ `build/icon.{icns,png,ico}`, `resources/icon.png`), 메뉴바 `build/trayTemplate.svg`(→ 28×22 · 56×44 PNG).
+  PNG·icns는 손으로 고치지 않고 SVG에서 다시 렌더링한다 (`rsvg-convert` + `iconutil`).
 - 녹음 중에는 `tray.setTitle('● 12:34')`로 경과 시간을 1초마다 갱신하고, 녹음 중이 아니면 제목을 비워 아이콘만 남긴다.
   타이머는 **녹음 중에만** 돌리고 정지 시 `clearInterval`한다.
 - 트레이 메뉴: 녹음 시작/정지 · 위젯 표시/숨김 · 메인 창 열기 · 종료.
@@ -520,8 +631,9 @@ export interface RecordingStateEvent {
 | 6 | 요약 · 용어 초안 | 실행 방식(로컬 / Claude API 키 / Claude Code / OpenAI API 키), 로컬을 골랐을 때만 **로컬 요약 모델 파일** 다운로드, API 키(공급자별), GPT 모델 선택, CLI 상태, 연결 확인 | `setting/LlmSection` — 파일 다운로드 행 `model/SummaryModelSection`은 페이지가 `localModelSlot`으로 끼운다 (아래 "LLM 공급자" 절). 2026-09-24까지는 "모델" 카테고리에 음성 인식 모델과 나란히 있었는데, 로컬 실행 방식의 부속품이 별개 설정처럼 보여 옮겼다 |
 | 7 | 용어 사전 | 팀 소개, 초안 만들기, 용어 목록 (Phase 5-4) | `setting/GlossarySection` (자기 채널로 따로 읽고 쓰므로 `SettingsSection`의 한 번 로드와 무관하다. 모델 위젯과 같이 `children`으로 끼운다) |
 | 8 | 업데이트 | 업데이트 확인(`isUpdateCheckEnabled`), 지금 확인(`UpdateCheck`) | `SettingsSection` |
+| 9 | 언어 | UI 언어(`locale`, 한국어 / 영어, 2026-09-25, 위 "UI 언어" 절) | `SettingsSection` |
 
-- 설정값 로드는 한 번만 한다. 그래서 `SettingsSection`이 1~4와 8을 모두 그리고, 5~7은 `children`으로 받아 4와 8 사이에 끼운다.
+- 설정값 로드는 한 번만 한다. 그래서 `SettingsSection`이 1~4와 8·9를 모두 그리고, 5~7은 `children`으로 받아 4와 8 사이에 끼운다.
   페이지는 `<SettingsSection><SettingGroup title="음성 인식 모델"><ModelDownloadSection /></SettingGroup><LlmSection localModelSlot={<SummaryModelSection />} /><GlossarySection /></SettingsSection>` 형태로 배치만 한다.
   widgets는 widgets를 import하지 않으므로(`.claude/rules/component-abstract-pattern.md`) `SummaryModelSection`은 페이지가 슬롯으로 넘긴다.
 - **오른쪽에 목차(TOC)를 둔다** (2026-09-24 사용자 요청). 카테고리가 7개(지금은 8개)로 늘어 스크롤로 찾기 어려워졌기 때문이다.
@@ -529,6 +641,44 @@ export interface RecordingStateEvent {
   설정 로드 전후로 개수가 달라지므로, 제목 목록을 따로 들고 있으면 순서·문구가 어긋난다. `MutationObserver`로 다시 읽는다.
   항목을 누르면 그 카테고리로 부드럽게 스크롤하고, 스크롤 위치에 맞는 항목을 강조한다(`aria-current`).
   창이 좁으면(본문 + 목차가 들어가지 않으면) 목차를 숨긴다.
+
+## UI 언어 (2026-09-25)
+
+사용자 요청으로 설정에 **UI 언어** 항목을 둔다. 기본은 한국어이고 영어를 고를 수 있다. 이 설정은 **화면 문구·메뉴바·main이 renderer로 보내는 오류 문구**의 언어이지,
+인식·요약 언어가 아니다 — whisper의 `-l ko`, 요약·용어 초안 프롬프트, 교정의 한글 읽기 판정은 어느 언어를 골라도 한국어 회의를 전제로 그대로 돈다.
+문서·커밋 메시지·코드 주석도 계속 한국어다.
+
+### 사전과 타입
+
+- 문구는 **`src/shared/locales/<domain>.ts`** 에 도메인별로 둔다. 한 파일이 `ko`와 `en`을 **나란히** export하고, `ko`가 타입을 정의하며 `en`은 `typeof ko`로 묶인다.
+  한쪽 언어에만 키를 추가하면 타입 오류가 난다 — 번역 누락을 컴파일로 잡는다. 두 언어를 한 파일에 두는 이유는 문구를 고칠 때 대응하는 번역이 바로 옆에 보여야 하기 때문이다.
+- 값이 들어가는 문구는 문자열 템플릿이 아니라 **함수**다 (`deletedCount: ({ count }) => `${count}개 삭제됨``). 어순이 언어마다 달라 `{count}` 치환 규약을 따로 만들지 않는다.
+- 도메인 파일: `common`(버튼·공통 오류), `sidebar`(회의 목록·검색·날짜 묶음), `transcript`(회의록·화자·녹음본 레일), `summary`, `refine`, `pipeline`(단계 라벨), `recording`(녹음 화면·위젯 패널), `models`(온보딩·모델 다운로드), `settings`(설정 카테고리·토글·단축키), `llm`, `glossary`, `update`, `main`(메뉴바·main 프로세스 오류).
+  `src/shared/i18n.ts`가 이들을 `MESSAGES: Record<Locale, Messages>`로 모으고 `Locale`(`'ko' | 'en'`)·`DEFAULT_LOCALE`·`isLocale`을 정의한다.
+- 사전 파일은 데이터라 **400줄 제한의 예외**다. 대신 도메인이 커지면 파일을 나눈다.
+- i18n 라이브러리(i18next 등)는 도입하지 않는다 — 두 언어·수백 문구에 키 문자열 조회·복수형 규칙·지연 로드가 필요 없고, 타입으로 누락을 잡는 쪽이 낫다.
+
+### renderer
+
+- 전역 컨텍스트 `shared/provider/context/localeContext`(`.claude/rules/project-structure.md` "Context / Provider / Routes")가 `LocaleProvider`·`useLocale`을 한 파일에 둔다.
+  `useLocale()`은 `{ locale, t }`를 돌려주고 `t`는 그 언어의 `Messages`다. 컴포넌트는 `t.settings.title`처럼 읽는다.
+- 컨텍스트 기본값은 한국어 사전이다. 그래서 통합 테스트는 Provider 없이도 한국어 문구를 그대로 검증한다.
+- Provider는 마운트 시 `settings:get`으로 언어를 읽고, 이후에는 push 채널 **`settings:changed`** 를 구독한다. 위젯 창은 메인 창과 다른 창이라 설정 화면이 바꾼 값을 push로만 알 수 있다.
+  Provider는 `document.documentElement.lang`도 함께 맞춘다 (`index.html`의 기본은 `ko`).
+- 날짜·경과 시간 포맷터(`shared/utils/formatMeetingDate`, `meetingDateGroup`, `formatDuration`)는 `locale`을 인자로 받는다. "오늘"·"어제" 같은 묶음 라벨은 사전에서 읽는다.
+
+### main
+
+- `src/main/locale.ts`의 `t()`가 현재 언어의 사전을 돌려준다. 이 모듈은 DB를 읽지 않는다 — 앱 시작 시 `setCurrentLocale(getAppSettings().locale)`로 넣고
+  `settings:update` 핸들러가 바꾼다. 순수 로직(파이프라인·업데이트 결과 해석)이 오류 문구 하나 때문에 DB·electron에 묶이면 단위 테스트가 깨지기 때문이다. 메뉴바 메뉴·저장 대화상자·**renderer가 그대로 보여 주는 오류 메시지**(`throw new Error(...)`)는 던지는 시점에 이 사전으로 만든다.
+  파이프라인 오류처럼 DB(`meetings.error_message`)에 남는 문구는 그 시점 언어로 저장되고 언어를 바꿔도 다시 번역하지 않는다 — 오류는 재시도하면 새로 쓰인다.
+- `settings:update`가 언어를 바꾸면 main은 메뉴바 메뉴를 다시 만들고(`refreshTray`) 모든 창에 `settings:changed`를 push한다.
+- 운영 로그(`src/main/log.ts`)와 LLM 프롬프트는 번역하지 않는다.
+
+### 범위 밖
+
+- `apps/web` 브라우저 프로토타입은 한국어만 유지한다.
+- macOS 시스템 대화상자 문구(`NSMicrophoneUsageDescription`)는 `electron-builder.yml`의 한국어 하나다. 영어 `InfoPlist.strings`는 후속 과제다.
 
 ## 화면 디자인 (UI 리디자인, 2026-09-24)
 
@@ -915,7 +1065,7 @@ claude -p --output-format json --tools "" --no-session-persistence --setting-sou
 ## 용어 사전 (Phase 5-4)
 
 교정(발음 유사도 후보 + O/X 판정)과 인식(whisper `--prompt`)은 둘 다 **정답 용어 목록**이 있어야 한다 (`docs/phase5-refine-results.md`).
-용어 사전은 전역 + 회의별 두 층이고, 이 절은 **전역 층**을 설정에서 만드는 방법이다. 회의별 층은 입력 위치가 정해진 뒤 추가한다.
+용어 사전은 **전역 한 층**이다 (2026-09-25 사용자 결정으로 회의별 층 폐기 — 자동 교정에는 회의마다 용어를 적는 단계가 맞지 않는다). 이 절은 그 전역 층을 설정에서 만드는 방법이다.
 
 ### 초안은 LLM, 확정은 사람
 
@@ -979,3 +1129,62 @@ claude -p --output-format json --tools "" --no-session-persistence --setting-sou
   - **저장·IPC 형식은 바꾸지 않는다.** 행은 renderer 안에서만 쓰고, 저장할 때 `용어` 또는 `용어 = 읽기1, 읽기2` 줄(`GlossarySettings.terms: string[]`)로 직렬화한다.
 - 저장은 버튼으로 한다 (blur 저장 아님). 초안을 덧붙인 직후 사용자가 훑어보고 고칠 시간을 준다. 저장하지 않은 변경이 있으면 버튼 옆에 표시한다.
 
+
+## 회의록 교정 (Phase 5-4)
+
+**전역 용어 사전**을 근거로 회의록의 오인식을 찾아 **자동으로 고친다**. 방식은 검증에서 확정한 그대로다 (`docs/phase5-refine-results.md`):
+코드가 자모 발음 유사도로 치환 후보를 만들고, LLM은 후보마다 문맥상 뜻이 통하는지 O/X만 답하며, 치환은 코드가 한다.
+
+**2026-09-25 사용자 결정으로 두 가지를 바꿨다.** (1) 회의별 용어 층을 없애고 **전역 용어 사전만** 쓴다 — 회의마다 용어를 적는 단계가 자동 교정과 맞지 않는다.
+(2) 수정 **제안**을 만들어 사용자가 쌍 단위로 수락·거절하던 흐름을 버리고, 파이프라인이 회의록을 저장한 직후 **교정 잡을 자동으로 이어 돌려 통과한 쌍을 바로 `utterances.text`에 반영**한다.
+검증에서 측정한 판정 정밀도는 52%라 틀린 치환도 함께 들어간다 — 그래서 **무엇을 고쳤는지 상세 화면에 남기고**, 잘못 고친 곳은 발화 인라인 편집으로 되돌린다.
+인식 단계(`--prompt`)는 여전히 건드리지 않는다 (`roadmap.md` 5-4).
+
+### 실행과 큐
+
+- **자동 실행**: 파이프라인 잡이 `status='done'`으로 저장을 끝낸 뒤 `scheduleAutoRefine`이 조건을 보고 **같은 잡 큐(동시성 1)** 에
+  `{ kind: 'refine', meetingId }`를 넣는다. 조건은 두 가지다 — 전역 용어가 하나 이상 있고(`getGlossarySettings().terms`),
+  LLM 공급자가 준비돼 있다(`isLlmReady(await getLlmStatus())`). 하나라도 아니면 **조용히 건너뛰고 로그만 남긴다** —
+  용어 사전을 쓰지 않는 사용자에게 회의마다 오류를 띄우지 않기 위해서다. 회의록은 교정 없이도 `done`이다.
+- **수동 실행**: 상세 레일의 "다시 교정" 버튼이 `refine:run { meetingId }`를 보낸다. 용어 사전을 고친 뒤 기존 회의를 다시 돌리는 용도다.
+  이때는 조건을 건너뛰지 않고 실패로 알린다 (용어가 없으면 "전역 용어 사전이 비어 있습니다", LLM 미준비는 `createLlmClient`의 메시지).
+  같은 회의의 교정 잡이 이미 줄 서 있으면 다시 넣지 않는다.
+- 잡은 `src/main/refine/run.ts`의 `runRefine`이 돈다. 순서는 스크립트(`scripts/refine.ts`)와 같다:
+  1. 용어 사전 = `normalizeGlossaryTerms(전역 용어)`.
+  2. `read` 단계: 읽기가 없는 라틴 문자 용어가 있으면 LLM에 한글 읽기를 한 번 묻는다 (`buildReadingPrompt`). 없으면 건너뛴다.
+  3. 코드가 후보를 만든다 (`findRefineCandidates`). 후보가 없으면 판정 없이 빈 결과로 끝난다.
+  4. `verify` 단계: 후보를 `VERIFY_BATCH_SIZE`(40)개씩 잘라 배치마다 LLM에 O/X를 묻는다. 진행률은 배치 수로 잰다.
+  5. 통과한 쌍을 `applyRefinePairs`(순수 함수)로 발화에 적용하고, 바뀐 발화 본문과 결과(`refine_applied`, `refined_at`)를 **한 트랜잭션**으로 저장한다.
+     결과는 통째로 덮어쓴다 — 다시 돌리면 새 결과가 이전 것을 대체한다.
+- LLM 호출은 요약·용어 초안과 같은 **공급자 추상화**(`createLlmClient()`)를 거친다. 로컬은 읽기·판정 모두 GBNF 문법으로 형식을 못박고,
+  외부 공급자(Claude·GPT)는 문법이 없으므로 프롬프트 끝에 같은 형식의 지시문을 붙이고 형식에 맞지 않는 줄은 파서가 버린다 (용어 초안과 같은 규칙).
+  판정 온도는 `REFINE_TEMPERATURE`(0.1, 로컬 전용).
+- 임시 파일은 `userData/refine/<meetingId>/`에 두고 잡이 끝나면 실패해도 지운다 (요약과 같은 규칙).
+- **교정 실패는 회의 상태와 본문을 건드리지 않는다.** `refine:progress`의 `'error'`로만 알리고 이전 결과는 그대로 둔다.
+
+### 결과 기록
+
+- `MeetingDetail.refineResult`에 마지막 교정 결과가 실린다: `{ refinedAt, appliedPairs }`. 한 번도 교정하지 않았으면 `null`.
+  `appliedPairs`는 실제로 본문을 바꾼 쌍(`RefinePair[]`)이고, 비어 있으면 "고칠 곳을 찾지 못했다"는 뜻이다.
+- 같은 쌍(from → to)이 여러 발화에 반복되므로(기터브→GitHub 8곳) 화면은 **쌍 단위로 묶어**(`groupRefinePairs`) "무엇을 몇 곳 고쳤는지"만 보여 준다. 되돌리기 버튼은 두지 않는다 —
+  발화 인라인 편집이 이미 있고, 자동 치환을 쌍 단위로 되돌리려면 원문을 따로 저장해야 하는데 그만한 가치가 없다.
+- `done` 이벤트에 결과를 싣지 않는다. 결과는 상세의 일부라 `useMeeting`이 `done`에서 상세를 다시 읽는다 (파이프라인 `done`과 같은 규칙).
+  교정이 본문을 바꾸므로 어차피 발화 전체를 main에서 다시 받아야 한다.
+
+### IPC
+
+| 키 | 채널 | 방향 | 용도 |
+| --- | --- | --- | --- |
+| `refine.run` | `refine:run` | invoke (응답 없음) | `{ meetingId }`. 교정 잡을 큐에 예약한다 (수동 재실행) |
+| `events.refine` | `refine:progress` | push | `{ meetingId, stage: 'read' \| 'verify' \| 'done' \| 'error', percent, errorMessage? }` |
+
+### 화면
+
+- `features/refine/RefinePanel` — 상세 오른쪽 레일에서 요약 아래, 화자 목록 위. `TranscriptSection`이 `useMeeting`의 `refineResult`를 넘긴다
+  (본문과 결과가 같은 상태여야 하므로 패널이 `useMeeting`을 따로 부르지 않는다). LLM 준비 여부(`useLlmStatus`)·전역 용어(`useGlossary`)·진행률(`useRefine`)은 패널이 스스로 구독한다.
+- 본문 구성:
+  - 진행 중: 단계 문구("용어 읽기를 정하는 중" / "후보를 판정하는 중") + 진행률 막대.
+  - 결과가 있을 때: 고친 쌍 목록. 행마다 `«from» → to`와 걸린 발화 수. 쌍이 없으면 "고칠 곳을 찾지 못했습니다".
+  - 결과가 없을 때(`null`): 아직 교정하지 않았다는 안내. 전역 용어가 없으면 설정 링크와 함께 "용어를 저장하면 회의록이 만들어질 때 자동으로 교정합니다"를 보여 준다.
+    LLM이 준비되지 않았으면 요약과 같은 문구(`llmMissingMessage`)와 설정 링크.
+  - 아래에 "다시 교정" 버튼. 전역 용어가 없거나 LLM이 준비되지 않았거나 진행 중이면 막는다.

@@ -2,6 +2,7 @@ import type { MeetingSearchResult } from '@shared/ipc'
 import type { Meeting, MeetingStatus } from '@shared/types'
 import { SEARCH_RESULT_LIMIT, toLikePattern } from '../searchQuery'
 import { getDb } from './connection'
+import { t } from '../locale'
 
 interface MeetingRow {
   id: string
@@ -23,7 +24,8 @@ const toMeeting = (row: MeetingRow): Meeting => ({
   status: row.status,
   ...(row.error_message ? { errorMessage: row.error_message } : {}),
   ...(row.summary ? { summary: row.summary } : {}),
-  ...(row.speaker_count ? { speakerCount: row.speaker_count } : {})
+  ...(row.speaker_count ? { speakerCount: row.speaker_count } : {}),
+  hasAudio: row.audio_path !== null
 })
 
 interface InsertMeetingParams {
@@ -145,6 +147,26 @@ export const updateMeetingSpeakerCount = ({
     .run({ meetingId, speakerCount })
 }
 
+/**
+ * 다시 인식 요청. 참석자 수를 바꾸고(null이면 임계값 폴백) 바로 처리 중으로 표시한다 —
+ * 큐에서 기다리는 동안 두 번 요청되지 않고, 화면이 진행률을 보인다 (references/data-model.md "다시 인식").
+ */
+export const markMeetingReprocessing = ({
+  meetingId,
+  speakerCount
+}: {
+  meetingId: string
+  speakerCount: number | null
+}) => {
+  getDb()
+    .prepare(
+      `UPDATE meetings
+       SET speaker_count = @speakerCount, status = 'processing', error_message = NULL
+       WHERE id = @meetingId`
+    )
+    .run({ meetingId, speakerCount })
+}
+
 /** 제목을 바꾼다. 대상 회의가 없으면 0을 돌려준다 */
 export const renameMeeting = ({ meetingId, title }: { meetingId: string; title: string }) =>
   getDb().prepare('UPDATE meetings SET title = @title WHERE id = @meetingId').run({
@@ -178,7 +200,7 @@ export const failStaleMeetings = () =>
   getDb()
     .prepare(
       `UPDATE meetings
-       SET status = 'error', error_message = '앱이 종료되어 처리가 중단되었습니다'
+       SET status = 'error', error_message = @errorMessage
        WHERE status IN ('recording', 'processing')`
     )
-    .run().changes
+    .run({ errorMessage: t().main.pipeline.interruptedByQuit }).changes

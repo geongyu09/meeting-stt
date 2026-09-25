@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { LlmStatus } from '@shared/types'
 import { getLlmStatusApi } from '@renderer/shared/api/llm'
-
-const LOAD_ERROR_MESSAGE = 'LLM 설정을 불러오지 못했습니다'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 /**
  * 요약 화면과 설정 화면이 함께 보는 공급자 상태. 설정 화면의 저장 응답도 같은 모양이라
  * `applyStatus`로 바로 반영한다 (references/architecture.md "LLM 공급자").
  */
 const useLlmStatus = () => {
+  const { t } = useLocale()
   const [status, setStatus] = useState<LlmStatus | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -22,10 +22,10 @@ const useLlmStatus = () => {
           setError(null)
         })
         .catch((caught: unknown) =>
-          setError(caught instanceof Error ? caught : new Error(LOAD_ERROR_MESSAGE))
+          setError(caught instanceof Error ? caught : new Error(t.llm.section.loadError))
         )
         .finally(() => setIsLoading(false)),
-    []
+    [t]
   )
 
   const refetch = useCallback(() => {

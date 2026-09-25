@@ -3,6 +3,7 @@ import Button from '@renderer/shared/components/primitives/ui/Button'
 import ProgressBar from '@renderer/shared/components/primitives/ui/ProgressBar'
 import useModelStatus from '@renderer/shared/hooks/domain/model/useModelStatus'
 import { formatBytes } from '@renderer/shared/utils/formatBytes'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import styles from './index.module.css'
 
@@ -11,14 +12,15 @@ import styles from './index.module.css'
  * 골랐을 때만 보이고, Claude를 쓰면 필요 없다 (references/distribution.md 1절, architecture.md "LLM 공급자").
  */
 export default function SummaryModelSection() {
+  const { t } = useLocale()
   const { status, isLoading, error, progress, isDownloading, downloadError, downloadSummaryModel } =
     useModelStatus()
 
-  if (isLoading && !status) return <p className={styles.message}>모델 상태를 확인하는 중입니다</p>
+  if (isLoading && !status) return <p className={styles.message}>{t.models.status.loading}</p>
   if (!status) {
     return (
       <p className={styles.error} role="alert">
-        {error?.message ?? '모델 상태를 확인하지 못했습니다'}
+        {error?.message ?? t.models.status.loadError}
       </p>
     )
   }
@@ -32,23 +34,27 @@ export default function SummaryModelSection() {
 
   const renderControl = () => {
     if (isDownloading) return <span className={styles.meta}>{percent}%</span>
-    if (item.isInstalled) return <span className={styles.success}>설치되어 있습니다</span>
+    if (item.isInstalled) {
+      return <span className={styles.success}>{t.models.summaryModel.installedStatus}</span>
+    }
 
-    return <Button onClick={downloadSummaryModel}>모델 파일 받기</Button>
+    return <Button onClick={downloadSummaryModel}>{t.models.summaryModel.download}</Button>
   }
 
   return (
     <SettingRow
       title={
         <>
-          로컬 요약 모델 파일 <span className={styles.optional}>로컬 방식에만 필요</span>
+          {t.models.summaryModel.title}{' '}
+          <span className={styles.optional}>{t.models.summaryModel.optional}</span>
         </>
       }
       description={
         <>
-          {item.isInstalled ? '설치됨' : `설치되지 않음 · ${size}`}. 이 기기에서 요약·용어 초안을
-          만들 때 쓰는 모델 파일입니다. Claude를 쓰면 필요 없고, 없어도 녹음과 회의록 작성은 그대로
-          됩니다.
+          {item.isInstalled
+            ? t.models.summaryModel.installed
+            : t.models.summaryModel.notInstalledWithSize({ size })}
+          {t.models.summaryModel.description}
           {downloadError && (
             <span className={styles.error} role="alert">
               {' '}
@@ -59,7 +65,9 @@ export default function SummaryModelSection() {
       }
       control={renderControl()}
     >
-      {isDownloading ? <ProgressBar percent={percent} label="요약 모델 다운로드 진행률" /> : null}
+      {isDownloading ? (
+        <ProgressBar percent={percent} label={t.models.summaryModel.progressLabel} />
+      ) : null}
     </SettingRow>
   )
 }

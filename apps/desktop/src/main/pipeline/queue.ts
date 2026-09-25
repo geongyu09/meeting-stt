@@ -1,5 +1,8 @@
-import type { PipelineProgressEvent, SummaryProgressEvent } from '@shared/ipc'
-import type { PipelineStage, SummaryStage } from '@shared/types'
+import type { PipelineProgressEvent, RefineProgressEvent, SummaryProgressEvent } from '@shared/ipc'
+import { normalizeGlossaryTerms } from '@shared/glossary'
+import { isLlmReady } from '@shared/llm'
+import { applyRefinePairs } from '@shared/refine'
+import type { PipelineStage, RefinePair, RefineStage, SummaryStage } from '@shared/types'
 import { discardRecording } from '../audio/recordings'
 import {
   findAudioPath,
@@ -7,31 +10,36 @@ import {
   updateMeetingStatus,
   updateMeetingSummary
 } from '../db/meetings'
-import { getAppSettings } from '../db/settings'
-import { ensureSpeakers } from '../db/speakers'
-import { replaceUtterances } from '../db/utterances'
+import { applyRefineResult } from '../db/refine'
+import { getAppSettings, getGlossarySettings } from '../db/settings'
+import { saveTranscript } from '../db/transcript'
+import { listUtterances } from '../db/utterances'
 import { runGlossaryDraft } from '../glossary/draft'
+import { getLlmStatus } from '../llm/provider'
 import { error as logError, info, messageOf, warn } from '../log'
 import { notifyMeetingsChanged } from '../meetingsChanged'
+import { runRefine } from '../refine/run'
 import { runSummary } from '../summary/run'
 import { buildTranscriptText } from '../summary/transcript'
 import { runPipeline } from './run'
+import { t } from '../locale'
 
 const DONE_PERCENT = 100
 
-type MeetingJob = { kind: 'pipeline' | 'summary'; meetingId: string }
+type MeetingJob = { kind: 'pipeline' | 'summary' | 'refine'; meetingId: string }
 
 /** 용어 초안은 회의에 묶이지 않고 결과를 invoke로 돌려줘야 해서, 성공·실패 처리를 `run`이 스스로 한다 */
 type GlossaryJob = { kind: 'glossary'; run: () => Promise<void> }
 
 /**
- * 파이프라인·요약·용어 초안은 같은 CPU·GPU를 쓴다. 따로 큐를 두면 동시에 돌아 모두 느려지므로
+ * 파이프라인·요약·교정·용어 초안은 같은 CPU·GPU를 쓴다. 따로 큐를 두면 동시에 돌아 모두 느려지므로
  * 한 큐에서 동시성 1로 처리한다 (references/architecture.md).
  */
 type Job = MeetingJob | GlossaryJob
 
 let notifyPipeline: (event: PipelineProgressEvent) => void = () => {}
 let notifySummary: (event: SummaryProgressEvent) => void = () => {}
+let notifyRefine: (event: RefineProgressEvent) => void = () => {}
 let pending: Job[] = []
 let isRunning = false
 
@@ -42,6 +50,10 @@ export const setPipelineProgressListener = (listener: (event: PipelineProgressEv
 
 export const setSummaryProgressListener = (listener: (event: SummaryProgressEvent) => void) => {
   notifySummary = listener
+}
+
+export const setRefineProgressListener = (listener: (event: RefineProgressEvent) => void) => {
+  notifyRefine = listener
 }
 
 const report = ({
@@ -61,6 +73,13 @@ interface ReportSummaryParams extends Omit<SummaryProgressEvent, 'stage'> {
 const reportSummary = ({ percent, ...rest }: ReportSummaryParams) =>
   notifySummary({ ...rest, percent: Math.round(percent) })
 
+interface ReportRefineParams extends Omit<RefineProgressEvent, 'stage'> {
+  stage: RefineStage
+}
+
+const reportRefine = ({ percent, ...rest }: ReportRefineParams) =>
+  notifyRefine({ ...rest, percent: Math.round(percent) })
+
 /**
  * 회의록이 만들어졌으면 원본 WAV는 기본적으로 지운다 (설정 `audio.keep`, references/architecture.md).
  * 여기서 실패해도 회의록은 이미 저장됐으므로 잡을 실패로 만들지 않는다.
@@ -77,7 +96,7 @@ const applyAudioRetention = async ({ meetingId }: { meetingId: string }) => {
 
 const processMeeting = async (meetingId: string) => {
   const audioPath = findAudioPath({ meetingId })
-  if (!audioPath) throw new Error('녹음 파일을 찾을 수 없습니다')
+  if (!audioPath) throw new Error(t().main.pipeline.audioFileMissing)
 
   updateMeetingStatus({ meetingId, status: 'processing' })
   notifyMeetingsChanged()
@@ -90,22 +109,19 @@ const processMeeting = async (meetingId: string) => {
   })
 
   report({ meetingId, stage: 'save', percent: 0 })
-  ensureSpeakers({
-    meetingId,
-    labels: [...new Set(utterances.map((utterance) => utterance.speakerLabel))]
-  })
-  replaceUtterances({ meetingId, utterances })
+  saveTranscript({ meetingId, utterances })
   updateMeetingStatus({ meetingId, status: 'done' })
   report({ meetingId, stage: 'done', percent: DONE_PERCENT })
   notifyMeetingsChanged()
   info(`회의 ${meetingId} 처리 완료 (발화 ${utterances.length}개)`)
 
   await applyAudioRetention({ meetingId })
+  await scheduleAutoRefine({ meetingId })
 }
 
 const summarizeMeeting = async (meetingId: string) => {
   const transcript = buildTranscriptText({ meetingId })
-  if (!transcript.trim()) throw new Error('요약할 회의록이 없습니다')
+  if (!transcript.trim()) throw new Error(t().main.summary.nothingToSummarize)
 
   const summary = await runSummary({
     meetingId,
@@ -118,8 +134,75 @@ const summarizeMeeting = async (meetingId: string) => {
   info(`회의 ${meetingId} 요약 완료 (${summary.length}자)`)
 }
 
+const globalGlossary = () => normalizeGlossaryTerms(getGlossarySettings().terms)
+
 /**
- * 요약 실패는 회의 상태를 건드리지 않는다 — 회의록은 멀쩡하고 요약만 없는 상태다
+ * 전역 용어 사전만 근거로 삼고, 통과한 쌍은 바로 본문에 반영한다. 결과는 이전 것을 통째로 대체한다
+ * (references/architecture.md "회의록 교정").
+ */
+const refineMeeting = async (meetingId: string) => {
+  const sources = listUtterances({ meetingId }).map(({ id, text }) => ({ id, text }))
+  if (!sources.length) throw new Error(t().main.refine.nothingToRefine)
+
+  const glossary = globalGlossary()
+  if (!glossary.length) {
+    throw new Error(t().main.refine.glossaryEmpty)
+  }
+
+  const pairs = await runRefine({
+    meetingId,
+    sources,
+    glossary,
+    onProgress: ({ stage, percent }) => reportRefine({ meetingId, stage, percent })
+  })
+  const suggestions = applyRefinePairs({ sources, pairs })
+  // 긴 쌍에 먹혀 본문에 들어가지 않은 쌍은 결과에 남기지 않는다
+  const isApplied = ({ utteranceId, from, to }: RefinePair) =>
+    suggestions.some(
+      (suggestion) =>
+        suggestion.id === utteranceId &&
+        suggestion.pairs.some((applied) => applied.from === from && applied.to === to)
+    )
+  const appliedPairs = pairs.filter(isApplied)
+
+  applyRefineResult({
+    meetingId,
+    texts: suggestions.map(({ id, after }) => ({ id, text: after })),
+    appliedPairs,
+    refinedAt: Date.now()
+  })
+  reportRefine({ meetingId, stage: 'done', percent: DONE_PERCENT })
+  info(
+    `회의 ${meetingId} 교정 완료 (발화 ${suggestions.length}개, 쌍 ${appliedPairs.length}개 반영)`
+  )
+}
+
+/**
+ * 파이프라인 뒤의 자동 교정. 용어가 없거나 LLM이 준비되지 않았으면 오류 대신 로그만 남기고 건너뛴다 —
+ * 용어 사전을 쓰지 않는 사용자에게 회의마다 실패를 띄우지 않기 위해서다 (references/architecture.md "회의록 교정").
+ */
+const scheduleAutoRefine = async ({ meetingId }: { meetingId: string }) => {
+  if (!globalGlossary().length) {
+    info(`회의 ${meetingId} 자동 교정 건너뜀: 전역 용어 사전이 비어 있음`)
+    return
+  }
+
+  // 회의록은 이미 done으로 저장됐다. 여기서 실패해도 잡을 실패로 만들지 않는다 (applyAudioRetention과 같은 규칙)
+  try {
+    if (!isLlmReady(await getLlmStatus())) {
+      info(`회의 ${meetingId} 자동 교정 건너뜀: LLM이 준비되지 않음`)
+      return
+    }
+  } catch (caught) {
+    warn(`회의 ${meetingId} 자동 교정 건너뜀: LLM 상태 확인 실패 (${messageOf(caught)})`)
+    return
+  }
+
+  enqueueRefineJob({ meetingId })
+}
+
+/**
+ * 요약·교정 실패는 회의 상태를 건드리지 않는다 — 회의록은 멀쩡하고 결과만 없는 상태다
  * (references/architecture.md).
  */
 const failJob = ({ kind, meetingId }: MeetingJob, message: string) => {
@@ -128,11 +211,23 @@ const failJob = ({ kind, meetingId }: MeetingJob, message: string) => {
     reportSummary({ meetingId, stage: 'error', percent: 0, errorMessage: message })
     return
   }
+  if (kind === 'refine') {
+    logError(`회의 ${meetingId} 교정 실패: ${message}`)
+    reportRefine({ meetingId, stage: 'error', percent: 0, errorMessage: message })
+    return
+  }
 
   logError(`회의 ${meetingId} 처리 실패: ${message}`)
   updateMeetingStatus({ meetingId, status: 'error', errorMessage: message })
   report({ meetingId, stage: 'error', percent: 0 })
   notifyMeetingsChanged()
+}
+
+const runMeetingJob = ({ kind, meetingId }: MeetingJob) => {
+  if (kind === 'summary') return summarizeMeeting(meetingId)
+  if (kind === 'refine') return refineMeeting(meetingId)
+
+  return processMeeting(meetingId)
 }
 
 const drain = async () => {
@@ -149,9 +244,7 @@ const drain = async () => {
     }
 
     try {
-      await (job.kind === 'summary'
-        ? summarizeMeeting(job.meetingId)
-        : processMeeting(job.meetingId))
+      await runMeetingJob(job)
     } catch (caught) {
       failJob(job, messageOf(caught))
     }
@@ -174,6 +267,13 @@ export const enqueueSummaryJob = ({ meetingId }: { meetingId: string }) => {
   if (pending.some((job) => job.kind === 'summary' && job.meetingId === meetingId)) return
 
   enqueue({ kind: 'summary', meetingId })
+}
+
+/** 같은 회의의 교정이 이미 줄 서 있으면 두 번 돌리지 않는다 */
+export const enqueueRefineJob = ({ meetingId }: { meetingId: string }) => {
+  if (pending.some((job) => job.kind === 'refine' && job.meetingId === meetingId)) return
+
+  enqueue({ kind: 'refine', meetingId })
 }
 
 /** 초안이 끝나면 풀리는 Promise. 앞선 회의 처리가 있으면 그 뒤에 돈다 */

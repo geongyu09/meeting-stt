@@ -2,19 +2,21 @@ import { useRef } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import PipelineProgress from '@renderer/modules/features/pipeline/PipelineProgress'
+import RefinePanel from '@renderer/modules/features/refine/RefinePanel'
 import TopBar from '@renderer/shared/components/primitives/layout/TopBar'
+import Button from '@renderer/shared/components/primitives/ui/Button'
 import useNow from '@renderer/shared/hooks/common/useNow'
 import useMeeting from '@renderer/shared/hooks/domain/meeting/useMeeting'
 import { PATHS } from '@renderer/shared/routes/paths'
-import {
-  MEETING_DATE_GROUP_LABELS,
-  meetingDateGroupOf
-} from '@renderer/shared/utils/meetingDateGroup'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
+import { meetingDateGroupLabel, meetingDateGroupOf } from '@renderer/shared/utils/meetingDateGroup'
 
+import useAudioSeek from './model/useAudioSeek'
 import useRailResize from './model/useRailResize'
 import useTranscriptCopy from './model/useTranscriptCopy'
 import Placeholder from './ui/Placeholder'
 import RailResizer from './ui/RailResizer'
+import RecordingPanel from './ui/RecordingPanel'
 import SpeakerPanel from './ui/SpeakerPanel'
 import TranscriptActions from './ui/TranscriptActions'
 import TranscriptHeader from './ui/TranscriptHeader'
@@ -23,7 +25,6 @@ import { toSpeakerOptions } from './utils/toSpeakerOptions'
 import styles from './index.module.css'
 
 const NOW_REFRESH_MS = 60_000
-const TOP_BAR_TITLE = '회의록'
 
 interface TranscriptSectionProps {
   meetingId: string
@@ -37,11 +38,13 @@ interface TranscriptSectionProps {
  */
 export default function TranscriptSection({ meetingId, aside }: TranscriptSectionProps) {
   const navigate = useNavigate()
+  const { t, locale } = useLocale()
   const { now } = useNow({ intervalMs: NOW_REFRESH_MS })
   const {
     meeting,
     utterances,
     speakers,
+    refineResult,
     isLoading,
     error,
     saveError,
@@ -50,28 +53,41 @@ export default function TranscriptSection({ meetingId, aside }: TranscriptSectio
     reassignUtterance,
     renameSpeaker,
     mergeSpeakers,
+    reprocessMeeting,
     removeMeeting
   } = useMeeting({ meetingId })
 
-  const speakerOptions = toSpeakerOptions({ speakers, utterances })
+  const speakerOptions = toSpeakerOptions({
+    speakers,
+    utterances,
+    defaultNames: {
+      numbered: (index) => t.transcript.defaultSpeakerNames.numbered({ index }),
+      unknown: t.transcript.defaultSpeakerNames.unknown
+    }
+  })
   const speakerNames = Object.fromEntries(speakerOptions.map(({ label, name }) => [label, name]))
   const { copiedKey, copyError, copyAll, copyUtterance } = useTranscriptCopy({
     utterances,
     speakerNames
   })
+  const { audioRef, seekTo } = useAudioSeek()
   const contentRef = useRef<HTMLDivElement>(null)
   const { railWidth, isResizing, startResize, moveResize, endResize, resizeByKey, resetWidth } =
     useRailResize({ containerRef: contentRef })
 
+  const topBarTitle = t.transcript.topBarTitle
+
   if (isLoading && !meeting) {
-    return <Placeholder title={TOP_BAR_TITLE} message="회의를 불러오는 중입니다" />
+    return <Placeholder title={topBarTitle} message={t.transcript.loading} />
   }
-  if (error) return <Placeholder title={TOP_BAR_TITLE} message={error.message} isError />
-  if (!meeting) return <Placeholder title={TOP_BAR_TITLE} message="회의를 찾을 수 없습니다" />
+  if (error) return <Placeholder title={topBarTitle} message={error.message} isError />
+  if (!meeting) return <Placeholder title={topBarTitle} message={t.transcript.notFound} />
 
   const actionError = saveError ?? copyError
-  const groupLabel =
-    MEETING_DATE_GROUP_LABELS[meetingDateGroupOf({ epochMs: meeting.createdAt, now })]
+  const groupLabel = meetingDateGroupLabel({
+    group: meetingDateGroupOf({ epochMs: meeting.createdAt, now }),
+    locale
+  })
 
   const handleDelete = async () => {
     if (await removeMeeting()) navigate(PATHS.home)
@@ -79,25 +95,39 @@ export default function TranscriptSection({ meetingId, aside }: TranscriptSectio
 
   const renderBody = () => {
     if (meeting.status === 'recording') {
-      return <p className={styles.message}>녹음이 진행 중입니다</p>
+      return <p className={styles.message}>{t.transcript.status.recording}</p>
     }
 
     if (meeting.status === 'processing') {
       return (
         <div className={styles.pending}>
-          <p className={styles.message}>
-            회의록을 만들고 있습니다. 시간이 걸릴 수 있으니 잠시만 기다려 주세요
-          </p>
+          <p className={styles.message}>{t.transcript.status.processing}</p>
           <PipelineProgress meetingId={meetingId} />
         </div>
       )
     }
 
     if (meeting.status === 'error') {
-      return <p className={styles.error}>{meeting.errorMessage ?? '회의록을 만들지 못했습니다'}</p>
+      return (
+        <div className={styles.failed}>
+          <p className={styles.error}>{meeting.errorMessage ?? t.transcript.status.defaultError}</p>
+          {meeting.hasAudio ? (
+            // 보이는 회의록이 없어 잃을 것이 없으므로 확인 없이 저장된 참석자 수로 다시 돌린다
+            <Button
+              variant="secondary"
+              size="sm"
+              className={styles.retry}
+              onClick={() => reprocessMeeting({ speakerCount: meeting.speakerCount ?? null })}
+            >
+              {t.transcript.status.retry}
+            </Button>
+          ) : null}
+        </div>
+      )
     }
 
-    if (!utterances.length) return <p className={styles.message}>인식된 발화가 없습니다</p>
+    if (!utterances.length)
+      return <p className={styles.message}>{t.transcript.status.noUtterances}</p>
 
     return (
       <ol className={styles.list}>
@@ -110,6 +140,7 @@ export default function TranscriptSection({ meetingId, aside }: TranscriptSectio
             onChangeSpeaker={reassignUtterance}
             onCommitText={editUtteranceText}
             onCopy={copyUtterance}
+            onSeek={meeting.hasAudio ? seekTo : undefined}
           />
         ))}
       </ol>
@@ -118,7 +149,7 @@ export default function TranscriptSection({ meetingId, aside }: TranscriptSectio
 
   return (
     <>
-      <TopBar title={`${TOP_BAR_TITLE} · ${groupLabel}`}>
+      <TopBar title={`${topBarTitle} · ${groupLabel}`}>
         <TranscriptActions
           isCopyEnabled={utterances.length > 0}
           copiedKey={copiedKey}
@@ -133,7 +164,7 @@ export default function TranscriptSection({ meetingId, aside }: TranscriptSectio
         // 끈 폭은 런타임 값이라 CSS 변수 기본값(assets/layout.css)을 인라인으로 덮어쓴다
         style={{ '--rail-width': `${railWidth}px` } as CSSProperties}
       >
-        <section className={styles.transcript} aria-label="회의록">
+        <section className={styles.transcript} aria-label={t.transcript.sectionLabel}>
           <TranscriptHeader
             meeting={meeting}
             speakerCount={speakerOptions.length}
@@ -157,6 +188,12 @@ export default function TranscriptSection({ meetingId, aside }: TranscriptSectio
         />
         <aside className={styles.rail}>
           {aside}
+          {meeting.status === 'done' || meeting.status === 'error' ? (
+            <RecordingPanel meeting={meeting} audioRef={audioRef} onReprocess={reprocessMeeting} />
+          ) : null}
+          {meeting.status === 'done' && utterances.length ? (
+            <RefinePanel meetingId={meetingId} refineResult={refineResult} />
+          ) : null}
           {utterances.length ? (
             <SpeakerPanel
               speakerOptions={speakerOptions}

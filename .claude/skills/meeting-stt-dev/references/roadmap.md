@@ -112,8 +112,8 @@
       `--prompt`만으로는 첫 30초 창에서 효과가 끝난다. `--carry-initial-prompt`를 함께 주면 71분 회의 오인식 39곳 중 18곳
       (GitHub 11곳 전부, pnpm, 모노레포)을 고치고 없는 용어는 뚜렷이 만들지 않았다. 반복 환각도 1,103초 → 18초로 줄었다.
       앱 적용 여부와 용어 입력 위치는 사용자 확인 대기 (5-4 앱 항목)
-- [ ] **앱 동봉 whisper-cli 반복 환각 원인 조사** — 71분 녹음에서 1,103초가 반복 문장으로 채워진다(Homebrew 빌드는 27초).
-      실제 사용자 회의록 품질에 직결되므로 용어 사전 앱 통합보다 앞에 둘 후보다 (`references/pitfalls.md`)
+- [x] **앱 동봉 whisper-cli 반복 환각 원인 조사** — 71분 녹음에서 1,103초가 반복 문장으로 채워진다(Homebrew 빌드는 27초).
+      **2026-09-25 `-mc 0`으로 대응** (사용자 결정 A: 모든 모델에 적용). 금토로 71분 1,034초 → 25초, large-v3 102분 2,338초 → 2초 (`docs/stt-tuning-results.md`)
 - [x] **`pnpm dev`로 실제 앱에서 관통 확인** — 회의 상세에서 "요약 만들기" → 진행률 → 본문 표시 → 앱 재시작 후에도 남아 있는지
       (**2026-09-18 사용자 수동 확인 완료**)
 - [ ] **동봉 dylib의 서명·공증 확인 — 자격 증명 대기.** rpath가 `@loader_path`인 것과 내려받은 상태가
@@ -171,9 +171,12 @@
 5-1의 "STT 오인식을 요약 단계에서 고치지 않는다" 결정은 **요약과 교정을 한 번에 하는 것**에 대한 판단이다.
 교정은 요약과 분리된 별도 단계로 두고, 그 결정이 지적한 두 위험(없는 내용 생성, 정답 정보 부재)을 아래 방식으로 막는다.
 
-- 파이프라인 자동 실행이 아니라 디테일 화면의 **버튼으로 요청**한다 (요약과 같은 이유 — 회의록은 교정 없이도 `done`이어야 한다)
-- `utterances.text`를 덮어쓰지 않는다. **발화별 수정 제안**을 만들고 사용자가 수락·거절한다
-- **회의별 용어 사전이 필수다.** 정답 후보 없이는 고칠 근거가 없다 (검증 1·2). 라틴 문자 용어는 `용어 = 읽기1, 읽기2`로 한글 읽기를 함께 받는다
+- ~~파이프라인 자동 실행이 아니라 디테일 화면의 **버튼으로 요청**한다~~ → **2026-09-25 사용자 결정: 파이프라인이 회의록을 저장한 뒤 자동으로 돌린다.**
+  회의록은 여전히 교정 없이도 `done`이고(교정은 별도 잡), 실패해도 상태·본문을 건드리지 않는다
+- ~~`utterances.text`를 덮어쓰지 않는다. **발화별 수정 제안**을 만들고 사용자가 수락·거절한다~~ → **2026-09-25 사용자 결정: 통과한 쌍을 바로 본문에 반영한다.**
+  판정 정밀도가 52%라 오탐도 들어가므로 고친 쌍 목록을 상세에 남기고, 잘못 고친 곳은 발화 인라인 편집으로 되돌린다
+- **용어 사전이 필수다.** 정답 후보 없이는 고칠 근거가 없다 (검증 1·2). 라틴 문자 용어는 `용어 = 읽기1, 읽기2`로 한글 읽기를 함께 받는다.
+  용어가 없거나 LLM이 준비되지 않은 회의는 자동 교정을 조용히 건너뛴다
 - **LLM은 문장을 쓰지 않는다.** 코드가 자모 발음 유사도로 치환 후보를 만들고(`src/shared/phonetic.ts`, 하한 0.55),
   LLM은 후보마다 "그 자리에서 뜻이 통하는가"를 O/X로만 답한다. 출력 형식은 GBNF 문법(`--grammar-file`)으로 고정하고, 치환은 코드가 한다
 
@@ -181,11 +184,17 @@
 - [x] `scripts/refine.ts` + 순수 로직 `src/shared/{refine,phonetic}.ts`와 단위 테스트
 - [x] 10분·71분 실녹음 회의록으로 측정 — 발화 다시 쓰기는 정답 0개(폐기). 후보+판정 방식은 71분 회의 **38초**,
       정밀도 20%(코드만) → **52%**, 판정이 정답 후보를 하나도 떨어뜨리지 않음
-- [x] 결론: 자동 적용은 불가, **사용자가 수락하는 제안**으로만 쓴다. 같은 쌍이 여러 곳에서 반복되므로(기터브→GitHub 8곳)
-      제안은 **쌍(from → to) 단위로 묶어** 한 번에 수락·거절하게 한다
+- [x] 결론(측정 시점): 자동 적용은 불가, **사용자가 수락하는 제안**으로만 쓴다. 같은 쌍이 여러 곳에서 반복되므로(기터브→GitHub 8곳)
+      제안은 **쌍(from → to) 단위로 묶어** 한 번에 수락·거절하게 한다.
+      → **2026-09-25 사용자 결정으로 뒤집었다**: 수락 단계 없이 자동 반영한다. 정밀도 한계는 그대로이므로 고친 목록을 남겨 되돌릴 수 있게 한다
 
-**앱 (착수 여부 사용자 확인 대기 — 설계를 `architecture.md`·`data-model.md`에 먼저 적는다)**
-- [x] **용어 사전은 전역 + 회의별 두 층** (2026-09-24 사용자 결정). 교정·인식에는 둘을 합쳐 쓴다.
+**앱 — 2026-09-25 사용자 결정으로 착수. 설계는 `architecture.md` "회의록 교정"·`data-model.md` "교정 제안 저장"**
+
+사용자 결정(2026-09-25): **교정(후처리) 단계로 간다.** 용어 사전을 인식 단계(whisper `--prompt --carry-initial-prompt`)에 넣는
+안은 채택하지 않는다 — 사용자가 실제 회의를 돌려 봤을 때 인식 자체의 오인식이 두드러지지 않아 파이프라인을 바꿀 이유가 없었고,
+남는 오인식(카볼·대포처럼 다른 소리로 들은 말)은 어차피 교정 단계가 맡아야 한다. 인식 단계 안은 뒤의 후속 후보로만 남긴다.
+~~이 결정으로 **회의별 용어의 입력 위치는 상세 화면의 교정 패널**이 된다~~ → 같은 날 두 번째 결정으로 **회의별 용어 층을 폐기**했다. 근거는 전역 용어 사전뿐이다.
+- [x] ~~**용어 사전은 전역 + 회의별 두 층** (2026-09-24 사용자 결정)~~ → **전역 한 층** (2026-09-25 사용자 결정, 회의별 층 폐기).
       앱에 고정 목록을 넣지 않는다 — 회의마다 용어가 달라 고정 목록은 모든 회의를 한 분야로 끌고 간다 (`docs/phase5-results.md`)
 - [x] **전역 용어는 설정의 팀 소개로 LLM이 초안을 만들고 사용자가 고쳐 저장한다** (2026-09-24 사용자 결정).
       완전 자동은 폐기 — 모델 초안에 일반어·틀린 읽기가 섞여 그대로 쓰면 오탐이 늘어난다 (`docs/phase5-refine-results.md` "팀 소개로 용어 초안 만들기").
@@ -196,13 +205,19 @@
 - [x] renderer: 설정 "용어 사전" 카테고리(`setting/GlossarySection`) — 팀 소개 입력, 초안 만들기, 용어 목록 편집·저장
 - [x] 검수한 읽기 사전 `@meeting-stt/core/termReadings`로 초안의 단어 읽기 덮어쓰기 (2026-09-24, `architecture.md` "용어 사전")
 - [ ] **`pnpm dev`로 실제 앱에서 확인** — 팀 소개 입력 → 초안 → 편집 → 저장 → 재시작 후 유지
-- [ ] 회의별 용어 층과 입력 위치 (인식 단계 사용 여부 결정 뒤)
-- [ ] 제안 저장 스키마, IPC 계약(`refine:create` + 진행률 push), 큐 `kind: 'refine'`
-- [ ] 쌍 단위로 묶은 제안 수락·거절 UI
+- [x] ~~회의별 용어 층 — 상세 화면 교정 패널의 입력칸, `meetings.glossary_terms`에 저장~~ → 마이그레이션 4에서 컬럼 삭제 (2026-09-25)
+- [x] 결과 저장 스키마 `meetings.refine_applied`·`refined_at`(마이그레이션 4), IPC `refine:run`(수동 재실행, 큐 예약) + `refine:progress`(push), 큐 `kind: 'refine'`.
+      `refine:resolve`·`refine:discard`는 제거 (2026-09-25)
+- [x] 파이프라인 잡이 `done` 뒤 `scheduleAutoRefine` — 전역 용어가 있고 LLM이 준비됐을 때만 교정 잡을 이어 넣는다 (2026-09-25)
+- [x] 순수 로직: 쌍 적용(`applyRefinePairs`)·쌍 묶기(`groupRefinePairs`)·결과 읽기(`readRefinePairs`) + vitest (2026-09-25)
+- [x] main `src/main/refine/run.ts` — `createLlmClient()`로 읽기·판정을 돌린다. 외부 공급자는 GBNF 대신 형식 지시문 (2026-09-25)
+- [x] renderer: `api/refine`, `useRefine`·`useGlossary` 훅, `features/refine/RefinePanel`(고친 쌍 목록·진행률·"다시 교정") + 통합 테스트.
+      `TranscriptSection`이 레일에 배치하고 `useMeeting`이 결과를 상세와 함께 든다 (2026-09-25)
+- [ ] `pnpm dev`로 실제 앱에서 확인 — 전역 용어 저장 → 녹음·처리 → 자동 교정 진행률 → 본문 반영·고친 목록 → 재시작 후 유지 → "다시 교정"
+- [ ] 후속 후보: 자동 반영의 오탐을 줄이기 위한 유사도 하한 상향 또는 판정 2회 교차
 - [ ] 후속 후보: Whisper 토큰 확률을 후보 가중치로(스키마 변경 필요)
-- [ ] **용어 사전을 인식 단계에도 쓸지 결정 — 사용자 확인 대기.** 측정상 효과가 크다(`--prompt --carry-initial-prompt`,
-      `docs/phase5-refine-results.md`). 쓰기로 하면 회의별 용어는 파이프라인 전에 받아야 하므로 **녹음 정지 화면**(참석자 수 옆)에서
-      입력받고, `buildWhisperArgs`·`meetings` 스키마·큐 잡 payload가 바뀐다. 교정 단계는 남은 오인식(카볼·대포처럼 다른 소리로 들은 말)을 맡는다
+- [ ] 후속 후보: 용어 사전을 인식 단계에도 쓰기 (`--prompt --carry-initial-prompt`). 측정상 효과가 크다(`docs/phase5-refine-results.md`)
+      — 채택하면 회의별 용어를 파이프라인 전에 받아야 하므로 녹음 정지 화면 입력·`buildWhisperArgs`·큐 잡 payload가 바뀐다. 2026-09-25에는 보류
 
 ## UI 리디자인 (2026-09-24, Phase 번호 밖)
 
@@ -244,7 +259,20 @@
 - [x] 설정 구조 정리 (2026-09-24 사용자 요청) — 카테고리 이름 "언어 모델" → "요약 · 용어 초안", 요약 모델 다운로드 행을 "모델" 카테고리에서
       이 카테고리의 로컬 옵션 아래로 옮기고(`localModelSlot`) 제목을 "로컬 요약 모델 파일"로. "모델" 카테고리는 "음성 인식 모델"만 남는다
 - [ ] `pnpm dev` 실제 확인 — 공급자 전환 후 요약, API 키 저장(Anthropic·OpenAI 각각) → 재시작 후 유지, CLI 미설치·미로그인 안내, 연결 확인 성공/실패 문구, GPT 모델 바꾼 뒤 요약
-- [ ] 후속: 교정 O/X 판정(Phase 5-4)도 같은 추상화로 붙이기, `GlossarySection` 안내 문구를 공급자 라벨로, CLI 모델·Claude API 모델 선택 옵션, Codex CLI(구독) 공급자
+- [x] 교정 O/X 판정(Phase 5-4)도 같은 추상화로 붙이기 (2026-09-25, `src/main/refine/run.ts`)
+- [ ] 후속: `GlossarySection` 안내 문구를 공급자 라벨로, CLI 모델·Claude API 모델 선택 옵션, Codex CLI(구독) 공급자
+
+## 녹음본 재생·내보내기·다시 인식 (2026-09-25, Phase 번호 밖)
+
+사용자 요청으로 "녹음본 재생은 요구사항 아님" 결정을 뒤집었다. 설계는 `architecture.md` "녹음본 재생·내보내기·다시 인식", 저장 규칙은 `data-model.md` "다시 인식". 문서를 먼저 고쳤다.
+
+- [x] 계약: `Meeting.hasAudio`, IPC `meetings:reprocess`·`meetings:exportAudio`와 요청/응답 타입
+- [x] main: `meeting-audio://` 프로토콜(Range → 206), 내보내기(저장 대화상자 + 복사), 다시 인식 요청(검증·상태·큐), 성공 저장 트랜잭션(화자 초기화·교정 결과 비움)
+- [x] renderer: CSP `media-src`, `api/meetings` 래퍼, `useMeeting`의 `reprocessMeeting`, 레일 "녹음" 패널(플레이어·저장·다시 인식 확인), 발화 시각 클릭 시 이동, 실패 회의 "다시 시도"
+- [x] 테스트: 파일명 정리·Range 해석 순수 함수 vitest, 녹음 패널·다시 시도 통합 테스트
+- [x] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과 (2026-09-25)
+- [ ] `pnpm dev` 실제 확인 — 보관 켠 뒤 녹음 → 재생·시킹·발화 시각 클릭, WAV 저장·취소, 참석자 수 바꿔 다시 인식, 실패 회의 다시 시도
+- [ ] 후속: 재생 중인 발화 강조
 
 ## 마이크 입력 장치·테스트 (2026-09-25, Phase 번호 밖)
 
@@ -255,5 +283,51 @@
 - [x] renderer: `utils/microphone` 유틸(+vitest) — 녹음·테스트가 같은 제약을 쓴다, `useRecorder`가 시작 시 설정의 장치를 `ideal`로 요청
 - [x] renderer: `useInputDevices`(목록·라벨·`devicechange`)·`useMicrophoneTest`(AnalyserNode RMS·무음 안내) 훅, 설정 카테고리 "마이크"(입력 장치 select, 테스트 버튼 + 파형)
 - [x] 테스트: `SettingsSection` 통합 테스트(장치 선택 저장, 연결되지 않은 장치 표기, 테스트 시작·정지·녹음 중 차단), 위젯 테스트에 설정 mock 추가
-- [x] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과 (2026-09-25)
+- [x] `pnpm test`(531개) / `pnpm typecheck` / `pnpm lint`(이 작업 파일 기준) / `pnpm build` 통과 (2026-09-25)
 - [ ] `pnpm dev` 실제 확인 — 외장 마이크를 고르고 녹음해 그 장치로 녹음되는지, 장치를 뺀 뒤 녹음이 기본 마이크로 폴백하는지, 테스트 파형이 움직이는지, 음소거 시 무음 안내
+
+## UI 언어 설정 (2026-09-25, Phase 번호 밖)
+
+사용자 요청으로 설정에 UI 언어(한국어 기본 / 영어)를 둔다. 설계는 `architecture.md` "UI 언어", 저장 규칙은 `data-model.md`의 `ui.locale`. 문서를 먼저 고쳤다.
+인식·요약 언어는 바뀌지 않는다 — 화면·메뉴바·오류 문구만 바꾼다.
+이름 없는 화자의 기본 표시("화자 N"·"화자 미상")는 `@meeting-stt/core/format`의 `resolveSpeakerNames`가 `defaultNames`를 선택 인자로 받아 앱이 UI 언어의 이름을 넘긴다 (넘기지 않으면 한국어 — `apps/web`은 그대로).
+남긴 한국어: 운영 로그, LLM 프롬프트, 내보내기 파일명 폴백(`회의 녹음`), `NSMicrophoneUsageDescription`, `apps/web`.
+
+- [x] 계약: `Locale`·`AppSettings.locale`(기본 `'ko'`), `ui.locale` 읽기·검증 (`db/settings.ts`, `ipc/handlers.ts`), `updateSettingsApi` 필드 추가, push 채널 `settings:changed`
+- [x] 사전: `src/shared/i18n.ts` + `src/shared/locales/<domain>.ts` (`ko`·`en` 나란히, `en`은 `typeof ko`)
+- [x] renderer: `shared/provider/context/localeContext`(`LocaleProvider`·`useLocale`), 컴포넌트·훅·api 래퍼·포맷터의 문구를 사전으로 이동, `<html lang>` 동기화
+- [x] main: `src/main/locale.ts`의 `t()`, 메뉴바 메뉴·저장 대화상자·핸들러 오류 문구 이동, 언어 변경 시 `refreshTray` + `settings:changed` push
+- [x] 설정 화면 "언어" 카테고리 (select, 즉시 반영) — `SettingsSection/ui/LocaleSelect`
+- [x] 테스트: 기존 통합 테스트는 기본값(한국어)으로 그대로 통과, `localeContext`에 영어 전환 테스트, `src/shared/i18n.test.ts`가 ko·en 키 집합 일치와 영어에 한글 미포함(용어 사전 예시 제외)을 검사
+- [x] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과 (2026-09-25)
+- [ ] `pnpm dev` 실제 확인 — 영어로 바꾸면 메인 창·위젯 창·메뉴바가 즉시 바뀌는지, 재시작 후 유지되는지
+
+## 화자 재군집 (2026-09-25, Phase 번호 밖)
+
+사용자 결정으로 화자 분리 개선안(`docs/diarization-clustering-results.md` 8절의 **안 A**)을 적용한다. 설계는 `architecture.md` "화자 재군집", 결정 표는 `SKILL.md` 1절 화자 분리 행. 문서를 먼저 고쳤다.
+CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-onnx-node`) → k-means(K = 참석자 수, 모르면 12) + 중심 병합 0.75로 다시 군집한다. 바이너리·모델·온보딩은 그대로다.
+
+- [x] `packages/core/src/cluster.ts`: 조각 분할·L2 정규화·k-means(k-means++, 고정 시드, 10회 재시작)·중심 병합·라벨 재배정 + vitest 17개
+- [x] `sherpa-onnx-node` 1.13.8 의존성 추가(`apps/desktop` dependencies), 타입 선언 `src/main/types/sherpaOnnxNode.d.ts`, `electron-builder.yml` `asarUnpack`
+- [x] main: `pipeline/speakerEmbedding.ts`(동기 임베딩, 스크립트 공용) · `pipeline/embedWorker.ts`(utilityProcess 진입) · `pipeline/embed.ts`(fork·메시지) · `pipeline/recluster.ts`(흐름·폴백) · `run.ts` 연결(`diarize` 0~90% / 90~100%)
+      — 실제 Electron `utilityProcess`에서 빌드된 워커로 임베딩이 나오는 것을 확인했다. Electron은 N-API 외부 버퍼를 금지하므로 `enableExternalBuffer=false`가 필수다 (`pitfalls.md`)
+- [x] `diarize.ts`: 참석자 수가 없으면 `num-clusters=12` (임계값은 명시했을 때만), 테스트 갱신
+- [x] 스크립트: `scripts/recluster.ts`(CLI 구간 + WAV → 재군집 구간 파일, 임베딩 캐시) · `scripts/pipeline.ts`에 재군집 반영(`--no-recluster`로 CLI 군집 비교)
+- [x] 검증(`diarBench.ts`, 3스레드 + nice, `docs/diarization-clustering-results.md` 11절): jun-meeting K=7 **92.7%**(기준선 83.4%), K 없음(`num-clusters=12` 구간 + K=12) **92.9%**(기준선 63.8%), Python 실험과 ±0.5%p.
+      K=6에서 병합 0.7은 실제 화자를 합쳐 87.0% → **0.75 확정**. geumtoro는 K=3·4로는 안정, 참석자 수 없이는 10명 (정답본 없음)
+- [x] `pnpm test`(565개) / `pnpm typecheck` / `pnpm lint` / `electron-vite build` 통과 (2026-09-25)
+- [x] 패키징(`build:unpack`)에서 `sherpa-onnx-darwin-arm64`(애드온·dylib)가 `app.asar.unpacked/node_modules/`로 풀리고 워커 `out/main/embedWorker-*.js`가 asar에 들어가는 것을 확인 (2026-09-25)
+- [ ] `pnpm dev` 실제 확인 — 참석자 수를 넣고/빼고 녹음해 회의록 화자 수, 진행률이 90%에서 잠깐 머물다 끝나는지, 로그에 재군집 결과(조각 수·클러스터 수·시간)
+- [ ] 후속: 발표형 원거리 녹음의 참석자 수 없음 경로(발표자가 여러 클러스터로 남음) 개선, 병합 임계값 0.75를 2~3명 짧은 회의로 재확인, 웹 프로토타입도 `@meeting-stt/core/cluster`로 통일
+
+## 녹음 파일 가져오기 (2026-09-25, Phase 번호 밖)
+
+사용자 요청으로 앱 밖에서 녹음한 파일로도 회의록을 만든다. 설계는 `architecture.md` "녹음 파일 가져오기", 결정 표는 `SKILL.md` 1절 녹음 행. 문서를 먼저 고쳤다.
+스키마 변경은 없다.
+
+- [x] main: `src/main/audio/importRecording.ts` — 열기 대화상자 → `afconvert` 변환 → 길이 확인 → 회의 행 + 파이프라인 잡
+- [x] IPC `meetings:import` + preload + renderer `importMeetingAudioApi`
+- [x] 녹음 화면 "녹음 파일 가져오기" 버튼(`features/meeting/ImportAudioButton`)(대기 중일 때만), 성공 시 상세로 이동, 실패 문구
+- [x] 사전(`ko`·`en`) 문구, 테스트 — `importSource.test.ts`(헤더·제목), `RecorderSection/test.tsx`(이동·취소·실패·녹음 중 숨김)
+- [x] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과, 스테레오 AAC m4a를 `afconvert`로 바꾼 WAV가 `scripts/pipeline.ts`(정규화·whisper·재군집)를 통과 (2026-09-25)
+- [ ] `pnpm dev` 실제 확인 — m4a·mp3·mp4를 가져와 회의록이 만들어지는지

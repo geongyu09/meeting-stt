@@ -1,29 +1,35 @@
 import type { ReactNode } from 'react'
 import type { LlmStatus } from '@shared/types'
+import type { Messages } from '@shared/i18n'
 import { apiVendorOf } from '@shared/llm'
 import SettingGroup from '@renderer/shared/components/primitives/layout/SettingGroup'
 import Button from '@renderer/shared/components/primitives/ui/Button'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
-import { API_KEY_FIELD_COPY, PROVIDER_OPTIONS } from './constants/providers'
+import { PROVIDER_ORDER } from './constants/providers'
 import useLlmSettings from './model/useLlmSettings'
 import ApiKeyField from './ui/ApiKeyField'
 import OpenaiModelSelect from './ui/OpenaiModelSelect'
 import ProviderOption from './ui/ProviderOption'
 import styles from './index.module.css'
 
+interface RenderReadinessParams {
+  status: LlmStatus
+  copy: Messages['llm']['section']
+}
+
 /** Claude Code를 골랐을 때의 준비 상태. 로컬의 준비 상태는 파일 다운로드 행(슬롯)이 스스로 보여준다 */
-const renderReadiness = (status: LlmStatus) => {
+const renderReadiness = ({ status, copy }: RenderReadinessParams) => {
   if (status.provider === 'claude-cli') {
     return status.claudeCliPath ? (
       <p className={styles.hint}>
-        찾은 명령: <code className={styles.code}>{status.claudeCliPath}</code>
-        {status.claudeCliVersion ? ` (${status.claudeCliVersion})` : ''}. 터미널에서 로그인한 계정을
-        그대로 씁니다.
+        {copy.cliFoundPrefix}
+        <code className={styles.code}>{status.claudeCliPath}</code>
+        {copy.cliFoundSuffix({ version: status.claudeCliVersion })}
       </p>
     ) : (
       <p className={styles.warning} role="alert">
-        claude 명령을 찾을 수 없습니다. Claude Code를 설치하고 터미널에서 한 번 로그인한 뒤 앱을
-        다시 켜 주세요.
+        {copy.cliMissing}
       </p>
     )
   }
@@ -38,6 +44,7 @@ interface LlmSectionProps {
 
 /** 요약·용어 초안을 어떤 방식으로 만들지. 기본은 로컬이고, 외부 공급자를 고르면 회의록이 밖으로 나간다 */
 export default function LlmSection({ localModelSlot }: LlmSectionProps) {
+  const { t } = useLocale()
   const {
     status,
     isLoading,
@@ -56,11 +63,11 @@ export default function LlmSection({ localModelSlot }: LlmSectionProps) {
   } = useLlmSettings()
 
   const renderBody = () => {
-    if (isLoading) return <p className={styles.hint}>LLM 설정을 불러오는 중입니다</p>
+    if (isLoading) return <p className={styles.hint}>{t.llm.section.loading}</p>
     if (!status) {
       return (
         <p className={styles.error} role="alert">
-          {loadError ?? 'LLM 설정을 불러오지 못했습니다'}
+          {loadError ?? t.llm.section.loadError}
         </p>
       )
     }
@@ -70,17 +77,17 @@ export default function LlmSection({ localModelSlot }: LlmSectionProps) {
 
     return (
       <>
-        <p className={styles.label}>실행 방식</p>
-        <div className={styles.options} role="radiogroup" aria-label="실행 방식">
-          {PROVIDER_OPTIONS.map((option) => (
+        <p className={styles.label}>{t.llm.section.providerLabel}</p>
+        <div className={styles.options} role="radiogroup" aria-label={t.llm.section.providerLabel}>
+          {PROVIDER_ORDER.map((provider) => (
             <ProviderOption
-              key={option.value}
-              value={option.value}
-              title={option.title}
-              description={option.description}
-              isSelected={status.provider === option.value}
+              key={provider}
+              value={provider}
+              title={t.llm.providers[provider].title}
+              description={t.llm.providers[provider].description}
+              isSelected={status.provider === provider}
               isDisabled={isBusy}
-              onSelect={() => selectProvider(option.value)}
+              onSelect={() => selectProvider(provider)}
             />
           ))}
         </div>
@@ -88,9 +95,9 @@ export default function LlmSection({ localModelSlot }: LlmSectionProps) {
         {status.provider === 'local' && localModelSlot}
         {vendor && (
           <ApiKeyField
-            label={API_KEY_FIELD_COPY[vendor].label}
-            hint={API_KEY_FIELD_COPY[vendor].hint}
-            placeholder={API_KEY_FIELD_COPY[vendor].placeholder}
+            label={t.llm.apiKeyLabels[vendor]}
+            hint={t.llm.apiKeyField[vendor].hint}
+            placeholder={t.llm.apiKeyField[vendor].placeholder}
             value={apiKeyInput}
             hasSavedKey={status.apiKeys[vendor].isSaved}
             savedKeyTail={status.apiKeys[vendor].tail}
@@ -107,14 +114,14 @@ export default function LlmSection({ localModelSlot }: LlmSectionProps) {
             onChange={selectOpenaiModel}
           />
         )}
-        {renderReadiness(status)}
+        {renderReadiness({ status, copy: t.llm.section })}
 
         {status.provider !== 'local' && (
           <div className={styles.actions}>
             <Button variant="secondary" size="sm" onClick={checkConnection} disabled={isBusy}>
-              {isChecking ? '확인하는 중…' : '연결 확인'}
+              {isChecking ? t.llm.section.checking : t.llm.section.checkConnection}
             </Button>
-            {isChecking && <span className={styles.hint}>짧은 요청 한 번을 보냅니다</span>}
+            {isChecking && <span className={styles.hint}>{t.llm.section.checkHint}</span>}
           </div>
         )}
 
@@ -133,13 +140,9 @@ export default function LlmSection({ localModelSlot }: LlmSectionProps) {
   }
 
   return (
-    <SettingGroup title="요약 · 용어 초안">
+    <SettingGroup title={t.llm.section.title}>
       <div className={styles.body}>
-        <p className={styles.hint}>
-          회의 요약과 용어 초안을 어떤 방식으로 만들지 고릅니다. 회의록 작성(음성 인식·화자 분리)은
-          어느 쪽을 골라도 이 기기에서만 처리합니다. 진행 중인 요약에는 적용되지 않고 다음 요약부터
-          바뀝니다.
-        </p>
+        <p className={styles.hint}>{t.llm.section.intro}</p>
         {renderBody()}
       </div>
     </SettingGroup>

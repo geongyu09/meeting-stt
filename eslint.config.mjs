@@ -32,6 +32,14 @@ export default defineConfig(
     }
   },
   {
+    // 테스트 안의 프로브 컴포넌트와 컨텍스트 파일(createContext·Provider·useContext를 한 파일에, .claude/rules/project-structure.md)은
+    // HMR 대상이 아니라 fast refresh 규칙을 적용하지 않는다
+    files: ['**/test.tsx', '**/*.test.tsx', '**/provider/context/**/index.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off'
+    }
+  },
+  {
     // AudioWorklet은 번들과 분리된 브라우저 스코프에서 도는 순수 JS라 TS 전용 규칙을 적용하지 않는다
     files: ['apps/desktop/src/renderer/src/worklet/*.js', 'apps/web/src/audio/pcmRecorder.js'],
     rules: {

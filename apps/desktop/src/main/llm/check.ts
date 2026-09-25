@@ -2,10 +2,11 @@ import { mkdir, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { app } from 'electron'
 import type { CheckLlmResponse } from '@shared/ipc'
-import { LLM_CHECK_PROMPT, LLM_CHECK_SYSTEM_PROMPT, LLM_PROVIDER_LABELS } from '@shared/llm'
+import { LLM_CHECK_PROMPT, LLM_CHECK_SYSTEM_PROMPT } from '@shared/llm'
 import { summaryModelLabel } from '../models/paths'
 
 import { createLlmClient } from './provider'
+import { t } from '../locale'
 
 /** "확인" 한 마디면 충분하다. Claude는 사고 토큰 때문에 하한(16K)으로 올라간다 */
 const CHECK_MAX_TOKENS = 64
@@ -20,7 +21,7 @@ const ANSWER_PREVIEW_CHARS = 40
 export const checkLlm = async (): Promise<CheckLlmResponse> => {
   const client = await createLlmClient()
   if (client.provider === 'local') {
-    return { message: `${summaryModelLabel()}이 준비되어 있습니다` }
+    return { message: t().main.llm.localReady({ label: summaryModelLabel() }) }
   }
 
   const workDir = path.join(app.getPath('userData'), 'llm', 'check')
@@ -36,7 +37,12 @@ export const checkLlm = async (): Promise<CheckLlmResponse> => {
     })
     const preview = answer.trim().replace(/\s+/g, ' ').slice(0, ANSWER_PREVIEW_CHARS)
 
-    return { message: `${LLM_PROVIDER_LABELS[client.provider]}에 연결했습니다 (응답: ${preview})` }
+    return {
+      message: t().main.llm.connected({
+        provider: t().llm.providerLabels[client.provider],
+        preview
+      })
+    }
   } finally {
     await rm(workDir, { recursive: true, force: true })
   }

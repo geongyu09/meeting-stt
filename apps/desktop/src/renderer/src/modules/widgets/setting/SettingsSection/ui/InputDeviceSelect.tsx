@@ -1,6 +1,7 @@
 import { useId } from 'react'
 import type { AudioInputDevice } from '@shared/types'
 import SettingRow from '@renderer/shared/components/primitives/layout/SettingRow'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import styles from './InputDeviceSelect.module.css'
 
@@ -22,6 +23,7 @@ export default function InputDeviceSelect({
   error,
   onChange
 }: InputDeviceSelectProps) {
+  const { t } = useLocale()
   const titleId = useId()
   const isSelectedMissing =
     value !== null && !devices.some((device) => device.deviceId === value.deviceId)
@@ -45,11 +47,7 @@ export default function InputDeviceSelect({
       )
     }
     if (isSelectedMissing) {
-      return (
-        <span className={styles.warning}>
-          고른 마이크가 연결돼 있지 않습니다. 지금 녹음하면 시스템 기본 마이크를 씁니다.
-        </span>
-      )
+      return <span className={styles.warning}>{t.settings.inputDevice.missingWarning}</span>
     }
 
     return null
@@ -57,11 +55,11 @@ export default function InputDeviceSelect({
 
   return (
     <SettingRow
-      title="입력 장치"
+      title={t.settings.inputDevice.title}
       titleId={titleId}
       description={
         <>
-          녹음에 쓸 마이크입니다. 고른 마이크가 연결돼 있지 않으면 시스템 기본 마이크로 녹음합니다.
+          {t.settings.inputDevice.description}
           {renderStatus()}
         </>
       }
@@ -73,7 +71,7 @@ export default function InputDeviceSelect({
           disabled={isLoading}
           onChange={(event) => handleChange(event.target.value)}
         >
-          <option value={DEFAULT_OPTION_VALUE}>시스템 기본 마이크</option>
+          <option value={DEFAULT_OPTION_VALUE}>{t.settings.inputDevice.systemDefault}</option>
           {devices.map((device) => (
             <option key={device.deviceId} value={device.deviceId}>
               {device.label}
@@ -81,7 +79,8 @@ export default function InputDeviceSelect({
           ))}
           {isSelectedMissing ? (
             <option value={value.deviceId} disabled>
-              {value.label || '이전에 고른 마이크'} (연결되지 않음)
+              {value.label || t.settings.inputDevice.previouslyChosen}{' '}
+              {t.settings.inputDevice.disconnectedSuffix}
             </option>
           ) : null}
         </select>

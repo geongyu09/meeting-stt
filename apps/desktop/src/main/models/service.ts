@@ -19,6 +19,7 @@ import {
   type ModelAsset
 } from '@meeting-stt/models/desktop'
 import { recommendWhisperModelId } from './recommend'
+import { t } from '../locale'
 
 /** 다운로드 동시성은 1이다. 파이프라인 잡 큐와 같은 이유 (references/pitfalls.md) */
 let isDownloading = false
@@ -50,7 +51,7 @@ interface DownloadAssetsParams {
 
 /** 잠금을 잡고 차례로 받는다. 받는 중에 또 요청이 오면 한국어로 거절한다 */
 const downloadAssets = async ({ assets, onProgress }: DownloadAssetsParams) => {
-  if (isDownloading) throw new Error('이미 모델을 내려받는 중입니다')
+  if (isDownloading) throw new Error(t().main.models.alreadyDownloading)
 
   isDownloading = true
   try {
@@ -78,8 +79,8 @@ interface DownloadModelsParams {
  * 고른 모델을 설정(`stt.model`)에 남기는 것은 호출한 핸들러의 몫이다 — 이 모듈은 DB를 모른다.
  */
 export const downloadModels = async ({ whisperModelId, onProgress }: DownloadModelsParams) => {
-  if (!isWhisperModelId(whisperModelId)) throw new Error('알 수 없는 음성 인식 모델입니다')
-  if (isDownloading) throw new Error('이미 모델을 내려받는 중입니다')
+  if (!isWhisperModelId(whisperModelId)) throw new Error(t().main.errors.unknownWhisperModel)
+  if (isDownloading) throw new Error(t().main.models.alreadyDownloading)
 
   setSelectedWhisperModelId(whisperModelId)
 

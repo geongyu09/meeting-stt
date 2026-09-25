@@ -3,6 +3,7 @@ import { electronApp, optimizer } from '@electron-toolkit/utils'
 import type {
   PipelineProgressEvent,
   RecordingStateEvent,
+  RefineProgressEvent,
   SummaryProgressEvent,
   UpdateAvailableEvent
 } from '@shared/ipc'
@@ -13,14 +14,20 @@ import {
   recordingsDir,
   setRecordingStateListener
 } from './audio/session'
+import { handleMeetingAudioProtocol, registerMeetingAudioScheme } from './audio/playback'
 import { closeDb } from './db/connection'
 import { failStaleMeetings } from './db/meetings'
 import { getAppSettings, getWhisperModelId } from './db/settings'
+import { setCurrentLocale } from './locale'
 import { registerIpcHandlers } from './ipc/handlers'
 import { error as logError, info, messageOf, warn } from './log'
 import { setMeetingsChangedListener } from './meetingsChanged'
 import { setSelectedWhisperModelId } from './models/paths'
-import { setPipelineProgressListener, setSummaryProgressListener } from './pipeline/queue'
+import {
+  setPipelineProgressListener,
+  setRefineProgressListener,
+  setSummaryProgressListener
+} from './pipeline/queue'
 import { removeStalePipelineArtifacts } from './pipeline/run'
 import { checkForUpdates } from './updater'
 import { createMainWindow, showMainWindow } from './windows/main'
@@ -54,6 +61,9 @@ const broadcastProgress = (event: PipelineProgressEvent) =>
 const broadcastSummaryProgress = (event: SummaryProgressEvent) =>
   broadcast({ channel: IPC.events.summary, event })
 
+const broadcastRefineProgress = (event: RefineProgressEvent) =>
+  broadcast({ channel: IPC.events.refine, event })
+
 /** 녹음 상태는 위젯·메인 창·메뉴바가 같은 값을 봐야 한다 (references/architecture.md) */
 const broadcastRecordingState = (event: RecordingStateEvent) => {
   broadcast({ channel: IPC.events.recordingState, event })
@@ -85,6 +95,9 @@ const cleanupPreviousRun = async () => {
   }
 }
 
+// 커스텀 스킴 권한은 ready 전에만 줄 수 있다
+registerMeetingAudioScheme()
+
 // 두 인스턴스가 같은 DB를 열면 나중에 뜬 쪽의 시작 정리가 처리 중 회의를 오류로 덮어쓴다 (references/distribution.md 9절)
 const isPrimaryInstance = app.requestSingleInstanceLock()
 if (!isPrimaryInstance) app.quit()
@@ -103,13 +116,17 @@ app.whenReady().then(async () => {
   })
 
   restrictPermissions()
+  handleMeetingAudioProtocol()
   registerIpcHandlers()
   setPipelineProgressListener(broadcastProgress)
   setSummaryProgressListener(broadcastSummaryProgress)
+  setRefineProgressListener(broadcastRefineProgress)
   setRecordingStateListener(broadcastRecordingState)
   setMeetingsChangedListener(() => broadcast({ channel: IPC.events.meetingsChanged, event: null }))
   // 온보딩에서 고른 모델을 런타임 선택값으로 넣는다. 이후 파일명은 models/paths.ts만 정한다
   setSelectedWhisperModelId(getWhisperModelId())
+  // main의 문구 언어. 이후에는 settings:update 핸들러가 바꾼다 (references/architecture.md "UI 언어")
+  setCurrentLocale(getAppSettings().locale)
   await cleanupPreviousRun()
 
   const mainWindow = createMainWindow()

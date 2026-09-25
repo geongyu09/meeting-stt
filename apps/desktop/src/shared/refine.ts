@@ -4,7 +4,7 @@
  * 1. 용어 사전의 한글 발음을 구한다 (라틴 문자 용어만 LLM에 묻는다)
  * 2. 코드가 발화의 어절을 발음과 비교해 치환 후보를 넓게 만든다
  * 3. LLM은 후보마다 문맥상 맞는지 O/X만 답한다
- * 4. 통과한 후보를 코드가 치환해 발화별 수정 제안을 만든다 (원문은 사용자가 수락할 때만 바뀐다)
+ * 4. 통과한 후보를 코드가 치환한다 (앱은 그 결과를 바로 본문에 저장한다 — 2026-09-25 사용자 결정)
  *
  * LLM에게 발화를 다시 쓰게 하거나 틀린 곳을 직접 찾게 하면 4B 모델이 문장을 자르고 엉뚱한 용어를 넣었다.
  * 판정만 맡기면 출력이 몇 토큰이라 빠르고, 문법으로 형식을 못박을 수 있다 (docs/phase5-refine-results.md).
@@ -12,10 +12,29 @@
  */
 
 import { needsReading, phoneticSimilarity } from './phonetic'
-import type { RefinePair, RefineSource, RefineSuggestion } from './types'
+import type { RefinePair, RefinePairGroup, RefineSource, RefineSuggestion } from './types'
 
 /** 요약과 같은 컨텍스트. KV 캐시가 1.2GB 수준이라 저사양에서도 뜬다 (src/shared/summary.ts) */
 export const REFINE_CTX_TOKENS = 8192
+
+/** 판정은 창작이 아니다. 요약(0.3)보다 낮추되 0은 반복을 부르므로 피한다. 로컬 전용 */
+export const REFINE_TEMPERATURE = 0.1
+
+/**
+ * GBNF 문법은 llama-cli에만 있다. 외부 공급자(Claude·GPT)에는 같은 형식을 지시문으로 붙이고,
+ * 형식에 맞지 않는 줄은 파서가 버린다 (references/architecture.md "회의록 교정")
+ */
+export const READING_FORMAT_INSTRUCTION = [
+  '',
+  '출력 형식: 한 줄에 `용어 => 읽기1, 읽기2` 하나씩. 용어는 위 표기 그대로, 읽기는 한글만 씁니다.',
+  '설명·번호·빈 줄·코드 블록을 넣지 않습니다.'
+].join('\n')
+
+export const VERIFY_FORMAT_INSTRUCTION = [
+  '',
+  '출력 형식: 후보마다 한 줄에 `[번호] O` 또는 `[번호] X`. 번호 순서대로 전부 답합니다.',
+  '설명·이유·빈 줄·코드 블록을 넣지 않습니다.'
+].join('\n')
 
 /**
  * 후보의 발음 유사도 하한. 실측에서 맞는 쌍은 0.57 이상(카볼↔타볼 0.80, 대포↔배포 0.75)이었고,
@@ -399,11 +418,11 @@ interface ApplyRefinePairsParams {
 }
 
 /**
- * @description 판정을 통과한 쌍을 발화에 적용해 발화별 수정 제안을 만듭니다.
- * 긴 부분부터 치환해 겹치는 쌍이 서로를 깨지 않게 합니다.
+ * @description 판정을 통과한 쌍을 발화에 적용합니다. 긴 부분부터 치환해 겹치는 쌍이 서로를 깨지 않게 하고,
+ * 실제로 본문에 들어간 쌍만 `pairs`에 남깁니다 (겹쳐서 사라진 쌍은 뺀다).
  * @param sources - 교정 대상 발화
  * @param pairs - 판정을 통과한 쌍
- * @returns 실제로 바뀐 발화의 제안 배열 (발화 순서)
+ * @returns 실제로 바뀐 발화의 전후 텍스트와 적용한 쌍 (발화 순서)
  * @example
  * const suggestions = applyRefinePairs({ sources, pairs: approved })
  */
@@ -413,12 +432,57 @@ export const applyRefinePairs = ({ sources, pairs }: ApplyRefinePairsParams) =>
       const own = pairs
         .filter((pair) => pair.utteranceId === source.id)
         .toSorted((a, b) => b.from.length - a.from.length)
-      const after = own.reduce((text, { from, to }) => text.replaceAll(from, to), source.text)
-      return {
-        id: source.id,
-        before: source.text,
-        after,
-        pairs: own.map(({ from, to }) => ({ from, to }))
-      }
+      const { after, applied } = own.reduce(
+        (state, { from, to }) =>
+          state.after.includes(from)
+            ? { after: state.after.replaceAll(from, to), applied: [...state.applied, { from, to }] }
+            : state,
+        { after: source.text, applied: [] as Pick<RefinePair, 'from' | 'to'>[] }
+      )
+      return { id: source.id, before: source.text, after, pairs: applied }
     })
     .filter(({ before, after }) => before !== after)
+
+const isRefinePair = (value: unknown): value is RefinePair =>
+  typeof value === 'object' &&
+  value !== null &&
+  typeof (value as RefinePair).utteranceId === 'string' &&
+  typeof (value as RefinePair).from === 'string' &&
+  typeof (value as RefinePair).to === 'string' &&
+  typeof (value as RefinePair).similarity === 'number'
+
+/**
+ * @description DB 컬럼(JSON 문자열)에서 읽은 값을 쌍 배열로 좁힙니다. 없거나 깨진 값은 빈 배열입니다 —
+ * 결과 하나 때문에 상세가 안 열리면 안 됩니다.
+ * @param value - `meetings.refine_applied`를 JSON.parse한 값 (또는 null)
+ * @returns 형식이 맞는 쌍만 남긴 배열
+ * @example
+ * const pairs = readRefinePairs(JSON.parse(row.refine_applied))
+ */
+export const readRefinePairs = (value: unknown) =>
+  Array.isArray(value) ? value.filter(isRefinePair) : []
+
+const isSamePair = (a: Pick<RefinePair, 'from' | 'to'>, b: Pick<RefinePair, 'from' | 'to'>) =>
+  a.from === b.from && a.to === b.to
+
+/**
+ * @description 같은 쌍(from → to)이 걸린 발화를 묶습니다. 같은 오인식이 여러 곳에서 반복되므로 화면은 이 단위로 "몇 곳 고쳤는지"를 보여 줍니다.
+ * 처음 나온 순서를 유지합니다.
+ * @param pairs - 적용한 쌍
+ * @returns 쌍별 묶음. `utteranceIds`의 길이가 걸린 발화 수다
+ * @example
+ * groupRefinePairs({ pairs }) // [{ from: '기터브', to: 'GitHub', utteranceIds: ['u1', 'u5'] }]
+ */
+export const groupRefinePairs = ({ pairs }: { pairs: RefinePair[] }) =>
+  pairs.reduce<RefinePairGroup[]>((groups, pair) => {
+    const found = groups.find((group) => isSamePair(group, pair))
+    if (!found)
+      return [...groups, { from: pair.from, to: pair.to, utteranceIds: [pair.utteranceId] }]
+    if (found.utteranceIds.includes(pair.utteranceId)) return groups
+
+    return groups.map((group) =>
+      group === found
+        ? { ...group, utteranceIds: [...group.utteranceIds, pair.utteranceId] }
+        : group
+    )
+  }, [])

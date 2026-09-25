@@ -15,7 +15,9 @@ CREATE TABLE IF NOT EXISTS meetings (
   error_message TEXT,
   audio_path    TEXT,                       -- 원본 WAV 경로 (삭제 후 NULL)
   summary       TEXT,                       -- Phase 5 로컬 LLM 요약용
-  speaker_count INTEGER                     -- 녹음 정지 시 입력한 참석자 수 → diarization num-clusters (NULL이면 임계값 폴백). 마이그레이션 2
+  speaker_count INTEGER,                    -- 녹음 정지 시 입력한 참석자 수 → diarization num-clusters (NULL이면 임계값 폴백). 마이그레이션 2
+  refine_applied TEXT,                      -- Phase 5-4 마지막 자동 교정에서 본문에 반영한 쌍 (RefinePair[] JSON). 마이그레이션 3→4
+  refined_at    INTEGER                     -- 마지막 자동 교정 시각 (epoch ms). NULL이면 아직 교정하지 않음. 마이그레이션 4
 );
 
 CREATE TABLE IF NOT EXISTS utterances (
@@ -46,6 +48,9 @@ CREATE TABLE IF NOT EXISTS settings (
 - 화자 병합(A→B)은 `utterances.speaker_label` UPDATE + `speakers` 행 삭제로 처리한다. 한 트랜잭션 안에서 함께 한다.
 - 마이그레이션은 `PRAGMA user_version` 정수로 관리하고 `src/main/db/migrations.ts`에 순차 배열로 둔다.
   - 1: 초기 스키마. 2: `ALTER TABLE meetings ADD COLUMN speaker_count INTEGER` (2026-08-26, 참석자 수 → `num-clusters`).
+    3: `ALTER TABLE meetings ADD COLUMN refine_pairs TEXT` + `ADD COLUMN glossary_terms TEXT` (2026-09-25, 교정 제안·회의별 용어 — 같은 날 폐기).
+    4: `DROP COLUMN glossary_terms` + `RENAME COLUMN refine_pairs TO refine_applied` + `UPDATE … SET refine_applied = NULL` + `ADD COLUMN refined_at INTEGER`
+       (2026-09-25, 자동 교정으로 전환. 3에서 저장된 미확정 제안은 반영된 적이 없으므로 비운다. 개발 DB가 이미 버전 3이라 3을 고치지 않고 4를 더했다).
 
 ## 편집 동작 (Phase 3)
 
@@ -77,6 +82,34 @@ CREATE TABLE IF NOT EXISTS settings (
 - 요약은 자동 실행이 아니라 사용자가 버튼으로 요청한다. 잡 큐는 파이프라인과 공유하며 동시성은 1이다
   (`{ kind: 'pipeline' | 'summary' }`). 같은 회의의 요약 잡이 이미 큐에 있으면 다시 넣지 않는다.
 
+## 다시 인식 (2026-09-25)
+
+원본 WAV가 남아 있는 회의를 파이프라인에 다시 넣는다 (`architecture.md` "녹음본 재생·내보내기·다시 인식").
+
+| 동작 | SQL |
+| --- | --- |
+| 요청 | `UPDATE meetings SET speaker_count = ?, status = 'processing', error_message = NULL WHERE id = ?` (`speaker_count`는 `NULL` 허용 — 임계값 폴백) |
+| 성공 저장 | 트랜잭션: `DELETE FROM speakers WHERE meeting_id = ?` + 새 라벨 `INSERT` + 발화 전체 교체(`DELETE` + `INSERT`) + `UPDATE meetings SET refine_applied = NULL, refined_at = NULL` |
+
+- 첫 처리도 같은 "성공 저장"을 거친다. 첫 처리에는 지울 화자·발화·교정 결과가 없을 뿐이다.
+- 화자 이름은 초기화된다. 새 군집 라벨(`SPEAKER_00` …)은 이전 군집과 대응하지 않아 이름을 옮기면 틀린 사람에게 붙는다.
+- `summary`는 건드리지 않는다. `duration_sec`·`title`·`created_at`도 그대로다.
+
+## 자동 교정 결과 저장 (Phase 5-4)
+
+| 동작 | SQL |
+| --- | --- |
+| 교정 반영 | 트랜잭션: 바뀐 발화마다 `UPDATE utterances SET text = ? WHERE id = ? AND meeting_id = ?` + `UPDATE meetings SET refine_applied = ?, refined_at = ? WHERE id = ?` |
+| 결과 조회 | `SELECT refine_applied, refined_at FROM meetings WHERE id = ?` (`meetings:get`에 `refineResult`로 실린다) |
+
+- 결과는 별도 테이블이 아니라 **`meetings.refine_applied` JSON 한 컬럼**이다. 회의당 수십 개 안팎의 작은 파생물이고 회의와 함께 사라지며,
+  개별 행을 조회·정렬할 일이 없다 (요약 컬럼과 같은 판단). JSON이 깨져 있으면 빈 목록으로 읽는다.
+- 저장 단위는 실제로 본문을 바꾼 **쌍(`RefinePair`: utteranceId, from, to, similarity)** 이다. 발화의 "전" 텍스트는 저장하지 않는다 —
+  되돌리기는 발화 인라인 편집으로 하고, 화면은 쌍을 묶어 "무엇을 몇 곳 고쳤는지"만 보여 준다 (`architecture.md` "회의록 교정").
+- `refined_at`이 NULL이면 아직 교정하지 않은 회의다 (용어가 없거나 LLM이 준비되지 않아 건너뛴 경우 포함). `refined_at`이 있고 `refine_applied`가 비어 있으면 고칠 곳을 찾지 못한 것이다.
+- **교정 실패는 `meetings.status`와 이전 결과를 건드리지 않는다.** 요약과 같은 규칙이다.
+- 교정의 근거는 전역 용어 사전(`settings`의 `glossary.terms`)뿐이다. 회의별 용어 컬럼은 두지 않는다 (2026-09-25 사용자 결정).
+
 ## settings 테이블 키
 
 `settings`는 `key` → JSON 문자열 `value`다. 앱이 읽을 때는 `src/shared/types.ts`의 `AppSettings`로 모아서 다룬다.
@@ -93,6 +126,7 @@ CREATE TABLE IF NOT EXISTS settings (
 | `shortcut.recording` | string | `'Alt+Command+R'` | 녹음 토글 전역 단축키 (Electron accelerator). 형식이 틀리면 기본값으로 읽는다 |
 | `shortcut.widget` | string | `'Alt+Command+W'` | 위젯 표시/숨김 전역 단축키. 녹음 단축키와 같을 수 없다 |
 | `pipeline.quiet` | boolean | `false` | 조용히 처리. 켜면 화자 분리 스레드를 줄이고 STT와 화자 분리를 순차로 돌린다. 느려지는 대신 발열·팬 소음이 준다. 잡이 **시작할 때** 읽으므로 진행 중인 잡에는 적용되지 않는다 (`references/architecture.md` 가속·스레드 정책) |
+| `ui.locale` | `'ko' \| 'en'` | `'ko'` | 화면·메뉴바·main 오류 문구의 언어 (2026-09-25). 인식·요약 언어가 아니다. 모르는 값이면 `'ko'`로 읽고, 저장 요청은 거절한다 (`references/architecture.md` "UI 언어") |
 | `audio.inputDevice` | `{ deviceId, label } \| null` | `null` | 녹음에 쓸 마이크 (2026-09-25). `null`이면 시스템 기본 마이크. `deviceId`는 Chromium이 주는 origin별 해시(1~200자), `label`은 고를 당시의 장치 이름(0~200자)이며 장치를 뺀 뒤 설정 화면에 "연결되지 않음"으로 보여주기 위해 함께 둔다. 모양이 다르면 `null`로 읽고, 저장 요청은 거절한다. 녹음 그래프는 시작할 때 이 값을 읽어 `deviceId: { ideal }`로 요청하므로 장치가 없으면 기본 마이크로 폴백한다 (`references/architecture.md` "마이크 입력 장치와 테스트") |
 
 ```ts
@@ -111,6 +145,7 @@ export interface AppSettings {
   recordingShortcut: string
   widgetShortcut: string
   inputDevice: AudioInputDevice | null
+  locale: Locale
 }
 ```
 
@@ -179,6 +214,7 @@ export interface Meeting {
   id: string; title: string; createdAt: number; durationSec: number
   status: MeetingStatus; errorMessage?: string; summary?: string
   speakerCount?: number   // 녹음 정지 시 입력한 참석자 수. 없으면 임계값 폴백으로 처리된 회의
+  hasAudio: boolean       // 원본 WAV 경로가 남아 있는지 (audio_path IS NOT NULL). 재생·내보내기·다시 인식 가능 여부
 }
 
 export interface Utterance {
@@ -195,8 +231,18 @@ export type WhisperModelId = 'turbo-q5' | 'large-v3-q5' | 'small-q5_1'
 /** 모델 파일 종류. 'summary'만 선택 모델이고 나머지는 필수다 */
 export type ModelKey = 'whisper' | 'vad' | 'segmentation' | 'embedding' | 'summary'
 
-/** 디테일 화면이 한 번에 받는 묶음 (meetings:get 응답) */
-export interface MeetingDetail { meeting: Meeting; utterances: Utterance[]; speakers: Speaker[] }
+/** 디테일 화면이 한 번에 받는 묶음 (meetings:get 응답). 마지막 자동 교정 결과도 여기 실린다 (Phase 5-4) */
+export interface MeetingDetail {
+  meeting: Meeting; utterances: Utterance[]; speakers: Speaker[]
+  refineResult: RefineResult | null
+}
+
+// 교정 (Phase 5-4). RefinePair·RefineSource·RefineSuggestion은 src/shared/types.ts 참고
+export type RefineStage = 'read' | 'verify' | 'done' | 'error'
+/** 마지막 자동 교정 결과. appliedPairs가 비어 있으면 고칠 곳을 찾지 못한 것 */
+export interface RefineResult { refinedAt: number; appliedPairs: RefinePair[] }
+/** 화면이 쌍 단위로 묶어 보여 주는 단위. utteranceIds 길이가 "n곳"이다 */
+export interface RefinePairGroup { from: string; to: string; utteranceIds: string[] }
 
 // 파이프라인 중간 산출물
 export interface SttWord    { start: number; end: number; text: string }
@@ -245,6 +291,8 @@ LIMIT 50;
 - 따라서 IPC payload의 `meetingId`·`utteranceId`도 전부 `string`이다.
 
 ## 병합 알고리즘 (`@meeting-stt/core/merge`, 순수 함수)
+
+입력 `SpeakerSegment[]`는 2026-09-25부터 sherpa-onnx CLI 라벨이 아니라 재군집(`@meeting-stt/core/cluster`, `architecture.md` "화자 재군집")이 붙인 라벨이다. 라벨 형식(`speaker_NN`)과 아래 알고리즘은 그대로다.
 
 1. `SpeakerSegment[]`를 start 기준 정렬해 두고, 각 단어(없으면 세그먼트)에 대해 **겹침 길이가 최대인 화자**를 배정한다. 세그먼트 수가 수천 개가 되므로 이진 탐색으로 후보 구간을 좁힌다 (WhisperX 방식).
 2. 겹치는 화자 구간이 없으면 **1초 이내에서 가장 가까운 화자 구간**에 배정한다 — 화자 전환 경계의 단어는 타임스탬프 오차 때문에 어느 구간에도 걸치지 않는 일이 잦다. 그래도 없으면 직전 단어의 화자를 승계하고, 그것도 없으면 `UNKNOWN`.

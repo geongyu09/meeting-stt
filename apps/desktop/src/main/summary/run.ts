@@ -14,6 +14,7 @@ import type { LlmClient } from '../llm/types'
 import { info } from '../log'
 
 import { summaryWorkDir } from './paths'
+import { t } from '../locale'
 
 /** 구간 요약(map)이 전체 진행률에서 차지하는 몫. 나머지는 합치기(reduce) */
 const MAP_PERCENT = 80
@@ -47,7 +48,7 @@ const complete = async ({ client, workDir, prompt, label }: CompleteParams) => {
       workDir
     })
   )
-  if (!summary) throw new Error('요약이 비어 있습니다 (회의록이 너무 짧을 수 있습니다)')
+  if (!summary) throw new Error(t().main.summary.empty)
 
   return summary
 }
@@ -89,7 +90,7 @@ export const runSummary = async ({ meetingId, transcript, onProgress }: RunSumma
   const client = await createLlmClient()
 
   const chunks = splitTranscript({ text: transcript, budgetChars: client.chunkBudgetChars })
-  if (!chunks.length) throw new Error('요약할 회의록이 없습니다')
+  if (!chunks.length) throw new Error(t().main.summary.nothingToSummarize)
 
   const workDir = summaryWorkDir({ meetingId })
   await mkdir(workDir, { recursive: true })

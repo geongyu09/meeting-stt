@@ -1,7 +1,7 @@
 import { open, type FileHandle } from 'node:fs/promises'
 import { BITS_PER_SAMPLE, CHANNELS, SAMPLE_RATE_HZ } from '@shared/audio'
 
-const WAV_HEADER_BYTES = 44
+export const WAV_HEADER_BYTES = 44
 const BYTES_PER_SAMPLE = BITS_PER_SAMPLE / 8
 const PCM_FORMAT_TAG = 1
 const INT16_MAX = 32767

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { MeetingSearchResult } from '@shared/ipc'
 import { onMeetingsChanged } from '@renderer/shared/api/events'
 import { searchMeetingsApi } from '@renderer/shared/api/meetings'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 /** 한 글자 칠 때마다 전체 스캔하지 않도록 입력이 멈춘 뒤에 찾는다 (references/architecture.md "회의록 검색") */
 const SEARCH_DEBOUNCE_MS = 200
@@ -15,6 +16,7 @@ interface UseMeetingSearchParams {
  * 검색 중에도 목록이 바뀌면(제목 변경·삭제·처리 완료) 같은 질의로 다시 찾는다.
  */
 const useMeetingSearch = ({ query }: UseMeetingSearchParams) => {
+  const { t } = useLocale()
   const trimmed = query.trim()
   const [results, setResults] = useState<MeetingSearchResult[]>([])
   const [searchedQuery, setSearchedQuery] = useState('')
@@ -29,9 +31,9 @@ const useMeetingSearch = ({ query }: UseMeetingSearchParams) => {
           setError(null)
         })
         .catch((caught: unknown) =>
-          setError(caught instanceof Error ? caught : new Error('회의록을 검색하지 못했습니다'))
+          setError(caught instanceof Error ? caught : new Error(t.sidebar.errors.search))
         ),
-    []
+    [t]
   )
 
   useEffect(() => {

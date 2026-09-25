@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { API_MIN_MAX_TOKENS, CLAUDE_API_MODEL_ID } from '@shared/llm'
+import { t } from '../locale'
 
 /** 요약·초안은 정형 작업이라 높은 노력이 필요 없다 (references/architecture.md "Claude API 호출") */
 const EFFORT = 'medium'
@@ -14,16 +15,21 @@ interface CompleteWithClaudeApiParams {
 /** SDK 오류를 사용자에게 보여줄 한국어 안내로 바꾼다. 구체적인 것부터 본다 */
 const toUserError = (caught: unknown) => {
   if (caught instanceof Anthropic.AuthenticationError) {
-    return new Error('Claude API 키가 올바르지 않습니다. 설정에서 키를 다시 저장해 주세요')
+    return new Error(t().main.llm.claudeKeyInvalid)
   }
   if (caught instanceof Anthropic.RateLimitError) {
-    return new Error('Claude API 요청 한도에 걸렸습니다. 잠시 뒤 다시 시도해 주세요')
+    return new Error(t().main.llm.claudeRateLimited)
   }
   if (caught instanceof Anthropic.APIConnectionError) {
-    return new Error('Anthropic 서버에 연결할 수 없습니다. 네트워크를 확인해 주세요')
+    return new Error(t().main.llm.claudeUnreachable)
   }
   if (caught instanceof Anthropic.APIError) {
-    return new Error(`Claude API 오류 (${caught.status ?? '알 수 없음'}): ${caught.message}`)
+    return new Error(
+      t().main.llm.claudeApiError({
+        status: String(caught.status ?? t().main.llm.unknownStatus),
+        message: caught.message
+      })
+    )
   }
 
   return caught instanceof Error ? caught : new Error(String(caught))
@@ -55,10 +61,10 @@ export const completeWithClaudeApi = async ({
       .finalMessage()
 
     if (message.stop_reason === 'refusal') {
-      throw new Error('Claude가 이 요청을 처리하지 않았습니다')
+      throw new Error(t().main.llm.claudeRefused)
     }
     if (message.stop_reason === 'max_tokens') {
-      throw new Error('Claude 답변이 길어 잘렸습니다. 회의록을 나눠 다시 시도해 주세요')
+      throw new Error(t().main.llm.claudeTruncated)
     }
 
     return message.content

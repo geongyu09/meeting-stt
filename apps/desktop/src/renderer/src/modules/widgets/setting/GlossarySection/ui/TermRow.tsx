@@ -1,12 +1,11 @@
 import type { ClipboardEvent, KeyboardEvent } from 'react'
 import Icon from '@renderer/shared/components/primitives/ui/Icon'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import type { TermEntry } from '../types/termRow'
 import { autoReadingOf, isTermListText, sanitizeTerm } from '../utils/termLines'
 import styles from './TermRow.module.css'
 
-const TERM_PLACEHOLDER = '예: GitHub'
-const READINGS_PLACEHOLDER = '예: 깃허브, 기트허브'
 const DELETE_ICON_SIZE = 14
 
 interface TermRowProps extends TermEntry {
@@ -31,6 +30,7 @@ export default function TermRow({
   onPasteList,
   onEnter
 }: TermRowProps) {
+  const { t } = useLocale()
   const autoReading = autoReadingOf({ term, readings })
 
   const handleTermPaste = (event: ClipboardEvent<HTMLInputElement>) => {
@@ -53,8 +53,8 @@ export default function TermRow({
     <li className={styles.termRow}>
       <input
         className={styles.input}
-        aria-label={`용어 ${position}`}
-        placeholder={TERM_PLACEHOLDER}
+        aria-label={t.glossary.row.termLabel({ position })}
+        placeholder={t.glossary.row.termPlaceholder}
         value={term}
         onChange={(event) => onChange({ term: sanitizeTerm(event.target.value) })}
         onPaste={handleTermPaste}
@@ -65,8 +65,8 @@ export default function TermRow({
       />
       <input
         className={styles.input}
-        aria-label={`용어 ${position} 한글 읽기`}
-        placeholder={autoReading ?? READINGS_PLACEHOLDER}
+        aria-label={t.glossary.row.readingsLabel({ position })}
+        placeholder={autoReading ?? t.glossary.row.readingsPlaceholder}
         value={readings}
         onChange={(event) => onChange({ readings: event.target.value })}
         onKeyDown={handleKeyDown}
@@ -76,7 +76,7 @@ export default function TermRow({
       <button
         className={styles.removeButton}
         type="button"
-        aria-label={`용어 ${position} 삭제`}
+        aria-label={t.glossary.row.removeLabel({ position })}
         onClick={onRemove}
         disabled={isDisabled}
       >

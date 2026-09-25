@@ -9,15 +9,18 @@ import { isSummaryModelReady, modelPath, summaryModelLabel } from '../models/pat
 import { buildLlamaArgs, extractAnswer, SUMMARY_TEMPERATURE } from '../summary/llama'
 
 import type { LlmClient, LlmCompleteParams } from './types'
+import { t } from '../locale'
 
 /** 실행 파일·모델이 없으면 spawn 전에 한국어로 안내하고 멈춘다 */
 export const isLocalLlmReady = () => existsSync(llamaBinPath()) && isSummaryModelReady()
 
 const ensureReady = () => {
   if (!existsSync(llamaBinPath())) {
-    throw new Error('요약 실행 파일(llama-cli)이 준비되지 않았습니다')
+    throw new Error(t().main.llm.llamaBinaryMissing)
   }
-  if (!isSummaryModelReady()) throw new Error(`${summaryModelLabel()}이 준비되지 않았습니다`)
+  if (!isSummaryModelReady()) {
+    throw new Error(t().main.llm.modelNotReady({ label: summaryModelLabel() }))
+  }
 }
 
 /**

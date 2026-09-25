@@ -7,6 +7,17 @@ const SECONDS_PER_MINUTE = 60
 const SECONDS_PER_HOUR = 3600
 const UNKNOWN_SPEAKER_NAME = '화자 미상'
 
+/** 이름이 없는 화자에게 붙일 기본 이름. 앱의 UI 언어를 따르고, 넘기지 않으면 한국어다 */
+export interface DefaultSpeakerNames {
+  numbered: (index: number) => string
+  unknown: string
+}
+
+const KOREAN_DEFAULT_SPEAKER_NAMES: DefaultSpeakerNames = {
+  numbered: (index) => `화자 ${index}`,
+  unknown: UNKNOWN_SPEAKER_NAME
+}
+
 const pad2 = (value: number) => String(value).padStart(2, '0')
 
 /** 초를 hh:mm:ss 고정폭 문자열로 만든다 */
@@ -21,6 +32,7 @@ export const formatTimestamp = ({ sec }: { sec: number }) => {
 interface ResolveSpeakerNamesParams {
   labels: string[]
   displayNames?: Record<string, string | null>
+  defaultNames?: DefaultSpeakerNames
 }
 
 /**
@@ -29,7 +41,11 @@ interface ResolveSpeakerNamesParams {
  * 나머지 화자의 번호가 밀리지 않아야 하기 때문이다.
  * 화자를 배정하지 못한 UNKNOWN 라벨은 번호를 차지하지 않는다.
  */
-export const resolveSpeakerNames = ({ labels, displayNames = {} }: ResolveSpeakerNamesParams) => {
+export const resolveSpeakerNames = ({
+  labels,
+  displayNames = {},
+  defaultNames = KOREAN_DEFAULT_SPEAKER_NAMES
+}: ResolveSpeakerNamesParams) => {
   const names: Record<string, string> = {}
   let numbered = 0
 
@@ -37,12 +53,12 @@ export const resolveSpeakerNames = ({ labels, displayNames = {} }: ResolveSpeake
     if (names[label]) continue
 
     if (label === UNKNOWN_SPEAKER) {
-      names[label] = UNKNOWN_SPEAKER_NAME
+      names[label] = defaultNames.unknown
       continue
     }
 
     numbered += 1
-    names[label] = displayNames[label] || `화자 ${numbered}`
+    names[label] = displayNames[label] || defaultNames.numbered(numbered)
   }
 
   return names
@@ -51,6 +67,7 @@ export const resolveSpeakerNames = ({ labels, displayNames = {} }: ResolveSpeake
 interface FormatTranscriptParams {
   utterances: MergedUtterance[]
   displayNames?: Record<string, string | null>
+  defaultNames?: DefaultSpeakerNames
   format?: TranscriptFormat
 }
 
@@ -58,11 +75,13 @@ interface FormatTranscriptParams {
 export const formatTranscript = ({
   utterances,
   displayNames,
+  defaultNames,
   format = 'plain'
 }: FormatTranscriptParams) => {
   const names = resolveSpeakerNames({
     labels: utterances.map((utterance) => utterance.speakerLabel),
-    displayNames
+    displayNames,
+    defaultNames
   })
 
   return utterances

@@ -1,4 +1,5 @@
 import type { KeyboardEvent, PointerEvent } from 'react'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import { RAIL_MAX_PX, RAIL_MIN_PX } from '../constants/rail'
 import styles from './RailResizer.module.css'
@@ -23,16 +24,18 @@ export default function RailResizer({
   onKeyDown,
   onReset
 }: RailResizerProps) {
+  const { t } = useLocale()
+
   return (
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label="오른쪽 패널 폭 조절"
+      aria-label={t.transcript.railResizer.label}
       aria-valuenow={railWidth}
       aria-valuemin={RAIL_MIN_PX}
       aria-valuemax={RAIL_MAX_PX}
       tabIndex={0}
-      title="끌어서 폭 조절 · 더블클릭하면 원래 폭으로"
+      title={t.transcript.railResizer.title}
       className={styles.resizer}
       data-resizing={isResizing}
       onPointerDown={onPointerDown}

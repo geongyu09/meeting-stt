@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { AppSettings } from '@shared/types'
 import { getSettingsApi, updateSettingsApi } from '@renderer/shared/api/settings'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 const useSettings = () => {
+  const { t } = useLocale()
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -16,10 +18,10 @@ const useSettings = () => {
           setError(null)
         })
         .catch((caught: unknown) =>
-          setError(caught instanceof Error ? caught : new Error('설정을 불러오지 못했습니다'))
+          setError(caught instanceof Error ? caught : new Error(t.settings.loadError))
         )
         .finally(() => setIsLoading(false)),
-    []
+    [t]
   )
 
   useEffect(() => {
@@ -34,7 +36,7 @@ const useSettings = () => {
       setSettings(await updateSettingsApi({ ...settings, ...changes }))
       setError(null)
     } catch (caught) {
-      setError(caught instanceof Error ? caught : new Error('설정을 저장하지 못했습니다'))
+      setError(caught instanceof Error ? caught : new Error(t.settings.saveError))
     }
   }
 

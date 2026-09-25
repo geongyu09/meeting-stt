@@ -172,6 +172,7 @@ src/
 | `widget` | 녹음 위젯 패널 표시·숨김 (api 래퍼 전용 도메인. 패널 UI는 `recording/WidgetPanelSection`) |
 | `glossary` | 전역 용어 사전 조회·저장·초안 생성 (api 래퍼 전용 도메인. 화면은 `setting/GlossarySection`) |
 | `llm` | LLM 공급자 상태 조회·공급자 저장·API 키 저장·연결 확인 (api 래퍼·`useLlmStatus` 훅. 화면은 `setting/LlmSection`) |
+| `refine` | 회의록 자동 교정 — 진행률 구독·수동 재실행·고친 쌍 목록 (api 래퍼·`useRefine` 훅·`features/refine/RefinePanel`. 결과 자체는 회의 상세의 일부라 `useMeeting`이 든다) |
 
 ## 레이어별 역할 (renderer)
 

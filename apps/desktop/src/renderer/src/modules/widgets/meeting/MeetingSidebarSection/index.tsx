@@ -3,6 +3,7 @@ import { NavLink } from 'react-router'
 import Icon from '@renderer/shared/components/primitives/ui/Icon'
 import useMeetings from '@renderer/shared/hooks/domain/meeting/useMeetings'
 import useMeetingSearch from '@renderer/shared/hooks/domain/meeting/useMeetingSearch'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 import { PATHS } from '@renderer/shared/routes/paths'
 
 import MeetingList from './ui/MeetingList'
@@ -16,6 +17,7 @@ import styles from './index.module.css'
  * (references/architecture.md "메인 창과 사이드바 레이아웃").
  */
 export default function MeetingSidebarSection() {
+  const { t } = useLocale()
   const [query, setQuery] = useState('')
   const { meetings, isLoading, error, refetch } = useMeetings()
   const search = useMeetingSearch({ query })
@@ -28,7 +30,10 @@ export default function MeetingSidebarSection() {
         <NewRecordingButton />
         <SearchField value={query} onChange={setQuery} />
       </div>
-      <nav className={styles.body} aria-label={search.isActive ? '검색 결과' : '회의 목록'}>
+      <nav
+        className={styles.body}
+        aria-label={search.isActive ? t.sidebar.nav.searchResults : t.sidebar.nav.meetingList}
+      >
         {search.isActive ? (
           <SearchResultList
             query={query}
@@ -48,7 +53,7 @@ export default function MeetingSidebarSection() {
           }
         >
           <Icon name="settings" />
-          설정
+          {t.sidebar.settings}
         </NavLink>
       </div>
     </aside>

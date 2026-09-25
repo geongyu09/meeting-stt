@@ -55,6 +55,15 @@ describe('resolveSpeakerNames', () => {
     expect(names[UNKNOWN_SPEAKER]).toBe('화자 미상')
     expect(names.speaker_00).toBe('화자 1')
   })
+
+  it('기본 이름을 넘기면 그 언어로 붙인다', () => {
+    const names = resolveSpeakerNames({
+      labels: [UNKNOWN_SPEAKER, 'speaker_00'],
+      defaultNames: { numbered: (index) => `Speaker ${index}`, unknown: 'Unknown speaker' }
+    })
+
+    expect(names).toEqual({ [UNKNOWN_SPEAKER]: 'Unknown speaker', speaker_00: 'Speaker 1' })
+  })
 })
 
 describe('formatTranscript', () => {

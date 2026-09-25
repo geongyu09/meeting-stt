@@ -31,6 +31,7 @@ const meetingOf = (overrides: Partial<Meeting> = {}): Meeting => ({
   createdAt: new Date(2026, 8, 24, 14, 10).getTime(),
   durationSec: 48 * 60 + 12,
   status: 'done',
+  hasAudio: false,
   ...overrides
 })
 

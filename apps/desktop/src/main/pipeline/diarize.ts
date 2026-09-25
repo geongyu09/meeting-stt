@@ -1,14 +1,9 @@
+import { OVERSPLIT_CLUSTER_COUNT } from '@meeting-stt/core/cluster'
 import type { SpeakerSegment } from '@shared/types'
 
 /** `0.959 -- 5.178 speaker_01` 형태의 결과 줄 */
 const SEGMENT_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*--\s*(\d+(?:\.\d+)?)\s+(\S+)\s*$/
 const PROGRESS_PATTERN = /^\s*progress\s+(\d+(?:\.\d+)?)%\s*$/
-
-/**
- * 참석자 수를 모를 때 쓰는 군집 임계값. 값이 작을수록 화자를 많이 나눈다.
- * 실제 회의 녹음에서 0.6은 23명으로 과분할됐고 0.8부터 주요 화자 구성이 안정된다 (docs/phase1-results.md)
- */
-export const DEFAULT_CLUSTER_THRESHOLD = 0.8
 
 /**
  * 화자 분리 stdout을 화자 구간으로 바꾼다.
@@ -37,22 +32,30 @@ interface BuildDiarizeArgsParams {
   embeddingModelPath: string
   audioPath: string
   threads: number
-  /** 참석자 수를 알면 군집 개수를 고정하는 편이 정확하다 */
+  /** 참석자 수. 없으면 과분할(12)로 돌리고 재군집이 병합한다 (references/architecture.md "화자 재군집") */
   speakerCount?: number
+  /**
+   * 임계값 군집. 스크립트 실험 전용 — 앱은 쓰지 않는다. 클러스터 수가 녹음 길이에 비례해 늘어난다
+   * (docs/phase1-results.md 6절)
+   */
   clusterThreshold?: number
 }
 
+/**
+ * CLI 인자. 라벨은 재군집이 다시 붙이므로 CLI 군집은 구간 경계를 만드는 용도다.
+ * 참석자 수를 모를 때 임계값 대신 12를 주는 이유는 구간이 덜 잘게 쪼개지고 폴백 결과도 낫기 때문이다.
+ */
 export const buildDiarizeArgs = ({
   segmentationModelPath,
   embeddingModelPath,
   audioPath,
   threads,
   speakerCount,
-  clusterThreshold = DEFAULT_CLUSTER_THRESHOLD
+  clusterThreshold
 }: BuildDiarizeArgsParams) => [
-  ...(speakerCount
-    ? [`--clustering.num-clusters=${speakerCount}`]
-    : [`--clustering.cluster-threshold=${clusterThreshold}`]),
+  clusterThreshold !== undefined
+    ? `--clustering.cluster-threshold=${clusterThreshold}`
+    : `--clustering.num-clusters=${speakerCount ?? OVERSPLIT_CLUSTER_COUNT}`,
   `--segmentation.pyannote-model=${segmentationModelPath}`,
   `--embedding.model=${embeddingModelPath}`,
   `--segmentation.num-threads=${threads}`,

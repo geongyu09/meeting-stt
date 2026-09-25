@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { formatTranscript, type TranscriptFormat } from '@meeting-stt/core/format'
 import type { Utterance } from '@shared/types'
 import { writeClipboardTextApi } from '@renderer/shared/api/clipboard'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 /** "복사했습니다" 표시를 유지하는 시간 */
 const COPIED_FEEDBACK_MS = 2000
@@ -19,6 +20,7 @@ interface CopyParams {
 }
 
 const useTranscriptCopy = ({ utterances, speakerNames }: UseTranscriptCopyParams) => {
+  const { t } = useLocale()
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [copyError, setCopyError] = useState<Error | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -41,7 +43,7 @@ const useTranscriptCopy = ({ utterances, speakerNames }: UseTranscriptCopyParams
       if (timerRef.current) clearTimeout(timerRef.current)
       timerRef.current = setTimeout(() => setCopiedKey(null), COPIED_FEEDBACK_MS)
     } catch (caught) {
-      setCopyError(caught instanceof Error ? caught : new Error('복사하지 못했습니다'))
+      setCopyError(caught instanceof Error ? caught : new Error(t.common.copyFailed))
     }
   }
 

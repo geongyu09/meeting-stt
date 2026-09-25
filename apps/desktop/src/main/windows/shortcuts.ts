@@ -3,6 +3,7 @@ import { formatAccelerator } from '@shared/shortcut'
 import { getAppSettings } from '../db/settings'
 import { warn } from '../log'
 import { requestRecordingCommand, toggleWidgetVisible } from './widget'
+import { t } from '../locale'
 
 interface ShortcutAccelerators {
   recordingShortcut: string
@@ -56,7 +57,7 @@ export const replaceGlobalShortcuts = ({
   previous: ShortcutAccelerators
 }) => {
   if (next.recordingShortcut === next.widgetShortcut) {
-    throw new Error('녹음 단축키와 위젯 단축키를 다르게 지정해 주세요')
+    throw new Error(t().main.errors.shortcutsMustDiffer)
   }
 
   const failed = registerAll(next)
@@ -64,7 +65,9 @@ export const replaceGlobalShortcuts = ({
 
   registerAll(previous)
   throw new Error(
-    `단축키 ${failed.map(formatAccelerator).join(', ')}를 등록하지 못했습니다. 다른 앱이 쓰는 중일 수 있습니다`
+    t().main.errors.shortcutRegisterFailed({
+      shortcuts: failed.map(formatAccelerator).join(', ')
+    })
   )
 }
 

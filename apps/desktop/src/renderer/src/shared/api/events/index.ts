@@ -3,6 +3,8 @@ import type {
   PipelineProgressEvent,
   RecordingCommandEvent,
   RecordingStateEvent,
+  RefineProgressEvent,
+  SettingsChangedEvent,
   SummaryProgressEvent,
   UpdateAvailableEvent
 } from '@shared/ipc'
@@ -26,6 +28,16 @@ export const onPipelineProgress = (listener: (event: PipelineProgressEvent) => v
  */
 export const onSummaryProgress = (listener: (event: SummaryProgressEvent) => void) =>
   window.api.events.onSummaryProgress(listener)
+
+/**
+ * @description 교정 진행률·결과 이벤트를 구독합니다. 완료 이벤트에는 제안이 실리지 않으니 회의 상세를 다시 읽습니다.
+ * @param listener - 교정 진행 이벤트 콜백
+ * @returns 구독 해제 함수
+ * @example
+ * useEffect(() => onRefineProgress(({ stage }) => { if (stage === 'done') refetch() }), [refetch])
+ */
+export const onRefineProgress = (listener: (event: RefineProgressEvent) => void) =>
+  window.api.events.onRefineProgress(listener)
 
 /**
  * @description 모델 다운로드 진행률 이벤트를 구독합니다. 파일(key)마다 받은 바이트와 퍼센트가 옵니다.
@@ -76,3 +88,13 @@ export const onRecordingCommand = (listener: (event: RecordingCommandEvent) => v
  */
 export const onMeetingsChanged = (listener: () => void) =>
   window.api.events.onMeetingsChanged(listener)
+
+/**
+ * @description 설정 저장 이벤트를 구독합니다. 다른 창(설정 화면)이 저장한 값을 위젯 창도 받습니다. UI 언어 전환에 씁니다.
+ * @param listener - 저장된 설정 전체를 받는 콜백
+ * @returns 구독 해제 함수
+ * @example
+ * useEffect(() => onSettingsChanged(({ locale }) => setLocale(locale)), [])
+ */
+export const onSettingsChanged = (listener: (event: SettingsChangedEvent) => void) =>
+  window.api.events.onSettingsChanged(listener)

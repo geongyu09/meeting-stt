@@ -1,5 +1,6 @@
 import type { KeyboardEvent } from 'react'
 import Icon from '@renderer/shared/components/primitives/ui/Icon'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import styles from './SearchField.module.css'
 
@@ -10,6 +11,7 @@ interface SearchFieldProps {
 
 /** Esc나 지우기 버튼으로 검색을 끝내면 원래 목록으로 돌아간다 */
 export default function SearchField({ value, onChange }: SearchFieldProps) {
+  const { t } = useLocale()
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== 'Escape' || !value) return
     event.preventDefault()
@@ -22,8 +24,8 @@ export default function SearchField({ value, onChange }: SearchFieldProps) {
       <input
         className={styles.input}
         type="text"
-        placeholder="회의록 검색"
-        aria-label="회의록 검색"
+        placeholder={t.sidebar.search.placeholder}
+        aria-label={t.sidebar.search.placeholder}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={handleKeyDown}
@@ -33,7 +35,7 @@ export default function SearchField({ value, onChange }: SearchFieldProps) {
         <button
           type="button"
           className={styles.clear}
-          aria-label="검색 지우기"
+          aria-label={t.sidebar.search.clear}
           onClick={() => onChange('')}
         >
           <Icon name="close" size={13} />

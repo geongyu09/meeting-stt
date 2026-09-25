@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Meeting } from '@shared/types'
 import { onMeetingsChanged } from '@renderer/shared/api/events'
 import { getMeetingsApi } from '@renderer/shared/api/meetings'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 const useMeetings = () => {
+  const { t } = useLocale()
   const [meetings, setMeetings] = useState<Meeting[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -18,10 +20,10 @@ const useMeetings = () => {
           setError(null)
         })
         .catch((caught: unknown) =>
-          setError(caught instanceof Error ? caught : new Error('회의 목록을 불러오지 못했습니다'))
+          setError(caught instanceof Error ? caught : new Error(t.sidebar.errors.loadList))
         )
         .finally(() => setIsLoading(false)),
-    []
+    [t]
   )
 
   /** 사용자가 다시 시도할 때는 로딩 상태를 다시 켠다 (첫 로드는 초기값이 이미 true) */

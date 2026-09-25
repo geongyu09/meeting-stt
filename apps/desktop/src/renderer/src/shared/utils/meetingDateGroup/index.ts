@@ -1,12 +1,16 @@
+import { getMessages, type Locale } from '@shared/i18n'
 import type { Meeting } from '@shared/types'
 
 export type MeetingDateGroup = 'today' | 'week' | 'earlier'
 
-export const MEETING_DATE_GROUP_LABELS: Record<MeetingDateGroup, string> = {
-  today: '오늘',
-  week: '이번 주',
-  earlier: '이전'
-}
+/** 묶음 라벨은 사전(`sidebar.dateGroups`)이 정한다 */
+export const meetingDateGroupLabel = ({
+  group,
+  locale
+}: {
+  group: MeetingDateGroup
+  locale: Locale
+}) => getMessages(locale).sidebar.dateGroups[group]
 
 /** 오늘을 빼고 며칠 전까지를 "이번 주"로 묶는지. 달력 주가 아니라 최근 7일이다 — 월요일 아침에 어제 회의가 "이전"으로 밀리지 않는다 */
 const RECENT_DAYS = 6
@@ -39,16 +43,17 @@ export const meetingDateGroupOf = ({
 interface GroupMeetingsByDateParams {
   meetings: Meeting[]
   now: number
+  locale: Locale
 }
 
 /** 최신순 목록을 날짜 묶음으로 나눈다. 빈 묶음은 빼고, 묶음 안의 순서는 그대로 둔다 */
-export const groupMeetingsByDate = ({ meetings, now }: GroupMeetingsByDateParams) => {
+export const groupMeetingsByDate = ({ meetings, now, locale }: GroupMeetingsByDateParams) => {
   const order: MeetingDateGroup[] = ['today', 'week', 'earlier']
 
   return order
     .map((group) => ({
       group,
-      label: MEETING_DATE_GROUP_LABELS[group],
+      label: meetingDateGroupLabel({ group, locale }),
       meetings: meetings.filter(
         (meeting) => meetingDateGroupOf({ epochMs: meeting.createdAt, now }) === group
       )

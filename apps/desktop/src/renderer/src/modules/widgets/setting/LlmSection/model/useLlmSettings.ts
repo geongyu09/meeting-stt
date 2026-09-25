@@ -7,11 +7,7 @@ import {
   setOpenaiModelApi
 } from '@renderer/shared/api/llm'
 import useLlmStatus from '@renderer/shared/hooks/domain/llm/useLlmStatus'
-
-const PROVIDER_ERROR_MESSAGE = 'LLM 공급자를 저장하지 못했습니다'
-const KEY_ERROR_MESSAGE = 'API 키를 저장하지 못했습니다'
-const MODEL_ERROR_MESSAGE = 'GPT 모델을 저장하지 못했습니다'
-const CHECK_ERROR_MESSAGE = '연결을 확인하지 못했습니다'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 const messageOf = ({ caught, fallback }: { caught: unknown; fallback: string }) =>
   caught instanceof Error && caught.message ? caught.message : fallback
@@ -21,6 +17,7 @@ const messageOf = ({ caught, fallback }: { caught: unknown; fallback: string }) 
  * 응답(`LlmStatus`)을 그대로 반영한다 (references/architecture.md "LLM 공급자").
  */
 const useLlmSettings = () => {
+  const { t } = useLocale()
   const { status, isLoading, error: loadError, applyStatus } = useLlmStatus()
   const [apiKeyInput, setApiKeyInput] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -55,7 +52,7 @@ const useLlmSettings = () => {
         // 회사가 다른 키 입력란으로 바뀌므로 치다 만 값을 넘기지 않는다
         setApiKeyInput('')
       },
-      fallback: PROVIDER_ERROR_MESSAGE
+      fallback: t.llm.actions.providerError
     })
 
   const saveApiKey = (vendor: LlmApiVendor) =>
@@ -63,24 +60,24 @@ const useLlmSettings = () => {
       action: async () => {
         applyStatus(await setLlmApiKeyApi({ vendor, apiKey: apiKeyInput }))
         setApiKeyInput('')
-        setNotice('API 키를 저장했습니다')
+        setNotice(t.llm.actions.keySaved)
       },
-      fallback: KEY_ERROR_MESSAGE
+      fallback: t.llm.actions.keyError
     })
 
   const clearApiKey = (vendor: LlmApiVendor) =>
     runAction({
       action: async () => {
         applyStatus(await setLlmApiKeyApi({ vendor, apiKey: null }))
-        setNotice('저장된 API 키를 지웠습니다')
+        setNotice(t.llm.actions.keyCleared)
       },
-      fallback: KEY_ERROR_MESSAGE
+      fallback: t.llm.actions.keyError
     })
 
   const selectOpenaiModel = (model: OpenaiModelId) =>
     runAction({
       action: async () => applyStatus(await setOpenaiModelApi({ model })),
-      fallback: MODEL_ERROR_MESSAGE
+      fallback: t.llm.actions.modelError
     })
 
   const checkConnection = async () => {
@@ -92,7 +89,7 @@ const useLlmSettings = () => {
       const { message } = await checkLlmApi()
       setNotice(message)
     } catch (caught) {
-      setActionError(messageOf({ caught, fallback: CHECK_ERROR_MESSAGE }))
+      setActionError(messageOf({ caught, fallback: t.llm.actions.checkError }))
     } finally {
       setIsChecking(false)
     }

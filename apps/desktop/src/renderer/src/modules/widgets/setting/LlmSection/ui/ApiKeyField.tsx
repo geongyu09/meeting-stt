@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import Button from '@renderer/shared/components/primitives/ui/Button'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import styles from './ApiKeyField.module.css'
 
@@ -30,6 +31,7 @@ export default function ApiKeyField({
   onSave,
   onClear
 }: ApiKeyFieldProps) {
+  const { t } = useLocale()
   const inputId = useId()
 
   return (
@@ -38,9 +40,7 @@ export default function ApiKeyField({
         {label}
       </label>
       <span className={styles.hint}>
-        {hasSavedKey
-          ? `저장된 키가 있습니다 (…${savedKeyTail ?? ''}). 새 키를 저장하면 바꿉니다.`
-          : hint}
+        {hasSavedKey ? t.llm.apiKeyField.savedHint({ tail: savedKeyTail ?? '' }) : hint}
       </span>
       <div className={styles.row}>
         <input
@@ -58,11 +58,11 @@ export default function ApiKeyField({
           }}
         />
         <Button size="sm" onClick={onSave} disabled={isDisabled || !value.trim()}>
-          저장
+          {t.llm.apiKeyField.save}
         </Button>
         {hasSavedKey && (
           <Button variant="secondary" size="sm" onClick={onClear} disabled={isDisabled}>
-            키 삭제
+            {t.llm.apiKeyField.clear}
           </Button>
         )}
       </div>

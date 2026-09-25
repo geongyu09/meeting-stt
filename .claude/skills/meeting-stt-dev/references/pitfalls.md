@@ -6,7 +6,11 @@
   원거리 마이크 녹음(발화 RMS −44 dBFS)에서 11초짜리 세그먼트가 "네네" 한 단어로 나오는 식으로 수십 초가 사라졌다.
   대응: STT 전에 RMS 게인 정규화(`src/main/pipeline/normalize.ts`). 10분 발췌에서 글자수 2563 → 3494(+36%), ffmpeg `loudnorm`(3505)과 동등.
   `dynaudnorm` 같은 구간별 가변 게인은 효과가 덜했다(3284). 화자 분리는 정규화해도 결과가 거의 같다.
-- **앱 동봉 whisper-cli가 긴 녹음에서 반복 환각에 빠진다 — 미해결** (2026-09-24 발견, `docs/phase5-refine-results.md`).
+- **whisper가 긴 녹음에서 반복 환각 고리에 빠진다 → `-mc 0`으로 막는다** (2026-09-24 발견, 2026-09-25 대응, `docs/stt-tuning-results.md`).
+  이전 창의 출력이 다음 창의 문맥(`--max-context`, 기본 무제한)으로 넘어가 스스로를 강화하는 고리다. 한 문장 반복뿐 아니라 "6월이." / "한."처럼 두 문장이 번갈아 도는 형태도 있다.
+  `large-v3-q5_0`은 102분 회의의 60분 이후를 통째로(2,338초) 날려 CER이 18.8% → 44%가 됐다. `-mc 0`을 주면 turbo 금토로 71분 1,034초 → 25초, large-v3 102분 2,338초 → 2초로 사라지고
+  처리 시간은 16~18% 줄며, CER 비용은 +0.23pt(102분 회의)다. 빌드마다 빠지는 정도가 달라 원인은 빌드 차이가 아니라 문맥 전달 자체로 본다.
+  아래는 발견 당시 기록이다.
   `scripts/buildWhisper.ts`로 만든 v1.8.4 빌드는 71분 녹음에서 같은 문장을 수백 번 반복하며 **1,103초(26%)** 를 날렸다.
   같은 입력에서 Homebrew 1.8.4(ggml 0.12.0)는 27초다. 출력이 결정적이라 항상 재현된다. Phase 1의 71분 측정은 Homebrew로 해서 드러나지 않았다.
   `--prompt <용어> --carry-initial-prompt`를 주면 18초로 줄지만 원인 해결은 아니다(빈 용어 사전일 때는 효과 없음). 원인(ggml 버전·빌드 옵션)은 조사 전이다.
@@ -19,6 +23,12 @@
   클러스터 수가 참석자 수가 아니라 녹음 길이·발화 교대에 비례한다. 71분 발표 녹음은 0.9에서 115개(10초 이상 38명), 앱 26분 회의는 0.8에서 129개(23명)였고
   같은 사람이 800·600·360초짜리 큰 클러스터로 갈라져 군소 화자 흡수로도 못 막는다. 10분 발췌에서 맞춘 임계값을 전체 길이에 쓰지 않는다 —
   참석자 수를 받아 `num-clusters`로 돌리는 것이 기본이고 임계값은 폴백이다 (`docs/phase1-results.md` 6·7절).
+- **`num-clusters`를 줘도 sherpa-onnx의 complete-linkage는 실제 화자를 합친다** (2026-09-25, `docs/diarization-clustering-results.md`). complete-linkage는 클러스터 *지름*을 제한하므로
+  튀는 임베딩 하나가 클러스터 하나를 차지하고(7개 중 2개가 32자·17자짜리 잡음), 그만큼 실제 화자 둘이 하나로 합쳐진다(한 참석자 1,970자가 통째로 다른 사람에게). 같은 임베딩을 k-means로 묶으면 83% → 93%.
+  그래서 CLI 라벨은 버리고 앱이 재임베딩 + k-means로 다시 군집한다 (`references/architecture.md` "화자 재군집"). 임베딩 모델 교체는 답이 아니다 — 네 모델의 상한이 94~95%로 같다.
+- **k-means에 K를 실제보다 크게 주면 큰 화자를 쪼갠다** (K=9에서 93% → 79%). 군집 뒤 중심 코사인 0.75 이상 쌍을 합치는 병합 보호를 반드시 같이 쓴다.
+  짧은 조각(1~2초 미만)을 군집에서 빼고 중심에 붙이는 것은 오히려 나빴다(93% → 90%·79%) — 짧은 조각이 많아 중심이 나빠진다.
+- **클로바 노트 정답본은 1시간 이후 턴 헤더가 `H:MM:SS`다.** `MM:SS`만 파싱하면 60분 이후 43분이 한 턴이 되어 모든 수치가 20%p 낮게 나온다 (`scripts/diarBench.ts`에 반영).
 - **`--embedding.provider=coreml`·`--segmentation.provider=coreml`은 CPU보다 훨씬 느리다** (10분 입력: CPU 141초 완료 vs CoreML 4분 경과에 18%). 프로바이더는 CPU로 고정한다.
 - **ffmpeg가 만든 WAV는 헤더가 44바이트가 아니다** (`LIST` 청크가 붙음). PCM을 직접 읽을 때는 `data` 청크를 찾아서 읽어야 한다. 앱이 직접 쓰는 WAV는 44바이트 고정이지만 외부 파일을 받는 경로가 생기면 주의.
 - **whisper.cpp `--vad`는 토큰 타임스탬프를 되돌리지 않는다** (whisper-cpp 1.8.4에서 확인, Phase 1).
@@ -52,6 +62,8 @@
   `audioWorklet.addModule('data:text/javascript;...')`가 차단된다. 개발 서버에서는 재현되지 않으므로 `pnpm build` 뒤 `out/renderer/assets/`에 워크릿 파일이 있는지 확인한다.
 - `AudioContext({ sampleRate: 16000 })`이 일부 장치에서 무시될 수 있다 → 실제 `context.sampleRate`를 확인하고 다르면 main에서 리샘플링하거나 오류 안내.
 - 녹음 중 앱 종료/크래시 대비: WAV 헤더는 정지 시 확정하지만, 청크는 이미 디스크에 있으므로 다음 실행 시 "미완료 녹음 복구" 처리를 고려한다 (Phase 3 이후).
+- **`afconvert`로 스테레오를 mono로 바꿀 때 `--mix`를 빼면 채널을 섞지 않고 버린다.** 한쪽 채널에만 목소리가 있는 녹음이 통째로 무음이 된다.
+  기본 출력에는 `FLLR` 패딩 청크가 끼므로 `--no-filler`로 녹음과 같은 44바이트 헤더를 만든다. webm·ogg(Opus/Vorbis)는 못 읽는다 (`architecture.md` "녹음 파일 가져오기").
 - macOS: `NSMicrophoneUsageDescription` 없으면 크래시. `systemPreferences.askForMediaAccess('microphone')`로 명시 요청.
 
 ## 프로세스 / 성능
@@ -61,6 +73,10 @@
 - **GPU로 도는 단계에 CPU 스레드를 많이 주지 않는다.** whisper·llama는 Metal이 일하고 남은 스레드는 스핀 대기만 한다 — 요약은 `-t 2`와 `-t 10`이 같은 속도인데 CPU 시간이 6배 차이났다.
 - **`taskpolicy -b`(background QoS)로 팬을 잡으려 하지 않는다.** 효율 코어로 밀려 화자 분리가 10.8초 → 116.7초로 10배 느려진다. 팬 소음을 줄이려면 설정 '조용히 처리'(`pipeline.quiet`)로 화자 분리 스레드를 성능 코어의 절반으로 줄인다 (+44%, CPU 부하 절반, `references/architecture.md`).
 - **화자 분리를 `--*.provider=coreml`로 돌리지 않는다.** 임베딩 입력 길이가 호출마다 달라 CoreML이 매번 첫 호출 비용을 치른다 — 1분 녹음 임베딩 CPU 5.2초 / CoreML 24.7초.
+- **`sherpa-onnx-node`의 `SpeakerEmbeddingExtractor.compute`는 동기 API다.** main에서 그대로 부르면 103분 회의에서 70초 넘게 이벤트 루프가 멈춰 IPC·진행률·창이 전부 굳는다.
+  재임베딩은 `utilityProcess`(`src/main/pipeline/embedWorker.ts`)에서만 돌린다. 워커에는 `electron` 모듈이 없으므로 `locale`·`db`를 import하는 모듈을 끌어오지 않는다.
+- **Electron은 N-API 외부 버퍼를 금지한다** (`External buffers are not allowed`, V8 샌드박스 — utilityProcess도 같다). sherpa-onnx-node의 `readWave(path, enableExternalBuffer)`·
+  `compute(stream, enableExternalBuffer)`는 기본값이 `true`라 Node(tsx 스크립트)에서는 되고 Electron에서만 죽는다. 항상 `false`를 넘긴다 (2026-09-25 실측).
 - 잡 큐는 한 번에 하나만 처리한다(여러 회의 동시 처리 금지). 큐 상태는 앱 재시작 시 `status='processing'`인 회의를 `error`로 정리하거나 재시도한다.
 - **renderer가 보낸 PCM 청크를 `await` 없이 파일에 쓰면 순서가 섞인다.** WAV writer는 append를 직렬화(이전 쓰기 Promise에 체이닝)하고, `recording:stop`은 그 큐가 비워진 뒤에 헤더를 확정해야 한다.
 - whisper 진행률은 stderr/stdout 포맷이 버전에 따라 달라질 수 있으므로 파싱 실패 시 진행률만 숨기고 작업은 계속한다.
@@ -68,6 +84,8 @@
 ## 빌드 / 배포
 - **`better-sqlite3`는 Electron ABI로 리빌드되므로 vitest(순수 Node)에서 import하면 `NODE_MODULE_VERSION` 오류로 죽는다.**
   DB 계층(`src/main/db/*`)은 단위 테스트 대상에서 제외하고, 순수 함수(병합·포맷·파서·WAV 헤더)만 테스트한다. DB 동작은 `pnpm dev`로 확인한다.
+- **`sherpa-onnx-node`는 N-API 애드온이라 리빌드가 없지만 vitest에서 import하면 실제 dylib을 로드한다.** 임베딩을 부르는 모듈(`speakerEmbedding`, `embedWorker`, `embed`, `recluster`)은 단위 테스트 대상에서 빼고
+  순수 로직(`@meeting-stt/core/cluster`)만 테스트한다. 실제 임베딩 검증은 `scripts/recluster.ts` + `scripts/diarBench.ts`로 한다.
 - 네이티브 애드온(`better-sqlite3`)은 Electron ABI로 리빌드가 필요하다. pnpm 10은 의존성의 install/postinstall 스크립트를 기본 차단하므로 `package.json`의 `pnpm.onlyBuiltDependencies`에 등록하고(`electron`, `esbuild`, `electron-winstaller` 포함) `pnpm install` 로그에 "Ignored build scripts" 경고가 없는지, `electron-builder install-app-deps`가 실행되는지 확인한다.
 - pnpm 기본 링커(isolated, 심볼릭 링크)는 electron-builder 패키징·네이티브 리빌드에서 문제를 일으킬 수 있다. `.npmrc`의 `node-linker=hoisted` / `shamefully-hoist=true`를 유지한다.
 - `src/main`, `src/preload`는 Node에서 실행된다. 테스트 러너는 vitest(`pnpm test`), TS 스크립트 실행은 tsx(`pnpm --filter meeting-stt exec tsx scripts/x.ts`)를 쓴다. `bun test`, `bun:*` 모듈, `Bun.*` API는 사용하지 않는다.

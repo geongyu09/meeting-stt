@@ -6,18 +6,21 @@ import SettingsSection from '@renderer/modules/widgets/setting/SettingsSection'
 import PageToc from '@renderer/shared/components/composites/PageToc'
 import SettingGroup from '@renderer/shared/components/primitives/layout/SettingGroup'
 import TopBar from '@renderer/shared/components/primitives/layout/TopBar'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import styles from './index.module.css'
 
 export default function Settings() {
+  const { t } = useLocale()
+
   return (
     <>
-      <TopBar title="설정" />
-      <PageToc label="설정 목차">
+      <TopBar title={t.settings.title} />
+      <PageToc label={t.settings.toc}>
         <div className={styles.page}>
-          <h1 className={styles.title}>설정</h1>
+          <h1 className={styles.title}>{t.settings.title}</h1>
           <SettingsSection>
-            <SettingGroup title="음성 인식 모델">
+            <SettingGroup title={t.settings.groups.sttModel}>
               <ModelDownloadSection variant="setting" />
             </SettingGroup>
             {/* widgets는 widgets를 import하지 않으므로 로컬 모델 파일 행은 페이지가 슬롯으로 넘긴다 */}

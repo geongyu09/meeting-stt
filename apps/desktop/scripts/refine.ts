@@ -14,6 +14,7 @@ import {
   READING_MAX_PREDICT_TOKENS,
   READING_SYSTEM_PROMPT,
   REFINE_CTX_TOKENS,
+  REFINE_TEMPERATURE,
   splitVerifyBatches,
   VERIFY_MAX_PREDICT_TOKENS,
   VERIFY_SYSTEM_PROMPT
@@ -38,9 +39,6 @@ import { run } from './shell'
  */
 const LLAMA_BIN = path.join(BIN_DIR, 'llama-cli')
 const SUMMARY_MODEL = path.join(MODELS_DIR, SUMMARY_MODEL_ASSET.fileName)
-
-/** 판정은 창작이 아니다. 요약(0.3)보다 낮추되 0은 반복을 부르므로 피한다 */
-const REFINE_TEMPERATURE = 0.1
 
 const TRANSCRIPT_LINE = /^\[(\d{2}:\d{2}:\d{2})\] ([^:]+): (.*)$/
 

@@ -1,6 +1,6 @@
 import { useId, useState } from 'react'
 import { Link } from 'react-router'
-import { LLM_PROVIDER_LABELS, llmMissingMessage } from '@shared/llm'
+import { llmMissingMessage } from '@shared/llm'
 import Button from '@renderer/shared/components/primitives/ui/Button'
 import Icon from '@renderer/shared/components/primitives/ui/Icon'
 import ProgressBar from '@renderer/shared/components/primitives/ui/ProgressBar'
@@ -8,8 +8,8 @@ import useLlmStatus from '@renderer/shared/hooks/domain/llm/useLlmStatus'
 import useMeeting from '@renderer/shared/hooks/domain/meeting/useMeeting'
 import useSummary from '@renderer/shared/hooks/domain/meeting/useSummary'
 import { PATHS } from '@renderer/shared/routes/paths'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
-import { STAGE_MESSAGES } from './constants/stage'
 import useSummaryCopy from './model/useSummaryCopy'
 import styles from './index.module.css'
 
@@ -20,6 +20,7 @@ interface SummarySectionProps {
 const CHEVRON_SIZE = 14
 
 export default function SummarySection({ meetingId }: SummarySectionProps) {
+  const { t } = useLocale()
   const { meeting, utterances } = useMeeting({ meetingId })
   const { summary, stage, percent, error, isRunning, createSummary } = useSummary({
     meetingId,
@@ -35,29 +36,29 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
 
   const hasTranscript = utterances.length > 0
   // 상태를 아직 모르면 막지 않는다. 준비 문구는 main과 같은 함수로 만든다 (references/architecture.md "LLM 공급자")
-  const missingMessage = llmStatus ? llmMissingMessage(llmStatus) : null
-  const providerLabel = llmStatus ? LLM_PROVIDER_LABELS[llmStatus.provider] : ''
+  const missingMessage = llmStatus ? llmMissingMessage(llmStatus, t.llm) : null
+  const providerLabel = llmStatus ? t.llm.providerLabels[llmStatus.provider] : ''
   // 접어 둔 채로 요약이 돌면 진행률이 안 보이므로 캡션이 대신 알려 준다
-  const caption = !isExpanded && isRunning ? `요약 중 ${percent}%` : providerLabel
+  const caption = !isExpanded && isRunning ? t.summary.runningCaption({ percent }) : providerLabel
 
   const renderBody = () => {
     if (isRunning) {
       return (
         <div className={styles.pending}>
-          <p className={styles.message}>{stage ? STAGE_MESSAGES[stage] : ''}</p>
-          <ProgressBar percent={percent} label="요약 진행률" />
+          <p className={styles.message}>{stage ? t.summary.stages[stage] : ''}</p>
+          <ProgressBar percent={percent} label={t.summary.progressLabel} />
         </div>
       )
     }
 
     if (summary) return <p className={styles.summary}>{summary}</p>
-    if (!hasTranscript) return <p className={styles.message}>요약할 발화가 없습니다</p>
+    if (!hasTranscript) return <p className={styles.message}>{t.summary.noUtterances}</p>
     if (missingMessage) {
       return (
         <p className={styles.message}>
           {missingMessage}.{' '}
           <Link className={styles.link} to={PATHS.settings}>
-            설정에서 준비하기
+            {t.summary.prepareInSettings}
           </Link>
         </p>
       )
@@ -65,14 +66,13 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
 
     return (
       <p className={styles.message}>
-        아직 요약이 없습니다. 회의록을 {providerLabel || '선택한 모델'}로 요약하며, 회의 길이에 따라
-        몇 분이 걸립니다
+        {t.summary.empty({ provider: providerLabel || t.summary.fallbackProvider })}
       </p>
     )
   }
 
   return (
-    <section className={styles.section} aria-label="회의 요약">
+    <section className={styles.section} aria-label={t.summary.sectionLabel}>
       {/* 헤더 전체가 접기 버튼이라 상단 어디를 눌러도 접힌다 */}
       <button
         type="button"
@@ -84,7 +84,7 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
         <span className={styles.chevron}>
           <Icon name="chevronDown" size={CHEVRON_SIZE} />
         </span>
-        <h2 className={styles.title}>요약</h2>
+        <h2 className={styles.title}>{t.summary.title}</h2>
         <span className={styles.caption}>{caption}</span>
       </button>
 
@@ -98,7 +98,7 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
           <div className={styles.actions}>
             {summary && !isRunning && (
               <Button variant="secondary" size="sm" className={styles.action} onClick={copySummary}>
-                {isCopied ? '복사됨' : '요약 복사'}
+                {isCopied ? t.summary.copied : t.summary.copy}
               </Button>
             )}
             <Button
@@ -107,7 +107,7 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
               onClick={createSummary}
               disabled={isRunning || !hasTranscript || missingMessage !== null}
             >
-              {summary ? '다시 요약' : '요약 만들기'}
+              {summary ? t.summary.regenerate : t.summary.create}
             </Button>
           </div>
         </div>

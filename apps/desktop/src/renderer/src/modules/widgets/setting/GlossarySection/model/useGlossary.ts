@@ -2,12 +2,9 @@ import { useEffect, useState } from 'react'
 import { mergeGlossaryTerms } from '@shared/glossary'
 import type { GlossarySettings } from '@shared/types'
 import { draftGlossaryApi, getGlossaryApi, updateGlossaryApi } from '@renderer/shared/api/glossary'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import useTermRows from './useTermRows'
-
-const LOAD_ERROR_MESSAGE = '용어 사전을 불러오지 못했습니다'
-const SAVE_ERROR_MESSAGE = '용어 사전을 저장하지 못했습니다'
-const DRAFT_ERROR_MESSAGE = '용어 초안을 만들지 못했습니다'
 
 const EMPTY_GLOSSARY: GlossarySettings = { teamDescription: '', terms: [] }
 
@@ -19,6 +16,7 @@ const messageOf = ({ caught, fallback }: { caught: unknown; fallback: string }) 
  * 모델 읽기가 틀릴 수 있어 사용자가 확인한 뒤 저장한다 (references/architecture.md "용어 사전").
  */
 const useGlossary = () => {
+  const { t } = useLocale()
   const [saved, setSaved] = useState(EMPTY_GLOSSARY)
   const [teamDescription, setTeamDescription] = useState('')
   const { rows, focusId, termLines, resetRows, addRow, updateRow, removeRow, pasteRows } =
@@ -37,9 +35,11 @@ const useGlossary = () => {
         setTeamDescription(glossary.teamDescription)
         resetRows(glossary.terms)
       })
-      .catch((caught: unknown) => setLoadError(messageOf({ caught, fallback: LOAD_ERROR_MESSAGE })))
+      .catch((caught: unknown) =>
+        setLoadError(messageOf({ caught, fallback: t.glossary.actions.loadError }))
+      )
       .finally(() => setIsLoading(false))
-  }, [resetRows])
+  }, [resetRows, t])
 
   const isDirty =
     teamDescription !== saved.teamDescription || termLines.join('\n') !== saved.terms.join('\n')
@@ -54,9 +54,9 @@ const useGlossary = () => {
       setSaved(next)
       setTeamDescription(next.teamDescription)
       resetRows(next.terms)
-      setNotice(`용어 ${next.terms.length}개를 저장했습니다`)
+      setNotice(t.glossary.actions.saved({ count: next.terms.length }))
     } catch (caught) {
-      setActionError(messageOf({ caught, fallback: SAVE_ERROR_MESSAGE }))
+      setActionError(messageOf({ caught, fallback: t.glossary.actions.saveError }))
     } finally {
       setIsSaving(false)
     }
@@ -73,11 +73,11 @@ const useGlossary = () => {
       resetRows(terms)
       setNotice(
         addedCount
-          ? `새 용어 ${addedCount}개를 덧붙였습니다. 읽기가 맞는지 확인하고 저장해 주세요`
-          : '새로 덧붙일 용어가 없습니다'
+          ? t.glossary.actions.drafted({ count: addedCount })
+          : t.glossary.actions.nothingToAdd
       )
     } catch (caught) {
-      setActionError(messageOf({ caught, fallback: DRAFT_ERROR_MESSAGE }))
+      setActionError(messageOf({ caught, fallback: t.glossary.actions.draftError }))
     } finally {
       setIsDrafting(false)
     }

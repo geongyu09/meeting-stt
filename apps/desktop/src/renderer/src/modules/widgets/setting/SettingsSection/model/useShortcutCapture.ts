@@ -1,6 +1,7 @@
 import { useEffect, useState, type KeyboardEvent } from 'react'
 import { acceleratorFromKeyInput } from '@shared/shortcut'
 import { setShortcutsSuspendedApi } from '@renderer/shared/api/settings'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 interface UseShortcutCaptureParams {
   onCapture: (accelerator: string) => void
@@ -9,6 +10,7 @@ interface UseShortcutCaptureParams {
 const ESCAPE_KEY = 'Escape'
 
 const useShortcutCapture = ({ onCapture }: UseShortcutCaptureParams) => {
+  const { t } = useLocale()
   const [isCapturing, setIsCapturing] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
@@ -17,13 +19,13 @@ const useShortcutCapture = ({ onCapture }: UseShortcutCaptureParams) => {
   useEffect(() => {
     if (!isCapturing) return
 
-    const handleFailure = () => setError(new Error('단축키 입력 상태를 바꾸지 못했습니다'))
+    const handleFailure = () => setError(new Error(t.settings.shortcutField.suspendError))
     setShortcutsSuspendedApi({ isSuspended: true }).catch(handleFailure)
 
     return () => {
       setShortcutsSuspendedApi({ isSuspended: false }).catch(handleFailure)
     }
-  }, [isCapturing])
+  }, [isCapturing, t])
 
   const startCapture = () => {
     setError(null)

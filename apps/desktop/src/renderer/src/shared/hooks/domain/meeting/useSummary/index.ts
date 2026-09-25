@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { SummaryStage } from '@shared/types'
 import { onSummaryProgress } from '@renderer/shared/api/events'
 import { createSummaryApi } from '@renderer/shared/api/summary'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 interface UseSummaryParams {
   meetingId: string
@@ -9,9 +10,8 @@ interface UseSummaryParams {
   initialSummary?: string
 }
 
-const REQUEST_ERROR_MESSAGE = '요약을 시작하지 못했습니다'
-
 const useSummary = ({ meetingId, initialSummary }: UseSummaryParams) => {
+  const { t } = useLocale()
   const [generatedSummary, setGeneratedSummary] = useState<string | null>(null)
   const [stage, setStage] = useState<SummaryStage | null>(null)
   const [percent, setPercent] = useState(0)
@@ -29,9 +29,9 @@ const useSummary = ({ meetingId, initialSummary }: UseSummaryParams) => {
         setStage(event.stage)
         setPercent(event.percent)
         if (event.stage === 'done' && event.summary) setGeneratedSummary(event.summary)
-        setError(event.stage === 'error' ? (event.errorMessage ?? REQUEST_ERROR_MESSAGE) : null)
+        setError(event.stage === 'error' ? (event.errorMessage ?? t.summary.errors.request) : null)
       }),
-    [meetingId]
+    [meetingId, t]
   )
 
   const createSummary = async () => {
@@ -43,7 +43,7 @@ const useSummary = ({ meetingId, initialSummary }: UseSummaryParams) => {
       await createSummaryApi({ meetingId })
     } catch (caught) {
       setStage('error')
-      setError(caught instanceof Error ? caught.message : REQUEST_ERROR_MESSAGE)
+      setError(caught instanceof Error ? caught.message : t.summary.errors.request)
     }
   }
 

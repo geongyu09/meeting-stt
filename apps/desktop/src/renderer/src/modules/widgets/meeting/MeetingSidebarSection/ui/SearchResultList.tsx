@@ -2,6 +2,7 @@ import { NavLink } from 'react-router'
 import { formatTimestamp } from '@meeting-stt/core/format'
 import type { MeetingSearchResult } from '@shared/ipc'
 import { meetingDetailPath } from '@renderer/shared/routes/paths'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import { highlightMatch } from '../utils/highlightMatch'
 import styles from './SearchResultList.module.css'
@@ -42,10 +43,13 @@ export default function SearchResultList({
   isSearching,
   error
 }: SearchResultListProps) {
+  const { t } = useLocale()
+
   if (error) return <p className={styles.error}>{error.message}</p>
-  if (isSearching) return <p className={styles.message}>찾는 중입니다</p>
-  if (!results.length)
-    return <p className={styles.message}>“{query.trim()}”이(가) 들어간 회의가 없습니다</p>
+  if (isSearching) return <p className={styles.message}>{t.sidebar.search.searching}</p>
+  if (!results.length) {
+    return <p className={styles.message}>{t.sidebar.search.noResults({ query: query.trim() })}</p>
+  }
 
   return (
     <ul className={styles.list}>

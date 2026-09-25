@@ -1,6 +1,12 @@
 import type { SttSegment, SttWord } from '@shared/types'
+import { t } from '../locale'
 
 const DEFAULT_LANGUAGE = 'ko'
+/**
+ * 이전 창의 출력을 다음 창 문맥으로 넘기지 않는다. 넘기면 긴 회의에서 같은 문장을 수백 초 반복하는 고리에 빠진다
+ * (large-v3 102분 회의 2,338초, turbo 71분 1,034초 → 각각 2초, 25초). docs/stt-tuning-results.md
+ */
+const MAX_CONTEXT_TOKENS = 0
 const MS_PER_SEC = 1000
 /** t_dtw는 10ms 단위 정수다 */
 const MS_PER_DTW_UNIT = 10
@@ -42,7 +48,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const toWhisperSegments = (parsed: unknown) => {
   if (!isRecord(parsed) || !Array.isArray(parsed.transcription)) {
-    throw new Error('whisper 결과 JSON에 transcription 배열이 없습니다')
+    throw new Error(t().main.pipeline.whisperJsonNoTranscription)
   }
 
   return parsed.transcription as WhisperSegment[]
@@ -134,7 +140,7 @@ export const parseWhisperOutput = (raw: Buffer): SttSegment[] => {
   try {
     parsed = JSON.parse(raw.toString('latin1'))
   } catch {
-    throw new Error('whisper 결과 JSON을 읽지 못했습니다')
+    throw new Error(t().main.pipeline.whisperJsonUnreadable)
   }
 
   return toWhisperSegments(parsed).map((segment) => {
@@ -190,6 +196,8 @@ export const buildWhisperArgs = ({
   language,
   '-t',
   String(threads),
+  '-mc',
+  String(MAX_CONTEXT_TOKENS),
   '--output-json-full',
   '-of',
   outputPath,

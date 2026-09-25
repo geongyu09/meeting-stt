@@ -1,3 +1,5 @@
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
+
 import styles from './index.module.css'
 
 interface LevelWaveformProps {
@@ -18,6 +20,7 @@ const heightOf = (level: number) =>
 
 /** 파형형 레벨 미터. 모자란 칸은 오른쪽을 빈 막대로 채운다 (references/architecture.md "공통 컴포넌트") */
 export default function LevelWaveform({ levels, barCount, size = 'md' }: LevelWaveformProps) {
+  const { t } = useLocale()
   const recent = levels.slice(-barCount)
   const latest = recent.at(-1) ?? 0
   const bars = Array.from({ length: barCount }, (_, index) => recent[index])
@@ -26,7 +29,7 @@ export default function LevelWaveform({ levels, barCount, size = 'md' }: LevelWa
     <div
       className={[styles.waveform, styles[size]].join(' ')}
       role="meter"
-      aria-label="마이크 입력 세기"
+      aria-label={t.common.levelWaveform.micLevel}
       aria-valuemin={0}
       aria-valuemax={PERCENT}
       aria-valuenow={Math.round(Math.min(1, latest) * PERCENT)}

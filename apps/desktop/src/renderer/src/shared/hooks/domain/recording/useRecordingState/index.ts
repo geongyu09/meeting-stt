@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RecordingStateEvent } from '@shared/ipc'
 import { onRecordingState } from '@renderer/shared/api/events'
 import { getRecordingStateApi } from '@renderer/shared/api/recording'
+import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 const ELAPSED_TICK_MS = 200
 const MS_PER_SEC = 1000
@@ -15,6 +16,7 @@ const IDLE_STATE: RecordingStateEvent = { meetingId: null, startedAt: null, leve
  * (references/architecture.md의 "녹음 위젯 패널").
  */
 const useRecordingState = () => {
+  const { t } = useLocale()
   const [state, setState] = useState(IDLE_STATE)
   const [now, setNow] = useState(() => Date.now())
   const [levels, setLevels] = useState<number[]>([])
@@ -47,9 +49,12 @@ const useRecordingState = () => {
         if (!isEventReceivedRef.current) applyState(next)
       })
       .catch(() =>
-        setState((current) => ({ ...current, errorMessage: '녹음 상태를 불러오지 못했습니다' }))
+        setState((current) => ({
+          ...current,
+          errorMessage: t.recording.errors.stateUnavailable
+        }))
       )
-  }, [applyState])
+  }, [applyState, t])
 
   useEffect(() => onRecordingState(applyEvent), [applyEvent])
 

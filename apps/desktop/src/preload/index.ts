@@ -4,11 +4,16 @@ import {
   type CheckLlmResponse,
   type CheckUpdateResponse,
   type DeleteMeetingRequest,
+  type ExportMeetingAudioRequest,
+  type ExportMeetingAudioResponse,
+  type ImportMeetingAudioResponse,
+  type ReprocessMeetingRequest,
   type GetLlmStatusResponse,
   type SetLlmApiKeyRequest,
   type SetLlmApiKeyResponse,
   type SetLlmProviderRequest,
   type SetLlmProviderResponse,
+  type SettingsChangedEvent,
   type SetOpenaiModelRequest,
   type SetOpenaiModelResponse,
   type DownloadModelsRequest,
@@ -45,6 +50,8 @@ import {
   type StartRecordingResponse,
   type StopRecordingRequest,
   type StopRecordingResponse,
+  type RefineProgressEvent,
+  type RunRefineRequest,
   type SummaryProgressEvent,
   type UpdateAvailableEvent,
   type UpdateGlossaryRequest,
@@ -92,7 +99,12 @@ const api = {
     delete: (payload: DeleteMeetingRequest): Promise<void> =>
       ipcRenderer.invoke(IPC.meetings.delete, payload),
     search: (payload: SearchMeetingsRequest): Promise<SearchMeetingsResponse> =>
-      ipcRenderer.invoke(IPC.meetings.search, payload)
+      ipcRenderer.invoke(IPC.meetings.search, payload),
+    reprocess: (payload: ReprocessMeetingRequest): Promise<MutateMeetingResponse> =>
+      ipcRenderer.invoke(IPC.meetings.reprocess, payload),
+    exportAudio: (payload: ExportMeetingAudioRequest): Promise<ExportMeetingAudioResponse> =>
+      ipcRenderer.invoke(IPC.meetings.exportAudio, payload),
+    import: (): Promise<ImportMeetingAudioResponse> => ipcRenderer.invoke(IPC.meetings.import)
   },
   utterances: {
     updateText: (payload: UpdateUtteranceTextRequest): Promise<MutateMeetingResponse> =>
@@ -118,6 +130,9 @@ const api = {
   summary: {
     create: (payload: CreateSummaryRequest): Promise<void> =>
       ipcRenderer.invoke(IPC.summary.create, payload)
+  },
+  refine: {
+    run: (payload: RunRefineRequest): Promise<void> => ipcRenderer.invoke(IPC.refine.run, payload)
   },
   glossary: {
     get: (): Promise<GetGlossaryResponse> => ipcRenderer.invoke(IPC.glossary.get),
@@ -165,6 +180,14 @@ const api = {
         ipcRenderer.removeListener(IPC.events.summary, handler)
       }
     },
+    onRefineProgress: (listener: (event: RefineProgressEvent) => void) => {
+      const handler = (_: IpcRendererEvent, payload: RefineProgressEvent) => listener(payload)
+      ipcRenderer.on(IPC.events.refine, handler)
+
+      return () => {
+        ipcRenderer.removeListener(IPC.events.refine, handler)
+      }
+    },
     onModelDownloadProgress: (listener: (event: ModelDownloadProgressEvent) => void) => {
       const handler = (_: IpcRendererEvent, payload: ModelDownloadProgressEvent) =>
         listener(payload)
@@ -204,6 +227,14 @@ const api = {
 
       return () => {
         ipcRenderer.removeListener(IPC.events.updateAvailable, handler)
+      }
+    },
+    onSettingsChanged: (listener: (event: SettingsChangedEvent) => void) => {
+      const handler = (_: IpcRendererEvent, payload: SettingsChangedEvent) => listener(payload)
+      ipcRenderer.on(IPC.events.settingsChanged, handler)
+
+      return () => {
+        ipcRenderer.removeListener(IPC.events.settingsChanged, handler)
       }
     }
   }
