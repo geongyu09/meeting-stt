@@ -104,6 +104,21 @@
   border-radius: var(--radius-full);
 }
 
+.stopRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.stopRow .stopButton {
+  flex: 1;
+}
+
+.pauseButton {
+  width: 44px;
+  min-height: 44px;
+}
+
 .stopButton {
   color: var(--color-accent);
   border: 1.5px solid var(--color-accent);

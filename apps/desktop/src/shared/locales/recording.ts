@@ -5,7 +5,13 @@ export const recordingKo = {
   },
   status: {
     recording: '녹음 중',
+    paused: '일시정지됨',
     idle: '대기 중'
+  },
+  pause: {
+    pause: '녹음 일시정지',
+    resume: '녹음 재개',
+    error: '일시정지·재개하지 못했습니다. 잠시 후 다시 시도해 주세요'
   },
   speakerCount: {
     label: '참석자 수',
@@ -13,6 +19,11 @@ export const recordingKo = {
     hint: '알면 적어 주세요. 비우면 자동으로 나눕니다',
     invalid: ({ min, max }: { min: number; max: number }) =>
       `${min}~${max} 사이의 정수만 쓸 수 있습니다`
+  },
+  panel: {
+    label: '녹음 옵션',
+    optionsTitle: '녹음 설정',
+    importTitle: '파일로 만들기'
   },
   recorder: {
     sectionLabel: '녹음',
@@ -38,14 +49,15 @@ export const recordingKo = {
   },
   systemAudio: {
     label: '온라인 회의 소리 함께 녹음',
-    hint: 'Zoom·Meet 등 스피커로 나오는 상대방 목소리도 회의록에 넣습니다. 이어폰을 쓰면 더 정확합니다',
+    hint: 'Zoom·Meet 상대방 목소리도 회의록에 넣습니다. 이어폰을 쓰면 더 정확합니다. 시작 전에 켜 두세요',
     badge: '상대방 소리 포함',
     toggleError: '설정을 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요'
   },
   importer: {
     label: '녹음 파일 가져오기',
+    action: '가져오기',
     importing: '가져오는 중…',
-    hint: '음성 메모·회의 녹화 파일(m4a, mp3, wav, mp4 등)로도 회의록을 만들 수 있습니다. 참석자 수도 함께 적용됩니다.',
+    hint: '음성 메모·회의 녹화 파일도 됩니다. 참석자 수를 함께 씁니다',
     failed: '녹음 파일을 가져오지 못했습니다'
   },
   widget: {
@@ -55,6 +67,7 @@ export const recordingKo = {
     stop: '녹음 정지',
     modelNotReady: '메인 창에서 모델을 먼저 준비해 주세요',
     stopHint: '정지하면 메인 창에서 회의록을 만듭니다',
+    pausedHint: '일시정지 동안의 소리는 회의록에 남지 않습니다',
     startHint: '회의가 시작되면 녹음을 누르세요'
   },
   errors: {
@@ -77,13 +90,24 @@ export const recordingEn: typeof recordingKo = {
   },
   status: {
     recording: 'Recording',
+    paused: 'Paused',
     idle: 'Idle'
+  },
+  pause: {
+    pause: 'Pause recording',
+    resume: 'Resume recording',
+    error: 'Could not pause or resume. Please try again shortly'
   },
   speakerCount: {
     label: 'Participants',
     unknown: 'Unknown',
     hint: 'Enter it if you know. Leave blank to detect automatically',
     invalid: ({ min, max }) => `Enter a whole number between ${min} and ${max}`
+  },
+  panel: {
+    label: 'Recording options',
+    optionsTitle: 'Recording settings',
+    importTitle: 'From a file'
   },
   recorder: {
     sectionLabel: 'Recording',
@@ -109,14 +133,15 @@ export const recordingEn: typeof recordingKo = {
   },
   systemAudio: {
     label: 'Also record online meeting audio',
-    hint: 'Captures what others say through your speakers in Zoom, Meet and similar apps. Headphones give better results',
+    hint: 'Captures what others say in Zoom, Meet and similar apps. Headphones give better results. Turn it on before you start',
     badge: 'Includes speaker audio',
     toggleError: 'Could not change this setting. Please try again shortly'
   },
   importer: {
     label: 'Import a recording',
+    action: 'Import',
     importing: 'Importing…',
-    hint: 'You can also create a transcript from a voice memo or meeting recording (m4a, mp3, wav, mp4 and more). The participant count applies too.',
+    hint: 'Voice memos and recordings work too. Uses the participant count',
     failed: 'Could not import the recording'
   },
   widget: {
@@ -126,6 +151,7 @@ export const recordingEn: typeof recordingKo = {
     stop: 'Stop recording',
     modelNotReady: 'Set up the models in the main window first',
     stopHint: 'Stopping creates the transcript in the main window',
+    pausedHint: 'Audio while paused is not included in the transcript',
     startHint: 'Press record when the meeting starts'
   },
   errors: {

@@ -51,6 +51,7 @@ const BUILT_IN_DEVICE = { deviceId: 'builtin-1', label: 'MacBook Pro 마이크' 
 const IDLE_STATE: RecordingStateEvent = {
   meetingId: null,
   startedAt: null,
+  pausedAt: null,
   level: 0,
   liveTranscript: { isEnabled: false, lines: [], partial: '' },
   systemAudio: { isEnabled: false }

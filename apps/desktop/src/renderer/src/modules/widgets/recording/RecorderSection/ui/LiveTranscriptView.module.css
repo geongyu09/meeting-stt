@@ -1,20 +1,21 @@
+/* 카드 본문을 채운다. 카드 크기는 화면이 정하므로 내용이 늘어도 바깥은 움직이지 않는다 */
 .container {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: var(--space-2);
-  width: 100%;
+  align-self: stretch;
+  min-height: 0;
 }
 
 .scroller {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: var(--space-2);
-  height: 200px;
+  min-height: 0;
   overflow-y: auto;
-  padding: var(--space-4) var(--space-5);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  padding-right: var(--space-2);
 }
 
 .line,
@@ -39,6 +40,7 @@
 .hint,
 .error,
 .notice {
+  flex-shrink: 0;
   margin: 0;
   font-size: var(--font-xs);
   text-align: center;

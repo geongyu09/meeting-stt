@@ -11,7 +11,8 @@ vi.mock('@renderer/shared/api/recording', () => ({
   stopRecordingApi: vi.fn(),
   getRecordingStateApi: vi.fn(),
   setSpeakerCountApi: vi.fn(),
-  reportRecordingErrorApi: vi.fn()
+  reportRecordingErrorApi: vi.fn(),
+  setRecordingPausedApi: vi.fn()
 }))
 
 vi.mock('@renderer/shared/api/events', () => ({
@@ -37,6 +38,7 @@ import {
   getRecordingStateApi,
   reportRecordingErrorApi,
   requestMicrophonePermissionApi,
+  setRecordingPausedApi,
   startRecordingApi,
   stopRecordingApi
 } from '@renderer/shared/api/recording'
@@ -47,6 +49,7 @@ const MEETING_ID = 'meeting-1'
 const IDLE_STATE: RecordingStateEvent = {
   meetingId: null,
   startedAt: null,
+  pausedAt: null,
   level: 0,
   liveTranscript: { isEnabled: false, lines: [], partial: '' },
   systemAudio: { isEnabled: false }
@@ -170,6 +173,32 @@ describe('WidgetPanelSection', () => {
     await user.click(screen.getByRole('button', { name: '녹음 정지' }))
 
     expect(stopRecordingApi).toHaveBeenCalledWith({ meetingId: MEETING_ID })
+  })
+
+  it('일시정지 중에는 재개 버튼과 안내를 보여 주고, 누르면 재개를 요청한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(setRecordingPausedApi).mockResolvedValue(IDLE_STATE)
+    render(<WidgetPanelSection />)
+    await screen.findByRole('button', { name: '녹음 시작' })
+    const pausedAt = Date.now()
+
+    act(() => {
+      pushState({
+        ...IDLE_STATE,
+        meetingId: MEETING_ID,
+        startedAt: pausedAt - 65_000,
+        pausedAt,
+        level: 0
+      })
+    })
+
+    expect(screen.getByText('일시정지됨')).toBeTruthy()
+    expect(screen.getByText('01:05')).toBeTruthy()
+    expect(screen.getByText('일시정지 동안의 소리는 회의록에 남지 않습니다')).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: '녹음 재개' }))
+
+    expect(setRecordingPausedApi).toHaveBeenCalledWith({ isPaused: false })
   })
 
   it('세션이 보낸 오류 안내를 보여준다', async () => {

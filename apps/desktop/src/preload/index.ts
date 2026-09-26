@@ -44,6 +44,7 @@ import {
   type SearchMeetingsResponse,
   type SendRecordingChunkRequest,
   type SetLiveTranscriptRequest,
+  type SetRecordingPausedRequest,
   type SetSystemAudioRequest,
   type SetSpeakerCountRequest,
   type SetShortcutsSuspendedRequest,
@@ -86,7 +87,9 @@ const api = {
     setLiveTranscript: (payload: SetLiveTranscriptRequest): Promise<GetRecordingStateResponse> =>
       ipcRenderer.invoke(IPC.recording.setLiveTranscript, payload),
     setSystemAudio: (payload: SetSystemAudioRequest): Promise<GetRecordingStateResponse> =>
-      ipcRenderer.invoke(IPC.recording.setSystemAudio, payload)
+      ipcRenderer.invoke(IPC.recording.setSystemAudio, payload),
+    setPaused: (payload: SetRecordingPausedRequest): Promise<GetRecordingStateResponse> =>
+      ipcRenderer.invoke(IPC.recording.setPaused, payload)
   },
   widget: {
     setVisible: (payload: SetWidgetVisibleRequest): Promise<void> =>

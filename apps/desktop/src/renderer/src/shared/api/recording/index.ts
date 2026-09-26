@@ -3,6 +3,7 @@ import type {
   ReportRecordingErrorRequest,
   SendRecordingChunkRequest,
   SetLiveTranscriptRequest,
+  SetRecordingPausedRequest,
   SetSpeakerCountRequest,
   SetSystemAudioRequest,
   StartRecordingRequest,
@@ -116,3 +117,13 @@ export const setLiveTranscriptApi = async ({ isEnabled }: SetLiveTranscriptReque
  */
 export const setSystemAudioApi = async ({ isEnabled }: SetSystemAudioRequest) =>
   window.api.recording.setSystemAudio({ isEnabled })
+
+/**
+ * @description 진행 중인 녹음을 일시정지하거나 재개합니다. 일시정지 동안의 소리는 회의록에 남지 않습니다.
+ * @param isPaused - true면 일시정지, false면 재개
+ * @returns 바뀐 직후의 녹음 상태
+ * @example
+ * await setRecordingPausedApi({ isPaused: true })
+ */
+export const setRecordingPausedApi = async ({ isPaused }: SetRecordingPausedRequest) =>
+  window.api.recording.setPaused({ isPaused })

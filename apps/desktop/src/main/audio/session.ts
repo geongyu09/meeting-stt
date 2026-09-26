@@ -31,7 +31,10 @@ export const MIN_RECORDING_SEC = 1
 
 interface RecordingSession {
   meetingId: string
+  /** 경과 시간의 기준 시각. 재개할 때마다 멈춰 있던 시간만큼 뒤로 민다 */
   startedAt: number
+  /** 일시정지한 시각. 이 동안 들어온 청크는 버린다 (references/architecture.md "일시정지·재개") */
+  pausedAt: number | null
   writer: WavWriter
   level: number
   /** 온라인 회의 소리 캡처. 켜져 있어도 도구가 실패하면 null이고 마이크만 녹음한다 */
@@ -86,6 +89,7 @@ export const setRecordingStateListener = (listener: (event: RecordingStateEvent)
 export const getRecordingState = (): RecordingStateEvent => ({
   meetingId: session?.meetingId ?? null,
   startedAt: session?.startedAt ?? null,
+  pausedAt: session?.pausedAt ?? null,
   level: session?.level ?? 0,
   speakerCount,
   liveTranscript: getLiveTranscriptState(),
@@ -123,7 +127,14 @@ export const startRecording = async ({ sampleRate }: { sampleRate: number }) => 
   await mkdir(recordingsDir(), { recursive: true })
   const writer = await createWavWriter({ filePath: audioPath })
   insertMeeting({ id: meetingId, title: defaultTitle(createdAt), createdAt, audioPath })
-  session = { meetingId, startedAt: createdAt, writer, level: 0, systemAudio: null }
+  session = {
+    meetingId,
+    startedAt: createdAt,
+    pausedAt: null,
+    writer,
+    level: 0,
+    systemAudio: null
+  }
   if (systemAudioEnabled()) session.systemAudio = openSystemAudio({ meetingId })
   resetLiveTranscript()
   info(`녹음 시작 ${meetingId}`)
@@ -182,6 +193,16 @@ export const appendRecordingChunk = async ({
 
   const active = session
   const micSamples = new Float32Array(pcm)
+
+  // 위젯의 오디오 그래프는 일시정지와 무관하게 돌아 청크가 계속 온다. 멈춰 있던 동안의 상대방 소리가
+  // 재개 뒤에 섞이지 않도록 시스템 오디오도 같은 길이만큼 꺼내 버린다
+  if (active.pausedAt !== null) {
+    active.systemAudio?.take(micSamples.length)
+    active.level = 0
+    publish()
+    return
+  }
+
   // 섞은 결과가 WAV·레벨·라이브 받아쓰기의 입력이다. 파이프라인은 손대지 않는다
   const samples = active.systemAudio
     ? mixSamples({ base: micSamples, overlay: active.systemAudio.take(micSamples.length) })
@@ -230,6 +251,25 @@ export const stopRecording = async ({ meetingId }: { meetingId: string }) => {
 /** 값이 바뀌면 두 창의 입력란이 같은 값을 보도록 바로 알린다. 검증은 핸들러가 끝냈다 */
 export const setRecordingSpeakerCount = (next: number | undefined) => {
   speakerCount = next
+  publish()
+
+  return getRecordingState()
+}
+
+/** 재개할 때 기준 시각을 멈춰 있던 시간만큼 밀어 경과 시간이 일시정지 구간을 세지 않게 한다 */
+export const setRecordingPaused = (isPaused: boolean) => {
+  if (!session) throw new Error(t().main.recording.notActive)
+  if ((session.pausedAt !== null) === isPaused) return getRecordingState()
+
+  const now = Date.now()
+  if (isPaused) {
+    session.pausedAt = now
+    session.level = 0
+  } else if (session.pausedAt !== null) {
+    session.startedAt += now - session.pausedAt
+    session.pausedAt = null
+  }
+  info(`녹음 ${isPaused ? '일시정지' : '재개'} ${session.meetingId}`)
   publish()
 
   return getRecordingState()

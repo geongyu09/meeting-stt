@@ -67,7 +67,13 @@ const PATHS: Record<IconName, ReactNode> = {
   check: <path d="m5 12 5 5 9-10" />,
   chevronDown: <path d="m6 9 6 6 6-6" />,
   play: <path d="M8 5v14l11-7z" fill="currentColor" />,
-  pause: <path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor" />,
+  // 막대 사이 틈이 공통 stroke에 메워지면 정지(■)처럼 보여 테두리 없이 칠만 한다
+  pause: (
+    <g fill="currentColor" stroke="none">
+      <rect x="6" y="5" width="4" height="14" rx="1" />
+      <rect x="14" y="5" width="4" height="14" rx="1" />
+    </g>
+  ),
   download: (
     <>
       <path d="M12 4v11" />

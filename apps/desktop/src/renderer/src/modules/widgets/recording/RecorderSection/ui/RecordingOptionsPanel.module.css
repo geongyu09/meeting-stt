@@ -1,0 +1,33 @@
+.panel {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: var(--space-5);
+  width: 340px;
+  min-height: 0;
+}
+
+/* 설명 자리는 줄 수를 고정한다 (13px × 1.65). 문구가 바뀌어도 행 높이가 그대로다 */
+.note,
+.errorNote,
+.noteTall,
+.errorNoteTall {
+  display: block;
+  /* 한글이 글자 중간에서 끊기지 않게 어절 단위로 줄을 바꾼다 */
+  word-break: keep-all;
+}
+
+.note,
+.errorNote {
+  height: 43px;
+}
+
+.noteTall,
+.errorNoteTall {
+  height: 65px;
+}
+
+.errorNote,
+.errorNoteTall {
+  color: var(--color-danger);
+}

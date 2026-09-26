@@ -10,7 +10,8 @@ vi.mock('@renderer/shared/api/recording', () => ({
   controlRecordingApi: vi.fn(),
   setSpeakerCountApi: vi.fn(),
   setLiveTranscriptApi: vi.fn(),
-  setSystemAudioApi: vi.fn()
+  setSystemAudioApi: vi.fn(),
+  setRecordingPausedApi: vi.fn()
 }))
 
 vi.mock('@renderer/shared/api/meetings', () => ({ importMeetingAudioApi: vi.fn() }))
@@ -27,6 +28,7 @@ import {
   controlRecordingApi,
   getRecordingStateApi,
   setLiveTranscriptApi,
+  setRecordingPausedApi,
   setSpeakerCountApi,
   setSystemAudioApi
 } from '@renderer/shared/api/recording'
@@ -36,6 +38,7 @@ const MEETING_ID = 'meeting-1'
 const IDLE_STATE: RecordingStateEvent = {
   meetingId: null,
   startedAt: null,
+  pausedAt: null,
   level: 0,
   liveTranscript: { isEnabled: false, lines: [], partial: '' },
   systemAudio: { isEnabled: false }
@@ -52,20 +55,26 @@ const renderSection = () =>
     </MemoryRouter>
   )
 
-/** main이 보내는 상태 이벤트를 테스트에서 직접 흘려보내기 위해 구독자를 잡아 둔다 */
-let pushState: (event: RecordingStateEvent) => void = () => {}
+/**
+ * main이 보내는 상태 이벤트를 테스트에서 직접 흘려보내기 위해 구독자를 잡아 둔다.
+ * 화면 안의 여러 컴포넌트(가져오기 행 등)가 각자 구독하므로 전부에게 보낸다
+ */
+const listeners = new Set<(event: RecordingStateEvent) => void>()
+const pushState = (event: RecordingStateEvent) => listeners.forEach((listener) => listener(event))
 
 beforeEach(() => {
+  listeners.clear()
   vi.mocked(onRecordingState).mockImplementation((listener) => {
-    pushState = listener
+    listeners.add(listener)
 
-    return () => {}
+    return () => listeners.delete(listener)
   })
   vi.mocked(getRecordingStateApi).mockResolvedValue(IDLE_STATE)
   vi.mocked(controlRecordingApi).mockResolvedValue(undefined)
   vi.mocked(setSpeakerCountApi).mockResolvedValue(IDLE_STATE)
   vi.mocked(setLiveTranscriptApi).mockResolvedValue(IDLE_STATE)
   vi.mocked(setSystemAudioApi).mockResolvedValue(IDLE_STATE)
+  vi.mocked(setRecordingPausedApi).mockResolvedValue(IDLE_STATE)
 })
 
 afterEach(() => {
@@ -101,6 +110,62 @@ describe('RecorderSection', () => {
     await user.click(screen.getByRole('button', { name: '녹음 정지하고 회의록 만들기' }))
 
     expect(controlRecordingApi).toHaveBeenCalledWith({ kind: 'stop' })
+  })
+
+  it('녹음 중에는 일시정지 아이콘 버튼으로 main에 일시정지를 요청한다', async () => {
+    const user = userEvent.setup()
+    renderSection()
+
+    expect(screen.queryByRole('button', { name: '녹음 일시정지' })).toBeNull()
+
+    act(() => {
+      pushState({ ...IDLE_STATE, meetingId: MEETING_ID, startedAt: Date.now(), level: 0.2 })
+    })
+    await user.click(screen.getByRole('button', { name: '녹음 일시정지' }))
+
+    expect(setRecordingPausedApi).toHaveBeenCalledWith({ isPaused: true })
+  })
+
+  it('pausedAt이 없는 상태(옛 main)는 일시정지로 보지 않는다', () => {
+    renderSection()
+    const withoutPausedAt: Partial<RecordingStateEvent> = { ...IDLE_STATE }
+    delete withoutPausedAt.pausedAt
+
+    act(() => {
+      pushState({
+        ...withoutPausedAt,
+        meetingId: MEETING_ID,
+        startedAt: Date.now(),
+        level: 0.2
+      } as RecordingStateEvent)
+    })
+
+    expect(screen.getByText('녹음 중')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '녹음 일시정지' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '녹음 재개' })).toBeNull()
+  })
+
+  it('일시정지 중에는 멈춘 시간과 재개 버튼을 보여준다', async () => {
+    const user = userEvent.setup()
+    renderSection()
+    const pausedAt = Date.now()
+
+    act(() => {
+      pushState({
+        ...IDLE_STATE,
+        meetingId: MEETING_ID,
+        startedAt: pausedAt - 65_000,
+        pausedAt,
+        level: 0
+      })
+    })
+
+    expect(screen.getByText('일시정지됨')).toBeTruthy()
+    expect(screen.getByText('01:05')).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: '녹음 재개' }))
+
+    expect(setRecordingPausedApi).toHaveBeenCalledWith({ isPaused: false })
   })
 
   it('참석자 수를 입력하면 세션에 저장한다', async () => {
@@ -186,14 +251,16 @@ describe('RecorderSection', () => {
     expect((await screen.findByRole('alert')).textContent).toBe('이 파일을 읽지 못했습니다')
   })
 
-  it('녹음 중에는 가져오기 버튼을 숨긴다', () => {
+  it('녹음 중에는 가져오기 버튼을 숨기지 않고 비활성으로 둔다', () => {
     renderSection()
 
     act(() => {
       pushState({ ...IDLE_STATE, meetingId: MEETING_ID, startedAt: Date.now(), level: 0 })
     })
 
-    expect(screen.queryByRole('button', { name: '녹음 파일 가져오기' })).toBeNull()
+    expect(
+      (screen.getByRole('button', { name: '녹음 파일 가져오기' }) as HTMLButtonElement).disabled
+    ).toBe(true)
   })
 
   describe('라이브 받아쓰기', () => {
@@ -302,7 +369,7 @@ describe('RecorderSection', () => {
     ).toBe('false')
   })
 
-  it('녹음 중에는 스위치를 잠그고 켜져 있으면 배지를 보여준다', async () => {
+  it('녹음 중에는 스위치를 비활성으로 두고 켜져 있으면 배지를 보여준다', async () => {
     renderSection()
     await screen.findByRole('switch', { name: '온라인 회의 소리 함께 녹음' })
 
@@ -315,9 +382,29 @@ describe('RecorderSection', () => {
       })
     )
 
-    expect(
-      screen.getByRole<HTMLButtonElement>('switch', { name: '온라인 회의 소리 함께 녹음' }).disabled
-    ).toBe(true)
+    const toggle = screen.getByRole('switch', {
+      name: '온라인 회의 소리 함께 녹음'
+    }) as HTMLButtonElement
+    expect(toggle.disabled).toBe(true)
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
     expect(screen.getByText('상대방 소리 포함')).toBeTruthy()
+  })
+
+  it('녹음 전에는 시작 전에 켜 두라는 안내를 보여준다', async () => {
+    renderSection()
+
+    expect((await screen.findByText(/이어폰을 쓰면 더 정확합니다/)).textContent).toContain(
+      '시작 전에 켜 두세요'
+    )
+  })
+
+  it('입력 항목을 녹음 설정과 파일로 만들기 카테고리로 나눈다', () => {
+    renderSection()
+
+    expect(screen.getByRole('heading', { name: '녹음 설정' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: '파일로 만들기' })).toBeTruthy()
+    expect(
+      screen.getByRole('region', { name: '녹음 설정' }).contains(screen.getByLabelText('참석자 수'))
+    ).toBe(true)
   })
 })

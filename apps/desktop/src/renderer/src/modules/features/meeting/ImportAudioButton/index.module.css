@@ -1,22 +1,11 @@
-.container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  max-width: 420px;
-}
-
-.hint {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-xs);
-  line-height: 1.6;
-  text-align: center;
+/* 설명 두 줄(13px × 1.65)을 고정해 실패 문구로 바뀌어도 행 높이가 그대로다 */
+.note,
+.error {
+  display: block;
+  height: 43px;
+  word-break: keep-all;
 }
 
 .error {
-  margin: 0;
   color: var(--color-danger);
-  font-size: var(--font-sm);
-  text-align: center;
 }

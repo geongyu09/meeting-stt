@@ -1,0 +1,6 @@
+.button {
+  flex-shrink: 0;
+  padding: 0;
+  border-radius: var(--radius-full);
+  -webkit-app-region: no-drag;
+}

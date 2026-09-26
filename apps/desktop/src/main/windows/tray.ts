@@ -20,6 +20,8 @@ let menuRecordingState: boolean | null = null
 let menuLocale: string | null = null
 /** 상시 1초 타이머는 유휴 상태에서도 CPU를 깨운다 → 녹음 중에만 돌린다 */
 let titleTimer: NodeJS.Timeout | null = null
+/** 타이머가 계산에 쓰는 기준 시각. 재개로 바뀌면 타이머를 다시 건다 */
+let titleStartedAt: number | null = null
 
 const trayIconPath = () =>
   is.dev
@@ -71,7 +73,7 @@ const stopTitleTimer = () => {
 export const refreshTray = () => {
   if (!tray) return
 
-  const { startedAt } = getRecordingState()
+  const { startedAt, pausedAt } = getRecordingState()
   const isRecording = startedAt !== null
   const locale = getLocale()
 
@@ -88,9 +90,20 @@ export const refreshTray = () => {
     return
   }
 
-  setTitle(`● ${formatElapsed(Date.now() - startedAt)}`)
-  if (titleTimer) return
+  // 일시정지하면 시간이 멈추므로 타이머를 세우고 멈춘 시각을 그대로 둔다
+  if (pausedAt !== null) {
+    stopTitleTimer()
+    setTitle(`‖ ${formatElapsed(pausedAt - startedAt)}`)
 
+    return
+  }
+
+  setTitle(`● ${formatElapsed(Date.now() - startedAt)}`)
+  // 재개하면 startedAt이 바뀌므로 그때만 타이머를 새 값으로 다시 건다 (청크마다 불린다)
+  if (titleTimer && titleStartedAt === startedAt) return
+
+  stopTitleTimer()
+  titleStartedAt = startedAt
   titleTimer = setInterval(
     () => setTitle(`● ${formatElapsed(Date.now() - startedAt)}`),
     TITLE_TICK_MS

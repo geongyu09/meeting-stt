@@ -29,7 +29,8 @@ export const IPC = {
     setSpeakerCount: 'recording:setSpeakerCount',
     reportError: 'recording:reportError',
     setLiveTranscript: 'recording:setLiveTranscript',
-    setSystemAudio: 'recording:setSystemAudio'
+    setSystemAudio: 'recording:setSystemAudio',
+    setPaused: 'recording:setPaused'
   },
   widget: { setVisible: 'widget:setVisible' },
   shortcuts: { setSuspended: 'shortcuts:setSuspended' },
@@ -111,8 +112,13 @@ export type StopRecordingResponse = Meeting
  */
 export interface RecordingStateEvent {
   meetingId: string | null
-  /** 시작 시각(epoch ms). 경과 시간은 받는 쪽이 Date.now()로 계산한다 — 창마다 값이 어긋나지 않는다 */
+  /**
+   * 경과 시간의 기준 시각(epoch ms) = 실제 시작 시각 + 지금까지 일시정지한 시간.
+   * 받는 쪽이 `(pausedAt ?? Date.now()) - startedAt`으로 계산한다 — 창마다 값이 어긋나지 않는다
+   */
   startedAt: number | null
+  /** 일시정지한 시각(epoch ms). 녹음 중이 아니거나 일시정지하지 않았으면 null */
+  pausedAt: number | null
   /** 직전 청크의 RMS (0~1). 청크 주기(약 0.5초)로만 갱신된다 */
   level: number
   /** 세션에 보관 중인 참석자 수. 두 창의 입력란을 같은 값으로 맞춘다 */
@@ -160,6 +166,11 @@ export interface LiveTranscriptState {
 /** 파형 ↔ 라이브 받아쓰기 보기 전환. 응답은 바뀐 녹음 상태다 */
 export interface SetLiveTranscriptRequest {
   isEnabled: boolean
+}
+
+/** 녹음 일시정지·재개. 일시정지 동안 들어온 청크는 main이 버린다. 응답은 바뀐 녹음 상태다 */
+export interface SetRecordingPausedRequest {
+  isPaused: boolean
 }
 
 /** 메인 창·Tray·전역 단축키가 보내는 요청. main이 위젯에 `recording:command`로 넘긴다 */

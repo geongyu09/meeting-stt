@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { MAX_SPEAKER_COUNT, MIN_SPEAKER_COUNT } from '@meeting-stt/core/speakerCount'
+import PauseRecordingButton from '@renderer/modules/features/recording/PauseRecordingButton'
 import { setWidgetVisibleApi } from '@renderer/shared/api/widget'
 import Button from '@renderer/shared/components/primitives/ui/Button'
 import Icon from '@renderer/shared/components/primitives/ui/Icon'
@@ -20,35 +22,43 @@ export default function WidgetPanelSection() {
   const { t: messages } = useLocale()
   const t = messages.recording
   const { status } = useModelStatus()
-  const { isRecording, elapsedSec, speakerCount, errorMessage } = useRecordingState()
+  const { isRecording, isPaused, elapsedSec, speakerCount, errorMessage } = useRecordingState()
   const isModelReady = status?.isReady ?? false
   const { isBusy, start, stop } = useRecorder({ isReady: isModelReady })
   const { text, isValid, changeText } = useSpeakerCount({ speakerCount })
+  const [pauseError, setPauseError] = useState<string | null>(null)
+  const isCapturing = isRecording && !isPaused
 
   const handleHide = () => {
     setWidgetVisibleApi({ isVisible: false }).catch(() => console.error('위젯을 숨기지 못했습니다'))
   }
 
   const renderFooter = () => {
-    if (errorMessage) {
+    const error = errorMessage ?? pauseError
+    if (error) {
       return (
         <p className={styles.error} role="alert">
-          {errorMessage}
+          {error}
         </p>
       )
     }
     if (!isModelReady) return <p className={styles.hint}>{t.widget.modelNotReady}</p>
+    if (isPaused) return <p className={styles.hint}>{t.widget.pausedHint}</p>
 
     return <p className={styles.hint}>{isRecording ? t.widget.stopHint : t.widget.startHint}</p>
+  }
+
+  const renderTitle = () => {
+    if (!isRecording) return t.status.idle
+
+    return isPaused ? t.status.paused : t.status.recording
   }
 
   return (
     <section className={styles.section} aria-label={t.widget.sectionLabel}>
       <header className={styles.header}>
-        <span className={isRecording ? styles.recordingDot : styles.idleDot} aria-hidden="true" />
-        <span className={isRecording ? styles.recordingTitle : styles.title}>
-          {isRecording ? t.status.recording : t.status.idle}
-        </span>
+        <span className={isCapturing ? styles.recordingDot : styles.idleDot} aria-hidden="true" />
+        <span className={isCapturing ? styles.recordingTitle : styles.title}>{renderTitle()}</span>
         <button
           className={styles.hideButton}
           type="button"
@@ -59,7 +69,7 @@ export default function WidgetPanelSection() {
         </button>
       </header>
       <div className={styles.clock}>
-        <p className={isRecording ? styles.elapsed : styles.idleElapsed}>
+        <p className={isCapturing ? styles.elapsed : styles.idleElapsed}>
           {formatClock({ sec: elapsedSec })}
         </p>
       </div>
@@ -76,10 +86,22 @@ export default function WidgetPanelSection() {
         />
       </div>
       {isRecording ? (
-        <Button variant="secondary" className={styles.stopButton} onClick={stop} disabled={isBusy}>
-          <span className={styles.stopIcon} aria-hidden="true" />
-          {t.widget.stop}
-        </Button>
+        <div className={styles.stopRow}>
+          <PauseRecordingButton
+            isPaused={isPaused}
+            className={styles.pauseButton}
+            onError={setPauseError}
+          />
+          <Button
+            variant="secondary"
+            className={styles.stopButton}
+            onClick={stop}
+            disabled={isBusy}
+          >
+            <span className={styles.stopIcon} aria-hidden="true" />
+            {t.widget.stop}
+          </Button>
+        </div>
       ) : (
         <Button
           variant="accent"

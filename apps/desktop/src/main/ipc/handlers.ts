@@ -51,6 +51,7 @@ import {
   getRecordingState,
   reportRecordingError,
   setRecordingLiveTranscript,
+  setRecordingPaused,
   setRecordingSpeakerCount,
   setRecordingSystemAudio,
   startRecording,
@@ -487,6 +488,10 @@ export const registerIpcHandlers = () => {
 
   ipcMain.handle(IPC.recording.setLiveTranscript, (_event, payload): GetRecordingStateResponse =>
     setRecordingLiveTranscript(readBoolean({ payload, key: 'isEnabled' }))
+  )
+
+  ipcMain.handle(IPC.recording.setPaused, (_event, payload): GetRecordingStateResponse =>
+    setRecordingPaused(readBoolean({ payload, key: 'isPaused' }))
   )
 
   ipcMain.handle(

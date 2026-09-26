@@ -10,6 +10,7 @@ const MS_PER_SEC = 1000
 const IDLE_STATE: RecordingStateEvent = {
   meetingId: null,
   startedAt: null,
+  pausedAt: null,
   level: 0,
   liveTranscript: { isEnabled: false, lines: [], partial: '' },
   systemAudio: { isEnabled: false }
@@ -57,20 +58,26 @@ const useRecordingState = () => {
 
   useEffect(() => onRecordingState(applyEvent), [applyEvent])
 
-  // 경과 시간은 startedAt으로 각자 계산한다 — 창이 가려져 렌더가 밀려도 값이 정확하다
+  // main이 옛 빌드면 pausedAt이 아예 없다(undefined). 그걸 일시정지로 읽으면 녹음 중에 재개 버튼이 뜬다
+  const pausedAt = state.pausedAt ?? null
+  const isPaused = pausedAt !== null
+
+  // 경과 시간은 startedAt으로 각자 계산한다 — 창이 가려져 렌더가 밀려도 값이 정확하다.
+  // 일시정지 중에는 pausedAt에서 멈춰 있으므로 타이머를 돌리지 않는다
   useEffect(() => {
-    if (state.startedAt === null) return
+    if (state.startedAt === null || isPaused) return
 
     const timer = setInterval(() => setNow(Date.now()), ELAPSED_TICK_MS)
 
     return () => clearInterval(timer)
-  }, [state.startedAt])
+  }, [state.startedAt, isPaused])
 
   const elapsedSec =
-    state.startedAt === null ? 0 : Math.max(0, (now - state.startedAt) / MS_PER_SEC)
+    state.startedAt === null ? 0 : Math.max(0, ((pausedAt ?? now) - state.startedAt) / MS_PER_SEC)
 
   return {
     isRecording: state.meetingId !== null,
+    isPaused,
     meetingId: state.meetingId,
     level: state.level,
     speakerCount: state.speakerCount,
