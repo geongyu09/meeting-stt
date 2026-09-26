@@ -12,6 +12,7 @@ apps/desktop/scripts/fixtures/
 *.onnx
 apps/desktop/resources/bin/
 
-# 새 프로젝트(브라우저 워커 기반 전사 서비스)로 옮겨 갈 설계 문서. 이 저장소의 SSOT가 아니다
+# 이 서비스의 방향성과 무관한 부가 문서(다른 서비스 계획 등). 로컬에만 보관하고 이 저장소의 SSOT가 아니다
+docs/external/
 docs/browser-worker-service-design.md
 .vercel
