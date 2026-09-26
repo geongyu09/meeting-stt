@@ -128,6 +128,7 @@ CREATE TABLE IF NOT EXISTS settings (
 | `pipeline.quiet` | boolean | `false` | 조용히 처리. 켜면 화자 분리 스레드를 줄이고 STT와 화자 분리를 순차로 돌린다. 느려지는 대신 발열·팬 소음이 준다. 잡이 **시작할 때** 읽으므로 진행 중인 잡에는 적용되지 않는다 (`references/architecture.md` 가속·스레드 정책) |
 | `ui.locale` | `'ko' \| 'en'` | `'ko'` | 화면·메뉴바·main 오류 문구의 언어 (2026-09-25). 인식·요약 언어가 아니다. 모르는 값이면 `'ko'`로 읽고, 저장 요청은 거절한다 (`references/architecture.md` "UI 언어") |
 | `audio.inputDevice` | `{ deviceId, label } \| null` | `null` | 녹음에 쓸 마이크 (2026-09-25). `null`이면 시스템 기본 마이크. `deviceId`는 Chromium이 주는 origin별 해시(1~200자), `label`은 고를 당시의 장치 이름(0~200자)이며 장치를 뺀 뒤 설정 화면에 "연결되지 않음"으로 보여주기 위해 함께 둔다. 모양이 다르면 `null`로 읽고, 저장 요청은 거절한다. 녹음 그래프는 시작할 때 이 값을 읽어 `deviceId: { ideal }`로 요청하므로 장치가 없으면 기본 마이크로 폴백한다 (`references/architecture.md` "마이크 입력 장치와 테스트") |
+| `audio.systemCapture` | boolean | `false` | 온라인 회의 상대방 소리(스피커 출력)를 마이크와 함께 녹음할지 (2026-09-26, Phase 5-2). 녹음 화면의 스위치가 `recording:setSystemAudio`로 바꾸고 다음 녹음부터 적용된다. `AppSettings`에 넣지 않는다 — 켜는 행위가 값 저장이 아니라 동봉 도구 프로브(시스템 권한 창)를 동반하기 때문이다 (`references/architecture.md` "시스템 오디오 캡처") |
 
 ```ts
 export interface AudioInputDevice {

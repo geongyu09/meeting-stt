@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { app } from 'electron'
-import { rmsOf, SAMPLE_RATE_HZ } from '@shared/audio'
+import { CHUNK_SAMPLES, rmsOf, SAMPLE_RATE_HZ } from '@shared/audio'
 import type { RecordingStateEvent } from '@shared/ipc'
 import {
   findMeeting,
@@ -11,7 +11,8 @@ import {
   updateMeetingSpeakerCount,
   updateMeetingStatus
 } from '../db/meetings'
-import { info, warn } from '../log'
+import { getSystemAudioEnabled, setSystemAudioEnabled } from '../db/settings'
+import { info, messageOf, warn } from '../log'
 import { notifyMeetingsChanged } from '../meetingsChanged'
 import { enqueuePipelineJob } from '../pipeline/queue'
 import {
@@ -20,6 +21,8 @@ import {
   resetLiveTranscript,
   setLiveTranscriptEnabled
 } from './liveTranscript'
+import { probeSystemAudio, startSystemAudioCapture, type SystemAudioCapture } from './systemAudio'
+import { mixSamples } from './systemAudioMix'
 import { createWavWriter, type WavWriter } from './wavWriter'
 import { t } from '../locale'
 
@@ -31,6 +34,8 @@ interface RecordingSession {
   startedAt: number
   writer: WavWriter
   level: number
+  /** 온라인 회의 소리 캡처. 켜져 있어도 도구가 실패하면 null이고 마이크만 녹음한다 */
+  systemAudio: SystemAudioCapture | null
 }
 
 /**
@@ -44,6 +49,19 @@ let session: RecordingSession | null = null
  * 두 창의 입력란에 계속 보이므로 숨은 값이 아니다.
  */
 let speakerCount: number | undefined
+
+/**
+ * 온라인 회의 소리 함께 녹음 (Phase 5-2). 참석자 수처럼 세션 밖에 두고, DB(`audio.systemCapture`)에서 처음 한 번 읽어 캐시한다.
+ * 실패 안내는 켜기(프로브)나 녹음 중 캡처가 끊겼을 때 실리고 다음 시도에서 지운다.
+ */
+let isSystemAudioEnabled: boolean | undefined
+let systemAudioError: string | undefined
+
+const systemAudioEnabled = () => {
+  if (isSystemAudioEnabled === undefined) isSystemAudioEnabled = getSystemAudioEnabled()
+
+  return isSystemAudioEnabled
+}
 
 let notifyState: (event: RecordingStateEvent) => void = () => {}
 
@@ -70,7 +88,11 @@ export const getRecordingState = (): RecordingStateEvent => ({
   startedAt: session?.startedAt ?? null,
   level: session?.level ?? 0,
   speakerCount,
-  liveTranscript: getLiveTranscriptState()
+  liveTranscript: getLiveTranscriptState(),
+  systemAudio: {
+    isEnabled: systemAudioEnabled(),
+    ...(systemAudioError ? { errorMessage: systemAudioError } : {})
+  }
 })
 
 /** `stoppedMeetingId`·`errorMessage`처럼 한 번만 실리는 값은 여기서 얹는다 */
@@ -101,13 +123,48 @@ export const startRecording = async ({ sampleRate }: { sampleRate: number }) => 
   await mkdir(recordingsDir(), { recursive: true })
   const writer = await createWavWriter({ filePath: audioPath })
   insertMeeting({ id: meetingId, title: defaultTitle(createdAt), createdAt, audioPath })
-  session = { meetingId, startedAt: createdAt, writer, level: 0 }
+  session = { meetingId, startedAt: createdAt, writer, level: 0, systemAudio: null }
+  if (systemAudioEnabled()) session.systemAudio = openSystemAudio({ meetingId })
   resetLiveTranscript()
   info(`녹음 시작 ${meetingId}`)
   publish()
   notifyMeetingsChanged()
 
   return { meetingId }
+}
+
+/** 실패해도 녹음은 마이크만으로 계속한다 — 회의 중에 녹음이 통째로 실패하는 것보다 낫다 */
+const openSystemAudio = ({ meetingId }: { meetingId: string }) => {
+  systemAudioError = undefined
+  const onFailure = (message: string) => {
+    if (session?.meetingId !== meetingId) return
+    warn(`시스템 오디오 캡처 실패 ${meetingId}: ${message}`)
+    session.systemAudio = null
+    systemAudioError = message
+    publish()
+  }
+
+  try {
+    const capture = startSystemAudioCapture({ onFailure })
+    capture.ready.catch((caught: unknown) => onFailure(messageOf(caught)))
+
+    return capture
+  } catch (caught) {
+    onFailure(messageOf(caught))
+
+    return null
+  }
+}
+
+/** 상대방의 마지막 말이 FIFO에 남아 있을 수 있어 한 청크 더 쓴 뒤 도구를 끝낸다 */
+const closeSystemAudio = async (active: RecordingSession) => {
+  const capture = active.systemAudio
+  if (!capture) return
+
+  active.systemAudio = null
+  const rest = capture.drain(CHUNK_SAMPLES)
+  if (rest.length > 0) await active.writer.appendChunk(rest)
+  await capture.stop()
 }
 
 export const appendRecordingChunk = async ({
@@ -124,12 +181,16 @@ export const appendRecordingChunk = async ({
   }
 
   const active = session
-  const samples = new Float32Array(pcm)
+  const micSamples = new Float32Array(pcm)
+  // 섞은 결과가 WAV·레벨·라이브 받아쓰기의 입력이다. 파이프라인은 손대지 않는다
+  const samples = active.systemAudio
+    ? mixSamples({ base: micSamples, overlay: active.systemAudio.take(micSamples.length) })
+    : micSamples
 
   await active.writer.appendChunk(samples)
   // 레벨 미터는 여기서 계산해 두 창에 같은 값을 보낸다 (renderer마다 따로 재지 않는다)
   active.level = rmsOf(samples)
-  // 인식 결과는 따로 publish하지 않고 다음 청크 이벤트에 실린다 — 이벤트마다 파형 칸이 하나씩 쌓이기 때문이다
+  // 인식 결과는 따로 publish하지 않고 다음 청크 이벤트에 실린다 — 0.5초 안에 실려 가는 값이라 이벤트를 늘릴 이유가 없다
   feedLiveTranscript({ samples, rms: active.level })
   publish()
 }
@@ -137,6 +198,7 @@ export const appendRecordingChunk = async ({
 /** 헤더를 확정하고 파이프라인 잡을 큐에 넣는다 */
 export const stopRecording = async ({ meetingId }: { meetingId: string }) => {
   const active = sessionOf(meetingId)
+  await closeSystemAudio(active)
   const { durationSec } = await active.writer.finalize()
   session = null
   resetLiveTranscript()
@@ -176,6 +238,30 @@ export const setRecordingSpeakerCount = (next: number | undefined) => {
 /** 녹음 화면의 파형 ↔ 라이브 받아쓰기 보기. 참석자 수처럼 세션 밖에 두어 다음 녹음에도 이어진다 */
 export const setRecordingLiveTranscript = (isEnabled: boolean) => {
   setLiveTranscriptEnabled(isEnabled)
+  publish()
+
+  return getRecordingState()
+}
+
+/**
+ * 온라인 회의 소리 함께 녹음 켜기/끄기. 켤 때는 도구를 한 번 돌려 권한 창을 미리 띄우고 실패를 그 자리에서 알린다.
+ * 녹음 중에는 프로브 없이 값만 바꾼다 (다음 녹음부터 적용, 화면은 스위치를 비활성화한다).
+ */
+export const setRecordingSystemAudio = async (isEnabled: boolean) => {
+  systemAudioError = undefined
+
+  if (isEnabled && !session) {
+    try {
+      await probeSystemAudio()
+    } catch (caught) {
+      systemAudioError = messageOf(caught)
+      warn(`시스템 오디오 프로브 실패: ${systemAudioError}`)
+      isEnabled = false
+    }
+  }
+
+  isSystemAudioEnabled = isEnabled
+  setSystemAudioEnabled({ isEnabled })
   publish()
 
   return getRecordingState()

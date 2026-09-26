@@ -17,6 +17,12 @@
   gap: 10px;
 }
 
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .recordingStatus,
 .idleStatus {
   display: flex;
@@ -93,6 +99,42 @@
 .speakerCountHint {
   color: var(--color-text-muted);
   font-size: var(--font-xs);
+}
+
+.optionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 560px;
+  max-width: 100%;
+  padding: 14px 18px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.optionText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.optionTitle {
+  font-size: var(--font-base);
+  font-weight: 600;
+}
+
+.optionHint {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+}
+
+.optionText .error {
+  font-size: var(--font-xs);
+  text-align: left;
 }
 
 .controls {

@@ -121,9 +121,33 @@
       electron-builder가 Developer ID로 재서명한 결과 확인은 인증서가 있어야 가능하다 (`references/distribution.md` 6절)
 - [ ] 저사양 폴백 모델 검토 (Qwen3-1.7B 등) — Phase 4 저사양 안내와 함께
 
-### 5-2. 시스템 오디오 캡처
+### 5-2. 시스템 오디오 캡처 (2026-09-26 착수)
 
-- [ ] 아직 시작하지 않음. macOS ScreenCaptureKit 검토 (plan.md 6.2절: 난이도가 높아 2차 과제 권장)
+온라인 회의(Zoom·Meet 등) 상대방 목소리를 전사하기 위해 스피커로 나가는 소리를 마이크와 함께 녹음한다.
+사용자 결정: **앱 밖에서 해야 하는 설정(가상 오디오 드라이버 설치·집계 장치 구성)은 두지 않는다.** 설계는 `references/architecture.md` "시스템 오디오 캡처" 절.
+
+**동봉 도구**
+- [x] `native/systemAudioTap/main.swift` — Core Audio Taps(macOS 14.2+)로 전역 mono 탭 + 비공개 집계 장치 → `AVAudioConverter`로 16kHz mono Float32 → stdout. 벽시계 기준으로 빈 구간을 0으로 채워 연속 스트림을 보장하고, 기본 출력 장치가 바뀌면 다시 만든다. stdin이 닫히거나 SIGTERM이면 정리 후 종료
+- [x] `scripts/setupBin.ts`가 `swiftc -O -target arm64-apple-macos14.2`로 빌드해 `resources/bin/darwin-arm64/systemAudioTap`에 둔다. `swiftc`가 없으면 경고만 남기고 넘어간다 (이 기능만 막힌다)
+- [x] `src/main/bin/paths.ts`에 `systemAudioTapBinPath()`
+- [x] `electron-builder.yml` `extendInfo`에 `NSAudioCaptureUsageDescription` 한국어 문구
+- [ ] 서명·공증 빌드에서 동봉 도구가 함께 서명되는지 확인 — 자격 증명 대기 (5-1의 dylib 항목과 같은 이유)
+
+**main**
+- [x] `src/main/audio/systemAudio.ts` — 도구 spawn·stdout 누적·정지, 1초 프로브(권한 창 유도·동작 확인)
+- [x] `src/main/audio/systemAudioMix.ts` — 순수 함수: 시스템 샘플 FIFO(부족하면 0 채움, 밀리면 오래된 것 버림)와 두 스트림 합산(클리핑). vitest
+- [x] `src/main/audio/session.ts` — 시작 시 켜져 있으면 도구를 띄우고, 청크마다 마이크 + 시스템 샘플을 섞어 WAV·레벨·라이브 받아쓰기에 넘긴다. 도구가 없거나 실패하면 마이크만 녹음하고 `systemAudio.errorMessage`로 알린다. 정지 시 남은 시스템 샘플을 쓰고 도구를 끝낸다
+- [x] `src/main/db/settings.ts` — `audio.systemCapture` 읽기·쓰기 (`AppSettings` 밖)
+
+**계약·화면**
+- [x] `src/shared/ipc.ts` — `recording.setSystemAudio`(invoke, `{ isEnabled }` → `GetRecordingStateResponse`), `RecordingStateEvent.systemAudio: { isEnabled, errorMessage? }`
+- [x] preload `window.api.recording.setSystemAudio`, renderer `setSystemAudioApi`, `useRecordingState`가 `systemAudio`를 돌려준다
+- [x] `RecorderSection`에 스위치 행 "온라인 회의 소리 함께 녹음" + 이어폰 권장 안내 + 실패 문구. 위젯 패널은 바꾸지 않는다
+- [x] 사전 `recording.systemAudio.*`, `main.recording.systemAudio*` (ko·en)
+
+**완료 기준**
+- [ ] `pnpm dev`에서 스위치를 켜면 macOS "시스템 오디오 녹음" 권한 창이 뜨고, Zoom·Meet 또는 브라우저 재생 소리가 이어폰을 낀 채로 회의록에 들어간다 (사용자 수동 확인)
+- [ ] 스피커로 들을 때 마이크에 되돌아온 소리와 겹쳐도 STT가 크게 나빠지지 않는지 확인. 나쁘면 "이어폰 권장"을 경고로 올린다
 
 ### 5-3. 녹음 위젯 패널 (메뉴바·전역 단축키 포함)
 
@@ -344,3 +368,11 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 - [x] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과, 실제 회의 녹음(jun-meeting)을 0.5초 청크로 실시간 속도로 흘려 `liveWindow` + whisper-cli(turbo)를 돌린 결과 갱신 간격 1.1~1.6초, 12초마다 확정 (2026-09-26)
 - [x] 라이브 모델을 turbo로 고정 (2026-09-26 사용자 결정) — `LIVE_WHISPER_MODEL_ID`, `liveWhisperModelPath()`, 저사양 선택·turbo 파일 없음 폴백
 - [ ] `pnpm dev` 실제 확인 — 녹음 중 말하면 1~2초 안에 글자가 나타나는지
+
+## 레벨 미터를 이퀄라이저형으로 (2026-09-26, Phase 번호 밖)
+
+이력형 파형(0.5초마다 왼쪽부터 칸을 채움)이 24초 동안 차오르는 모양이라 진행 바로 읽힌다는 사용자 지적. 현재 음량에 모든 막대가 함께 반응하는 이퀄라이저형으로 바꾼다. 계약은 `architecture.md` "공통 컴포넌트"의 `LevelWaveform`.
+
+- [x] `LevelWaveform` props `levels[]` → `level`, 종 모양 포락선 + 막대별 CSS `transform` 흔들림, `prefers-reduced-motion` 대응 (데스크탑·웹 두 구현)
+- [x] `useRecordingState`·`useMicrophoneTest`에서 레벨 이력(`levels`, 48개) 제거 — 더 쓰는 곳이 없다
+- [ ] `pnpm dev` 실제 확인 — 말하면 막대가 함께 튀고 조용하면 점으로 가라앉는지, 팬·CPU 변화 없는지

@@ -4,6 +4,7 @@ import type {
   SendRecordingChunkRequest,
   SetLiveTranscriptRequest,
   SetSpeakerCountRequest,
+  SetSystemAudioRequest,
   StartRecordingRequest,
   StopRecordingRequest
 } from '@shared/ipc'
@@ -105,3 +106,13 @@ export const reportRecordingErrorApi = async ({ message }: ReportRecordingErrorR
  */
 export const setLiveTranscriptApi = async ({ isEnabled }: SetLiveTranscriptRequest) =>
   window.api.recording.setLiveTranscript({ isEnabled })
+
+/**
+ * @description 온라인 회의 소리(스피커 출력)를 마이크와 함께 녹음할지 main에 알립니다. 켜면 main이 캡처 도구를 잠깐 돌려 시스템 권한 창을 띄웁니다.
+ * @param isEnabled - true면 다음 녹음부터 상대방 소리를 함께 녹음
+ * @returns 바뀐 직후의 녹음 상태. 켜기에 실패하면 `systemAudio.isEnabled`가 false이고 `errorMessage`가 실립니다
+ * @example
+ * const state = await setSystemAudioApi({ isEnabled: true })
+ */
+export const setSystemAudioApi = async ({ isEnabled }: SetSystemAudioRequest) =>
+  window.api.recording.setSystemAudio({ isEnabled })

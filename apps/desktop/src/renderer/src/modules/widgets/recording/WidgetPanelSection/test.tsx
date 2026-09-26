@@ -48,7 +48,8 @@ const IDLE_STATE: RecordingStateEvent = {
   meetingId: null,
   startedAt: null,
   level: 0,
-  liveTranscript: { isEnabled: false, lines: [], partial: '' }
+  liveTranscript: { isEnabled: false, lines: [], partial: '' },
+  systemAudio: { isEnabled: false }
 }
 
 const READY_MODEL_STATUS = {

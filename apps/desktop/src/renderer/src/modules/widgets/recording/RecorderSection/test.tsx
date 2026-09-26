@@ -9,7 +9,8 @@ vi.mock('@renderer/shared/api/recording', () => ({
   getRecordingStateApi: vi.fn(),
   controlRecordingApi: vi.fn(),
   setSpeakerCountApi: vi.fn(),
-  setLiveTranscriptApi: vi.fn()
+  setLiveTranscriptApi: vi.fn(),
+  setSystemAudioApi: vi.fn()
 }))
 
 vi.mock('@renderer/shared/api/meetings', () => ({ importMeetingAudioApi: vi.fn() }))
@@ -26,7 +27,8 @@ import {
   controlRecordingApi,
   getRecordingStateApi,
   setLiveTranscriptApi,
-  setSpeakerCountApi
+  setSpeakerCountApi,
+  setSystemAudioApi
 } from '@renderer/shared/api/recording'
 import RecorderSection from './index'
 
@@ -35,7 +37,8 @@ const IDLE_STATE: RecordingStateEvent = {
   meetingId: null,
   startedAt: null,
   level: 0,
-  liveTranscript: { isEnabled: false, lines: [], partial: '' }
+  liveTranscript: { isEnabled: false, lines: [], partial: '' },
+  systemAudio: { isEnabled: false }
 }
 
 /** 가져오기가 성공하면 회의 상세로 이동하므로 상세 경로를 함께 둔다 */
@@ -62,6 +65,7 @@ beforeEach(() => {
   vi.mocked(controlRecordingApi).mockResolvedValue(undefined)
   vi.mocked(setSpeakerCountApi).mockResolvedValue(IDLE_STATE)
   vi.mocked(setLiveTranscriptApi).mockResolvedValue(IDLE_STATE)
+  vi.mocked(setSystemAudioApi).mockResolvedValue(IDLE_STATE)
 })
 
 afterEach(() => {
@@ -269,5 +273,51 @@ describe('RecorderSection', () => {
 
       expect((await screen.findByRole('alert')).textContent).toContain('보기를 바꾸지 못했습니다')
     })
+  })
+  it('온라인 회의 소리 스위치를 켜면 main에 알린다', async () => {
+    const user = userEvent.setup()
+    renderSection()
+
+    await user.click(screen.getByRole('switch', { name: '온라인 회의 소리 함께 녹음' }))
+
+    expect(setSystemAudioApi).toHaveBeenCalledWith({ isEnabled: true })
+  })
+
+  it('켜기에 실패하면 main이 실은 안내를 보여주고 스위치는 꺼진 채다', async () => {
+    renderSection()
+    await screen.findByRole('switch', { name: '온라인 회의 소리 함께 녹음' })
+
+    act(() =>
+      pushState({
+        ...IDLE_STATE,
+        systemAudio: { isEnabled: false, errorMessage: '시스템 오디오를 잡지 못했습니다' }
+      })
+    )
+
+    expect(screen.getByRole('alert').textContent).toContain('시스템 오디오를 잡지 못했습니다')
+    expect(
+      screen
+        .getByRole('switch', { name: '온라인 회의 소리 함께 녹음' })
+        .getAttribute('aria-checked')
+    ).toBe('false')
+  })
+
+  it('녹음 중에는 스위치를 잠그고 켜져 있으면 배지를 보여준다', async () => {
+    renderSection()
+    await screen.findByRole('switch', { name: '온라인 회의 소리 함께 녹음' })
+
+    act(() =>
+      pushState({
+        ...IDLE_STATE,
+        meetingId: MEETING_ID,
+        startedAt: Date.now(),
+        systemAudio: { isEnabled: true }
+      })
+    )
+
+    expect(
+      screen.getByRole<HTMLButtonElement>('switch', { name: '온라인 회의 소리 함께 녹음' }).disabled
+    ).toBe(true)
+    expect(screen.getByText('상대방 소리 포함')).toBeTruthy()
   })
 })

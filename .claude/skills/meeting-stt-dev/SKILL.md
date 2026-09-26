@@ -41,7 +41,7 @@ description: 로컬 STT 회의록 데스크탑 앱(meeting-stt)의 개발 방향
 | 비주얼 디자인 | **"여백" 팔레트**(흰 바탕·옅은 회색 면·잉크 `#111113`, 강조 인디고 `#4338CA`, 빨강은 오류 전용) + **Google Sans(라틴)·Pretendard(한글)·Google Sans Code(숫자)** 를 앱에 동봉 (2026-09-24 리디자인). 토큰·글꼴은 **`packages/design`** 에 한 번만 두고 브라우저 프로토타입도 같은 디자인 시스템을 쓴다 | 글꼴은 전부 OFL이고 오프라인 앱이라 CDN을 쓰지 않는다. **다크 모드는 보류** — 리디자인 동안 `prefers-color-scheme: dark` 토큰을 두지 않고 밝은 화면만 지원한다. 토큰·레이아웃·검색은 `references/architecture.md` "화면 디자인" 절 |
 | 편집 | 발화 단위 인라인 편집(contentEditable/textarea, blur 시 UPDATE) | 에디터 라이브러리 도입 금지 (필요 생기면 그때 TipTap 검토) |
 | 모델 배포 | 설치 파일에 미동봉, **첫 실행 온보딩에서 다운로드** (Range 이어받기 + 체크섬) | 저장 위치 `app.getPath('userData')/models` |
-| 시스템 오디오 캡처 | **1차 범위 제외** (마이크만) | Phase 5의 두 번째 항목. 로컬 요약을 끝낸 뒤 착수한다 |
+| 시스템 오디오 캡처 | **Core Audio Taps(macOS 14.2+)로 스피커 출력 전체를 잡아 마이크와 섞는다** (2026-09-26 사용자 결정, Phase 5-2). 동봉 Swift 도구 `systemAudioTap`(`native/systemAudioTap/main.swift`, `setupBin`이 `swiftc`로 빌드)을 main이 spawn하고 stdout의 16kHz mono Float32 PCM을 마이크 청크와 **main에서 더해** 같은 WAV에 쓴다. 파이프라인은 손대지 않는다 | 온라인 회의(Zoom·Meet) 상대방 목소리를 앱 밖 설정 없이 전사하기 위해서다. 가상 오디오 드라이버(BlackHole)처럼 **사용자가 앱 밖에서 해야 하는 방식은 쓰지 않는다**(사용자 결정). Electron 내장 `getDisplayMedia` loopback도 쓰지 않는다 — macOS에서는 네이티브 화면 공유 피커를 매번 거쳐야 하고 "화면 및 시스템 오디오 녹음" 권한과 보라색 화면 녹화 표시가 뜬다. 켜기/끄기는 녹음 화면의 스위치(`recording:setSystemAudio`, DB 키 `audio.systemCapture`, 기본 꺼짐)이며 켜는 순간 도구를 1초 돌려 시스템 권한 창을 미리 띄운다. 설계는 `references/architecture.md` "시스템 오디오 캡처" 절 |
 | 로컬 요약 | **llama.cpp `llama-cli`** 를 `child_process`로 spawn. 모델 `Qwen3-4B-Instruct-2507-Q4_K_M.gguf` (Apache-2.0, 비사고형 instruct) | `llama-server`(HTTP)는 쓰지 않는다 — 단발 요약에 상주 서버·포트 관리가 필요 없다. 프롬프트·시스템 프롬프트·출력은 **전부 파일**로 주고받고(`-f`/`-sysf`/`-o`), 회의록이 길면 map-reduce 청킹. 자동 실행이 아니라 사용자가 버튼으로 요청한다 (`references/architecture.md`) |
 | LLM 공급자 | 요약·용어 초안처럼 LLM을 쓰는 곳은 **공급자 추상화(`src/main/llm/*`)** 를 거치고, 사용자가 설정에서 넷 중 하나를 고른다 — **로컬 모델(기본, llama.cpp)** / **Claude API 키**(Anthropic SDK, 토큰 요금) / **Claude Code CLI**(설치된 `claude -p`를 서브프로세스로 실행, 구독 계정 사용) / **OpenAI API 키**(OpenAI SDK Responses API, GPT-6 계열 중 모델 선택, 토큰 요금). 지원 외부 LLM은 **Claude와 GPT** (2026-09-24 Claude만 → 같은 날 GPT 추가, 사용자 결정) | "네트워크는 모델 다운로드 한 번"이라는 로컬 우선 약속의 **명시적 예외**다 — 기본은 여전히 로컬이고, 외부 공급자를 고르는 순간 회의록이 그 회사 서버(Anthropic·OpenAI)로 전송된다는 사실을 설정 화면에 적는다. 파이프라인(STT·화자 분리)은 어느 공급자를 골라도 로컬이다. 그 밖의 공급자(Gemini, Codex CLI 등)는 제안만 하고 구현하지 않는다. 설계는 `references/architecture.md` "LLM 공급자" 절 |
 | 녹음본 보관·활용 | 파이프라인 완료 후 원본 WAV **삭제가 기본**, 보관은 설정 옵션(`audio.keep`, `/settings`). **원본이 남아 있는 회의는 상세 화면에서 재생(발화 시각 클릭 시 그 지점으로 이동)·WAV 내보내기·다시 인식**을 할 수 있다 (2026-09-25 사용자 요청으로 "재생은 요구사항 아님"을 뒤집음) | 실패한 잡은 재시도용으로 원본을 남기고 "다시 시도" 버튼을 둔다. 재생은 커스텀 프로토콜 `meeting-audio://`(Range 지원), 내보내기는 네이티브 저장 대화상자. 설계는 `references/architecture.md` "녹음본 재생·내보내기·다시 인식" 절 |
@@ -91,7 +91,7 @@ CI, 단일 인스턴스)도 코드가 붙었고, 세 Phase의 완료 기준(실�
 **Phase 5-1(로컬 LLM 요약)은 사용자 지시로 Phase 3·4보다 먼저 착수했다** — 로드맵 순서를 건너뛴 예외이므로 여기 기록해 둔다.
 5-1에 남은 항목(회의별 용어 사전, 저사양 폴백 모델)은 완료 기준이 아니라 후속 과제다 (`references/roadmap.md`).
 Phase 4 배포 결정(모델 레지스트리·온보딩·바이너리·서명·업데이트·CI)은 `references/distribution.md`에 있다.
-Phase 5-2(시스템 오디오 캡처)는 아직 시작하지 않았다.
+**Phase 5-2(시스템 오디오 캡처)는 2026-09-26 사용자 요청으로 착수했다** — Core Audio Taps 기반 동봉 도구로 스피커 출력을 마이크와 섞어 녹음한다 (`references/architecture.md` "시스템 오디오 캡처", 체크리스트는 `references/roadmap.md` 5-2).
 **Phase 5-3(녹음 위젯 패널)** 은 2026-09-18에 문서를 먼저 확정했다. 녹음 제어가 메인 창 밖으로 나가면서
 오디오 그래프 소유자·참석자 수의 단일 출처·창 참조 관리가 함께 바뀌므로, 체크리스트의 "계약 변경"을 먼저 끝내고 구현한다.
 **Phase 5-4(LLM 회의록 교정)** 는 2026-09-24 사용자 요청으로 검증 단계만 마쳤다 — 발화를 LLM이 다시 쓰는 방식은 폐기하고,

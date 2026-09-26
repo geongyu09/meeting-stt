@@ -107,6 +107,7 @@ recommendWhisperModelId({ cpuCount, totalMemoryBytes }): WhisperModelId
 | --- | --- | --- |
 | `darwin-arm64` (개발) | Homebrew `whisper-cli` 심볼릭 링크, sherpa-onnx `v1.13.6` osx-arm64 shared-no-tts | `pnpm setup:bin` |
 | `darwin-arm64` (배포) | whisper.cpp `v1.8.4`를 **소스에서 정적 빌드**, sherpa-onnx는 같음 | `pnpm --filter meeting-stt exec tsx scripts/setupBin.ts --from-source` |
+| `darwin-arm64` (개발·배포 공통) | `systemAudioTap` — `native/systemAudioTap/main.swift`를 `swiftc -O -target arm64-apple-macos14.2`로 빌드 (Phase 5-2, `references/architecture.md` "시스템 오디오 캡처") | `pnpm setup:bin`이 함께 만든다. Xcode 또는 Command Line Tools가 없으면 경고만 남기고 건너뛴다. 시스템 프레임워크만 링크하므로 dylib 동봉이 없다 |
 
 ### macOS 배포용 whisper는 소스에서 빌드한다
 

@@ -38,3 +38,6 @@ export const diarizeBinPath = () =>
 
 /** 로컬 요약용 llama.cpp 실행 파일 (Phase 5). 의존 dylib은 같은 폴더에 있어야 한다 */
 export const llamaBinPath = () => path.join(binDir(), `llama-cli${EXE_SUFFIX}`)
+
+/** 시스템 오디오 캡처 도구 (Phase 5-2). macOS 전용이라 접미사가 없다 (references/architecture.md "시스템 오디오 캡처") */
+export const systemAudioTapBinPath = () => path.join(binDir(), 'systemAudioTap')

@@ -13,7 +13,8 @@ const IDLE_STATE: RecordingStateEvent = {
   meetingId: null,
   startedAt: null,
   level: 0,
-  liveTranscript: { isEnabled: false, lines: [], partial: '' }
+  liveTranscript: { isEnabled: false, lines: [], partial: '' },
+  systemAudio: { isEnabled: false }
 }
 
 /**
@@ -83,6 +84,7 @@ const useRecordingState = () => {
     speakerCount: state.speakerCount,
     errorMessage: state.errorMessage,
     liveTranscript: state.liveTranscript,
+    systemAudio: state.systemAudio,
     elapsedSec
   }
 }

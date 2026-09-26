@@ -28,7 +28,8 @@ export const IPC = {
     control: 'recording:control',
     setSpeakerCount: 'recording:setSpeakerCount',
     reportError: 'recording:reportError',
-    setLiveTranscript: 'recording:setLiveTranscript'
+    setLiveTranscript: 'recording:setLiveTranscript',
+    setSystemAudio: 'recording:setSystemAudio'
   },
   widget: { setVisible: 'widget:setVisible' },
   shortcuts: { setSuspended: 'shortcuts:setSuspended' },
@@ -122,6 +123,20 @@ export interface RecordingStateEvent {
   errorMessage?: string
   /** 녹음 화면의 라이브 받아쓰기 보기. 저장되지 않는 미리보기다 (references/architecture.md "라이브 받아쓰기") */
   liveTranscript: LiveTranscriptState
+  /** 온라인 회의 소리(스피커 출력) 함께 녹음 (Phase 5-2, references/architecture.md "시스템 오디오 캡처") */
+  systemAudio: SystemAudioState
+}
+
+export interface SystemAudioState {
+  /** 스피커로 나가는 소리를 마이크와 섞어 녹음할지. 녹음 중에 바꾸면 다음 녹음부터 적용된다 */
+  isEnabled: boolean
+  /** 켜기(프로브)가 실패했거나 녹음 중 캡처가 끊겼을 때만 실린다. 녹음은 마이크만으로 계속된다 */
+  errorMessage?: string
+}
+
+/** 온라인 회의 소리 함께 녹음 켜기/끄기. 켜면 main이 도구를 잠깐 돌려 권한 창을 띄운다. 응답은 바뀐 녹음 상태다 */
+export interface SetSystemAudioRequest {
+  isEnabled: boolean
 }
 export type GetRecordingStateResponse = RecordingStateEvent
 

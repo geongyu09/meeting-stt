@@ -64,7 +64,16 @@ export const mainKo = {
     alreadyProcessing: '이미 처리 중인 회의입니다',
     exportFailed: '녹음 파일을 저장하지 못했습니다. 원본이 지워졌거나 저장 위치에 쓸 수 없습니다',
     liveUnavailable:
-      '라이브 받아쓰기를 하지 못했습니다. 녹음은 계속되고, 회의록은 정지 후 만들어집니다'
+      '라이브 받아쓰기를 하지 못했습니다. 녹음은 계속되고, 회의록은 정지 후 만들어집니다',
+    systemAudioUnsupported: ({ version }: { version: string }) =>
+      `온라인 회의 소리 녹음은 macOS 14.2 이상에서만 할 수 있습니다 (현재 ${version})`,
+    systemAudioToolMissing:
+      '시스템 오디오 캡처 도구가 없습니다. 앱을 다시 설치해 주세요 (개발 환경에서는 pnpm setup:bin)',
+    systemAudioFailed: ({ detail }: { detail: string }) =>
+      `시스템 오디오를 잡지 못했습니다 (${detail}). 시스템 설정 → 개인정보 보호 및 보안 → 화면 및 시스템 오디오 녹음에서 이 앱이 허용되어 있는지 확인해 주세요`,
+    systemAudioStopped: '시스템 오디오 캡처가 끊겨 마이크만 녹음합니다',
+    systemAudioTimeout:
+      '시스템 오디오 캡처 도구가 응답하지 않습니다. 권한 창이 떠 있다면 허용한 뒤 다시 켜 주세요'
   },
   dialogs: {
     exportTitle: '녹음 파일 저장',
@@ -200,7 +209,16 @@ export const mainEn: typeof mainKo = {
     exportFailed:
       'Could not save the recording. The original may have been deleted or the destination is not writable',
     liveUnavailable:
-      'Live transcription is unavailable. Recording continues and the transcript is created after you stop'
+      'Live transcription is unavailable. Recording continues and the transcript is created after you stop',
+    systemAudioUnsupported: ({ version }) =>
+      `Recording online meeting audio requires macOS 14.2 or later (currently ${version})`,
+    systemAudioToolMissing:
+      'The system audio capture tool is missing. Reinstall the app (or run pnpm setup:bin in development)',
+    systemAudioFailed: ({ detail }) =>
+      `Could not capture system audio (${detail}). Check that this app is allowed under System Settings → Privacy & Security → Screen & System Audio Recording`,
+    systemAudioStopped: 'System audio capture stopped. Only the microphone is being recorded',
+    systemAudioTimeout:
+      'The system audio capture tool is not responding. If a permission prompt is open, allow it and turn this on again'
   },
   dialogs: {
     exportTitle: 'Save recording',

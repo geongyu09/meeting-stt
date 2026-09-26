@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
 import { chmod, mkdir, symlink, unlink } from 'node:fs/promises'
 import path from 'node:path'
 
@@ -10,8 +10,8 @@ import {
 } from './assets'
 import { buildWhisperFromSource } from './buildWhisper'
 import { fail, info, warn } from './log'
-import { DOWNLOAD_TMP_DIR, PLATFORM_KEY, binDirOf } from './paths'
-import { clearQuarantine, which } from './shell'
+import { DOWNLOAD_TMP_DIR, PLATFORM_KEY, PROJECT_ROOT, binDirOf } from './paths'
+import { clearQuarantine, run, which } from './shell'
 
 const SUPPORTED_PLATFORMS = ['darwin-arm64', 'win32-x64']
 
@@ -59,6 +59,44 @@ const setupLlamaCli = async ({ binDir, platformKey }: { binDir: string; platform
   await clearQuarantine(llamaBin)
 }
 
+/** Core Audio Taps API가 macOS 14.2부터 있다 (references/architecture.md "시스템 오디오 캡처") */
+const SYSTEM_AUDIO_TAP_TARGET = 'arm64-apple-macos14.2'
+const SYSTEM_AUDIO_TAP_SOURCE = path.join(PROJECT_ROOT, 'native', 'systemAudioTap', 'main.swift')
+
+/**
+ * 시스템 오디오 캡처 도구 (Phase 5-2). 시스템 프레임워크만 링크하는 Swift 한 파일이라 내려받지 않고 여기서 빌드한다.
+ * Xcode·Command Line Tools가 없으면 경고만 남긴다 — 이 기능만 막히고 STT 준비는 계속된다.
+ */
+const setupSystemAudioTap = async ({ binDir }: { binDir: string }) => {
+  const target = path.join(binDir, 'systemAudioTap')
+  if (existsSync(target) && statSync(target).mtimeMs >= statSync(SYSTEM_AUDIO_TAP_SOURCE).mtimeMs) {
+    info('· systemAudioTap 이미 준비됨')
+    return
+  }
+
+  const swiftc = await which('swiftc')
+  if (!swiftc) {
+    warn(
+      'swiftc를 찾지 못해 systemAudioTap을 건너뜁니다 — 온라인 회의 소리 녹음만 막힙니다 (xcode-select --install)'
+    )
+    return
+  }
+
+  const result = await run({
+    command: swiftc,
+    args: ['-O', '-target', SYSTEM_AUDIO_TAP_TARGET, '-o', target, SYSTEM_AUDIO_TAP_SOURCE]
+  })
+  if (result.code !== 0) {
+    warn(
+      `systemAudioTap 빌드 실패 — 온라인 회의 소리 녹음만 막힙니다: ${result.stderr.slice(-400)}`
+    )
+    return
+  }
+
+  await chmod(target, 0o755)
+  info('· systemAudioTap 빌드 완료')
+}
+
 /** `--platform=win32-x64` 로 다른 플랫폼 자산을 미리 받을 수 있다 (CI·크로스 준비용) */
 const platformKeyOf = (argv: string[]) =>
   argv.find((arg) => arg.startsWith('--platform='))?.split('=')[1] ?? PLATFORM_KEY
@@ -97,6 +135,7 @@ const main = async () => {
   await clearQuarantine(diarizeBin)
 
   await setupLlamaCli({ binDir, platformKey })
+  if (platformKey === 'darwin-arm64') await setupSystemAudioTap({ binDir })
 
   info('바이너리 준비 완료')
 }

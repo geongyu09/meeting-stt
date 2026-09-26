@@ -34,6 +34,8 @@ mac:
   gatekeeperAssess: false
   extendInfo:
     - NSMicrophoneUsageDescription: 회의를 녹음하여 회의록을 작성하려면 마이크 접근 권한이 필요합니다.
+    # 시스템 오디오 캡처(Phase 5-2). 이 키가 없으면 macOS가 권한 창을 띄우지 않는다
+    - NSAudioCaptureUsageDescription: 온라인 회의 상대방의 목소리를 회의록에 넣으려면 시스템 오디오 녹음 권한이 필요합니다.
   # 로컬 빌드 기본값은 공증 없음. 배포 빌드는 `pnpm run build:mac:release`가 켠다
   # (APPLE_ID·APPLE_APP_SPECIFIC_PASSWORD·APPLE_TEAM_ID 필요, references/distribution.md)
   notarize: false

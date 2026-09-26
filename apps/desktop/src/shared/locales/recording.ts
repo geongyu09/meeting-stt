@@ -36,6 +36,12 @@ export const recordingKo = {
       '말하는 동안 GPU를 계속 써서 발열과 배터리 소모가 늘 수 있습니다. 필요 없을 때는 파형으로 바꿔 두세요',
     toggleError: '보기를 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요'
   },
+  systemAudio: {
+    label: '온라인 회의 소리 함께 녹음',
+    hint: 'Zoom·Meet 등 스피커로 나오는 상대방 목소리도 회의록에 넣습니다. 이어폰을 쓰면 더 정확합니다',
+    badge: '상대방 소리 포함',
+    toggleError: '설정을 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요'
+  },
   importer: {
     label: '녹음 파일 가져오기',
     importing: '가져오는 중…',
@@ -100,6 +106,12 @@ export const recordingEn: typeof recordingKo = {
     resourceNotice:
       'It keeps the GPU busy while people talk, which can add heat and drain the battery. Switch to the waveform when you do not need it',
     toggleError: 'Could not switch the view. Please try again shortly'
+  },
+  systemAudio: {
+    label: 'Also record online meeting audio',
+    hint: 'Captures what others say through your speakers in Zoom, Meet and similar apps. Headphones give better results',
+    badge: 'Includes speaker audio',
+    toggleError: 'Could not change this setting. Please try again shortly'
   },
   importer: {
     label: 'Import a recording',

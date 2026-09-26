@@ -66,6 +66,17 @@
   기본 출력에는 `FLLR` 패딩 청크가 끼므로 `--no-filler`로 녹음과 같은 44바이트 헤더를 만든다. webm·ogg(Opus/Vorbis)는 못 읽는다 (`architecture.md` "녹음 파일 가져오기").
 - macOS: `NSMicrophoneUsageDescription` 없으면 크래시. `systemPreferences.askForMediaAccess('microphone')`로 명시 요청.
 
+## 시스템 오디오 캡처 (Phase 5-2)
+- **Core Audio 탭의 첫 실행은 몇 초 동안 버퍼가 오지 않을 수 있다** (실측: 6초 중 1.84초만 수신, 두 번째부터는 연속). 도구가 벽시계 기준으로 0을 채우지 않으면
+  마이크와 시스템 스트림의 길이가 어긋나 상대방 소리가 앞으로 당겨진다 (`architecture.md` "시스템 오디오 캡처").
+- **`kAudioTapPropertyFormat`의 샘플레이트를 믿지 않는다.** 탭을 만들 때 48kHz라고 답해도 집계 장치는 출력 장치 속도(실측 24kHz)로 돌고 콜백 데이터도 그 속도다.
+  탭 형식대로 변환하면 6초 재생이 3초로 줄어든다. 집계 장치의 `kAudioDevicePropertyNominalSampleRate`를 읽고 변경 리스너로 변환기를 다시 만든다.
+- 개발 모드(`pnpm dev`)에서는 권한 창이 `Electron.app`(node_modules) 이름으로 뜨고, 시스템 설정의 "화면 및 시스템 오디오 녹음" 목록에도 Electron으로 올라간다. 패키징한 앱과 권한이 따로 논다.
+- `getUserMedia`의 `echoCancellation`은 Chromium이 재생한 소리만 지운다. Zoom이 스피커로 낸 소리가 마이크로 되돌아오는 것은 못 막으므로 이어폰을 권장한다.
+- 기본 출력 장치가 바뀌면 집계 장치의 IOProc이 멈춘다. 도구가 리스너로 다시 만들지만 그 사이는 무음이다.
+- `kAudioAggregateDeviceIsPrivateKey`를 빼면 집계 장치가 시스템 설정 오디오 장치 목록에 나타나고 프로세스가 죽어도 남는다.
+- 도구는 부모가 stdin을 닫을 때 끝난다. `spawn` 뒤 `stdin`을 `end()`하지 않고 두었다가 정지 시 닫는다. `detached`로 띄우지 않는다.
+
 ## 프로세스 / 성능
 - main 프로세스에서 동기 IO·동기 spawn(`spawnSync`, `execSync`)은 UI를 멈춘다. 비동기 `spawn`만 사용.
 - STT와 화자 분리를 무조건 병렬로 돌리지 않는다. `os.cpus().length`가 8 미만이면 순차 실행.

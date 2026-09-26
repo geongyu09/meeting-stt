@@ -26,6 +26,7 @@ import { getDb } from './connection'
 /** DB 키와 TS 필드명의 변환은 이 파일에서만 한다 (references/data-model.md) */
 const AUDIO_KEEP_KEY = 'audio.keep'
 const AUDIO_INPUT_DEVICE_KEY = 'audio.inputDevice'
+const AUDIO_SYSTEM_CAPTURE_KEY = 'audio.systemCapture'
 const UI_LOCALE_KEY = 'ui.locale'
 const UPDATE_CHECK_KEY = 'update.check'
 const STT_MODEL_KEY = 'stt.model'
@@ -176,6 +177,16 @@ export const updateAppSettings = ({
 
   return getAppSettings()
 }
+
+/**
+ * 온라인 회의 소리(스피커 출력) 함께 녹음 (Phase 5-2). `AppSettings`에 넣지 않는다 — 켜는 행위가 값 저장이 아니라
+ * 도구 프로브(시스템 권한 창)를 동반하므로 `recording:setSystemAudio`만 쓴다 (references/data-model.md). 기본 꺼짐
+ */
+export const getSystemAudioEnabled = () =>
+  readBoolean({ key: AUDIO_SYSTEM_CAPTURE_KEY, fallback: false })
+
+export const setSystemAudioEnabled = ({ isEnabled }: { isEnabled: boolean }) =>
+  writeValue({ key: AUDIO_SYSTEM_CAPTURE_KEY, value: isEnabled })
 
 /**
  * 온보딩·설정에서 고른 음성 인식 모델. `AppSettings`에 넣지 않는다 — 바꾸는 행위가 다운로드를 동반하므로

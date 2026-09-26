@@ -135,6 +135,7 @@ export const IPC = {
   //   llm.status / llm.setProvider / llm.setApiKey / llm.setOpenaiModel / llm.check
   // 라이브 받아쓰기 (아래 같은 이름의 절)
   //   recording.setLiveTranscript (결과는 events.recordingState의 liveTranscript로 push)
+  //   recording.setSystemAudio (결과는 events.recordingState의 systemAudio로 push, Phase 5-2)
 } as const
 ```
 
@@ -152,6 +153,7 @@ export const IPC = {
 | `events.recordingState` | `recording:stateChanged` | push | 녹음 상태 브로드캐스트 |
 | `events.recordingCommand` | `recording:command` | push | main → 위젯 지시 (전역 단축키·Tray·메인 창) |
 | `recording.setLiveTranscript` | `recording:setLiveTranscript` | invoke | 녹음 화면의 파형 ↔ 라이브 받아쓰기 보기 전환 (2026-09-26, 아래 "라이브 받아쓰기" 절) |
+| `recording.setSystemAudio` | `recording:setSystemAudio` | invoke | 온라인 회의 소리(스피커 출력) 함께 녹음 켜기/끄기. 켜면 도구를 1초 돌려 권한 창을 띄운다 (Phase 5-2, 아래 "시스템 오디오 캡처" 절) |
 
 ### 편집 채널의 응답 규약 (Phase 3)
 
@@ -504,7 +506,7 @@ CoreML이 느린 원인은 **임베딩 모델 입력 길이가 호출마다 달�
   main은 `session.setPermissionCheckHandler`에서 `media`를 허용한다 — Chromium이 라벨을 줄지 결정할 때 이 핸들러를 본다.
 - **마이크 테스트는 메인 창(설정 화면)에 짧게 사는 별도 그래프**다. "오디오 그래프 소유자는 위젯 창 하나"라는 규칙은 **녹음 그래프**에 대한 것이고,
   테스트 그래프는 청크를 보내지 않고 세션도 만들지 않는다. 구성은 `getUserMedia(같은 제약) → AudioContext(16kHz) → MediaStreamSource → AnalyserNode → gain 0 → destination`이며
-  100ms마다 `getFloatTimeDomainData`의 RMS(`@shared/audio`의 `rmsOf`)를 파형 미터(`LevelWaveform`)에 밀어 넣는다.
+  100ms마다 `getFloatTimeDomainData`의 RMS(`@shared/audio`의 `rmsOf`)를 `level`로 들고 레벨 미터(`LevelWaveform`)에 넘긴다.
   16kHz 확인·권한 요청은 녹음과 같은 경로를 타므로 **녹음이 실패할 환경이면 테스트도 같은 안내로 실패한다** — 그것이 테스트의 목적이다.
   - 녹음 중에는 테스트 버튼을 막는다 (마이크를 두 그래프가 잡아도 되지만 사용자가 헷갈린다). 장치 선택을 바꾸면 테스트를 정지한다.
   - 3초 넘게 피크가 `0.01` 아래면 "소리가 거의 잡히지 않습니다. 음소거되었거나 다른 장치가 선택됐을 수 있습니다"를, 그 위면 "소리가 잘 들어옵니다"를 보여준다.
@@ -695,7 +697,7 @@ main의 녹음 세션이 청크(약 0.5초)를 받을 때마다 **현재 구간*
 ### 상태와 IPC
 
 - 보기 모드(`isEnabled`)는 참석자 수처럼 **세션 밖 main 메모리**에 둔다 — 녹음 전에 켜 둘 수 있고, 다음 녹음에도 이어진다. 앱을 다시 켜면 꺼진다(파형이 기본). 설정 DB에 저장하지 않는다.
-- 결과는 새 push 채널 없이 `RecordingStateEvent.liveTranscript`로 싣는다. 이 이벤트는 청크마다(0.5초) 가므로 인식이 끝난 결과는 **다음 청크 이벤트에 실려 간다**(최대 0.5초 추가 지연). 인식이 끝날 때 따로 publish하지 않는 이유는, renderer가 이벤트마다 파형 레벨 칸을 하나씩 쌓기 때문이다 — 청크 아닌 이벤트가 늘면 파형이 빨라진다. 늦게 연 창도 `recording:state` 조회로 현재 글자를 받는다.
+- 결과는 새 push 채널 없이 `RecordingStateEvent.liveTranscript`로 싣는다. 이 이벤트는 청크마다(0.5초) 가므로 인식이 끝난 결과는 **다음 청크 이벤트에 실려 간다**(최대 0.5초 추가 지연). 인식이 끝날 때 따로 publish하지 않는 이유는, 0.5초 안에 어차피 실려 가는 값을 위해 이벤트 종류와 빈도를 늘릴 이유가 없기 때문이다. 늦게 연 창도 `recording:state` 조회로 현재 글자를 받는다.
 
 ```ts
 export interface LiveTranscriptLine {
@@ -726,6 +728,64 @@ export interface LiveTranscriptState {
 - 그 아래에 **자원 사용 안내**를 한 줄 더 둔다 (2026-09-26 사용자 요청): "말하는 동안 GPU를 계속 써서 발열과 배터리 소모가 늘 수 있습니다. 필요 없을 때는 파형으로 바꿔 두세요".
   말하는 동안 인식이 쉬지 않고 이어져 GPU를 70~100% 쓰고, 한 번에 메모리 약 0.9GB를 잡기 때문이다. 인식 실패 안내가 떠 있어도 이 줄은 남긴다.
 - 위젯 패널은 바꾸지 않는다 (좁은 창이고 파형도 없다).
+
+## 시스템 오디오 캡처 (Phase 5-2, 2026-09-26)
+
+온라인 회의(Zoom·Meet·Teams·브라우저)의 **상대방 목소리는 마이크가 아니라 스피커로 나온다.** 이를 회의록에 넣으려면 스피커로 나가는 소리를
+앱이 직접 잡아야 한다. 사용자 결정: **앱 밖에서 해야 하는 설정은 두지 않는다** — BlackHole 같은 가상 오디오 드라이버 설치·집계 장치 구성을 안내하는 방식은 쓰지 않는다.
+
+### 방식: Core Audio Taps + 동봉 Swift 도구
+
+- macOS 14.2+의 **Core Audio Taps**(`CATapDescription` + `AudioHardwareCreateProcessTap`)를 쓴다. 권한은 **"시스템 오디오 녹음"** 하나뿐이고
+  화면 녹화 권한·보라색 화면 녹화 표시가 없다. 대상 플랫폼(macOS 14+)과 거의 겹친다 — 14.0·14.1은 지원하지 않고 안내만 한다.
+- Electron 내장 `getDisplayMedia` + `audio: 'loopback'`(Electron 39+)은 쓰지 않는다. macOS에서는 네이티브 화면 공유 피커(`useSystemPicker: true`)를 거쳐야만
+  소리가 들어오고(커스텀 피커는 트랙이 바로 끝나는 버그, electron#52738), 녹음마다 창을 고르고 "화면 및 시스템 오디오 녹음" 권한을 받아야 한다.
+- 외부 npm 패키지(`audiotee`, `electron-audio-loopback`)도 들이지 않는다 — 릴리스 바이너리가 없어 어차피 Swift를 빌드해야 하고, 필요한 코드가 200줄 남짓이라 직접 갖는 편이 관리가 쉽다.
+- 도구는 **`apps/desktop/native/systemAudioTap/main.swift`** 한 파일이고 `scripts/setupBin.ts`가 `swiftc -O -target arm64-apple-macos14.2`로
+  `resources/bin/darwin-arm64/systemAudioTap`을 만든다 (Xcode 또는 Command Line Tools 필요. 없으면 경고만 남기고 이 기능만 막힌다).
+  다른 동봉 바이너리처럼 `asarUnpack` 대상이고 서명·공증도 같이 받는다 (`references/distribution.md` 5절).
+  `Info.plist`에 `NSAudioCaptureUsageDescription`(한국어)을 `electron-builder.yml` `extendInfo`로 넣는다 — 없으면 권한 창이 뜨지 않는다.
+
+### 도구 규약 (`systemAudioTap`)
+
+| 항목 | 값 |
+| --- | --- |
+| 인자 | 없음 (16kHz mono 고정, `@shared/audio`의 `SAMPLE_RATE_HZ`와 같은 값) |
+| stdout | Float32LE mono PCM 16kHz, 연속 스트림 |
+| stderr | 한 줄씩. `ready`(집계 장치 시작), `format: …`, `restarted: …`, `warn: …`, `error: …` |
+| 종료 | stdin이 닫히거나 SIGTERM → 탭·집계 장치 정리 후 0. 시작 실패는 `error:` 한 줄 뒤 1 |
+
+- 탭은 `CATapDescription(monoGlobalTapButExcludeProcesses: [])`(모든 프로세스 mono 믹스다운, 제외 없음) + `isPrivate` + `muteBehavior = .unmuted`.
+  비공개 집계 장치에 기본 출력 장치를 서브 장치로, 탭을 `kAudioAggregateDeviceTapListKey`로 물린다. 채널·샘플 형식은 `kAudioTapPropertyFormat`에서 읽되
+  **샘플레이트는 집계 장치의 `kAudioDevicePropertyNominalSampleRate`를 쓴다** — 탭 형식 속성은 만들 때 값(48kHz)에 머무는데 실제 콜백 데이터는 출력 장치 속도(실측 24kHz)를 따라서,
+  탭 형식대로 변환하면 소리가 절반 속도로 들어와 길이가 어긋난다. 속도가 재생 중에 바뀌므로 그 속성의 리스너에서 `AVAudioConverter`를 다시 만든다.
+- **벽시계 기준 연속 스트림.** 실측(M3 Pro, macOS 26.5)에서 IOProc은 무음에도 512프레임씩 계속 오지만, **첫 실행은 탭이 만들어진 뒤 몇 초 동안 버퍼가 오지 않았다.**
+  도구는 프로세스 시작 시각을 기준으로 "지금까지 내보냈어야 할 샘플 수"를 계산해 부족분(`GAP_FILL_THRESHOLD_SEC` 0.1 이상)을 0으로 채운다. 콜백이 멈춰도 0.5초 타이머가 같은 일을 한다.
+  main은 그래서 시스템 스트림을 마이크와 같은 속도의 연속 스트림으로 볼 수 있다.
+- 기본 출력 장치가 바뀌면(이어폰 연결·해제) 집계 장치의 시계가 끊기므로 `kAudioHardwarePropertyDefaultOutputDevice` 리스너가 탭·집계 장치를 통째로 다시 만든다. 그 사이 구간은 위 규칙으로 0이 채워진다.
+- **권한 거부 시 동작은 검증하지 못했다** (개발 기기에서 TCC를 초기화하지 않는다). 탭 생성이 실패하면 `error:`로, 성공한 채 무음이면 그대로 무음이 녹음된다.
+  녹음 화면 안내 문구가 시스템 설정 경로(개인정보 보호 및 보안 → 화면 및 시스템 오디오 녹음)를 적는다.
+
+### main: 섞기는 세션 안에서, 파이프라인은 그대로
+
+- **켜기/끄기는 녹음 화면의 스위치**(`recording:setSystemAudio`, `{ isEnabled }` → `GetRecordingStateResponse`)이고 값은 DB 키 `audio.systemCapture`(기본 꺼짐)에 남아 앱을 다시 켜도 유지된다.
+  `AppSettings`에 넣지 않는 이유는 켜는 행위가 값 저장이 아니라 **프로브**를 동반하기 때문이다 — 켜는 순간 `src/main/audio/systemAudio.ts`가 도구를 띄워 `ready`까지 기다렸다가(최대 `PROBE_TIMEOUT_MS` 15초 — 첫 실행은 시스템 권한 창이 떠 있는 동안 멈춰 있을 수 있다) 끝낸다.
+  회의 시작 전에 시스템 권한 창을 미리 띄우고 바이너리·OS 버전 문제를 그 자리에서 알리기 위해서다. 실패하면 스위치는 켜지지 않고 `systemAudio.errorMessage`를 싣는다.
+- 상태는 `RecordingStateEvent.systemAudio: { isEnabled: boolean; errorMessage?: string }`로 두 창에 push한다. 값은 참석자 수처럼 **세션 밖 main 메모리**(DB에서 한 번 읽어 캐시)에 있고 녹음 중에 바꾸면 다음 녹음부터 적용된다 (스위치는 녹음 중 비활성).
+- `startRecording`이 켜져 있으면 도구를 spawn한다. 실패(바이너리 없음·비정상 종료)해도 **녹음은 마이크만으로 계속**하고 `systemAudio.errorMessage`로 알린다 — 회의 중에 녹음이 통째로 실패하는 것보다 낫다.
+- `appendRecordingChunk`가 마이크 청크(`CHUNK_SAMPLES` 8192)를 받을 때마다 시스템 FIFO에서 같은 개수를 꺼내 **샘플별로 더하고 ±1로 클립**한 뒤 WAV·레벨(RMS)·라이브 받아쓰기에 넘긴다.
+  섞은 결과가 파이프라인 입력이므로 정규화·VAD·STT·화자 분리·병합은 손대지 않는다. 상대방이 여러 명이면 화자 분리가 그쪽 목소리도 나눈다.
+  `src/main/audio/systemAudioMix.ts`(순수 함수, vitest): FIFO는 부족하면 0으로 채우고(도구 시작 지연·재시작 구간), 꺼낸 뒤 남은 양이 `MAX_BACKLOG_SAMPLES`(1.5초)를 넘으면 오래된 것을 버려 시계 차이로 밀리는 것을 막는다.
+  시작 시점의 0 채움만큼 시스템 소리가 마이크보다 뒤로 밀리지만(보통 0.5초 미만, 첫 실행은 몇 초) 한 스트림 안의 순서는 그대로라 STT·화자 분리에는 영향이 없다.
+- `stopRecording`은 FIFO에 남은 시스템 샘플(최대 0.5초, 상대방의 마지막 말)을 한 청크 더 쓰고 도구의 stdin을 닫아 끝낸다. 앱 종료(`finalizeActiveRecording`)도 같은 경로다.
+- **에코.** 스피커로 회의를 들으면 상대방 목소리가 마이크에도 들어와 두 번 섞인다(수 ms 차이라 잔향처럼 들린다). `getUserMedia`의 `echoCancellation`은 Chromium이 재생한 소리만 지우므로 Zoom 소리에는 효과가 없다.
+  스위치 행의 안내 문구에 **이어폰 권장**을 적는다. 마이크 쪽에서 겹치는 구간을 지우는 처리는 하지 않는다 (완료 기준에서 품질을 보고 결정).
+
+### 화면
+
+- `RecorderSection`의 참석자 수 행 아래에 같은 모양의 행 하나: 제목 "온라인 회의 소리 함께 녹음", 설명 "Zoom·Meet 등 스피커로 나오는 상대방 목소리도 회의록에 넣습니다. 이어폰을 쓰면 더 정확합니다", 오른쪽에 `Switch`.
+  녹음 중에는 비활성이고, `systemAudio.errorMessage`가 있으면 설명 자리에 빨간 문구로 바꾼다. 위젯 패널은 바꾸지 않는다.
+- 녹음 중 상태 표시 옆에 켜져 있음을 알리는 짧은 배지("상대방 소리 포함")를 둔다 — 회의 중 "지금 저쪽 소리도 잡히고 있나"를 한눈에 알기 위해서다.
 
 ## UI 언어 (2026-09-25)
 
@@ -815,7 +875,7 @@ export interface LiveTranscriptState {
 | `Badge` | `tone`: `neutral`(회색 면) · `accent`(`--color-accent-soft` 바탕 + 강조 글자) · `success`(초록 글자) · `danger`(`--color-danger-soft` 바탕 + 빨간 글자). 바탕을 칠한 강한 배지는 두지 않는다 |
 | `Switch` | `<button role="switch" aria-checked>`. props `isChecked`, `onChange(next)`, `ariaLabel` 또는 `ariaLabelledBy`(설정 행 제목의 id), `disabled`. 켜짐은 잉크, 꺼짐은 `--color-disabled`. Space·Enter는 네이티브 버튼 동작으로 토글된다 |
 | `Stepper` | 숫자 입력 + −/+ 버튼. **값은 문자열**(`value`, `onChange(text)`) — 입력 중 비어 있거나 잘못된 값을 부모가 그대로 들고 검증하기 때문이다 (`useSpeakerCount`). props `min`, `max`, `label`(입력 이름), `placeholder`, `isInvalid`. 동작: 빈 값(또는 정수가 아닌 값)에서 + 는 `min`, − 는 비활성. `min`에서 − 는 **값을 비운다**("모름"). `max`에서 + 는 비활성. 범위를 넘는 값에서 −/+ 는 범위 안으로 끌어온다 |
-| `LevelWaveform` | 파형형 레벨 미터. `LevelMeter`(가로 막대)를 대체한다. props `levels`(0~1, 오래된 것부터), `barCount`. 값이 모자라면 오른쪽을 `--color-disabled` 빈 막대로 채우고, 넘치면 최근 `barCount`개만 그린다. 레벨 기록은 `useRecordingState`가 `levels`로 들고 있다 (최근 48개, 청크 주기 약 0.5초) |
+| `LevelWaveform` | 이퀄라이저형 레벨 미터. `LevelMeter`(가로 막대)를 대체한다. props `level`(0~1, 현재 세기), `barCount`. **모든 막대가 현재 레벨에 함께 반응**한다 — 가운데가 높고 양끝이 낮은 종 모양 포락선에 막대별 고정 계수를 곱하고, 레벨에 비례한 진폭으로 막대마다 다른 주기의 CSS `transform` 흔들림을 준다(노래방 이퀄라이저 느낌, 2026-09-26 사용자 요청). 무음이면 점만 남는다. 처음 구현은 0.5초마다 오는 레벨을 왼쪽부터 칸에 쌓는 이력형이었는데 24초 동안 채워지는 모양이 진행 바로 읽혀 바꿨다. 이력·타이머·오디오 분석이 없고 새 레벨이 올 때만 리렌더하며 흔들림은 컴포지터 애니메이션이라 추가 비용이 없다. `prefers-reduced-motion`이면 흔들림을 끈다 |
 
 레이아웃 공통 컴포넌트는 `shared/components/primitives/layout`에 둔다. 여러 위젯이 같은 모양을 써야 해서 위젯의 `ui` 세그먼트가 아니라 공용이다.
 
