@@ -9,8 +9,6 @@ const LEVEL_POLL_MS = 100
 /** 이 아래는 무음으로 본다. 말소리 RMS는 0.1~0.3, 조용한 방의 바닥 잡음은 0.001 안팎이다 */
 const SILENCE_LEVEL = 0.01
 const SILENCE_WARN_MS = 3000
-/** 녹음 화면의 파형과 같은 칸 수. 100ms 간격이라 약 5초 분량이다 */
-const LEVEL_HISTORY_SIZE = 48
 const ANALYSER_FFT_SIZE = 2048
 
 export type MicrophoneTestStatus = 'idle' | 'listening' | 'silent'
@@ -42,7 +40,7 @@ const useMicrophoneTest = ({ inputDevice }: UseMicrophoneTestParams) => {
   const { t } = useLocale()
   const [isRunning, setIsRunning] = useState(false)
   const [isStarting, setIsStarting] = useState(false)
-  const [levels, setLevels] = useState<number[]>([])
+  const [level, setLevel] = useState(0)
   const [status, setStatus] = useState<MicrophoneTestStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const graphRef = useRef<TestGraph | null>(null)
@@ -57,7 +55,7 @@ const useMicrophoneTest = ({ inputDevice }: UseMicrophoneTestParams) => {
     return closeGraph(graph).then(() => {
       setIsRunning(false)
       setStatus('idle')
-      setLevels([])
+      setLevel(0)
     })
   }, [])
 
@@ -85,11 +83,11 @@ const useMicrophoneTest = ({ inputDevice }: UseMicrophoneTestParams) => {
       let lastLoudAt = Date.now()
       const timer = setInterval(() => {
         analyser.getFloatTimeDomainData(samples)
-        const level = rmsOf(samples)
+        const next = rmsOf(samples)
         const now = Date.now()
-        if (level >= SILENCE_LEVEL) lastLoudAt = now
+        if (next >= SILENCE_LEVEL) lastLoudAt = now
 
-        setLevels((current) => [...current, level].slice(-LEVEL_HISTORY_SIZE))
+        setLevel(next)
         setStatus(now - lastLoudAt >= SILENCE_WARN_MS ? 'silent' : 'listening')
       }, LEVEL_POLL_MS)
 
@@ -115,7 +113,7 @@ const useMicrophoneTest = ({ inputDevice }: UseMicrophoneTestParams) => {
     [stop]
   )
 
-  return { isRunning, isStarting, levels, status, error, start, stop }
+  return { isRunning, isStarting, level, status, error, start, stop }
 }
 
 export default useMicrophoneTest

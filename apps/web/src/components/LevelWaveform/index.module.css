@@ -15,23 +15,34 @@
   height: 36px;
 }
 
-.bar,
-.emptyBar {
+.bar {
   flex-shrink: 0;
   width: 5px;
+  background: var(--color-text);
   border-radius: var(--radius-full);
-  transition: height 0.12s linear;
+  transform-origin: center;
+  transition: height 0.22s ease-out;
+  /* 흔들림 폭(--pulse)은 레벨에 비례해 인라인으로 들어온다. 무음이면 0이라 멈춰 보인다 */
+  animation: pulse var(--pulse-duration) ease-in-out infinite alternate;
+  animation-delay: var(--pulse-delay);
 }
 
-.sm .bar,
-.sm .emptyBar {
+.sm .bar {
   width: 4px;
 }
 
-.bar {
-  background: var(--color-text);
+@keyframes pulse {
+  from {
+    transform: scaleY(1);
+  }
+
+  to {
+    transform: scaleY(calc(1 - var(--pulse, 0)));
+  }
 }
 
-.emptyBar {
-  background: var(--color-disabled);
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    animation: none;
+  }
 }

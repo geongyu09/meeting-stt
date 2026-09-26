@@ -46,7 +46,7 @@ export default function RecordPanel({ isDisabled, onRecorded }: RecordPanelProps
           {formatTimestamp({ sec: elapsedSec })}
         </p>
         <div className="meterRow">
-          <LevelWaveform levels={levels} barCount={LEVEL_HISTORY_SIZE} />
+          <LevelWaveform level={levels.at(-1) ?? 0} barCount={LEVEL_HISTORY_SIZE} />
           <span className="meterValue">{isRecording ? formatDb(levelDb) : '—'}</span>
         </div>
       </div>

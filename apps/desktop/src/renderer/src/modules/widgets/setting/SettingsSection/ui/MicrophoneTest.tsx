@@ -17,7 +17,7 @@ interface MicrophoneTestProps {
 
 export default function MicrophoneTest({ inputDevice, isRecording }: MicrophoneTestProps) {
   const { t } = useLocale()
-  const { isRunning, isStarting, levels, status, error, start, stop } = useMicrophoneTest({
+  const { isRunning, isStarting, level, status, error, start, stop } = useMicrophoneTest({
     inputDevice
   })
 
@@ -45,7 +45,7 @@ export default function MicrophoneTest({ inputDevice, isRecording }: MicrophoneT
     >
       {isRunning ? (
         <div className={styles.meter}>
-          <LevelWaveform levels={levels} barCount={WAVEFORM_BAR_COUNT} size="sm" />
+          <LevelWaveform level={level} barCount={WAVEFORM_BAR_COUNT} size="sm" />
           <p className={status === 'silent' ? styles.silent : styles.status} role="status">
             {t.settings.microphoneTest.status[status]}
           </p>

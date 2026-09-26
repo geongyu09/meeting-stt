@@ -30,7 +30,7 @@ export default function Record() {
         </div>
 
         <div className={styles.meter}>
-          <LevelWaveform levels={recording.levels} barCount={LEVEL_HISTORY_SIZE} />
+          <LevelWaveform level={recording.levels.at(-1) ?? 0} barCount={LEVEL_HISTORY_SIZE} />
         </div>
 
         <div className={styles.speakerCard}>

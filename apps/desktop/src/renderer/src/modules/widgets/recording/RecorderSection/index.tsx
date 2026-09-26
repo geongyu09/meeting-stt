@@ -34,7 +34,7 @@ export default function RecorderSection() {
   const t = messages.recording
   const {
     isRecording,
-    levels,
+    level,
     elapsedSec,
     speakerCount,
     errorMessage,
@@ -97,7 +97,7 @@ export default function RecorderSection() {
         {liveTranscript.isEnabled ? (
           <LiveTranscriptView liveTranscript={liveTranscript} isRecording={isRecording} />
         ) : (
-          <LevelWaveform levels={levels} barCount={WAVEFORM_BAR_COUNT} />
+          <LevelWaveform level={level} barCount={WAVEFORM_BAR_COUNT} />
         )}
       </div>
 

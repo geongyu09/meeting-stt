@@ -6,8 +6,6 @@ import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 const ELAPSED_TICK_MS = 200
 const MS_PER_SEC = 1000
-/** 파형이 그리는 최대 칸 수. 청크 주기(약 0.5초)마다 하나씩 쌓이므로 약 24초 분량이다 */
-const LEVEL_HISTORY_SIZE = 48
 
 const IDLE_STATE: RecordingStateEvent = {
   meetingId: null,
@@ -25,7 +23,6 @@ const useRecordingState = () => {
   const { t } = useLocale()
   const [state, setState] = useState(IDLE_STATE)
   const [now, setNow] = useState(() => Date.now())
-  const [levels, setLevels] = useState<number[]>([])
   const isEventReceivedRef = useRef(false)
 
   // 상태가 바뀐 순간의 시각을 함께 잡아 둔다. 그러지 않으면 녹음 중에 연 창이
@@ -35,14 +32,10 @@ const useRecordingState = () => {
     setNow(Date.now())
   }, [])
 
-  // 레벨 기록은 이벤트가 올 때마다 쌓는다. 녹음이 아닐 때 온 이벤트(참석자 수 변경 등)는 파형을 비운다
   const applyEvent = useCallback(
     (next: RecordingStateEvent) => {
       isEventReceivedRef.current = true
       applyState(next)
-      setLevels((current) =>
-        next.meetingId === null ? [] : [...current, next.level].slice(-LEVEL_HISTORY_SIZE)
-      )
     },
     [applyState]
   )
@@ -80,7 +73,6 @@ const useRecordingState = () => {
     isRecording: state.meetingId !== null,
     meetingId: state.meetingId,
     level: state.level,
-    levels,
     speakerCount: state.speakerCount,
     errorMessage: state.errorMessage,
     liveTranscript: state.liveTranscript,
