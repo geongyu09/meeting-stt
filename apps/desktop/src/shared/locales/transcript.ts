@@ -1,4 +1,4 @@
-/** 회의 상세(회의록·화자·원본 녹음 레일) 문구. ko가 타입을 정하고 en은 같은 키를 가져야 한다 (references/architecture.md "UI 언어") */
+/** 회의 상세(회의록·화자·하단 녹음 바) 문구. ko가 타입을 정하고 en은 같은 키를 가져야 한다 (references/architecture.md "UI 언어") */
 export const transcriptKo = {
   topBarTitle: '회의록',
   // 이름을 지정하지 않은 화자의 기본 표시. 복사 텍스트에도 그대로 들어간다 (@meeting-stt/core/format)
@@ -30,14 +30,15 @@ export const transcriptKo = {
     cancel: '취소',
     confirmDelete: '삭제'
   },
-  recordingPanel: {
+  recordingBar: {
     sectionLabel: '원본 녹음',
-    title: '녹음',
     notKeptBefore: '원본 녹음을 보관하지 않아 재생·다시 인식을 할 수 없습니다.',
     notKeptLink: '설정에서 원본 녹음 보관',
     notKeptAfter: '을 켜면 이후 회의부터 남습니다',
     loadFailed: '녹음 파일을 불러오지 못했습니다. 원본이 지워졌을 수 있습니다',
-    seekHint: '발화 시각을 누르면 그 지점부터 재생합니다',
+    play: '재생',
+    pause: '일시정지',
+    seekLabel: '재생 위치',
     reprocessConfirm:
       '회의록을 처음부터 다시 만듭니다. 화자 이름, 직접 고친 내용, 교정 결과가 사라지고 요약은 남습니다',
     speakerCountHint: '참석자 수 (비우면 자동)',
@@ -113,15 +114,16 @@ export const transcriptEn: typeof transcriptKo = {
     cancel: 'Cancel',
     confirmDelete: 'Delete'
   },
-  recordingPanel: {
+  recordingBar: {
     sectionLabel: 'Original recording',
-    title: 'Recording',
     notKeptBefore:
       'The original recording was not kept, so playback and re-transcription are unavailable.',
     notKeptLink: 'Turn on keeping recordings in Settings',
     notKeptAfter: ' to keep them for future meetings',
     loadFailed: 'Could not load the recording. The original may have been deleted',
-    seekHint: 'Click an utterance time to play from that point',
+    play: 'Play',
+    pause: 'Pause',
+    seekLabel: 'Playback position',
     reprocessConfirm:
       'The transcript will be rebuilt from scratch. Speaker names, manual edits, and corrections will be lost; the summary is kept',
     speakerCountHint: 'Number of participants (leave blank for automatic)',

@@ -1,7 +1,18 @@
 import type { ReactNode } from 'react'
 
 export type IconName =
-  'mic' | 'search' | 'settings' | 'copy' | 'markdown' | 'more' | 'close' | 'check' | 'chevronDown'
+  | 'mic'
+  | 'search'
+  | 'settings'
+  | 'copy'
+  | 'markdown'
+  | 'more'
+  | 'close'
+  | 'check'
+  | 'chevronDown'
+  | 'play'
+  | 'pause'
+  | 'download'
 
 interface IconProps {
   name: IconName
@@ -54,7 +65,16 @@ const PATHS: Record<IconName, ReactNode> = {
   ),
   close: <path d="M6 6l12 12M18 6 6 18" />,
   check: <path d="m5 12 5 5 9-10" />,
-  chevronDown: <path d="m6 9 6 6 6-6" />
+  chevronDown: <path d="m6 9 6 6 6-6" />,
+  play: <path d="M8 5v14l11-7z" fill="currentColor" />,
+  pause: <path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor" />,
+  download: (
+    <>
+      <path d="M12 4v11" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M4 19h16" />
+    </>
+  )
 }
 
 /** 장식용이다. 아이콘만 있는 버튼은 버튼 쪽에 aria-label을 붙인다 */

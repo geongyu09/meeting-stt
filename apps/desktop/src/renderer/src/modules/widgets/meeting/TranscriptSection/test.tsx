@@ -565,6 +565,33 @@ describe('TranscriptSection 원본 녹음', () => {
     play.mockRestore()
   })
 
+  it('재생 버튼을 누르면 재생하고 일시정지 버튼으로 바뀐다', async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (
+      this: HTMLMediaElement
+    ) {
+      this.dispatchEvent(new Event('play'))
+      return Promise.resolve()
+    })
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(function (
+      this: HTMLMediaElement
+    ) {
+      this.dispatchEvent(new Event('pause'))
+    })
+    const user = userEvent.setup()
+    vi.mocked(getMeetingApi).mockResolvedValue(audioDetail())
+    renderSection()
+
+    await user.click(await screen.findByRole('button', { name: '재생' }))
+    expect(play).toHaveBeenCalled()
+    expect(await screen.findByRole('button', { name: '일시정지' })).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: '일시정지' }))
+    expect(pause).toHaveBeenCalled()
+    expect(await screen.findByRole('button', { name: '재생' })).toBeTruthy()
+    play.mockRestore()
+    pause.mockRestore()
+  })
+
   it('원본 녹음을 WAV로 저장한다', async () => {
     const user = userEvent.setup()
     vi.mocked(getMeetingApi).mockResolvedValue(audioDetail())

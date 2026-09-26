@@ -16,7 +16,7 @@ import useRailResize from './model/useRailResize'
 import useTranscriptCopy from './model/useTranscriptCopy'
 import Placeholder from './ui/Placeholder'
 import RailResizer from './ui/RailResizer'
-import RecordingPanel from './ui/RecordingPanel'
+import RecordingBar from './ui/RecordingBar'
 import SpeakerPanel from './ui/SpeakerPanel'
 import TranscriptActions from './ui/TranscriptActions'
 import TranscriptHeader from './ui/TranscriptHeader'
@@ -33,7 +33,7 @@ interface TranscriptSectionProps {
 }
 
 /**
- * 회의 상세의 본문 전체(상단 바 + 회의록 + 오른쪽 레일). 화자 목록이 회의록과 같은 `useMeeting` 상태를 써야 해서
+ * 회의 상세의 본문 전체(상단 바 + 회의록 + 오른쪽 레일 + 하단 녹음 바). 화자 목록이 회의록과 같은 `useMeeting` 상태를 써야 해서
  * 레일까지 여기서 그린다 (references/architecture.md "화면별 구성").
  */
 export default function TranscriptSection({ meetingId, aside }: TranscriptSectionProps) {
@@ -188,9 +188,6 @@ export default function TranscriptSection({ meetingId, aside }: TranscriptSectio
         />
         <aside className={styles.rail}>
           {aside}
-          {meeting.status === 'done' || meeting.status === 'error' ? (
-            <RecordingPanel meeting={meeting} audioRef={audioRef} onReprocess={reprocessMeeting} />
-          ) : null}
           {meeting.status === 'done' && utterances.length ? (
             <RefinePanel meetingId={meetingId} refineResult={refineResult} />
           ) : null}
@@ -204,6 +201,9 @@ export default function TranscriptSection({ meetingId, aside }: TranscriptSectio
           ) : null}
         </aside>
       </div>
+      {meeting.status === 'done' || meeting.status === 'error' ? (
+        <RecordingBar meeting={meeting} audioRef={audioRef} onReprocess={reprocessMeeting} />
+      ) : null}
     </>
   )
 }

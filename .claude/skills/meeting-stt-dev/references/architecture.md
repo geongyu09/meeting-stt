@@ -397,8 +397,13 @@ CoreML이 느린 원인은 **임베딩 모델 입력 길이가 호출마다 달�
     핸들러는 회의 ID만 받아 DB의 `audio_path`로 파일을 찾는다. 없는 회의·원본 없음은 404.
   - `<audio>`의 시킹은 `Range` 요청이다. 핸들러가 `Range: bytes=a-b`를 직접 해석해 `206` + `Content-Range`로 그 구간만 스트림한다 (파일 전체를 메모리에 올리지 않는다).
   - 스킴은 `app.whenReady()` **전에** `protocol.registerSchemesAsPrivileged`로 `standard·secure·stream·supportFetchAPI` 권한을 준다. renderer CSP에 `media-src 'self' meeting-audio:`를 더한다.
-- **재생 UI**: 상세 레일의 "녹음" 패널에 `<audio controls>` 하나를 둔다. 원본이 있으면 발화 행의 시각이 버튼이 되고, 누르면 그 발화의 `startSec`으로 이동해 재생한다.
+- **재생 UI**: 상세 본문의 **하단 고정 녹음 바**(`TranscriptSection/ui/RecordingBar`)에 `<audio>` 하나를 숨겨 두고, 브라우저 기본 `controls` 대신
+  **디자인 토큰으로 그린 커스텀 플레이어**(재생/일시정지 버튼 + 현재 시각 + 시킹 슬라이더 + 전체 길이)를 쓴다 (2026-09-26 사용자 요청 — 기본 재생 막대는 "여백" 팔레트와 맞지 않는다).
+  재생 상태는 `model/useAudioPlayer`가 `<audio>` 이벤트(`play`·`pause`·`timeupdate`·`durationchange`·`ended`·`error`)를 구독해 갖고, 슬라이더는 `<input type="range">`라 키보드로도 옮길 수 있다. 원본이 있으면 발화 행의 시각이 버튼이 되고, 누르면 그 발화의 `startSec`으로 이동해 재생한다.
   재생 중인 발화 강조는 범위 밖이다.
+  - 바의 위치는 2026-09-26 사용자 요청으로 오른쪽 레일 패널에서 **본문 최하단**으로 옮겼다. 회의록·레일이 든 스크롤 영역(`.content`)의 **형제**로 그 아래에 두어
+    좌우 전체 폭을 채우고, 회의록을 스크롤해도 창 바닥에 붙어 있다 (`position: sticky`가 아니라 `AppShellLayout`의 `main` flex 열에서 스크롤 영역 밖에 있기 때문이다).
+    한 줄 가로 배치 — 제목·안내 문구 없이 플레이어가 남은 폭을 채우고, 오른쪽에 "WAV로 저장"·"다시 인식"만 둔다. 다시 인식 확인은 바 안에서 한 줄 더 펼친다.
 - **내보내기**: `meetings:exportAudio`(invoke) → main이 `dialog.showSaveDialog`(메인 창에 붙은 시트)로 저장 위치를 받아 `copyFile`한다.
   기본 파일명은 `<회의 제목>.wav`(파일명에 못 쓰는 문자는 `_`). 응답 `{ isSaved }` — 사용자가 취소하면 `false`이고 오류가 아니다.
   저장 위치 선택은 확인 UI가 아니므로 "네이티브 대화상자 금지" 규칙(1절 확인 UI)의 대상이 아니다.
@@ -410,9 +415,9 @@ CoreML이 느린 원인은 **임베딩 모델 입력 길이가 호출마다 달�
     이 교체는 한 트랜잭션이다 (`data-model.md` "다시 인식").
   - 실패하면 첫 처리와 같다 — `status='error'`, 원본 유지. 이전 회의록 행은 성공할 때까지 교체되지 않는다.
   - 성공 뒤에는 첫 처리와 같이 `audio.keep`을 적용한다. 보관을 끈 상태에서 실패 회의를 다시 시도해 성공하면 원본이 지워진다.
-  - UI: 레일 "녹음" 패널의 "다시 인식" → 2단계 인라인 확인(참석자 수 `Stepper` + "화자 이름·직접 고친 내용·교정 결과가 사라집니다" 안내).
+  - UI: 하단 녹음 바의 "다시 인식" → 2단계 인라인 확인(참석자 수 `Stepper` + "화자 이름·직접 고친 내용·교정 결과가 사라집니다" 안내).
     실패한 회의는 본문 오류 문구 아래 "다시 시도" 버튼(저장된 참석자 수 그대로, 확인 없음 — 잃을 회의록이 보이지 않는 상태다).
-- 원본이 없는 회의의 "녹음" 패널은 "원본 녹음을 보관하지 않아 재생·다시 인식을 할 수 없습니다"와 설정 안내만 보인다.
+- 원본이 없는 회의의 녹음 바는 "원본 녹음을 보관하지 않아 재생·다시 인식을 할 수 없습니다"와 설정 안내만 보인다.
 
 ## 녹음 파일 가져오기 (2026-09-25)
 
@@ -653,7 +658,7 @@ export interface RecordingStateEvent {
 - 문구는 **`src/shared/locales/<domain>.ts`** 에 도메인별로 둔다. 한 파일이 `ko`와 `en`을 **나란히** export하고, `ko`가 타입을 정의하며 `en`은 `typeof ko`로 묶인다.
   한쪽 언어에만 키를 추가하면 타입 오류가 난다 — 번역 누락을 컴파일로 잡는다. 두 언어를 한 파일에 두는 이유는 문구를 고칠 때 대응하는 번역이 바로 옆에 보여야 하기 때문이다.
 - 값이 들어가는 문구는 문자열 템플릿이 아니라 **함수**다 (`deletedCount: ({ count }) => `${count}개 삭제됨``). 어순이 언어마다 달라 `{count}` 치환 규약을 따로 만들지 않는다.
-- 도메인 파일: `common`(버튼·공통 오류), `sidebar`(회의 목록·검색·날짜 묶음), `transcript`(회의록·화자·녹음본 레일), `summary`, `refine`, `pipeline`(단계 라벨), `recording`(녹음 화면·위젯 패널), `models`(온보딩·모델 다운로드), `settings`(설정 카테고리·토글·단축키), `llm`, `glossary`, `update`, `main`(메뉴바·main 프로세스 오류).
+- 도메인 파일: `common`(버튼·공통 오류), `sidebar`(회의 목록·검색·날짜 묶음), `transcript`(회의록·화자·하단 녹음 바), `summary`, `refine`, `pipeline`(단계 라벨), `recording`(녹음 화면·위젯 패널), `models`(온보딩·모델 다운로드), `settings`(설정 카테고리·토글·단축키), `llm`, `glossary`, `update`, `main`(메뉴바·main 프로세스 오류).
   `src/shared/i18n.ts`가 이들을 `MESSAGES: Record<Locale, Messages>`로 모으고 `Locale`(`'ko' | 'en'`)·`DEFAULT_LOCALE`·`isLocale`을 정의한다.
 - 사전 파일은 데이터라 **400줄 제한의 예외**다. 대신 도메인이 커지면 파일을 나눈다.
 - i18n 라이브러리(i18next 등)는 도입하지 않는다 — 두 언어·수백 문구에 키 문자열 조회·복수형 규칙·지연 로드가 필요 없고, 타입으로 누락을 잡는 쪽이 낫다.
@@ -769,7 +774,7 @@ export interface RecordingStateEvent {
 
 ### 화면별 구성
 
-- **회의 상세**: 상단 바(복사·마크다운 복사·더보기) + 두 칸 — 가운데 회의록, 오른쪽 레일 300px에 요약 카드와 화자 목록.
+- **회의 상세**: 상단 바(복사·마크다운 복사·더보기) + 두 칸 — 가운데 회의록, 오른쪽 레일 300px에 요약 카드·교정 결과·화자 목록 — + **하단 고정 녹음 바**(두 칸 아래 전체 폭, "녹음본 재생·내보내기·다시 인식" 절).
   화자 목록은 회의록과 **같은 `useMeeting` 상태**를 써야 하므로(훅 인스턴스마다 상태가 따로다) `TranscriptSection`이 레일까지 그리고,
   요약은 `aside` 슬롯으로 받는다: `<TranscriptSection meetingId aside={<SummarySection meetingId />} />`. 기존 `SpeakerBar`는 레일의 화자 목록으로 바뀐다.
   레일 폭은 회의록과 레일 사이의 **세로 핸들을 끌어** 바꾼다(2026-09-24 사용자 요청). 기본 300px, 최소 240px, 최대 560px이면서 본문 폭의 절반을 넘지 않는다(회의록이 레일에 밀려 사라지지 않게 — CSS도 `min(var(--rail-width), 50%)`로 같은 상한을 건다).
