@@ -43,6 +43,7 @@ import {
   type SearchMeetingsRequest,
   type SearchMeetingsResponse,
   type SendRecordingChunkRequest,
+  type SetLiveTranscriptRequest,
   type SetSpeakerCountRequest,
   type SetShortcutsSuspendedRequest,
   type SetWidgetVisibleRequest,
@@ -80,7 +81,9 @@ const api = {
     setSpeakerCount: (payload: SetSpeakerCountRequest): Promise<GetRecordingStateResponse> =>
       ipcRenderer.invoke(IPC.recording.setSpeakerCount, payload),
     reportError: (payload: ReportRecordingErrorRequest): Promise<void> =>
-      ipcRenderer.invoke(IPC.recording.reportError, payload)
+      ipcRenderer.invoke(IPC.recording.reportError, payload),
+    setLiveTranscript: (payload: SetLiveTranscriptRequest): Promise<GetRecordingStateResponse> =>
+      ipcRenderer.invoke(IPC.recording.setLiveTranscript, payload)
   },
   widget: {
     setVisible: (payload: SetWidgetVisibleRequest): Promise<void> =>

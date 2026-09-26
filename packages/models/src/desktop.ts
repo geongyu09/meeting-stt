@@ -56,6 +56,14 @@ const SEGMENTATION_ARCHIVE_NAME = 'sherpa-onnx-pyannote-segmentation-3-0.tar.bz2
 
 export const DEFAULT_WHISPER_MODEL_ID: WhisperModelId = 'turbo-q5'
 
+/**
+ * 녹음 중 라이브 받아쓰기가 쓰는 모델. 회의록 모델(`stt.model`)과 따로, 속도 우선으로 고정한다
+ * (references/architecture.md "라이브 받아쓰기").
+ */
+export const LIVE_WHISPER_MODEL_ID: WhisperModelId = 'turbo-q5'
+/** 메모리가 적어 고른 모델. 라이브에 이보다 무거운 모델을 올리지 않는다 */
+const LOW_SPEC_WHISPER_MODEL_ID: WhisperModelId = 'small-q5_1'
+
 /** 표시 순서 = 권장 → 고품질 → 저사양 */
 export const WHISPER_MODEL_OPTIONS: WhisperModelOption[] = [
   {
@@ -171,3 +179,18 @@ export const modelAssetsOf = ({
 
 export const totalDownloadBytesOf = ({ assets }: { assets: ModelAsset[] }) =>
   assets.reduce((total, asset) => total + asset.downloadBytes, 0)
+
+interface LiveWhisperModelIdOfParams {
+  selectedId: WhisperModelId
+  /** 라이브 모델(turbo) 파일이 설치돼 있는지. 라이브용으로 따로 내려받지 않는다 */
+  isLiveModelInstalled: boolean
+}
+
+/** 라이브 받아쓰기 모델. 저사양을 골랐거나 turbo 파일이 없으면 고른 모델을 그대로 쓴다 */
+export const liveWhisperModelIdOf = ({
+  selectedId,
+  isLiveModelInstalled
+}: LiveWhisperModelIdOfParams) =>
+  selectedId === LOW_SPEC_WHISPER_MODEL_ID || !isLiveModelInstalled
+    ? selectedId
+    : LIVE_WHISPER_MODEL_ID

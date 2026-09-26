@@ -24,6 +24,18 @@ export const recordingKo = {
     widgetHintSuffix: '로도 시작·정지할 수 있습니다.',
     widgetHintPlain: '위젯 패널에서도 시작·정지할 수 있습니다.'
   },
+  live: {
+    viewLabel: '녹음 화면 보기',
+    waveform: '파형',
+    transcript: '라이브 받아쓰기',
+    regionLabel: '라이브 받아쓰기',
+    idle: '녹음을 시작하면 들리는 말이 여기에 바로 글자로 나타납니다',
+    listening: '듣고 있습니다…',
+    hint: '미리보기입니다. 회의록은 녹음을 마친 뒤 더 정확하게 다시 만듭니다',
+    resourceNotice:
+      '말하는 동안 GPU를 계속 써서 발열과 배터리 소모가 늘 수 있습니다. 필요 없을 때는 파형으로 바꿔 두세요',
+    toggleError: '보기를 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요'
+  },
   importer: {
     label: '녹음 파일 가져오기',
     importing: '가져오는 중…',
@@ -76,6 +88,18 @@ export const recordingEn: typeof recordingKo = {
     widgetHintPrefix: 'You can also start and stop from the widget panel or with ',
     widgetHintSuffix: '.',
     widgetHintPlain: 'You can also start and stop from the widget panel.'
+  },
+  live: {
+    viewLabel: 'Recording view',
+    waveform: 'Waveform',
+    transcript: 'Live transcript',
+    regionLabel: 'Live transcript',
+    idle: 'Start recording and what is said will appear here as text right away',
+    listening: 'Listening…',
+    hint: 'This is a preview. The transcript is recreated more accurately after you stop',
+    resourceNotice:
+      'It keeps the GPU busy while people talk, which can add heat and drain the battery. Switch to the waveform when you do not need it',
+    toggleError: 'Could not switch the view. Please try again shortly'
   },
   importer: {
     label: 'Import a recording',

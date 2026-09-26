@@ -133,6 +133,8 @@ export const IPC = {
   //   meetings.import
   // LLM 공급자 선택 (아래 "LLM 공급자" 절)
   //   llm.status / llm.setProvider / llm.setApiKey / llm.setOpenaiModel / llm.check
+  // 라이브 받아쓰기 (아래 같은 이름의 절)
+  //   recording.setLiveTranscript (결과는 events.recordingState의 liveTranscript로 push)
 } as const
 ```
 
@@ -149,6 +151,7 @@ export const IPC = {
 | `shortcuts.setSuspended` | `shortcuts:setSuspended` | invoke | 설정 화면에서 단축키를 입력받는 동안 전역 단축키를 잠시 해제·복구 |
 | `events.recordingState` | `recording:stateChanged` | push | 녹음 상태 브로드캐스트 |
 | `events.recordingCommand` | `recording:command` | push | main → 위젯 지시 (전역 단축키·Tray·메인 창) |
+| `recording.setLiveTranscript` | `recording:setLiveTranscript` | invoke | 녹음 화면의 파형 ↔ 라이브 받아쓰기 보기 전환 (2026-09-26, 아래 "라이브 받아쓰기" 절) |
 
 ### 편집 채널의 응답 규약 (Phase 3)
 
@@ -646,6 +649,83 @@ export interface RecordingStateEvent {
   설정 로드 전후로 개수가 달라지므로, 제목 목록을 따로 들고 있으면 순서·문구가 어긋난다. `MutationObserver`로 다시 읽는다.
   항목을 누르면 그 카테고리로 부드럽게 스크롤하고, 스크롤 위치에 맞는 항목을 강조한다(`aria-current`).
   창이 좁으면(본문 + 목차가 들어가지 않으면) 목차를 숨긴다.
+
+## 라이브 받아쓰기 (2026-09-26)
+
+사용자 요청으로 녹음 화면(메인 창 `RecorderSection`)의 파형 영역을 **"라이브 받아쓰기" 보기**로 바꿀 수 있게 한다.
+들리는 말을 1~2초 안에 글자로 보여 줘 "방금 무슨 말을 했는지"를 바로 확인하는 용도다. SKILL.md 4절 "범위 절제"(실시간 스트리밍 STT 금지)의 사용자 결정 예외다.
+
+### 엔진: 기존 whisper-cli를 짧은 구간마다 다시 돌린다
+
+- **새 모델·새 의존성 없이** 파이프라인과 같은 `whisper-cli` + silero VAD를 쓴다.
+  실측(M3 Pro, `-t 4`, 8초 구간 한 번): turbo q5 **약 1.6초·최대 메모리 0.9GB**(모델 로드 0.4초 + 인코딩 0.6초 + 디코딩), large-v3 q5 **약 3.1초·2.1GB**.
+- **모델은 속도 우선으로 turbo를 쓴다** (2026-09-26 사용자 결정). 회의록 처리 모델(`stt.model`)과 따로 정한다 — 회의록은 정지 후 한 번이라 정확도가 우선이고,
+  라이브는 말하는 동안 계속 돌아 지연·메모리·발열이 우선이다. `main/models/paths.ts`의 `liveWhisperModelPath()`가 정한다:
+  - 고른 모델이 저사양(`small-q5_1`)이면 그 모델 — 메모리가 적어 저사양을 고른 사용자에게 더 무거운 모델을 올리지 않는다.
+  - 그 밖에는 turbo 파일(`LIVE_WHISPER_MODEL_ID`, `@meeting-stt/models/desktop`)이 있으면 turbo, 없으면 고른 모델(고품질만 받은 사용자). 라이브용으로 turbo를 따로 내려받지는 않는다.
+- sherpa-onnx 한국어 streaming zipformer(진짜 스트리밍)는 쓰지 않는다 — 온보딩 다운로드 목록에 모델이 하나 더 늘고,
+  다운로더가 아카이브에서 파일 하나만 꺼내는데 이 모델은 encoder·decoder·joiner·tokens 네 파일이 필요하다. 지연 1~2초면 요구("바로바로")를 채운다.
+- `whisper-server`(상주 HTTP)도 쓰지 않는다 — 바이너리를 하나 더 동봉·서명해야 하고, 모델 로드 0.4초를 아끼는 것 외에 이득이 없다.
+
+### 구간 나누기 (`src/main/audio/liveWindow.ts`, 순수 함수 + vitest)
+
+main의 녹음 세션이 청크(약 0.5초)를 받을 때마다 **현재 구간**(마지막 확정 이후의 오디오)에 쌓는다.
+
+| 상수 | 값 | 의미 |
+| --- | --- | --- |
+| `LIVE_STEP_SEC` | 1.5 | 직전 실행 이후 새 오디오가 이만큼 쌓여야 다시 인식한다 |
+| `LIVE_MAX_WINDOW_SEC` | 12 | 구간이 이 길이에 닿으면 결과를 확정하고 구간을 비운다 (말이 끊기지 않아도) |
+| `LIVE_COMMIT_SILENCE_SEC` | 1 | 구간 끝이 이만큼 조용하면 말이 끝난 것으로 보고 확정한다 |
+| `LIVE_SPEECH_RATIO` | 3 (+9.5 dB) | 청크 RMS가 최근 소음 바닥의 이 배수를 넘으면 말소리로 본다 |
+| `LIVE_NOISE_HISTORY_CHUNKS` | 40 (약 20초) | 소음 바닥 = 최근 이 개수 청크 RMS의 최솟값 (하한 `LIVE_MIN_NOISE_FLOOR_RMS` 0.0005) |
+
+- 구간에 말소리 청크가 하나도 없으면 whisper를 부르지 않고 구간을 마지막 청크만 남기고 버린다 — 조용할 때 GPU를 쓰지 않는다.
+- 한 번에 하나만 돈다. 도는 동안 들어온 청크는 다음 실행에 들어간다. 확정할 때는 **인식에 넣은 샘플까지만** 구간에서 빼고, 그 뒤에 들어온 샘플은 다음 구간 앞에 남긴다.
+- 확정 조건은 인식을 시작할 때의 스냅샷으로 판단한다 (끝의 조용함 또는 최대 길이). 확정된 결과는 `lines`에, 아직 말하는 중인 구간의 결과는 `partial`에 둔다.
+
+### 인식 한 번 (`src/main/audio/liveTranscript.ts`)
+
+- 구간을 Int16으로 바꾸고 **파이프라인과 같은 RMS 게인 정규화**(`normalize.ts`의 `measureSpeechRmsDb`·`gainDbFor`·`applyGain`)를 적용한 뒤
+  임시 WAV(`app.getPath('temp')/meeting-stt-live/`)로 쓴다. 원거리 마이크에서 whisper가 말을 놓치는 문제가 라이브에도 똑같이 있다.
+- 인자: `-m <모델> -f <wav> -l ko -t <stt 스레드> -mc 0 -nt -np --vad --vad-model <silero> -otxt -of <경로>`.
+  결과는 stdout이 아니라 `-otxt` 파일을 UTF-8로 읽는다 (stdout 청크 경계에서 한글 바이트가 잘릴 수 있다). 줄바꿈은 공백으로 합친다.
+- 실패(바이너리·모델 없음, 비정상 종료)는 녹음을 막지 않는다. 경고 로그는 녹음마다 한 번만 남기고, 라이브 보기에 안내 문구(`errorMessage`)를 띄운 채 다음 구간에서 다시 시도한다.
+- 녹음이 끝나거나 보기를 끄면 세대 번호를 올려 **도는 중인 실행의 결과를 버린다**. 프로세스는 죽이지 않는다 (길어야 2초, 정지 직후 파이프라인과 잠깐 겹친다).
+
+### 상태와 IPC
+
+- 보기 모드(`isEnabled`)는 참석자 수처럼 **세션 밖 main 메모리**에 둔다 — 녹음 전에 켜 둘 수 있고, 다음 녹음에도 이어진다. 앱을 다시 켜면 꺼진다(파형이 기본). 설정 DB에 저장하지 않는다.
+- 결과는 새 push 채널 없이 `RecordingStateEvent.liveTranscript`로 싣는다. 이 이벤트는 청크마다(0.5초) 가므로 인식이 끝난 결과는 **다음 청크 이벤트에 실려 간다**(최대 0.5초 추가 지연). 인식이 끝날 때 따로 publish하지 않는 이유는, renderer가 이벤트마다 파형 레벨 칸을 하나씩 쌓기 때문이다 — 청크 아닌 이벤트가 늘면 파형이 빨라진다. 늦게 연 창도 `recording:state` 조회로 현재 글자를 받는다.
+
+```ts
+export interface LiveTranscriptLine {
+  /** 녹음 안에서 1부터 늘어나는 번호. 리스트 key로 쓴다 (DB 행이 아니다) */
+  id: number
+  text: string
+}
+export interface LiveTranscriptState {
+  isEnabled: boolean
+  /** 확정된 문장. 최근 LIVE_MAX_LINES(50)개만 싣는다 */
+  lines: LiveTranscriptLine[]
+  /** 아직 말하는 중인 구간의 인식 결과. 다음 실행에서 바뀔 수 있다 */
+  partial: string
+  errorMessage?: string
+}
+```
+
+- 켜기·끄기: `recording:setLiveTranscript`(`{ isEnabled: boolean }`) → 응답은 `GetRecordingStateResponse`(`setSpeakerCount`와 같은 모양). 끄면 GPU를 쓰지 않고, 이미 확정된 줄은 남긴다.
+- 새 녹음이 시작되면 `lines`·`partial`을 비운다. 녹음이 끝나면(정지) 비운다 — 정지 후에는 상세 화면의 진짜 회의록을 본다.
+- **라이브 결과는 DB에 저장하지 않는다.** 저장되는 회의록은 정지 후 파이프라인(전체 정규화·VAD·화자 분리·병합·교정)이 만든다.
+
+### 화면
+
+- `RecorderSection`의 파형 위에 **보기 전환 버튼 두 개**(파형 / 라이브 받아쓰기, `aria-pressed`)를 둔다. 녹음 전·중 모두 바꿀 수 있다.
+- 라이브 보기는 파형과 같은 너비의 스크롤 영역이다. 확정된 줄은 본문 색, `partial`은 옅은 색으로 이어 쓰고, 새 글자가 오면 맨 아래로 스크롤한다
+  (사용자가 위로 스크롤해 읽는 중이면 따라가지 않는다). 녹음 전에는 "녹음을 시작하면 들리는 말이 여기에 바로 나타납니다" 안내를 보인다.
+- 아래에 "미리보기입니다. 회의록은 녹음을 마친 뒤 더 정확하게 다시 만듭니다" 한 줄을 둔다.
+- 그 아래에 **자원 사용 안내**를 한 줄 더 둔다 (2026-09-26 사용자 요청): "말하는 동안 GPU를 계속 써서 발열과 배터리 소모가 늘 수 있습니다. 필요 없을 때는 파형으로 바꿔 두세요".
+  말하는 동안 인식이 쉬지 않고 이어져 GPU를 70~100% 쓰고, 한 번에 메모리 약 0.9GB를 잡기 때문이다. 인식 실패 안내가 떠 있어도 이 줄은 남긴다.
+- 위젯 패널은 바꾸지 않는다 (좁은 창이고 파형도 없다).
 
 ## UI 언어 (2026-09-25)
 

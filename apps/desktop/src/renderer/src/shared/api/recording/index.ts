@@ -2,6 +2,7 @@ import type {
   ControlRecordingRequest,
   ReportRecordingErrorRequest,
   SendRecordingChunkRequest,
+  SetLiveTranscriptRequest,
   SetSpeakerCountRequest,
   StartRecordingRequest,
   StopRecordingRequest
@@ -94,3 +95,13 @@ export const setSpeakerCountApi = async ({ speakerCount }: SetSpeakerCountReques
 export const reportRecordingErrorApi = async ({ message }: ReportRecordingErrorRequest) => {
   await window.api.recording.reportError({ message })
 }
+
+/**
+ * @description 녹음 화면을 파형과 라이브 받아쓰기 중 어느 보기로 둘지 main에 알립니다. 켜져 있는 동안만 main이 인식을 돌립니다.
+ * @param isEnabled - true면 라이브 받아쓰기, false면 파형
+ * @returns 바뀐 직후의 녹음 상태
+ * @example
+ * await setLiveTranscriptApi({ isEnabled: true })
+ */
+export const setLiveTranscriptApi = async ({ isEnabled }: SetLiveTranscriptRequest) =>
+  window.api.recording.setLiveTranscript({ isEnabled })

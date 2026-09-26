@@ -59,7 +59,11 @@
   color: var(--color-text-muted);
 }
 
-.waveform {
+.display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
   width: 560px;
   max-width: 100%;
 }

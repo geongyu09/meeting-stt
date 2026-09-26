@@ -331,3 +331,16 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 - [x] 사전(`ko`·`en`) 문구, 테스트 — `importSource.test.ts`(헤더·제목), `RecorderSection/test.tsx`(이동·취소·실패·녹음 중 숨김)
 - [x] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과, 스테레오 AAC m4a를 `afconvert`로 바꾼 WAV가 `scripts/pipeline.ts`(정규화·whisper·재군집)를 통과 (2026-09-25)
 - [ ] `pnpm dev` 실제 확인 — m4a·mp3·mp4를 가져와 회의록이 만들어지는지
+
+## 라이브 받아쓰기 (2026-09-26, Phase 번호 밖)
+
+사용자 요청으로 녹음 화면의 파형 영역을 라이브 받아쓰기 보기로 바꿀 수 있게 한다. 설계는 `architecture.md` "라이브 받아쓰기", 결정 표는 `SKILL.md` 1절.
+"실시간 스트리밍 STT 금지"(4절 범위 절제)의 사용자 결정 예외이고, 문서를 먼저 고쳤다. 스키마 변경·새 모델은 없다.
+
+- [x] main: `src/main/audio/liveWindow.ts`(구간 나누기, 순수) + `liveTranscript.ts`(whisper-cli 실행), 세션 청크·시작·정지에 연결
+- [x] IPC `recording:setLiveTranscript` + `RecordingStateEvent.liveTranscript` + preload + renderer `setLiveTranscriptApi`
+- [x] `RecorderSection` 보기 전환(파형 / 라이브 받아쓰기)과 라이브 보기, 사전(`ko`·`en`) 문구
+- [x] 테스트 — `liveWindow.test.ts`, `RecorderSection/test.tsx`(전환·표시)
+- [x] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과, 실제 회의 녹음(jun-meeting)을 0.5초 청크로 실시간 속도로 흘려 `liveWindow` + whisper-cli(turbo)를 돌린 결과 갱신 간격 1.1~1.6초, 12초마다 확정 (2026-09-26)
+- [x] 라이브 모델을 turbo로 고정 (2026-09-26 사용자 결정) — `LIVE_WHISPER_MODEL_ID`, `liveWhisperModelPath()`, 저사양 선택·turbo 파일 없음 폴백
+- [ ] `pnpm dev` 실제 확인 — 녹음 중 말하면 1~2초 안에 글자가 나타나는지

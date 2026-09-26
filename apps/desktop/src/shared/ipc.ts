@@ -27,7 +27,8 @@ export const IPC = {
     state: 'recording:state',
     control: 'recording:control',
     setSpeakerCount: 'recording:setSpeakerCount',
-    reportError: 'recording:reportError'
+    reportError: 'recording:reportError',
+    setLiveTranscript: 'recording:setLiveTranscript'
   },
   widget: { setVisible: 'widget:setVisible' },
   shortcuts: { setSuspended: 'shortcuts:setSuspended' },
@@ -119,8 +120,32 @@ export interface RecordingStateEvent {
   stoppedMeetingId?: string
   /** 시작·정지가 실패한 순간 한 번만 실린다. 위젯에서만 알 수 있는 실패를 메인 창도 보여준다 */
   errorMessage?: string
+  /** 녹음 화면의 라이브 받아쓰기 보기. 저장되지 않는 미리보기다 (references/architecture.md "라이브 받아쓰기") */
+  liveTranscript: LiveTranscriptState
 }
 export type GetRecordingStateResponse = RecordingStateEvent
+
+export interface LiveTranscriptLine {
+  /** 녹음 안에서 1부터 늘어나는 번호. 리스트 key로 쓴다 (DB 행이 아니다) */
+  id: number
+  text: string
+}
+
+export interface LiveTranscriptState {
+  /** 파형 대신 라이브 받아쓰기를 보여 주는지. 꺼져 있으면 main이 인식을 돌리지 않는다 */
+  isEnabled: boolean
+  /** 확정된 문장. 최근 것만 싣는다 */
+  lines: LiveTranscriptLine[]
+  /** 아직 말하는 중인 구간의 인식 결과. 다음 실행에서 바뀔 수 있다 */
+  partial: string
+  /** 인식이 실패하는 동안만 실린다. 녹음은 계속된다 */
+  errorMessage?: string
+}
+
+/** 파형 ↔ 라이브 받아쓰기 보기 전환. 응답은 바뀐 녹음 상태다 */
+export interface SetLiveTranscriptRequest {
+  isEnabled: boolean
+}
 
 /** 메인 창·Tray·전역 단축키가 보내는 요청. main이 위젯에 `recording:command`로 넘긴다 */
 export interface ControlRecordingRequest {

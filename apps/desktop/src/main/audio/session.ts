@@ -14,6 +14,12 @@ import {
 import { info, warn } from '../log'
 import { notifyMeetingsChanged } from '../meetingsChanged'
 import { enqueuePipelineJob } from '../pipeline/queue'
+import {
+  feedLiveTranscript,
+  getLiveTranscriptState,
+  resetLiveTranscript,
+  setLiveTranscriptEnabled
+} from './liveTranscript'
 import { createWavWriter, type WavWriter } from './wavWriter'
 import { t } from '../locale'
 
@@ -63,7 +69,8 @@ export const getRecordingState = (): RecordingStateEvent => ({
   meetingId: session?.meetingId ?? null,
   startedAt: session?.startedAt ?? null,
   level: session?.level ?? 0,
-  speakerCount
+  speakerCount,
+  liveTranscript: getLiveTranscriptState()
 })
 
 /** `stoppedMeetingId`·`errorMessage`처럼 한 번만 실리는 값은 여기서 얹는다 */
@@ -95,6 +102,7 @@ export const startRecording = async ({ sampleRate }: { sampleRate: number }) => 
   const writer = await createWavWriter({ filePath: audioPath })
   insertMeeting({ id: meetingId, title: defaultTitle(createdAt), createdAt, audioPath })
   session = { meetingId, startedAt: createdAt, writer, level: 0 }
+  resetLiveTranscript()
   info(`녹음 시작 ${meetingId}`)
   publish()
   notifyMeetingsChanged()
@@ -121,6 +129,8 @@ export const appendRecordingChunk = async ({
   await active.writer.appendChunk(samples)
   // 레벨 미터는 여기서 계산해 두 창에 같은 값을 보낸다 (renderer마다 따로 재지 않는다)
   active.level = rmsOf(samples)
+  // 인식 결과는 따로 publish하지 않고 다음 청크 이벤트에 실린다 — 이벤트마다 파형 칸이 하나씩 쌓이기 때문이다
+  feedLiveTranscript({ samples, rms: active.level })
   publish()
 }
 
@@ -129,6 +139,7 @@ export const stopRecording = async ({ meetingId }: { meetingId: string }) => {
   const active = sessionOf(meetingId)
   const { durationSec } = await active.writer.finalize()
   session = null
+  resetLiveTranscript()
   updateMeetingDuration({ meetingId, durationSec })
   if (speakerCount) updateMeetingSpeakerCount({ meetingId, speakerCount })
   info(
@@ -157,6 +168,14 @@ export const stopRecording = async ({ meetingId }: { meetingId: string }) => {
 /** 값이 바뀌면 두 창의 입력란이 같은 값을 보도록 바로 알린다. 검증은 핸들러가 끝냈다 */
 export const setRecordingSpeakerCount = (next: number | undefined) => {
   speakerCount = next
+  publish()
+
+  return getRecordingState()
+}
+
+/** 녹음 화면의 파형 ↔ 라이브 받아쓰기 보기. 참석자 수처럼 세션 밖에 두어 다음 녹음에도 이어진다 */
+export const setRecordingLiveTranscript = (isEnabled: boolean) => {
+  setLiveTranscriptEnabled(isEnabled)
   publish()
 
   return getRecordingState()

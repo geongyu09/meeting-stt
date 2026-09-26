@@ -3,6 +3,7 @@ import {
   REQUIRED_MODEL_ASSETS,
   WHISPER_MODEL_OPTIONS,
   isWhisperModelId,
+  liveWhisperModelIdOf,
   modelAssetsOf,
   totalDownloadBytesOf,
   whisperFileNameOf
@@ -39,5 +40,25 @@ describe('desktop 모델 카탈로그', () => {
       expect(asset.downloadBytes).toBeGreaterThan(0)
       expect(asset.url.startsWith('https://')).toBe(true)
     })
+  })
+})
+
+describe('liveWhisperModelIdOf', () => {
+  it('회의록 모델이 고품질이어도 turbo 파일이 있으면 라이브는 turbo를 쓴다', () => {
+    expect(liveWhisperModelIdOf({ selectedId: 'large-v3-q5', isLiveModelInstalled: true })).toBe(
+      'turbo-q5'
+    )
+  })
+
+  it('turbo 파일이 없으면 고른 모델을 쓴다', () => {
+    expect(liveWhisperModelIdOf({ selectedId: 'large-v3-q5', isLiveModelInstalled: false })).toBe(
+      'large-v3-q5'
+    )
+  })
+
+  it('저사양 모델을 골랐으면 turbo가 있어도 더 무거운 모델을 올리지 않는다', () => {
+    expect(liveWhisperModelIdOf({ selectedId: 'small-q5_1', isLiveModelInstalled: true })).toBe(
+      'small-q5_1'
+    )
   })
 })

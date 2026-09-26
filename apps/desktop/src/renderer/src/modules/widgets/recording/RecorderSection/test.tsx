@@ -8,7 +8,8 @@ import type { RecordingStateEvent } from '@shared/ipc'
 vi.mock('@renderer/shared/api/recording', () => ({
   getRecordingStateApi: vi.fn(),
   controlRecordingApi: vi.fn(),
-  setSpeakerCountApi: vi.fn()
+  setSpeakerCountApi: vi.fn(),
+  setLiveTranscriptApi: vi.fn()
 }))
 
 vi.mock('@renderer/shared/api/meetings', () => ({ importMeetingAudioApi: vi.fn() }))
@@ -24,12 +25,18 @@ import { importMeetingAudioApi } from '@renderer/shared/api/meetings'
 import {
   controlRecordingApi,
   getRecordingStateApi,
+  setLiveTranscriptApi,
   setSpeakerCountApi
 } from '@renderer/shared/api/recording'
 import RecorderSection from './index'
 
 const MEETING_ID = 'meeting-1'
-const IDLE_STATE: RecordingStateEvent = { meetingId: null, startedAt: null, level: 0 }
+const IDLE_STATE: RecordingStateEvent = {
+  meetingId: null,
+  startedAt: null,
+  level: 0,
+  liveTranscript: { isEnabled: false, lines: [], partial: '' }
+}
 
 /** 가져오기가 성공하면 회의 상세로 이동하므로 상세 경로를 함께 둔다 */
 const renderSection = () =>
@@ -54,6 +61,7 @@ beforeEach(() => {
   vi.mocked(getRecordingStateApi).mockResolvedValue(IDLE_STATE)
   vi.mocked(controlRecordingApi).mockResolvedValue(undefined)
   vi.mocked(setSpeakerCountApi).mockResolvedValue(IDLE_STATE)
+  vi.mocked(setLiveTranscriptApi).mockResolvedValue(IDLE_STATE)
 })
 
 afterEach(() => {
@@ -76,7 +84,12 @@ describe('RecorderSection', () => {
     renderSection()
 
     act(() => {
-      pushState({ meetingId: MEETING_ID, startedAt: Date.now() - 125_000, level: 0.2 })
+      pushState({
+        ...IDLE_STATE,
+        meetingId: MEETING_ID,
+        startedAt: Date.now() - 125_000,
+        level: 0.2
+      })
     })
 
     expect(screen.getByText('02:05')).toBeTruthy()
@@ -173,9 +186,88 @@ describe('RecorderSection', () => {
     renderSection()
 
     act(() => {
-      pushState({ meetingId: MEETING_ID, startedAt: Date.now(), level: 0 })
+      pushState({ ...IDLE_STATE, meetingId: MEETING_ID, startedAt: Date.now(), level: 0 })
     })
 
     expect(screen.queryByRole('button', { name: '녹음 파일 가져오기' })).toBeNull()
+  })
+
+  describe('라이브 받아쓰기', () => {
+    const liveState = (overrides: Partial<RecordingStateEvent['liveTranscript']>) => ({
+      ...IDLE_STATE,
+      meetingId: MEETING_ID,
+      startedAt: Date.now(),
+      liveTranscript: { isEnabled: true, lines: [], partial: '', ...overrides }
+    })
+
+    it('보기 전환을 누르면 main에 라이브 받아쓰기를 켜 달라고 요청한다', async () => {
+      const user = userEvent.setup()
+      renderSection()
+
+      await user.click(screen.getByRole('button', { name: '라이브 받아쓰기' }))
+
+      expect(setLiveTranscriptApi).toHaveBeenCalledWith({ isEnabled: true })
+    })
+
+    it('켜져 있으면 파형 대신 확정된 문장과 말하는 중인 구간을 보여준다', () => {
+      renderSection()
+
+      act(() => {
+        pushState(
+          liveState({
+            lines: [{ id: 1, text: '안녕하세요 회의를 시작하겠습니다' }],
+            partial: '오늘 안건은'
+          })
+        )
+      })
+
+      expect(screen.queryByRole('meter')).toBeNull()
+      expect(screen.getByRole('log', { name: '라이브 받아쓰기' }).textContent).toBe(
+        '안녕하세요 회의를 시작하겠습니다오늘 안건은'
+      )
+      expect(
+        screen.getByRole('button', { name: '라이브 받아쓰기' }).getAttribute('aria-pressed')
+      ).toBe('true')
+    })
+
+    it('라이브 보기에서는 GPU를 계속 써 발열·배터리 소모가 늘 수 있다고 안내한다', () => {
+      renderSection()
+
+      act(() => {
+        pushState(liveState({}))
+      })
+
+      expect(screen.getByText(/발열과 배터리 소모가 늘 수 있습니다/)).toBeTruthy()
+    })
+
+    it('아직 들린 말이 없으면 듣는 중이라고 안내한다', () => {
+      renderSection()
+
+      act(() => {
+        pushState(liveState({}))
+      })
+
+      expect(screen.getByText('듣고 있습니다…')).toBeTruthy()
+    })
+
+    it('인식이 실패하면 녹음은 계속된다고 안내한다', () => {
+      renderSection()
+
+      act(() => {
+        pushState(liveState({ errorMessage: '라이브 받아쓰기를 하지 못했습니다' }))
+      })
+
+      expect(screen.getByRole('alert').textContent).toContain('라이브 받아쓰기를 하지 못했습니다')
+    })
+
+    it('전환 요청이 실패하면 안내한다', async () => {
+      const user = userEvent.setup()
+      vi.mocked(setLiveTranscriptApi).mockRejectedValue(new Error('ipc'))
+      renderSection()
+
+      await user.click(screen.getByRole('button', { name: '라이브 받아쓰기' }))
+
+      expect((await screen.findByRole('alert')).textContent).toContain('보기를 바꾸지 못했습니다')
+    })
   })
 })

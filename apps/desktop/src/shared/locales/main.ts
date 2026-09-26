@@ -62,7 +62,9 @@ export const mainKo = {
     audioMissing: '원본 녹음이 남아 있지 않습니다',
     audioMissingForReprocess: '원본 녹음이 남아 있지 않아 다시 인식할 수 없습니다',
     alreadyProcessing: '이미 처리 중인 회의입니다',
-    exportFailed: '녹음 파일을 저장하지 못했습니다. 원본이 지워졌거나 저장 위치에 쓸 수 없습니다'
+    exportFailed: '녹음 파일을 저장하지 못했습니다. 원본이 지워졌거나 저장 위치에 쓸 수 없습니다',
+    liveUnavailable:
+      '라이브 받아쓰기를 하지 못했습니다. 녹음은 계속되고, 회의록은 정지 후 만들어집니다'
   },
   dialogs: {
     exportTitle: '녹음 파일 저장',
@@ -196,7 +198,9 @@ export const mainEn: typeof mainKo = {
       'The original recording is no longer available, so it cannot be transcribed again',
     alreadyProcessing: 'This meeting is already being processed',
     exportFailed:
-      'Could not save the recording. The original may have been deleted or the destination is not writable'
+      'Could not save the recording. The original may have been deleted or the destination is not writable',
+    liveUnavailable:
+      'Live transcription is unavailable. Recording continues and the transcript is created after you stop'
   },
   dialogs: {
     exportTitle: 'Save recording',

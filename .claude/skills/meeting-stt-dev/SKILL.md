@@ -47,6 +47,7 @@ description: 로컬 STT 회의록 데스크탑 앱(meeting-stt)의 개발 방향
 | 녹음본 보관·활용 | 파이프라인 완료 후 원본 WAV **삭제가 기본**, 보관은 설정 옵션(`audio.keep`, `/settings`). **원본이 남아 있는 회의는 상세 화면에서 재생(발화 시각 클릭 시 그 지점으로 이동)·WAV 내보내기·다시 인식**을 할 수 있다 (2026-09-25 사용자 요청으로 "재생은 요구사항 아님"을 뒤집음) | 실패한 잡은 재시도용으로 원본을 남기고 "다시 시도" 버튼을 둔다. 재생은 커스텀 프로토콜 `meeting-audio://`(Range 지원), 내보내기는 네이티브 저장 대화상자. 설계는 `references/architecture.md` "녹음본 재생·내보내기·다시 인식" 절 |
 | 클립보드 | 복사는 main의 `electron.clipboard` 경유(`clipboard:writeText`) | `file://` 문서와 권한 핸들러에 걸릴 여지를 없앤다. 텍스트 조립은 renderer가 `@meeting-stt/core/format`으로 |
 | 녹음 위젯 | **Electron 플로팅 패널 창**(화면 우측, `type: 'panel'`, alwaysOnTop) + 메뉴바 Tray 시간 + 전역 단축키(기본 `⌥⌘R`/`⌥⌘W`, 설정에서 변경) | macOS WidgetKit 위젯(SwiftUI 앱 확장)은 만들지 않는다 — 서명·공증 대상이 늘고 상태를 프로세스 밖으로 복제해야 하는데 얻는 건 외형뿐이다. **오디오 그래프의 소유자는 위젯 창 하나**이고 메인 창은 명령 전송·상태 구독만 한다. 진행 중 녹음의 단일 출처는 main의 녹음 세션이며 `recording:state`로 두 창에 push한다. 설계는 `references/architecture.md`의 "녹음 위젯 패널" 절 |
+| 라이브 받아쓰기 | 녹음 화면의 파형 영역을 **"라이브 받아쓰기" 보기로 바꿀 수 있다** (2026-09-26 사용자 요청). 엔진은 **새 모델 없이 기존 `whisper-cli`** 를 짧은 구간(최대 12초)마다 다시 spawn해 쓰고, 모델은 **속도 우선으로 turbo(`large-v3-turbo-q5_0`)를 고정**한다 — 회의록용으로 고품질을 골랐어도 라이브는 turbo, turbo 파일이 없거나 저사양 모델을 골랐으면 고른 모델 (2026-09-26 사용자 결정) | 4절 "범위 절제"의 "실시간 스트리밍 STT는 구현하지 않는다"에 대한 **사용자 결정 예외**다. 진짜 스트리밍 모델(sherpa-onnx 한국어 streaming zipformer)은 모델 다운로드·다중 파일 아카이브 지원이 새로 필요해 쓰지 않는다 — turbo로 8초 구간이 약 1.5초(M3 Pro, 모델 로드 0.4초 포함)라 1~2초 지연으로 충분하다. 고품질(large-v3)은 같은 구간이 3.1초·메모리 2.1GB라 라이브에 쓰지 않는다(turbo 0.9GB). **라이브 결과는 저장하지 않는다** — 회의록은 여전히 정지 후 파이프라인(정규화·VAD·화자 분리)이 만든다. 라이브 보기는 켜져 있을 때만 GPU를 쓴다. 설계는 `references/architecture.md` "라이브 받아쓰기" 절 |
 | 확인 UI | 되돌릴 수 없는 동작(회의 삭제, 화자 병합)은 **2단계 인라인 확인**. `window.confirm`·네이티브 대화상자 금지 | renderer를 멈추지 않고 통합 테스트로 검증할 수 있다 |
 | UI 언어 | 설정에서 **한국어(기본) / 영어**를 고른다 (`AppSettings.locale`, DB 키 `ui.locale`, 2026-09-25 사용자 요청). 사전은 `src/shared/locales/<domain>.ts`에 도메인별로 `ko`·`en`을 나란히 두고 `src/shared/i18n.ts`가 모은다. renderer는 `useLocale()`의 `t`, main은 `src/main/locale.ts`의 `t()`로 읽는다. i18n 라이브러리는 도입하지 않는다 | **UI 언어일 뿐 인식·요약 언어가 아니다** — whisper `-l ko`, 요약·용어 초안 프롬프트, 교정의 한글 읽기는 그대로 한국어다. 문서·커밋 메시지도 계속 한국어. 설계는 `references/architecture.md` "UI 언어" 절 |
 
@@ -113,7 +114,7 @@ Claude Code CLI(구독)를 쓸 수 있게 한다. 같은 날 사용자 요청으
 - **데이터**: 화자 이름은 `utterances`에 쓰지 않고 `speakers(meeting_id, label) → display_name` 매핑으로 관리한다(한 번 바꾸면 전체 반영). 모든 시간 값은 초(sec, REAL), 생성 시각은 epoch ms.
 - **한국어 우선**: 기본 언어 `ko`, 문서·커밋 메시지는 한국어. 코드 식별자는 영어. **UI 문구는 사전(`src/shared/locales/*.ts`)에 `ko`·`en`을 함께 적고 컴포넌트·main에 직접 쓰지 않는다** (2026-09-25 언어 설정). 새 문구를 추가할 때 한쪽 언어만 적으면 타입 오류다.
 - **pnpm 주의**: pnpm 10은 의존성의 install/postinstall 스크립트를 기본 차단한다. 네이티브 애드온·바이너리 다운로드 패키지(`electron`, `esbuild`, `electron-winstaller`, `better-sqlite3`)는 **워크스페이스 루트** `package.json`의 `pnpm.onlyBuiltDependencies`에 등록해야 한다 (앱 `package.json`에 적으면 무시된다). 새 네이티브 의존성을 추가하면 이 목록도 갱신한다. `.npmrc`의 `node-linker=hoisted`는 electron-builder 패키징을 위한 설정이므로 지우지 않는다. `package.json` scripts 내부 호출은 `pnpm run <script>`로 통일한다.
-- **범위 절제**: plan.md에 없는 기능(클라우드 동기화, 실시간 스트리밍 STT, 계정 등)은 제안만 하고 구현하지 않는다.
+- **범위 절제**: plan.md에 없는 기능(클라우드 동기화, 실시간 스트리밍 STT, 계정 등)은 제안만 하고 구현하지 않는다. 예외: 녹음 중 "라이브 받아쓰기" 보기(2026-09-26 사용자 결정, 1절 표) — 저장되는 회의록은 여전히 정지 후 파이프라인이 만든다.
 
 ## 5. 알려진 함정 (구현 전 확인)
 

@@ -44,7 +44,12 @@ import { setWidgetVisibleApi } from '@renderer/shared/api/widget'
 import WidgetPanelSection from './index'
 
 const MEETING_ID = 'meeting-1'
-const IDLE_STATE: RecordingStateEvent = { meetingId: null, startedAt: null, level: 0 }
+const IDLE_STATE: RecordingStateEvent = {
+  meetingId: null,
+  startedAt: null,
+  level: 0,
+  liveTranscript: { isEnabled: false, lines: [], partial: '' }
+}
 
 const READY_MODEL_STATUS = {
   isReady: true,
@@ -141,6 +146,7 @@ describe('WidgetPanelSection', () => {
 
     act(() => {
       pushState({
+        ...IDLE_STATE,
         meetingId: MEETING_ID,
         startedAt: Date.now() - 65_000,
         level: 0.5
@@ -158,7 +164,7 @@ describe('WidgetPanelSection', () => {
 
     await user.click(await screen.findByRole('button', { name: '녹음 시작' }))
     act(() => {
-      pushState({ meetingId: MEETING_ID, startedAt: Date.now(), level: 0 })
+      pushState({ ...IDLE_STATE, meetingId: MEETING_ID, startedAt: Date.now(), level: 0 })
     })
     await user.click(screen.getByRole('button', { name: '녹음 정지' }))
 

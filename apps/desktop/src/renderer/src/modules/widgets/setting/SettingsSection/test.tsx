@@ -48,7 +48,12 @@ const TEST_START_BUTTON = '테스트 시작'
 const TEST_STOP_BUTTON = '테스트 정지'
 const USB_DEVICE = { deviceId: 'usb-1', label: 'USB 마이크' }
 const BUILT_IN_DEVICE = { deviceId: 'builtin-1', label: 'MacBook Pro 마이크' }
-const IDLE_STATE: RecordingStateEvent = { meetingId: null, startedAt: null, level: 0 }
+const IDLE_STATE: RecordingStateEvent = {
+  meetingId: null,
+  startedAt: null,
+  level: 0,
+  liveTranscript: { isEnabled: false, lines: [], partial: '' }
+}
 
 const DEFAULT_SETTINGS = {
   isAudioKept: false,
@@ -386,6 +391,7 @@ describe('SettingsSection', () => {
   it('녹음 중에는 마이크 테스트를 막는다', async () => {
     vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
     vi.mocked(getRecordingStateApi).mockResolvedValue({
+      ...IDLE_STATE,
       meetingId: 'meeting-1',
       startedAt: Date.now(),
       level: 0.1

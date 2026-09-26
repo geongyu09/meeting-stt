@@ -1,0 +1,35 @@
+.container {
+  display: inline-flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+.option,
+.selected {
+  padding: 6px 14px;
+  font: inherit;
+  font-size: var(--font-sm);
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.option {
+  color: var(--color-text-muted);
+  background: none;
+}
+
+.option:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+.selected {
+  color: var(--color-text);
+  font-weight: 600;
+  background: var(--color-bg);
+  box-shadow: 0 0 0 1px var(--color-border);
+}

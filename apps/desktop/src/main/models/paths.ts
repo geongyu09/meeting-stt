@@ -4,9 +4,12 @@ import { app } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import {
   DEFAULT_WHISPER_MODEL_ID,
+  LIVE_WHISPER_MODEL_ID,
   REQUIRED_MODEL_ASSETS,
   SUMMARY_MODEL_ASSET,
   isWhisperModelId,
+  liveWhisperModelIdOf,
+  whisperFileNameOf,
   whisperModelOptionOf,
   type ModelAsset,
   type ModelKey,
@@ -45,15 +48,30 @@ export const modelsDir = () => path.join(app.getPath('userData'), 'models')
 const devFallbackPath = (fileName: string) =>
   path.join(app.getAppPath(), 'scripts', 'fixtures', 'models', fileName)
 
-/** 모델 파일 경로. 개발 모드에서 userData에 없으면 Phase 1 픽스처를 가리킨다 */
-export const modelPath = (key: ModelKey) => {
-  const { fileName } = assetOf(key)
+const resolveModelFile = (fileName: string) => {
   const installed = path.join(modelsDir(), fileName)
   if (existsSync(installed) || !is.dev) return installed
 
   const fallback = devFallbackPath(fileName)
 
   return existsSync(fallback) ? fallback : installed
+}
+
+/** 모델 파일 경로. 개발 모드에서 userData에 없으면 Phase 1 픽스처를 가리킨다 */
+export const modelPath = (key: ModelKey) => resolveModelFile(assetOf(key).fileName)
+
+/**
+ * 라이브 받아쓰기 모델 경로. 속도 우선으로 turbo를 쓰고, 저사양을 골랐거나 turbo 파일이 없으면 고른 모델
+ * (references/architecture.md "라이브 받아쓰기").
+ */
+export const liveWhisperModelPath = () => {
+  const livePath = resolveModelFile(whisperFileNameOf(LIVE_WHISPER_MODEL_ID))
+  const liveId = liveWhisperModelIdOf({
+    selectedId: selectedWhisperModelId,
+    isLiveModelInstalled: existsSync(livePath)
+  })
+
+  return liveId === LIVE_WHISPER_MODEL_ID ? livePath : modelPath('whisper')
 }
 
 /** 준비되지 않은 모델의 한국어 이름 목록 (파이프라인 시작 전 확인용) */

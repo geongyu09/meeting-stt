@@ -9,7 +9,12 @@ const MS_PER_SEC = 1000
 /** 파형이 그리는 최대 칸 수. 청크 주기(약 0.5초)마다 하나씩 쌓이므로 약 24초 분량이다 */
 const LEVEL_HISTORY_SIZE = 48
 
-const IDLE_STATE: RecordingStateEvent = { meetingId: null, startedAt: null, level: 0 }
+const IDLE_STATE: RecordingStateEvent = {
+  meetingId: null,
+  startedAt: null,
+  level: 0,
+  liveTranscript: { isEnabled: false, lines: [], partial: '' }
+}
 
 /**
  * 진행 중 녹음의 상태를 구독한다. 단일 출처는 main의 녹음 세션이고 위젯 패널과 메인 창이 같은 값을 본다
@@ -77,6 +82,7 @@ const useRecordingState = () => {
     levels,
     speakerCount: state.speakerCount,
     errorMessage: state.errorMessage,
+    liveTranscript: state.liveTranscript,
     elapsedSec
   }
 }

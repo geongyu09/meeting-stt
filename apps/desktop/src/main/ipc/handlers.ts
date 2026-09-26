@@ -50,6 +50,7 @@ import {
   appendRecordingChunk,
   getRecordingState,
   reportRecordingError,
+  setRecordingLiveTranscript,
   setRecordingSpeakerCount,
   startRecording,
   stopRecording
@@ -481,6 +482,10 @@ export const registerIpcHandlers = () => {
 
   ipcMain.handle(IPC.recording.setSpeakerCount, (_event, payload): GetRecordingStateResponse =>
     setRecordingSpeakerCount(readSpeakerCount(payload))
+  )
+
+  ipcMain.handle(IPC.recording.setLiveTranscript, (_event, payload): GetRecordingStateResponse =>
+    setRecordingLiveTranscript(readBoolean({ payload, key: 'isEnabled' }))
   )
 
   ipcMain.handle(IPC.recording.reportError, (_event, payload) =>
