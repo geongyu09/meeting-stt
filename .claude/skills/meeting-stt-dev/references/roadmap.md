@@ -260,6 +260,7 @@
 - [x] 상세: 레일 폭 드래그 조절(핸들·키보드·더블클릭 초기화, `localStorage` 저장) (2026-09-24)
 - [x] 녹음·위젯: 타이머·파형 레벨 미터(`LevelWaveform`, 녹음 화면만 — 위젯 파형은 2026-09-24 제거)·스테퍼·정지 버튼, 위젯 창 300×304 (2026-09-24)
 - [x] 설정·온보딩: 행 레이아웃, `Switch`, 온보딩 두 칸 (2026-09-24)
+- [x] 녹음 화면 재배치: 헤더 + 두 칸(보기 카드·제어 / 옵션 패널 "녹음 설정"·"파일로 만들기"), 페이지 스크롤 없음, 상태 전환 시 레이아웃 시프트 없음(숨김 대신 비활성, 문구 자리 높이 고정) (2026-09-26, `architecture.md` "화면별 구성" > 녹음)
 - [x] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과 (2026-09-24)
 - [ ] `pnpm dev` 실제 확인 — 창 끌기, 검색(한글 2글자·영문 대소문자·`%` 포함 질의), 제목 변경·삭제 후 사이드바 갱신, 녹음 중 사이드바 표시
 - [x] 디자인 패키지: 토큰·글꼴을 `packages/design`으로 올리고 두 앱이 import, 브라우저 프로토타입에 공통 컴포넌트(계약 동일) 이식 (2026-09-24)
@@ -376,3 +377,64 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 - [x] `LevelWaveform` props `levels[]` → `level`, 종 모양 포락선 + 막대별 CSS `transform` 흔들림, `prefers-reduced-motion` 대응 (데스크탑·웹 두 구현)
 - [x] `useRecordingState`·`useMicrophoneTest`에서 레벨 이력(`levels`, 48개) 제거 — 더 쓰는 곳이 없다
 - [ ] `pnpm dev` 실제 확인 — 말하면 막대가 함께 튀고 조용하면 점으로 가라앉는지, 팬·CPU 변화 없는지
+
+## 품질 점검 후속 (2026-09-26, Phase 번호 밖)
+
+2026-09-26 전체 코드 점검(main 견고성·renderer UX·테스트/배포/문서)에서 나온 개선 항목을 사용자 지시로 로드맵에 올린다.
+새 기능이 아니라 이미 있는 것을 고치는 작업이라 Phase 번호는 붙이지 않는다. 진행 순서는 아래 절 순서(1 → 2 → 3)를 기본으로 하되,
+각 항목이 계약(IPC·스키마·상수)을 바꾸면 SSOT 규칙대로 `architecture.md`·`data-model.md`를 먼저 고친다.
+다른 세션이 진행 중인 "일시정지·재개"(`architecture.md` 같은 이름의 절) 작업과 겹치는 파일(`session.ts`, `RecorderSection`, `WidgetPanelSection`)은 그 작업이 커밋된 뒤 손댄다.
+
+### 1. 데이터가 날아갈 수 있는 것 (먼저)
+
+- [ ] **디스크 부족(ENOSPC)에서 녹음 세션이 영구히 막히는 문제.** `audio/wavWriter.ts`의 쓰기 체인(`queue = queue.then(...)`)이 한 번 reject되면 이후 append·finalize가 전부 실패하고, `stopRecording`이 finalize 뒤에 `session = null`을 해서 세션이 남아 다음 녹음이 `alreadyActive`가 된다.
+      → 실패한 append는 체인을 끊지 않고 오류를 세션에 보고, `stopRecording`은 finalize가 실패해도 세션을 반드시 비운다. 녹음 시작 전 `statfs`로 여유 공간(예: 1시간분 115MB)을 확인해 부족하면 사전(`ko`·`en`) 문구로 막는다
+- [ ] **크래시 중이던 녹음 복구.** WAV 헤더를 정지 시에만 확정해 크래시 후 `dataBytes = 0`으로 남고, `readWavPcm`이 빈 PCM을 읽어 다시 인식해도 결과가 빈다.
+      → 앱 시작 시 `status='recording'`으로 남은 회의의 WAV를 파일 크기로 헤더를 고쳐 `duration_sec`을 채우고 `error`(원본 보존)로 바꿔 "다시 시도"가 되게 한다. 헤더 복구 함수는 순수 로직으로 두고 단위 테스트
+- [ ] **처리 중·녹음 중 회의 삭제 방지.** `ipc/handlers.ts`의 삭제 핸들러에 상태 확인이 없어 파이프라인은 끝까지 돌고 마지막 `saveTranscript`만 FK 오류로 실패한다.
+      → `recording`·`processing`(대기 포함)이면 삭제를 거절하거나 잡을 먼저 취소한다(아래 취소 항목과 함께). 사이드바 삭제 UI는 그 상태에서 비활성
+- [ ] **외부 프로세스 취소·타임아웃.** `bin/spawn.ts`의 `runBinary`와 `pipeline/embed.ts`가 AbortSignal도 타임아웃도 받지 않고, 큐(`pipeline/queue.ts`)에서 잡을 빼는 API가 없다. llama-cli·`claude -p`가 멈추면 동시성 1 큐 전체가 막힌다.
+      → `runBinary({ signal, timeoutMs })`, 큐 잡 취소, 앱 종료(`before-quit`) 시 도는 자식 프로세스 전부 kill. 자식 프로세스 목록을 한 곳에서 추적한다
+- [ ] **DB 마이그레이션 트랜잭션화 + 사전 백업.** `db/migrations.ts`가 단계별 `exec`와 `user_version` 갱신을 따로 실행해 4번(DROP·RENAME·UPDATE·ADD)이 중간에 실패하면 반쯤 적용된 채 재시도도 실패한다. DB 버전이 앱보다 높을 때(다운그레이드)도 막지 않는다.
+      → 단계마다 `db.transaction`, 마이그레이션 전 `VACUUM INTO meetings.backup-<version>.db`, 버전이 높으면 안내 후 종료
+- [ ] **연속 UPDATE 트랜잭션.** `audio/session.ts`의 `stopRecording`(duration·speakerCount·status)과 `audio/importRecording.ts`(insert·duration·speakerCount·status)를 트랜잭션 하나로 묶는다
+- [ ] 완료 기준: 디스크 가득 찬 상태(이미지 마운트)에서 녹음 → 안내 → 세션 정리 → 다음 녹음 정상. 녹음 중 강제 종료 → 재시작 → 회의가 `error`로 보이고 "다시 시도"로 회의록 생성. `pnpm test`에 헤더 복구·마이그레이션 트랜잭션 테스트
+
+### 2. 사용 중 체감되는 것
+
+- [ ] **정규화 메모리 급증.** `pipeline/normalize.ts`가 WAV 전체를 읽고 slice·applyGain·concat으로 사본을 세 번 만들어 2시간 녹음이면 순간 약 1GB다.
+      → 두 패스(1패스: 프레임 RMS만 계산, 2패스: 스트림으로 게인 적용해 쓰기)로 바꿔 상주 메모리를 프레임 버퍼 수준으로 낮춘다. `@meeting-stt/core/normalize` 공식은 그대로
+- [ ] **라이브 받아쓰기 실패 시 구간 무한 증가.** `audio/liveTranscript.ts`의 실패 처리가 `pending`을 비우지 않아 turbo 모델이 없는 경우처럼 계속 실패하면 청크가 녹음 내내 자라고 매번 전체를 복사한다(O(n²)).
+      → 실패해도 최대 구간(12초)을 넘는 앞쪽 청크는 버리고, 연속 실패 N회면 라이브 보기를 끄고 사전 문구로 안내. 정지·보기 끄기 시 도는 whisper를 kill
+- [ ] **대기 중 회의의 상태 표시.** `stopRecording`이 큐에 넣기만 하고 `recording`으로 두어 앞 잡이 끝날 때까지 사이드바에 "녹음 중"으로 보인다. 가져오기 경로처럼 즉시 `processing`으로 바꾼다
+- [ ] **로그 파일 저장.** `log.ts`가 `process.stdout`에만 써서 패키징된 앱에서는 로그가 사라진다. `userData/logs/main.log`에 쓰고 크기 기준 순환(예: 5MB × 3). 설정 화면에 "로그 폴더 열기". `windows/shortcuts.ts`가 버리는 등록 실패 원인도 로그에 남긴다
+- [ ] **시스템 오디오 도구 고아 프로세스.** 도구가 `error:` 줄만 내고 살아 있으면 `session.systemAudio = null`로 참조만 버린다. `onFailure`에서 `stop()`을 부른다. 마이크 청크가 멈췄을 때 FIFO가 무한히 자라지 않게 상한(예: 30초분)을 둔다
+- [ ] **인라인 편집 접근성 3종** (`shared/components/primitives/InlineEditableText`, `useInlineEdit`):
+      (a) 표시 버튼의 `aria-label`이 본문을 대체해 모든 발화가 "발화 내용 수정"으로만 읽힌다 → `aria-label` 대신 `aria-describedby`나 시각적으로 숨긴 접두 텍스트로 바꿔 본문이 읽히게,
+      (b) Enter·Esc·blur로 에디터가 사라진 뒤 표시 버튼으로 포커스 복원,
+      (c) `isComposing` 검사 추가(한글 조합 중 Enter·Esc 무시, `TermRow`와 동일). 여러 줄 편집의 Cmd+Enter 확정을 사전 문구로 안내
+- [ ] **확인 단계 포커스.** 삭제(`TranscriptActions`)·다시 인식(`RecordingBar`)·화자 합치기(`SpeakerPanel`)의 2단계 인라인 확인이 뜰 때 확인 버튼으로 포커스를 옮긴다
+- [ ] **언어 전환 시 용어 사전 편집 소실.** `GlossarySection/model/useGlossary.ts`의 조회 effect가 `t`에 의존해 언어를 바꾸면 다시 불러오며 편집을 덮는다 → 조회는 마운트 한 번, 오류 문구는 표시 시점에 `t`로 만든다
+- [ ] **상세 화면 이중 조회·에러 덮임.** `SummarySection`이 `useMeeting`을 따로 호출해 조회·구독이 두 번이고, 다시 인식 중 요약 패널이 옛 상태로 남는다. `TranscriptSection`은 재조회 실패 시 본문 전체가 에러로 바뀌고 다시 시도가 없다
+      → 회의 하나는 `TranscriptSection`이 한 번만 조회해 props/컨텍스트로 내려주고, 이미 불러온 뒤의 실패는 인라인 배너 + `refetch` 버튼
+- [ ] **긴 회의 렌더.** 발화 행마다 화자 `select`·버튼이 붙고 memo가 없어 복사·`useNow` 갱신마다 전체가 리렌더된다. 먼저 300발화 이상 회의로 측정하고, 실제로 버벅이면 행 분리·`memo` → 그래도 부족하면 가상화(의존성 추가는 문서 먼저)
+- [ ] **모델 설명 문구 사전화.** `packages/models/src/desktop.ts`의 한국어 설명이 사전을 거치지 않아 영어 UI에서도 한국어다 → 카탈로그에는 설명 키만 두고 문구는 `src/shared/locales/models.ts`에 `ko`·`en`. `SummarySection`·`RefinePanel`의 문장 부호 이어 붙이기(`{missingMessage}.`)도 사전 문구로
+- [ ] **설정 저장 경쟁·낙관적 반영.** `useSettings`가 닫힌 스냅샷에 변경을 덧붙여 저장해 연타 시 앞 변경이 되돌려질 수 있고, 스위치가 IPC 왕복 뒤에야 바뀐다. 투명도 슬라이더는 input마다 IPC를 보낸다 → 함수형 갱신 + 낙관적 반영, 슬라이더는 디바운스, `settings:changed` 구독
+- [ ] **작은 상태 처리.** 설정·용어 사전·LLM 섹션 로드 실패 시 다시 시도 버튼, 모델 확인 중 빈 화면(`routes/guards.tsx`) 대신 로딩 표시, 업데이트 배너 닫기, 에러 문구에 `role="alert"` 통일, 검색 결과 개수 `aria-live`
+- [ ] **기능 공백 (각각 문서 먼저).** 재생 중 발화 강조(재생·내보내기 절 후속), 검색 결과에서 해당 발화로 스크롤(UI 리디자인 절 후속), 회의록 파일 내보내기(md·txt·srt, 요약 포함 여부 선택), 발화 삭제·분할, 앱 내 단축키(Space 재생/정지, ⌘F 검색, ⌘N 새 녹음), 온보딩 언어 선택
+- [ ] 완료 기준: 2시간 녹음 처리 중 main 상주 메모리 300MB 이하. turbo 모델 파일을 지운 채 라이브 보기를 켜고 5분 녹음해도 메모리가 늘지 않음. VoiceOver로 발화 본문이 읽히고 편집 후 포커스가 제자리. 영어 UI에서 한국어 문구 없음
+
+### 3. 배포·구조·문서
+
+- [ ] **웹 프로토타입 군집을 core로 통일.** `apps/web/src/workers/diarizeWorker.ts`가 자체 `clusterByCompleteLinkage`(83.4%)를 쓴다 → `@meeting-stt/core/cluster`의 k-means + 병합(92.7%)으로 바꾸고 `apps/web/src/pipeline/cluster.ts`·중복 `l2Normalize` 삭제, `docs/browser-prototype-plan.md`의 AHC 서술 갱신 (화자 재군집 절 후속과 같은 항목)
+- [ ] **앱 용량(408MB) 줄이기.** `electron-builder.yml` `files`에 `!**/*.{map,d.ts,d.mts}` 제외(`openai`·`@anthropic-ai/sdk`), `react-router`를 devDependencies로(renderer 번들에 인라인됨), `libllama-server-impl.dylib`(8.9MB) 동봉 필요 여부를 `otool -L`로 확인해 불필요하면 `scripts/assets.ts`에서 제외, better-sqlite3 unpacked 26MB에 빌드 산출물이 섞였는지 확인. 목표와 결과 크기를 `distribution.md`에 기록
+- [ ] **`release:mac` 스크립트 제거.** `--publish always`가 남아 있어 실수로 배포될 수 있다. `distribution.md` 로컬 릴리스 절차(3단계 "쓰지 않는다")와 맞춘다. 루트 `package.json`의 위임 스크립트도 함께
+- [ ] **entitlements 정리.** `build/entitlements.mac.plist`의 `com.apple.security.cs.allow-dyld-environment-variables`는 코드에서 쓰지 않는다(`distribution.md` "DYLD_LIBRARY_PATH 불필요") → 제거 후 서명 빌드에서 동봉 dylib 로드 확인
+- [ ] **창 보안.** `windows/main.ts`의 `setWindowOpenHandler`가 스킴 검사 없이 `shell.openExternal`을 부른다 → `https:`·`mailto:`만 허용, `will-navigate` 차단, 위젯 창에도 같은 핸들러. `sandbox: false`를 `true`로 바꿀 수 있는지(preload가 Node API를 쓰는지) 확인해 결정을 `architecture.md`에 기록
+- [ ] **의존성.** `@types/better-sqlite3` 9.x → `better-sqlite3` 13.x에 맞는 버전, Electron 39가 지원 범위(최신 3개 메이저)에 있는지 확인해 필요하면 올린다(네이티브 리빌드·`onlyBuiltDependencies` 확인). `apps/web`의 `tsx`는 `smokeModels.ts`를 부르는 스크립트를 등록하거나 제거
+- [ ] **Node 버전 고정.** 루트에 `.nvmrc`(22) 추가. 기본 node가 20이면 desktop vitest 설정이 `ERR_REQUIRE_ESM`으로 로드조차 안 된다. `monorepo.md`에 한 줄 적는다
+- [ ] **테스트 공백.** DB 레포지토리(`db/*.ts` 8개, 마이그레이션 1→4 포함)·IPC 핸들러·파이프라인 조립부(`run`·`queue`·`recluster`·`reprocess`)·`session.ts`·`wavWriter.ts`. DB는 vitest에서 better-sqlite3가 Electron ABI로 빌드되어 로드되지 않는 문제부터 푼다(테스트용 node ABI 리빌드 스크립트 또는 SQL 계층 분리). E2E(Playwright) 도입 여부를 `.claude/rules/test-strategy.md`에서 결정(현재 "Phase 4에서 검토"로 미결)
+- [ ] **컨벤션.** `ipc/handlers.ts`(657줄)를 도메인별 파일(`ipc/meetings.ts`, `ipc/recording.ts`, `ipc/settings.ts`, `ipc/llm.ts`)로 분리, `registerIpcHandlers`(약 200줄)·`startSystemAudioCapture`(약 90줄) 50줄 이하로. `settings.update` 핸들러의 인라인 로직 함수화
+- [ ] **CI.** `build.yml`에 whisper.cpp 소스 빌드 캐시, `concurrency`(이전 실행 취소), `apps/web` 빌드 포함
+- [ ] **문서 드리프트.** k-means 결정 근거가 git 제외된 `docs/external/`에만 있어 커밋된 문서만 보면 AHC가 정답처럼 읽힌다 → 근거 요약을 `docs/diarization-clustering-results.md`에 옮긴다. `data-model.md` 설정 키 표에 `llm.provider`·`llm.openaiModel`·`llm.*ApiKey` 추가. `architecture.md` IPC 규약 블록에 `events.settingsChanged` 추가. `.claude/rules/*`의 존재하지 않는 예시(`useAudioLevel`, `RecordButton`, `groupBySpeaker`)를 실제 코드 예로 교체. Windows 잔재(`win`/`nsis` 블록, `build:win`, `icon.ico`, `electron-winstaller`)는 제거하거나 "유지하지 않음"을 파일 주석으로
+- [ ] 완료 기준: `pnpm build:mac` 결과 크기가 문서 목표 이하, `release:mac` 없음, `.nvmrc`로 새 셸에서 `pnpm test` 전부 통과, 웹 프로토타입이 core 군집으로 데스크탑과 같은 라벨을 냄
