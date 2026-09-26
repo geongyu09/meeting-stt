@@ -433,8 +433,14 @@ CoreML이 느린 원인은 **임베딩 모델 입력 길이가 호출마다 달�
   서명·다운로드·라이선스 부담이 없다. renderer에서 디코딩하면 1시간 파일의 Float32 PCM(약 230MB)을 IPC로 넘겨야 하고 "무거운 작업은 main" 원칙에도 어긋난다.
   경로는 `/usr/bin/afconvert`로 고정한다 (GUI 앱의 PATH를 믿지 않는다).
 - **변환 명령**: `afconvert -f WAVE -d LEI16@16000 -c 1 --mix --no-filler <원본> <recordings/<meetingId>.wav>`.
-  `--mix`는 스테레오를 한 채널로 섞고(없으면 채널을 버린다), `--no-filler`는 `FLLR` 패딩 청크를 빼서 **녹음과 똑같은 44바이트 헤더**를 만든다.
-  이후 단계(정규화·whisper·sherpa·재생·내보내기)는 녹음한 회의와 구분하지 않는다.
+  `--mix`는 스테레오를 한 채널로 섞고(없으면 채널을 버린다), `--no-filler`는 `FLLR` 패딩 청크를 뺀다.
+- **헤더는 앱이 44바이트로 다시 쓴다** (2026-09-26). `afconvert`는 원본에 채널 레이아웃이 있으면(음성 메모처럼 **모노 AAC**가 대표적) 출력 WAV를
+  `WAVE_FORMAT_EXTENSIBLE`(fmt 40바이트, 태그 `0xFFFE`, `data`가 68바이트 위치)로 쓰고, 스테레오를 섞은 경우에만 16바이트 fmt의 44바이트 헤더가 나온다.
+  `afconvert`에는 이를 끄는 옵션이 없다(`-l` 태그로도 유지). 변환 결과를 **RIFF 청크를 순서대로 걸어** 읽고(`parseImportedWav`: fmt가 PCM 또는 서브포맷 PCM인
+  EXTENSIBLE, 16kHz·mono·16bit인지 확인), `data`가 44바이트 위치가 아니면 **PCM 본문을 새 44바이트 헤더 뒤로 스트림 복사해 같은 경로로 바꾼다**
+  (`rewriteWithCanonicalHeader`, 임시 파일 → `rename`). 정규화의 `readWavPcm`이 `0xFFFE` 태그를 거부하고 sherpa-onnx의 WAV 리더도
+  EXTENSIBLE을 보장하지 않으므로, 이후 단계(정규화·whisper·sherpa·재생·내보내기)가 **녹음한 회의와 똑같은 44바이트 헤더**만 보게 만드는 쪽이
+  각 단계를 고치는 것보다 안전하다. 1시간 녹음(약 115MB)의 복사는 1초 안쪽이라 변환 시간에 묻힌다.
 - **받는 형식**: `m4a mp3 wav aac aif aiff caf flac mp4 mov` (2026-09-25 실측, 영상 파일은 오디오 트랙만 읽는다). webm·ogg(Opus/Vorbis)는 `afconvert`가 못 읽어 목록에서 뺀다.
   확장자는 열기 대화상자의 필터일 뿐이고, 실제로 못 읽으면 변환 실패 안내로 끝난다.
 - **흐름** (`src/main/audio/importRecording.ts`):

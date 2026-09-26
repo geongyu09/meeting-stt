@@ -63,6 +63,8 @@
 - `AudioContext({ sampleRate: 16000 })`이 일부 장치에서 무시될 수 있다 → 실제 `context.sampleRate`를 확인하고 다르면 main에서 리샘플링하거나 오류 안내.
 - 녹음 중 앱 종료/크래시 대비: WAV 헤더는 정지 시 확정하지만, 청크는 이미 디스크에 있으므로 다음 실행 시 "미완료 녹음 복구" 처리를 고려한다 (Phase 3 이후).
 - **`afconvert`로 스테레오를 mono로 바꿀 때 `--mix`를 빼면 채널을 섞지 않고 버린다.** 한쪽 채널에만 목소리가 있는 녹음이 통째로 무음이 된다.
+- **`afconvert`의 WAV 출력 헤더는 44바이트가 아닐 수 있다.** 원본이 모노(음성 메모 AAC)면 `WAVE_FORMAT_EXTENSIBLE`(fmt 40바이트, `data`가 68바이트 위치)로 쓰고 끄는 옵션이 없다.
+  `data`가 36바이트 위치에 있다고 가정하면 모노 파일 가져오기가 전부 "읽지 못했습니다"로 끝난다 (2026-09-26 실제 발생). 가져온 WAV는 청크를 걸어 읽고 44바이트 헤더로 다시 쓴다 (`architecture.md` "녹음 파일 가져오기").
   기본 출력에는 `FLLR` 패딩 청크가 끼므로 `--no-filler`로 녹음과 같은 44바이트 헤더를 만든다. webm·ogg(Opus/Vorbis)는 못 읽는다 (`architecture.md` "녹음 파일 가져오기").
 - macOS: `NSMicrophoneUsageDescription` 없으면 크래시. `systemPreferences.askForMediaAccess('microphone')`로 명시 요청.
 

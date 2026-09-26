@@ -14,9 +14,16 @@ import { info, messageOf, warn } from '../log'
 import { notifyMeetingsChanged } from '../meetingsChanged'
 import { enqueuePipelineJob } from '../pipeline/queue'
 import { getMainWindow } from '../windows/main'
-import { IMPORT_EXTENSIONS, readDataBytes, titleFromFilePath } from './importSource'
+import {
+  IMPORT_EXTENSIONS,
+  IMPORT_HEADER_PROBE_BYTES,
+  isCanonicalLayout,
+  parseImportedWav,
+  rewriteWithCanonicalHeader,
+  titleFromFilePath
+} from './importSource'
 import { defaultTitle, getRecordingState, MIN_RECORDING_SEC, recordingsDir } from './session'
-import { durationSecOf, WAV_HEADER_BYTES } from './wavWriter'
+import { durationSecOf } from './wavWriter'
 import { t } from '../locale'
 
 /** macOS 내장 Core Audio 변환기. GUI 앱의 PATH를 믿지 않고 절대 경로로 부른다 */
@@ -50,20 +57,30 @@ const pickSourceFile = async () => {
   return canceled ? null : (filePaths[0] ?? null)
 }
 
-const readDurationSec = async (wavPath: string) => {
+/** 변환 결과의 PCM 위치·크기. 헤더가 파일 크기보다 큰 길이를 적어도 실제 크기로 자른다 */
+const readLayout = async (wavPath: string) => {
   const handle = await open(wavPath, 'r')
   try {
-    const { buffer } = await handle.read(Buffer.alloc(WAV_HEADER_BYTES), 0, WAV_HEADER_BYTES, 0)
-    const dataBytes = readDataBytes(buffer)
-    if (dataBytes === null) throw new Error(t().main.importing.unreadable)
+    const { size } = await handle.stat()
+    const probeBytes = Math.min(IMPORT_HEADER_PROBE_BYTES, size)
+    const { buffer, bytesRead } = await handle.read(Buffer.alloc(probeBytes), 0, probeBytes, 0)
+    const layout = parseImportedWav(buffer.subarray(0, bytesRead))
+    if (!layout) throw new Error(t().main.importing.unreadable)
 
-    return durationSecOf({ dataBytes })
+    return {
+      dataOffset: layout.dataOffset,
+      dataBytes: Math.min(layout.dataBytes, Math.max(0, size - layout.dataOffset))
+    }
   } finally {
     await handle.close()
   }
 }
 
-/** 변환에 실패하면 반쯤 쓴 출력을 지운다. 회의 행은 아직 없으므로 목록에 흔적이 남지 않는다 */
+/**
+ * 변환에 실패하면 반쯤 쓴 출력을 지운다. 회의 행은 아직 없으므로 목록에 흔적이 남지 않는다.
+ * `afconvert`가 모노 원본에 쓰는 EXTENSIBLE 헤더는 녹음과 같은 44바이트로 다시 쓴다
+ * (references/architecture.md "녹음 파일 가져오기")
+ */
 const convertToWav = async ({
   inputPath,
   outputPath
@@ -73,8 +90,15 @@ const convertToWav = async ({
 }) => {
   try {
     await runBinary({ command: AFCONVERT_PATH, args: toAfconvertArgs({ inputPath, outputPath }) })
+    const layout = await readLayout(outputPath)
+    const durationSec = durationSecOf({ dataBytes: layout.dataBytes })
+    // 너무 짧은 파일은 호출하는 쪽이 지우므로 헤더를 고쳐 쓸 필요가 없다
+    if (durationSec >= MIN_RECORDING_SEC && !isCanonicalLayout(layout)) {
+      info(`가져온 WAV 헤더를 44바이트로 다시 씀 (data 위치 ${layout.dataOffset})`)
+      await rewriteWithCanonicalHeader({ wavPath: outputPath, layout })
+    }
 
-    return await readDurationSec(outputPath)
+    return durationSec
   } catch (caught) {
     warn(`녹음 파일 변환 실패 ${inputPath}: ${messageOf(caught)}`)
     await rm(outputPath, { force: true })
