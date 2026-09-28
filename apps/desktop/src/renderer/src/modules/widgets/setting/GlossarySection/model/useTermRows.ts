@@ -15,6 +15,23 @@ export interface PasteRowsParams {
 
 const isBlank = ({ term, readings }: TermEntry) => !term.trim() && !readings.trim()
 
+const termKeyOf = ({ term }: TermEntry) => term.trim().toLowerCase()
+
+interface NewEntriesParams {
+  pasted: TermRow[]
+  current: TermRow[]
+}
+
+/** 목록에 이미 있거나 붙여 넣은 텍스트 안에서 겹치는 용어는 먼저 나온 쪽만 남긴다 */
+const newEntriesOf = ({ pasted, current }: NewEntriesParams) => {
+  const existing = new Set(current.map(termKeyOf))
+  return pasted.filter(
+    (row, index) =>
+      !existing.has(termKeyOf(row)) &&
+      pasted.findIndex((other) => termKeyOf(other) === termKeyOf(row)) === index
+  )
+}
+
 interface WithIdsParams {
   entries: TermEntry[]
   nextIdRef: RefObject<number>
@@ -64,18 +81,22 @@ const useTermRows = () => {
     })
   }
 
-  /** 붙여 넣은 줄을 행으로 나눈다. 붙여 넣은 행이 비어 있었으면 그 자리를 대신한다 */
+  /**
+   * 붙여 넣은 줄을 행으로 나눠 그 자리부터 채운다. 붙여 넣은 행이 비어 있었으면 그 자리를 대신한다.
+   * 복사한 목록을 같은 화면에 다시 붙여도 행이 늘지 않게 이미 있는 용어는 건너뛴다.
+   */
   const pasteRows = ({ id, text }: PasteRowsParams) => {
     const pasted = withIds({ entries: parseTermLines(text), nextIdRef })
     if (!pasted.length) return
 
     setFocusId(null)
-    setRows((current) =>
-      current.flatMap((row) => {
+    setRows((current) => {
+      const added = newEntriesOf({ pasted, current })
+      return current.flatMap((row) => {
         if (row.id !== id) return [row]
-        return isBlank(row) ? pasted : [row, ...pasted]
+        return isBlank(row) ? added : [row, ...added]
       })
-    )
+    })
   }
 
   return { rows, focusId, termLines, resetRows, addRow, updateRow, removeRow, pasteRows }

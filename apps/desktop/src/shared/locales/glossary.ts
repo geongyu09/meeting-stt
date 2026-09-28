@@ -19,11 +19,12 @@ export const glossaryKo = {
     draftHint: '10~20초 걸립니다. 회의록을 처리 중이면 그 작업이 끝난 뒤 만듭니다',
     termsLabel: ({ count, max }: { count: number; max: number }) => `용어 목록 (${count}/${max})`,
     termsHint:
-      '한 칸에 용어 하나를 적습니다. 한글 읽기는 선택입니다 — 영어 용어의 읽기를 적어 두면 비워 둘 때보다 잘못 받아 적힌 말을 정확하게 찾습니다. 읽기가 여러 개면 쉼표로 잇습니다. 목록을 용어 칸에 붙여 넣으면 줄마다 나눠 넣습니다.',
+      '한 칸에 용어 하나를 적습니다. 한글 읽기는 선택입니다 — 영어 용어의 읽기를 적어 두면 비워 둘 때보다 잘못 받아 적힌 말을 정확하게 찾습니다. 읽기가 여러 개면 쉼표로 잇습니다. 목록 복사로 복사한 목록을 아무 칸에나 붙여 넣으면 줄마다 행으로 나눠 넣습니다.',
     termColumn: '용어',
     readingColumn: '한글 읽기 (선택)',
     termList: '용어 목록',
     addTerm: '용어 추가',
+    copyList: '목록 복사',
     saving: '저장하는 중…',
     save: '저장',
     unsaved: '저장하지 않은 변경이 있습니다'
@@ -42,7 +43,9 @@ export const glossaryKo = {
     saved: ({ count }: { count: number }) => `용어 ${count}개를 저장했습니다`,
     drafted: ({ count }: { count: number }) =>
       `새 용어 ${count}개를 덧붙였습니다. 읽기가 맞는지 확인하고 저장해 주세요`,
-    nothingToAdd: '새로 덧붙일 용어가 없습니다'
+    nothingToAdd: '새로 덧붙일 용어가 없습니다',
+    copied: ({ count }: { count: number }) => `용어 ${count}개를 복사했습니다`,
+    copyError: '용어 목록을 복사하지 못했습니다'
   },
   errors: {
     missingTeam: '잘못된 요청입니다 (팀 소개 없음)',
@@ -73,11 +76,12 @@ export const glossaryEn: typeof glossaryKo = {
       'Takes 10 to 20 seconds. If a transcript is being processed, the draft starts after it',
     termsLabel: ({ count, max }: { count: number; max: number }) => `Terms (${count}/${max})`,
     termsHint:
-      'One term per row. The Korean reading is optional. Adding a reading for an English term finds misrecognized words more precisely than leaving it empty. Separate multiple readings with commas. Paste a list into the term field to split it into rows.',
+      'One term per row. The Korean reading is optional. Adding a reading for an English term finds misrecognized words more precisely than leaving it empty. Separate multiple readings with commas. Paste a list made with Copy list into any field to split it into rows.',
     termColumn: 'Term',
     readingColumn: 'Korean reading (optional)',
     termList: 'Term list',
     addTerm: 'Add term',
+    copyList: 'Copy list',
     saving: 'Saving…',
     save: 'Save',
     unsaved: 'You have unsaved changes'
@@ -96,7 +100,9 @@ export const glossaryEn: typeof glossaryKo = {
     saved: ({ count }: { count: number }) => `Saved ${count} terms`,
     drafted: ({ count }: { count: number }) =>
       `Added ${count} new terms. Check the readings and save`,
-    nothingToAdd: 'No new terms to add'
+    nothingToAdd: 'No new terms to add',
+    copied: ({ count }: { count: number }) => `Copied ${count} terms`,
+    copyError: 'Could not copy the term list'
   },
   errors: {
     missingTeam: 'Invalid request (missing team description)',

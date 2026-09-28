@@ -33,7 +33,7 @@ export default function TermRow({
   const { t } = useLocale()
   const autoReading = autoReadingOf({ term, readings })
 
-  const handleTermPaste = (event: ClipboardEvent<HTMLInputElement>) => {
+  const handlePaste = (event: ClipboardEvent<HTMLInputElement>) => {
     const text = event.clipboardData.getData('text')
     if (!isTermListText(text)) return
 
@@ -57,7 +57,7 @@ export default function TermRow({
         placeholder={t.glossary.row.termPlaceholder}
         value={term}
         onChange={(event) => onChange({ term: sanitizeTerm(event.target.value) })}
-        onPaste={handleTermPaste}
+        onPaste={handlePaste}
         onKeyDown={handleKeyDown}
         disabled={isDisabled}
         autoFocus={isAutoFocus}
@@ -69,6 +69,7 @@ export default function TermRow({
         placeholder={autoReading ?? t.glossary.row.readingsPlaceholder}
         value={readings}
         onChange={(event) => onChange({ readings: event.target.value })}
+        onPaste={handlePaste}
         onKeyDown={handleKeyDown}
         disabled={isDisabled}
         spellCheck={false}

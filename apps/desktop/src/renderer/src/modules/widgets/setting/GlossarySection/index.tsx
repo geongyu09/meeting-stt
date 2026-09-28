@@ -30,7 +30,8 @@ export default function GlossarySection() {
     removeRow,
     pasteRows,
     saveGlossary,
-    draftTerms
+    draftTerms,
+    copyTerms
   } = useGlossary()
 
   const renderBody = () => {
@@ -105,6 +106,9 @@ export default function GlossarySection() {
               disabled={isDrafting || rows.length >= GLOSSARY_MAX_TERMS}
             >
               {t.glossary.section.addTerm}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={copyTerms} disabled={!termCount}>
+              {t.glossary.section.copyList}
             </Button>
           </div>
         </div>

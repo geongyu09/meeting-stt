@@ -9,6 +9,11 @@ vi.mock('@renderer/shared/api/glossary', () => ({
   draftGlossaryApi: vi.fn()
 }))
 
+vi.mock('@renderer/shared/api/clipboard', () => ({
+  writeClipboardTextApi: vi.fn()
+}))
+
+import { writeClipboardTextApi } from '@renderer/shared/api/clipboard'
 import { draftGlossaryApi, getGlossaryApi, updateGlossaryApi } from '@renderer/shared/api/glossary'
 import GlossarySection from './index'
 
@@ -141,6 +146,69 @@ describe('GlossarySection', () => {
     await userEvent.paste('모노레포\nGitHub = 깃허브, 기트허브\n')
 
     expect(await shownTerms()).toEqual(['모노레포', 'GitHub = 깃허브, 기트허브'])
+  })
+
+  it('목록 복사는 편집 중인 목록을 저장 형식 줄로 복사한다', async () => {
+    vi.mocked(getGlossaryApi).mockResolvedValue(SAVED)
+    render(<GlossarySection />)
+    await termList()
+
+    await userEvent.type(termInput(2), ' 구조')
+    await userEvent.click(screen.getByRole('button', { name: '용어 추가' }))
+    await userEvent.type(termInput(3), 'JWT')
+    await userEvent.click(screen.getByRole('button', { name: '목록 복사' }))
+
+    expect(writeClipboardTextApi).toHaveBeenCalledWith({
+      text: 'GitHub = 깃허브\n모노레포 구조\nJWT = 제이더블유티'
+    })
+    expect(await screen.findByText('용어 3개를 복사했습니다')).toBeTruthy()
+  })
+
+  it('목록 복사로 만든 텍스트를 붙여 넣으면 같은 목록이 쭉 채워진다', async () => {
+    vi.mocked(getGlossaryApi).mockResolvedValue({
+      teamDescription: '',
+      terms: ['GitHub = 깃허브, 기트허브', '모노레포', 'JWT']
+    })
+    render(<GlossarySection />)
+    await termList()
+    await userEvent.click(screen.getByRole('button', { name: '목록 복사' }))
+    const [[{ text: copied }]] = vi.mocked(writeClipboardTextApi).mock.calls
+
+    cleanup()
+    vi.mocked(getGlossaryApi).mockResolvedValue({ teamDescription: '', terms: [] })
+    render(<GlossarySection />)
+    await termList()
+    await userEvent.click(termInput(1))
+    await userEvent.paste(copied)
+
+    expect(await shownTerms()).toEqual([
+      'GitHub = 깃허브, 기트허브',
+      '모노레포',
+      'JWT = 제이더블유티'
+    ])
+  })
+
+  it('읽기 칸에 붙여 넣어도 목록으로 나누고, 이미 있는 용어와 겹치는 줄은 건너뛴다', async () => {
+    vi.mocked(getGlossaryApi).mockResolvedValue(SAVED)
+    render(<GlossarySection />)
+    await termList()
+
+    await userEvent.click(readingsInput(1))
+    await userEvent.paste('github = 기트허브\nReact = 리액트\nreact = 레액트\n모노레포\n')
+
+    expect(await shownTerms()).toEqual(['GitHub = 깃허브', 'React = 리액트', '모노레포'])
+    expect(screen.getByText('저장하지 않은 변경이 있습니다')).toBeTruthy()
+  })
+
+  it('읽기 칸에 한 줄짜리 읽기를 붙여 넣으면 그 칸에만 들어간다', async () => {
+    vi.mocked(getGlossaryApi).mockResolvedValue(SAVED)
+    render(<GlossarySection />)
+    await termList()
+
+    await userEvent.click(readingsInput(2))
+    await userEvent.paste('모노 레포, 모노리포')
+
+    expect(await shownTerms()).toEqual(['GitHub = 깃허브', '모노레포 = 모노 레포, 모노리포'])
   })
 
   it('행을 지우면 저장하지 않은 변경으로 표시한다', async () => {

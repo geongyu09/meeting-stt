@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { mergeGlossaryTerms } from '@shared/glossary'
 import type { GlossarySettings } from '@shared/types'
+import { writeClipboardTextApi } from '@renderer/shared/api/clipboard'
 import { draftGlossaryApi, getGlossaryApi, updateGlossaryApi } from '@renderer/shared/api/glossary'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
@@ -83,6 +84,18 @@ const useGlossary = () => {
     }
   }
 
+  const copyTerms = async () => {
+    setActionError(null)
+    setNotice(null)
+
+    try {
+      await writeClipboardTextApi({ text: termLines.join('\n') })
+      setNotice(t.glossary.actions.copied({ count: termLines.length }))
+    } catch (caught) {
+      setActionError(messageOf({ caught, fallback: t.glossary.actions.copyError }))
+    }
+  }
+
   return {
     teamDescription,
     rows,
@@ -101,7 +114,8 @@ const useGlossary = () => {
     removeRow,
     pasteRows,
     saveGlossary,
-    draftTerms
+    draftTerms,
+    copyTerms
   }
 }
 
