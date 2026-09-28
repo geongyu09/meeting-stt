@@ -170,7 +170,7 @@ describe('SummarySection', () => {
     })
 
     expect(screen.getByRole('button', { name: '요약 만들기' }).hasAttribute('disabled')).toBe(false)
-    expect(screen.getByText('Claude API')).toBeTruthy()
+    expect(screen.getByText(/회의록을 Claude API로 요약하며/)).toBeTruthy()
   })
 
   it('발화가 하나도 없으면 요약 버튼을 막는다', async () => {
@@ -245,7 +245,7 @@ describe('SummarySection', () => {
 
   it('제목을 누르면 요약 본문과 버튼을 접고 다시 누르면 펼친다', async () => {
     await renderSection(detailOf({ meeting: meetingOf({ summary: '## 핵심 요약\n- 배포 연기' }) }))
-    // 캡션(공급자·진행률)이 헤더 버튼 안에 있어 이름이 고정되지 않으므로 펼침 상태로 찾는다
+    // 헤더에 복사 버튼도 있어 접기 버튼은 펼침 상태로 찾는다
     const toggle = screen.getByRole('button', { expanded: true })
 
     expect(toggle.getAttribute('aria-expanded')).toBe('true')
@@ -282,5 +282,29 @@ describe('SummarySection', () => {
       text: '## 핵심 요약\n- 배포 연기'
     })
     expect(screen.getByRole('button', { name: '복사됨' })).toBeTruthy()
+  })
+
+  it('요약이 있으면 제목 아래 공급자를 적고 헤더에 복사 버튼을 둔다', async () => {
+    await renderSection(
+      detailOf({ meeting: meetingOf({ summary: '## 핵심 요약\n- 배포 연기' }) }),
+      {
+        llmStatus: llmStatusOf({
+          provider: 'claude-api',
+          apiKeys: {
+            anthropic: { isSaved: true, tail: 'wxyz' },
+            openai: { isSaved: false, tail: null }
+          }
+        })
+      }
+    )
+    const toggle = screen.getByRole('button', { expanded: true })
+    const copyButton = screen.getByRole('button', { name: '요약 복사' })
+    const body = screen.getByText(/배포 연기/)
+
+    expect(toggle.textContent).toContain('Claude API')
+    expect(
+      toggle.compareDocumentPosition(copyButton) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+    expect(copyButton.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })

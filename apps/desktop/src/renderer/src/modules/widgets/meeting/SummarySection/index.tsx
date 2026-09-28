@@ -40,6 +40,7 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
   const providerLabel = llmStatus ? t.llm.providerLabels[llmStatus.provider] : ''
   // 접어 둔 채로 요약이 돌면 진행률이 안 보이므로 캡션이 대신 알려 준다
   const caption = !isExpanded && isRunning ? t.summary.runningCaption({ percent }) : providerLabel
+  const isCopyVisible = summary !== '' && !isRunning
 
   const renderBody = () => {
     if (isRunning) {
@@ -74,19 +75,32 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
   return (
     <section className={styles.section} aria-label={t.summary.sectionLabel}>
       {/* 헤더 전체가 접기 버튼이라 상단 어디를 눌러도 접힌다 */}
-      <button
-        type="button"
-        className={styles.toggle}
-        aria-expanded={isExpanded}
-        aria-controls={bodyId}
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <span className={styles.chevron}>
-          <Icon name="chevronDown" size={CHEVRON_SIZE} />
-        </span>
-        <h2 className={styles.title}>{t.summary.title}</h2>
-        <span className={styles.caption}>{caption}</span>
-      </button>
+      <div className={styles.header} data-expanded={isExpanded}>
+        <button
+          type="button"
+          className={styles.toggle}
+          aria-expanded={isExpanded}
+          aria-controls={bodyId}
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <span className={styles.chevron}>
+            <Icon name="chevronDown" size={CHEVRON_SIZE} />
+          </span>
+          <span className={styles.titleContainer}>
+            <h2 className={styles.title}>{t.summary.title}</h2>
+            {caption && <span className={styles.caption}>{caption}</span>}
+          </span>
+        </button>
+
+        {/* 버튼 안에 버튼을 둘 수 없어 복사는 접기 버튼 옆 형제로 둔다 */}
+        {isCopyVisible && (
+          <div className={styles.copyWrapper}>
+            <Button variant="secondary" size="sm" onClick={copySummary}>
+              {isCopied ? t.summary.copied : t.summary.copy}
+            </Button>
+          </div>
+        )}
+      </div>
 
       {isExpanded && (
         <div id={bodyId} className={styles.body}>
@@ -96,11 +110,6 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
           {copyError && <p className={styles.error}>{copyError}</p>}
 
           <div className={styles.actions}>
-            {summary && !isRunning && (
-              <Button variant="secondary" size="sm" className={styles.action} onClick={copySummary}>
-                {isCopied ? t.summary.copied : t.summary.copy}
-              </Button>
-            )}
             <Button
               size="sm"
               className={styles.action}
