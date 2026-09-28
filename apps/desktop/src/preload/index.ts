@@ -135,6 +135,9 @@ const api = {
     update: (payload: UpdateSettingsRequest): Promise<UpdateSettingsResponse> =>
       ipcRenderer.invoke(IPC.settings.update, payload)
   },
+  feedback: {
+    open: (): Promise<void> => ipcRenderer.invoke(IPC.feedback.open)
+  },
   clipboard: {
     writeText: (payload: WriteClipboardTextRequest): Promise<void> =>
       ipcRenderer.invoke(IPC.clipboard.writeText, payload)

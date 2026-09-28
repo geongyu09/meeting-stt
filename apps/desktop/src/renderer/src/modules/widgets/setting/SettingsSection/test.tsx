@@ -314,7 +314,8 @@ describe('SettingsSection', () => {
       '음성 인식 모델',
       '업데이트',
       '화면',
-      '언어'
+      '언어',
+      '피드백'
     ])
     expect(
       within(screen.getByRole('region', { name: '녹음·처리' })).getByRole('switch', {

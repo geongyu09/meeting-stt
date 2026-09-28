@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import FeedbackButton from '@renderer/modules/features/feedback/FeedbackButton'
 import UpdateCheck from '@renderer/modules/features/update/UpdateCheck'
 import {
   DEFAULT_RECORDING_SHORTCUT,
@@ -150,6 +151,9 @@ export default function SettingsSection({ children }: SettingsSectionProps) {
       </SettingGroup>
       <SettingGroup title={t.settings.groups.language}>
         <LocaleSelect value={settings.locale} onChange={(locale) => updateSettings({ locale })} />
+      </SettingGroup>
+      <SettingGroup title={t.settings.groups.feedback}>
+        <FeedbackButton />
       </SettingGroup>
     </div>
   )

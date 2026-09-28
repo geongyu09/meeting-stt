@@ -68,6 +68,7 @@ export const IPC = {
     downloadSummary: 'models:downloadSummary'
   },
   update: { check: 'update:check', download: 'update:download', install: 'update:install' },
+  feedback: { open: 'feedback:open' },
   events: {
     progress: 'pipeline:progress',
     summary: 'summary:progress',

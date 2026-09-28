@@ -390,6 +390,17 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 - [x] `useRecordingState`·`useMicrophoneTest`에서 레벨 이력(`levels`, 48개) 제거 — 더 쓰는 곳이 없다
 - [ ] `pnpm dev` 실제 확인 — 말하면 막대가 함께 튀고 조용하면 점으로 가라앉는지, 팬·CPU 변화 없는지
 
+## 피드백 보내기 (2026-09-28, Phase 번호 밖)
+
+사용자 요청. 서버·정보 수집 없이 GitHub 이슈 작성 화면을 미리 채워 브라우저로 연다. 설계는 `architecture.md` "피드백 보내기".
+
+- [x] `.github/ISSUE_TEMPLATE/feedback.yml` 이슈 폼 (`kind`·`description`·`app-version`·`os`)
+- [x] main: `feedbackUrl.ts`(순수) + `windows/externalUrl.ts`(https만 허용) + 메인 창 `setWindowOpenHandler`를 같은 규칙으로
+- [x] IPC `feedback:open` + preload + renderer `openFeedbackApi`
+- [x] 설정 "피드백" 카테고리와 `FeedbackButton`, 사전(`ko`·`en`) 문구
+- [x] 테스트 — `feedbackUrl.test.ts`, `externalUrl.test.ts`, `FeedbackButton/test.tsx`. `pnpm test` / `pnpm typecheck` / `pnpm lint` 통과 (2026-09-28)
+- [x] `pnpm dev` 실제 확인 — 버튼을 누르면 브라우저에 이슈 작성 화면이 열린다 (2026-09-28 사용자 확인). 버전·OS 필드 채움은 `feedback.yml`이 원격 main에 푸시된 뒤 확인
+
 ## 품질 점검 후속 (2026-09-26, Phase 번호 밖)
 
 2026-09-26 전체 코드 점검(main 견고성·renderer UX·테스트/배포/문서)에서 나온 개선 항목을 사용자 지시로 로드맵에 올린다.
@@ -442,7 +453,7 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 - [ ] **앱 용량(408MB) 줄이기.** `electron-builder.yml` `files`에 `!**/*.{map,d.ts,d.mts}` 제외(`openai`·`@anthropic-ai/sdk`), `react-router`를 devDependencies로(renderer 번들에 인라인됨), `libllama-server-impl.dylib`(8.9MB) 동봉 필요 여부를 `otool -L`로 확인해 불필요하면 `scripts/assets.ts`에서 제외, better-sqlite3 unpacked 26MB에 빌드 산출물이 섞였는지 확인. 목표와 결과 크기를 `distribution.md`에 기록
 - [ ] **`release:mac` 스크립트 제거.** `--publish always`가 남아 있어 실수로 배포될 수 있다. `distribution.md` 로컬 릴리스 절차(3단계 "쓰지 않는다")와 맞춘다. 루트 `package.json`의 위임 스크립트도 함께
 - [ ] **entitlements 정리.** `build/entitlements.mac.plist`의 `com.apple.security.cs.allow-dyld-environment-variables`는 코드에서 쓰지 않는다(`distribution.md` "DYLD_LIBRARY_PATH 불필요") → 제거 후 서명 빌드에서 동봉 dylib 로드 확인
-- [ ] **창 보안.** `windows/main.ts`의 `setWindowOpenHandler`가 스킴 검사 없이 `shell.openExternal`을 부른다 → `https:`·`mailto:`만 허용, `will-navigate` 차단, 위젯 창에도 같은 핸들러. `sandbox: false`를 `true`로 바꿀 수 있는지(preload가 Node API를 쓰는지) 확인해 결정을 `architecture.md`에 기록
+- [ ] **창 보안.** ~~`windows/main.ts`의 `setWindowOpenHandler`가 스킴 검사 없이 `shell.openExternal`을 부른다~~ → 2026-09-28 피드백 보내기에서 `https:`만 허용하도록 바꿨다 (`windows/externalUrl.ts`). 남은 것: `will-navigate` 차단, 위젯 창에도 같은 핸들러. `sandbox: false`를 `true`로 바꿀 수 있는지(preload가 Node API를 쓰는지) 확인해 결정을 `architecture.md`에 기록
 - [ ] **의존성.** `@types/better-sqlite3` 9.x → `better-sqlite3` 13.x에 맞는 버전, Electron 39가 지원 범위(최신 3개 메이저)에 있는지 확인해 필요하면 올린다(네이티브 리빌드·`onlyBuiltDependencies` 확인). `apps/web`의 `tsx`는 `smokeModels.ts`를 부르는 스크립트를 등록하거나 제거
 - [ ] **Node 버전 고정.** 루트에 `.nvmrc`(22) 추가. 기본 node가 20이면 desktop vitest 설정이 `ERR_REQUIRE_ESM`으로 로드조차 안 된다. `monorepo.md`에 한 줄 적는다
 - [ ] **테스트 공백.** DB 레포지토리(`db/*.ts` 8개, 마이그레이션 1→4 포함)·IPC 핸들러·파이프라인 조립부(`run`·`queue`·`recluster`·`reprocess`)·`session.ts`·`wavWriter.ts`. DB는 vitest에서 better-sqlite3가 Electron ABI로 빌드되어 로드되지 않는 문제부터 푼다(테스트용 node ABI 리빌드 스크립트 또는 SQL 계층 분리). E2E(Playwright) 도입 여부를 `.claude/rules/test-strategy.md`에서 결정(현재 "Phase 4에서 검토"로 미결)

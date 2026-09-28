@@ -36,7 +36,8 @@ export const mainKo = {
     sameSpeakerMerge: '같은 화자끼리는 합칠 수 없습니다',
     searchQueryTooLong: ({ maxLength }: { maxLength: number }) =>
       `검색어가 너무 깁니다 (최대 ${maxLength}자)`,
-    keychainUnavailable: '이 환경에서는 키를 안전하게 저장할 수 없습니다 (키체인 접근 불가)'
+    keychainUnavailable: '이 환경에서는 키를 안전하게 저장할 수 없습니다 (키체인 접근 불가)',
+    feedbackOpen: '피드백 페이지를 열지 못했습니다'
   },
   fields: {
     meetingId: '회의 ID',
@@ -180,7 +181,9 @@ export const mainEn: typeof mainKo = {
     sameSpeakerMerge: 'Cannot merge a speaker with itself',
     searchQueryTooLong: ({ maxLength }) =>
       `The search query is too long (up to ${maxLength} characters)`,
-    keychainUnavailable: 'Keys cannot be stored securely in this environment (keychain unavailable)'
+    keychainUnavailable:
+      'Keys cannot be stored securely in this environment (keychain unavailable)',
+    feedbackOpen: 'Could not open the feedback page'
   },
   fields: {
     meetingId: 'Meeting ID',

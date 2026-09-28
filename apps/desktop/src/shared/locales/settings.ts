@@ -13,7 +13,8 @@ export const settingsKo = {
     sttModel: '음성 인식 모델',
     update: '업데이트',
     appearance: '화면',
-    language: '언어'
+    language: '언어',
+    feedback: '피드백'
   },
   inputDevice: {
     title: '입력 장치',
@@ -97,6 +98,13 @@ export const settingsKo = {
   locale: {
     title: 'UI 언어',
     description: '화면·메뉴바 문구의 언어입니다. 음성 인식과 요약은 계속 한국어로 동작합니다.'
+  },
+  feedback: {
+    title: '피드백 보내기',
+    description:
+      'GitHub 이슈 작성 화면을 브라우저에서 엽니다. 앱은 아무것도 보내지 않고, 앱 버전과 macOS 버전만 미리 채웁니다. 이슈는 공개되니 회의 내용은 붙여 넣지 마세요.',
+    action: 'GitHub에서 작성',
+    openError: '브라우저를 열지 못했습니다. 잠시 후 다시 시도해 주세요'
   }
 }
 
@@ -114,7 +122,8 @@ export const settingsEn: typeof settingsKo = {
     sttModel: 'Speech recognition model',
     update: 'Updates',
     appearance: 'Appearance',
-    language: 'Language'
+    language: 'Language',
+    feedback: 'Feedback'
   },
   inputDevice: {
     title: 'Input device',
@@ -202,5 +211,12 @@ export const settingsEn: typeof settingsKo = {
     title: 'UI language',
     description:
       'The language of on-screen and menu bar text. Speech recognition and summaries keep working in Korean.'
+  },
+  feedback: {
+    title: 'Send feedback',
+    description:
+      'Opens the GitHub new-issue page in your browser. The app sends nothing and only pre-fills the app and macOS versions. Issues are public, so do not paste meeting content.',
+    action: 'Write on GitHub',
+    openError: 'Could not open the browser. Please try again shortly'
   }
 }

@@ -139,6 +139,8 @@ export const IPC = {
   //   recording.setSystemAudio (결과는 events.recordingState의 systemAudio로 push, Phase 5-2)
   // 녹음 일시정지 (아래 "녹음 위젯 패널" > "일시정지·재개" 절)
   //   recording.setPaused (결과는 events.recordingState의 pausedAt으로 push)
+  // 피드백 보내기 (아래 같은 이름의 절)
+  //   feedback.open
 } as const
 ```
 
@@ -857,6 +859,25 @@ export interface LiveTranscriptState {
 
 - `apps/web` 브라우저 프로토타입은 한국어만 유지한다.
 - macOS 시스템 대화상자 문구(`NSMicrophoneUsageDescription`)는 `electron-builder.yml`의 한국어 하나다. 영어 `InfoPlist.strings`는 후속 과제다.
+
+## 피드백 보내기 (2026-09-28)
+
+사용자 요청으로 설정 화면에서 피드백을 보낼 수 있게 한다. **서버를 두지 않고 사용자 정보도 모으지 않는다** (사용자 결정) —
+앱은 아무것도 전송하지 않고, 공개 저장소 `github.com/geongyu09/meeting-stt`의 **이슈 작성 화면을 내용을 미리 채워 기본 브라우저로 열기만** 한다.
+제출은 사용자가 브라우저에서 직접 한다. 메일(`mailto:`)·Google Forms 경로는 두지 않는다 (사용자 결정, GitHub 이슈 하나).
+
+- **이슈 폼**: `.github/ISSUE_TEMPLATE/feedback.yml`. 필드 id는 `kind`(버그/제안/기타)·`description`·`app-version`·`os`이고,
+  앱이 여는 URL은 `/issues/new?template=feedback.yml&app-version=<app.getVersion()>&os=macOS <process.getSystemVersion()> (<process.arch>)`다.
+  GitHub 이슈 폼은 쿼리 파라미터 이름이 필드 id와 같으면 그 값을 채운다. 필드 id를 바꾸면 이 URL도 같이 바꾼다.
+- **미리 채우는 값은 앱 버전·macOS 버전·아키텍처뿐이다.** 회의 내용·전사·파일 경로·설정값·로그는 넣지 않는다. 사용자는 제출 전에 브라우저에서 이 값을 보고 지울 수 있다.
+  본문 입력은 앱이 아니라 GitHub 폼에서 받는다 — 앱에 입력창을 두면 URL 길이 제한(약 8KB)을 신경 써야 하고, 같은 내용을 두 번 확인하게 된다.
+- 이슈는 **공개**된다. 설정 화면 설명과 이슈 폼 양쪽에 "회의 내용을 붙여 넣지 말라"고 적는다.
+- **IPC** `feedback:open`(invoke, payload 없음). renderer는 URL을 만들지 않는다 — 버전·OS는 main만 알고, renderer가 임의 URL을 열게 하는 채널을 만들지 않기 위해서다.
+  URL 조립은 순수 함수 `src/main/feedbackUrl.ts`(`buildFeedbackIssueUrl`, vitest), 열기는 아래 외부 링크 규칙을 거친다.
+- **외부 링크는 `https:`만 연다.** `src/main/windows/externalUrl.ts`의 `isAllowedExternalUrl`(vitest)이 스킴을 검사하고,
+  메인 창의 `setWindowOpenHandler`와 `feedback:open`이 같은 `openExternalUrl`을 거친다. 허용하지 않는 스킴은 열지 않고 경고 로그를 남긴다.
+  (품질 점검 후속 "창 보안" 항목의 스킴 검사 부분. `will-navigate` 차단·위젯 창·`sandbox`는 그 항목에 남는다.)
+- **화면**: 설정의 마지막 카테고리 "피드백"에 행 하나 — 설명 + `GitHub에서 작성` 버튼(`modules/features/feedback/FeedbackButton`). 열기에 실패하면 행 아래에 오류 문구.
 
 ## 화면 디자인 (UI 리디자인, 2026-09-24)
 

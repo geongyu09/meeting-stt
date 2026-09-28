@@ -1,4 +1,4 @@
-import { BrowserWindow, clipboard, ipcMain, systemPreferences } from 'electron'
+import { app, BrowserWindow, clipboard, ipcMain, systemPreferences } from 'electron'
 import {
   IPC,
   type CheckLlmResponse,
@@ -78,6 +78,8 @@ import type { ModelDownloadProgress } from '../models/download'
 import { isWhisperModelId } from '@meeting-stt/models/desktop'
 import { notifyMeetingsChanged } from '../meetingsChanged'
 import { setCurrentLocale, t } from '../locale'
+import { buildFeedbackIssueUrl } from '../feedbackUrl'
+import { openExternalUrl } from '../windows/externalUrl'
 import { applyTheme } from '../theme'
 import { downloadModels, downloadSummaryModel, modelStatus } from '../models/service'
 import { enqueueGlossaryDraft, enqueueRefineJob, enqueueSummaryJob } from '../pipeline/queue'
@@ -650,6 +652,16 @@ export const registerIpcHandlers = () => {
   ipcMain.handle(IPC.update.download, () => downloadUpdate())
 
   ipcMain.handle(IPC.update.install, () => installUpdate())
+
+  // 앱은 아무것도 보내지 않는다. 버전·OS만 채운 이슈 작성 화면을 브라우저로 열 뿐이다 (references/architecture.md "피드백 보내기")
+  ipcMain.handle(IPC.feedback.open, async () => {
+    const url = buildFeedbackIssueUrl({
+      appVersion: app.getVersion(),
+      osVersion: process.getSystemVersion(),
+      arch: process.arch
+    })
+    if (!(await openExternalUrl(url))) throw new Error(t().main.errors.feedbackOpen)
+  })
 
   ipcMain.handle(IPC.clipboard.writeText, (_event, payload) => handleWriteClipboardText(payload))
 

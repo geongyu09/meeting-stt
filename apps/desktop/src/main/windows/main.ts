@@ -1,7 +1,9 @@
 import { join } from 'node:path'
-import { BrowserWindow, shell } from 'electron'
+import { BrowserWindow } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../../resources/icon.png?asset'
+
+import { openExternalUrl } from './externalUrl'
 
 /** 사이드바 272px + 본문 두 칸이 최소 폭에서도 회의록 줄 길이를 지키는 크기 (references/architecture.md) */
 const WINDOW_WIDTH = 1280
@@ -45,7 +47,7 @@ export const createMainWindow = () => {
   })
 
   window.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    void openExternalUrl(details.url)
 
     return { action: 'deny' }
   })

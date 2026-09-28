@@ -1,0 +1,36 @@
+name: 피드백 (Feedback)
+description: 버그 신고, 기능 제안, 그 밖의 의견을 남깁니다. / Report a bug, suggest a feature, or share other thoughts.
+title: '[피드백] '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        이 이슈는 **공개**됩니다. 회의 내용·전사 텍스트·개인 정보는 붙여 넣지 마세요.
+        This issue is **public**. Please do not paste meeting content, transcripts, or personal information.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 종류 (Type)
+      options:
+        - 버그 (Bug)
+        - 기능 제안 (Feature request)
+        - 기타 (Other)
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: 내용 (Description)
+      description: 버그라면 무엇을 했을 때 어떻게 되었는지, 기대한 동작은 무엇인지 적어 주세요. / For bugs, describe what you did, what happened, and what you expected.
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: 앱 버전 (App version)
+      description: 앱에서 열면 자동으로 채워집니다. / Filled in automatically when opened from the app.
+  - type: input
+    id: os
+    attributes:
+      label: macOS 버전 (macOS version)
+      description: 앱에서 열면 자동으로 채워집니다. / Filled in automatically when opened from the app.
