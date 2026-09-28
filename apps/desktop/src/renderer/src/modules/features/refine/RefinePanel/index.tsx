@@ -21,8 +21,9 @@ interface RefinePanelProps {
 
 /**
  * 상세 오른쪽 레일의 교정 패널. 교정은 파이프라인 뒤에 자동으로 돌아 본문에 바로 반영되므로,
- * 여기서는 무엇을 몇 곳 고쳤는지 보여 주고 용어 사전을 고친 뒤 다시 돌리는 버튼만 둔다
- * (references/architecture.md "회의록 교정"). 잘못 고친 곳은 발화 인라인 편집으로 되돌린다.
+ * 여기서는 무엇을 몇 곳 고쳤는지 보여 주고 다시 돌리는 버튼만 둔다. 로컬은 용어 교정이라 용어 사전이 필요하고,
+ * 외부 공급자는 문장 교정이라 용어 없이도 돈다 (references/architecture.md "회의록 교정").
+ * 잘못 고친 곳은 발화의 "교정됨" 표시에서 원문으로 되돌린다.
  */
 export default function RefinePanel({ meetingId, refineResult }: RefinePanelProps) {
   const { t } = useLocale()
@@ -35,7 +36,9 @@ export default function RefinePanel({ meetingId, refineResult }: RefinePanelProp
   // 상태를 아직 모르면 막지 않는다. 준비 문구는 main과 같은 함수로 만든다 (references/architecture.md "LLM 공급자")
   const missingMessage = llmStatus ? llmMissingMessage(llmStatus, t.llm) : null
   const providerLabel = llmStatus ? t.llm.providerLabels[llmStatus.provider] : ''
-  const isRunBlocked = isRunning || globalTermCount === 0 || missingMessage !== null
+  const isLocal = llmStatus?.provider === 'local'
+  const isMissingTerms = isLocal && globalTermCount === 0
+  const isRunBlocked = isRunning || isMissingTerms || missingMessage !== null
 
   const caption = (() => {
     if (isRunning) return t.refine.runningCaption({ percent })
@@ -54,7 +57,7 @@ export default function RefinePanel({ meetingId, refineResult }: RefinePanelProp
         </p>
       )
     }
-    if (globalTermCount === 0) {
+    if (isMissingTerms) {
       return (
         <p className={styles.message}>
           <Link className={styles.link} to={PATHS.settings}>
@@ -71,7 +74,11 @@ export default function RefinePanel({ meetingId, refineResult }: RefinePanelProp
       return <p className={styles.message}>{t.refine.nothingFound}</p>
     }
 
-    return <p className={styles.message}>{t.refine.applied({ termCount: globalTermCount })}</p>
+    return (
+      <p className={styles.message}>
+        {isLocal ? t.refine.applied({ termCount: globalTermCount }) : t.refine.appliedSentence}
+      </p>
+    )
   }
 
   const renderBody = () => {
@@ -94,13 +101,14 @@ export default function RefinePanel({ meetingId, refineResult }: RefinePanelProp
           </ul>
         ) : null}
         {renderGuide()}
+        {isLocal && !missingMessage ? <p className={styles.message}>{t.refine.localHint}</p> : null}
         <div className={styles.actions}>
           <Button
             variant="secondary"
             size="sm"
             className={styles.action}
             disabled={isRunBlocked}
-            onClick={runRefine}
+            onClick={() => runRefine({ initialStage: isLocal ? 'read' : 'sentence' })}
           >
             {t.refine.rerun}
           </Button>

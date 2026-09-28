@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS utterances (
   speaker_label TEXT NOT NULL,              -- 'SPEAKER_00' (원본 라벨, 재배정 시 갱신)
   start_sec     REAL NOT NULL,
   end_sec       REAL NOT NULL,
-  text          TEXT NOT NULL               -- 사용자 수정 시 갱신
+  text          TEXT NOT NULL,              -- 사용자 수정 시 갱신
+  original_text TEXT                        -- 자동 교정이 처음 바꾸기 전 원문. NULL이면 교정으로 바뀐 적 없음. 마이그레이션 5
 );
 CREATE INDEX IF NOT EXISTS idx_utterances_meeting ON utterances(meeting_id, ord);
 
@@ -51,6 +52,7 @@ CREATE TABLE IF NOT EXISTS settings (
     3: `ALTER TABLE meetings ADD COLUMN refine_pairs TEXT` + `ADD COLUMN glossary_terms TEXT` (2026-09-25, 교정 제안·회의별 용어 — 같은 날 폐기).
     4: `DROP COLUMN glossary_terms` + `RENAME COLUMN refine_pairs TO refine_applied` + `UPDATE … SET refine_applied = NULL` + `ADD COLUMN refined_at INTEGER`
        (2026-09-25, 자동 교정으로 전환. 3에서 저장된 미확정 제안은 반영된 적이 없으므로 비운다. 개발 DB가 이미 버전 3이라 3을 고치지 않고 4를 더했다).
+    5: `ALTER TABLE utterances ADD COLUMN original_text TEXT` (2026-09-28, 문장 교정과 발화별 되돌리기. 이전에 교정된 발화는 원문이 없어 NULL로 남는다).
 
 ## 편집 동작 (Phase 3)
 
@@ -99,16 +101,21 @@ CREATE TABLE IF NOT EXISTS settings (
 
 | 동작 | SQL |
 | --- | --- |
-| 교정 반영 | 트랜잭션: 바뀐 발화마다 `UPDATE utterances SET text = ? WHERE id = ? AND meeting_id = ?` + `UPDATE meetings SET refine_applied = ?, refined_at = ? WHERE id = ?` |
+| 교정 반영 | 트랜잭션: 바뀐 발화마다 `UPDATE utterances SET original_text = COALESCE(original_text, text), text = ? WHERE id = ? AND meeting_id = ?` + `UPDATE meetings SET refine_applied = ?, refined_at = ? WHERE id = ?` |
 | 결과 조회 | `SELECT refine_applied, refined_at FROM meetings WHERE id = ?` (`meetings:get`에 `refineResult`로 실린다) |
+| 발화 되돌리기 | 트랜잭션: `UPDATE utterances SET text = original_text, original_text = NULL WHERE id = ? AND meeting_id = ? AND original_text IS NOT NULL` + 그 발화의 쌍을 뺀 `refine_applied` 저장 (2026-09-28) |
 
 - 결과는 별도 테이블이 아니라 **`meetings.refine_applied` JSON 한 컬럼**이다. 회의당 수십 개 안팎의 작은 파생물이고 회의와 함께 사라지며,
   개별 행을 조회·정렬할 일이 없다 (요약 컬럼과 같은 판단). JSON이 깨져 있으면 빈 목록으로 읽는다.
-- 저장 단위는 실제로 본문을 바꾼 **쌍(`RefinePair`: utteranceId, from, to, similarity)** 이다. 발화의 "전" 텍스트는 저장하지 않는다 —
-  되돌리기는 발화 인라인 편집으로 하고, 화면은 쌍을 묶어 "무엇을 몇 곳 고쳤는지"만 보여 준다 (`architecture.md` "회의록 교정").
+- 저장 단위는 실제로 본문을 바꾼 **쌍(`RefinePair`: utteranceId, from, to, similarity)** 이다. 문장 교정의 "발음 가드를 통과한 덩어리"도 같은 형식이다.
+  화면은 쌍을 묶어 "무엇을 몇 곳 고쳤는지"를 보여 준다 (`architecture.md` "회의록 교정").
+- ~~발화의 "전" 텍스트는 저장하지 않는다~~ → **2026-09-28부터 `utterances.original_text`에 처음 교정되기 전 원문을 보관한다.** 문장 교정은 고치는 범위가 넓어
+  인라인 편집만으로 되돌리기 어렵다. `COALESCE`로 처음 값만 남기므로 다시 교정해도 인식 원문이 유지되고, 사용자 인라인 편집은 `original_text`를 건드리지 않는다.
+  다시 인식(파이프라인 재실행)은 발화를 새로 만들므로 원문도 함께 사라진다.
 - `refined_at`이 NULL이면 아직 교정하지 않은 회의다 (용어가 없거나 LLM이 준비되지 않아 건너뛴 경우 포함). `refined_at`이 있고 `refine_applied`가 비어 있으면 고칠 곳을 찾지 못한 것이다.
 - **교정 실패는 `meetings.status`와 이전 결과를 건드리지 않는다.** 요약과 같은 규칙이다.
 - 교정의 근거는 전역 용어 사전(`settings`의 `glossary.terms`)뿐이다. 회의별 용어 컬럼은 두지 않는다 (2026-09-25 사용자 결정).
+  외부 공급자의 문장 교정은 용어 사전 없이도 돈다 (2026-09-28).
 
 ## settings 테이블 키
 
@@ -127,6 +134,7 @@ CREATE TABLE IF NOT EXISTS settings (
 | `shortcut.widget` | string | `'Alt+Command+W'` | 위젯 표시/숨김 전역 단축키. 녹음 단축키와 같을 수 없다 |
 | `pipeline.quiet` | boolean | `false` | 조용히 처리. 켜면 화자 분리 스레드를 줄이고 STT와 화자 분리를 순차로 돌린다. 느려지는 대신 발열·팬 소음이 준다. 잡이 **시작할 때** 읽으므로 진행 중인 잡에는 적용되지 않는다 (`references/architecture.md` 가속·스레드 정책) |
 | `ui.theme` | `'system' \| 'light' \| 'dark'` | `'system'` | 화면 테마 (2026-09-28). main이 `nativeTheme.themeSource`에 넣는다. 모르는 값이면 `'system'`으로 읽고, 저장 요청은 거절한다 (`references/architecture.md` "다크 모드") |
+| `refine.autoExternal` | boolean | `false` | 외부 LLM 공급자일 때 회의록이 만들어지면 자동으로 문장 교정할지 (2026-09-28). 켜면 회의가 끝날 때마다 회의록이 그 회사 서버로 전송된다. 로컬 공급자의 자동 용어 교정과는 무관하다 (`references/architecture.md` "회의록 교정") |
 | `ui.locale` | `'ko' \| 'en'` | `'ko'` | 화면·메뉴바·main 오류 문구의 언어 (2026-09-25). 인식·요약 언어가 아니다. 모르는 값이면 `'ko'`로 읽고, 저장 요청은 거절한다 (`references/architecture.md` "UI 언어") |
 | `audio.inputDevice` | `{ deviceId, label } \| null` | `null` | 녹음에 쓸 마이크 (2026-09-25). `null`이면 시스템 기본 마이크. `deviceId`는 Chromium이 주는 origin별 해시(1~200자), `label`은 고를 당시의 장치 이름(0~200자)이며 장치를 뺀 뒤 설정 화면에 "연결되지 않음"으로 보여주기 위해 함께 둔다. 모양이 다르면 `null`로 읽고, 저장 요청은 거절한다. 녹음 그래프는 시작할 때 이 값을 읽어 `deviceId: { ideal }`로 요청하므로 장치가 없으면 기본 마이크로 폴백한다 (`references/architecture.md` "마이크 입력 장치와 테스트") |
 | `audio.systemCapture` | boolean | `false` | 온라인 회의 상대방 소리(스피커 출력)를 마이크와 함께 녹음할지 (2026-09-26, Phase 5-2). 녹음 화면의 스위치가 `recording:setSystemAudio`로 바꾸고 다음 녹음부터 적용된다. `AppSettings`에 넣지 않는다 — 켜는 행위가 값 저장이 아니라 동봉 도구 프로브(시스템 권한 창)를 동반하기 때문이다 (`references/architecture.md` "시스템 오디오 캡처") |
@@ -222,6 +230,8 @@ export interface Meeting {
 export interface Utterance {
   id: string; meetingId: string; ord: number
   speakerLabel: string; startSec: number; endSec: number; text: string
+  /** 자동 교정이 처음 바꾸기 전 원문. null이면 교정으로 바뀐 적 없음 (2026-09-28) */
+  originalText: string | null
 }
 
 export interface Speaker { meetingId: string; label: string; displayName: string | null }

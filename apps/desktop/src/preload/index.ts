@@ -34,6 +34,7 @@ import {
   type PipelineProgressEvent,
   type CreateSummaryRequest,
   type ReassignUtteranceRequest,
+  type RevertUtteranceRefineRequest,
   type RecordingCommandEvent,
   type RecordingStateEvent,
   type ReportRecordingErrorRequest,
@@ -119,7 +120,9 @@ const api = {
     updateText: (payload: UpdateUtteranceTextRequest): Promise<MutateMeetingResponse> =>
       ipcRenderer.invoke(IPC.utterances.updateText, payload),
     reassign: (payload: ReassignUtteranceRequest): Promise<MutateMeetingResponse> =>
-      ipcRenderer.invoke(IPC.utterances.reassign, payload)
+      ipcRenderer.invoke(IPC.utterances.reassign, payload),
+    revertRefine: (payload: RevertUtteranceRefineRequest): Promise<MutateMeetingResponse> =>
+      ipcRenderer.invoke(IPC.utterances.revertRefine, payload)
   },
   speakers: {
     rename: (payload: RenameSpeakerRequest): Promise<MutateMeetingResponse> =>

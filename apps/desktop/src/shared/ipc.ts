@@ -44,7 +44,11 @@ export const IPC = {
     exportAudio: 'meetings:exportAudio',
     import: 'meetings:import'
   },
-  utterances: { updateText: 'utterances:updateText', reassign: 'utterances:reassign' },
+  utterances: {
+    updateText: 'utterances:updateText',
+    reassign: 'utterances:reassign',
+    revertRefine: 'utterances:revertRefine'
+  },
   speakers: { rename: 'speakers:rename', merge: 'speakers:merge' },
   settings: { get: 'settings:get', update: 'settings:update' },
   clipboard: { writeText: 'clipboard:writeText' },
@@ -280,6 +284,12 @@ export interface ReassignUtteranceRequest {
   utteranceId: string
   /** 같은 회의의 speakers에 있는 라벨이어야 한다 */
   speakerLabel: string
+}
+
+/** 교정된 발화를 교정 전 원문으로 되돌린다. 원문이 없는 발화면 거절한다 */
+export interface RevertUtteranceRefineRequest {
+  meetingId: string
+  utteranceId: string
 }
 
 export interface RenameSpeakerRequest {

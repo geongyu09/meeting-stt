@@ -109,6 +109,38 @@ describe('RefinePanel', () => {
     ).toBe('/settings')
   })
 
+  it('로컬 공급자는 용어 사전 단어만 고친다는 안내를 보여 준다', async () => {
+    await renderPanel()
+
+    expect(screen.getByText(/로컬 모델은 용어 사전의 단어만 고칩니다/)).toBeTruthy()
+  })
+
+  it('외부 공급자는 전역 용어가 없어도 문장 교정을 다시 돌릴 수 있다', async () => {
+    const user = userEvent.setup()
+    await renderPanel({
+      globalTerms: [],
+      llmStatus: llmStatusOf({ provider: 'claude-cli', claudeCliPath: '/usr/local/bin/claude' })
+    })
+
+    expect(screen.queryByRole('link', { name: '설정에서 전역 용어를 저장' })).toBeNull()
+    expect(screen.queryByText(/로컬 모델은/)).toBeNull()
+    await user.click(rerunButton())
+
+    expect(runRefineApi).toHaveBeenCalledWith({ meetingId: MEETING_ID })
+    await emitRefineProgress({ meetingId: MEETING_ID, stage: 'sentence', percent: 40 })
+    expect(screen.getByText('문장을 읽고 잘못 받아 적은 말을 고치는 중입니다')).toBeTruthy()
+  })
+
+  it('외부 공급자의 교정 결과는 문장 교정 안내와 함께 보여 준다', async () => {
+    await renderPanel({
+      globalTerms: [],
+      refineResult: resultOf([pairOf('u1', '통지를', '정지를')]),
+      llmStatus: llmStatusOf({ provider: 'claude-cli', claudeCliPath: '/usr/local/bin/claude' })
+    })
+
+    expect(screen.getByText(/문장 뜻을 보고 잘못 받아 적은 말을 자동으로 고쳤습니다/)).toBeTruthy()
+  })
+
   it('LLM이 준비되지 않았으면 버튼을 막고 안내를 보여 준다', async () => {
     await renderPanel({ llmStatus: llmStatusOf({ isLocalModelReady: false }) })
 

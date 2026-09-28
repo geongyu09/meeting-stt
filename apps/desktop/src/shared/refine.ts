@@ -141,7 +141,14 @@ const entryOf = (line: string) => {
   }
 }
 
-const entriesOf = (glossary: string[]) =>
+/**
+ * @description 용어 줄(`용어` 또는 `용어 = 읽기1, 읽기2`)을 용어와 읽기로 나눕니다. 빈 용어와 중복 용어는 뺍니다.
+ * @param glossary - 정리한 용어 줄
+ * @returns 용어와 사용자가 적은 읽기 목록
+ * @example
+ * glossaryEntriesOf(['tarball = 타볼, 타르볼']) // [{ term: 'tarball', readings: ['타볼', '타르볼'] }]
+ */
+export const glossaryEntriesOf = (glossary: string[]) =>
   glossary
     .map(entryOf)
     .filter(({ term }) => term)
@@ -149,7 +156,7 @@ const entriesOf = (glossary: string[]) =>
 
 /** 한글 발음을 모델에게 물어야 하는 용어 — 라틴 문자 등이 섞였고 사용자가 읽기를 적지 않은 것 */
 const termsToRead = (glossary: string[]) =>
-  entriesOf(glossary)
+  glossaryEntriesOf(glossary)
     .filter(({ term, readings }) => needsReading(term) && !readings.length)
     .map(({ term }) => term)
 
@@ -212,7 +219,7 @@ export const parseReadings = ({ output, glossary }: ParseReadingsParams) => {
     .map((match) => ({ term: match[1], readings: match[2].split(',').map((r) => r.trim()) }))
 
   return new Map(
-    entriesOf(glossary).map(({ term, readings }) => {
+    glossaryEntriesOf(glossary).map(({ term, readings }) => {
       if (readings.length) return [term, readings]
       if (!needsReading(term)) return [term, [term]]
       const modelReadings = read

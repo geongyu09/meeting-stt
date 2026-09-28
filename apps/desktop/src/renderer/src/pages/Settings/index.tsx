@@ -1,3 +1,4 @@
+import AutoRefineToggle from '@renderer/modules/features/refine/AutoRefineToggle'
 import ModelDownloadSection from '@renderer/modules/widgets/model/ModelDownloadSection'
 import SummaryModelSection from '@renderer/modules/widgets/model/SummaryModelSection'
 import GlossarySection from '@renderer/modules/widgets/setting/GlossarySection'
@@ -24,7 +25,10 @@ export default function Settings() {
               <ModelDownloadSection variant="setting" />
             </SettingGroup>
             {/* widgets는 widgets를 import하지 않으므로 로컬 모델 파일 행은 페이지가 슬롯으로 넘긴다 */}
-            <LlmSection localModelSlot={<SummaryModelSection />} />
+            <LlmSection
+              localModelSlot={<SummaryModelSection />}
+              externalSlot={<AutoRefineToggle />}
+            />
             <GlossarySection />
           </SettingsSection>
         </div>

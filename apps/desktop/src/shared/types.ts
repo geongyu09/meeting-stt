@@ -37,6 +37,8 @@ export interface Meeting {
 export interface Utterance extends MergedUtterance {
   id: string
   meetingId: string
+  /** 자동 교정이 처음 바꾸기 전 원문. null이면 교정으로 바뀐 적 없음 (references/data-model.md) */
+  originalText: string | null
 }
 
 export interface Speaker {
@@ -81,6 +83,11 @@ export interface AppSettings {
   locale: Locale
   /** 화면 테마 (기본 'system'). main이 `nativeTheme.themeSource`로 모든 창에 적용한다 (`src/shared/theme.ts`) */
   theme: ThemePreference
+  /**
+   * 외부 LLM 공급자일 때 회의록이 만들어지면 자동으로 문장 교정할지. 기본은 꺼짐 —
+   * 켜면 회의가 끝날 때마다 회의록이 그 회사 서버로 전송된다 (references/architecture.md "회의록 교정")
+   */
+  isAutoRefineExternal: boolean
 }
 
 /**
@@ -154,7 +161,8 @@ export type SummaryStage = 'summarize' | 'reduce' | 'done' | 'error'
  * 교정 잡의 단계 (Phase 5-4). 'read'는 읽기가 없는 라틴 문자 용어의 한글 읽기를 묻는 단계,
  * 'verify'는 후보를 배치로 판정하는 단계다. 'done'·'error'는 마지막에 한 번만 보낸다.
  */
-export type RefineStage = 'read' | 'verify' | 'done' | 'error'
+/** 'read'·'verify'는 로컬의 용어 교정, 'sentence'는 외부 공급자의 문장 교정 단계 */
+export type RefineStage = 'read' | 'verify' | 'sentence' | 'done' | 'error'
 
 /** 마지막 자동 교정 결과. `appliedPairs`가 비어 있으면 고칠 곳을 찾지 못한 것이다 */
 export interface RefineResult {

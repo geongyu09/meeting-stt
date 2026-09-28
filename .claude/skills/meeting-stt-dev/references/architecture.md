@@ -1174,7 +1174,8 @@ LLM 호출을 `src/main/llm/*`의 **공급자 추상화** 뒤로 모으고, 설�
 | `openai-api` | `openai` SDK로 Responses API 호출 (main 프로세스) | 설정에 저장한 OpenAI API 키 | OpenAI 플랫폼 토큰 요금. 회의록이 OpenAI 서버로 전송된다 |
 
 - **회의록 전송 사실은 설정 화면의 공급자 설명에 그대로 적는다.** 로컬 우선 약속의 예외를 사용자가 알고 고르게 한다.
-- 파이프라인(STT·화자 분리)은 공급자와 무관하게 로컬이다. 공급자는 요약·용어 초안(앞으로 교정 판정)에만 적용된다.
+  외부 공급자의 자동 교정은 별도 스위치(기본 꺼짐)로 켜고, 켜면 회의가 끝날 때마다 회의록이 전송된다는 것을 스위치 설명에 적는다 (2026-09-28, "회의록 교정" 절).
+- 파이프라인(STT·화자 분리)은 공급자와 무관하게 로컬이다. 공급자는 요약·용어 초안·교정에만 적용된다. 교정은 공급자에 따라 방식이 다르다 ("회의록 교정" 절).
 - **API 키는 회사(`LlmApiVendor = 'anthropic' | 'openai'`) 단위로 따로 저장한다.** 공급자를 오가며 써도 키를 다시 넣지 않는다.
   키가 필요한 공급자와 회사의 대응은 `apiVendorOf(provider)` 한 곳에 둔다 (`claude-api` → `anthropic`, `openai-api` → `openai`, 나머지 null).
 - **모델**: Claude API는 `claude-opus-5` 고정, 적응형 사고(`thinking: { type: 'adaptive' }`) + `output_config.effort: 'medium'`(요약은 정형 작업이라 높은 노력이 필요 없다).
@@ -1376,16 +1377,34 @@ claude -p --output-format json --tools "" --no-session-persistence --setting-sou
 검증에서 측정한 판정 정밀도는 52%라 틀린 치환도 함께 들어간다 — 그래서 **무엇을 고쳤는지 상세 화면에 남기고**, 잘못 고친 곳은 발화 인라인 편집으로 되돌린다.
 인식 단계(`--prompt`)는 여전히 건드리지 않는다 (`roadmap.md` 5-4).
 
+**2026-09-28 사용자 결정으로 교정 방식이 공급자에 따라 둘로 나뉜다.** 용어 사전에 없는 오인식("차 통지를" → "차 정지를")까지 문장 뜻을 보고 고친다.
+측정(`docs/phase5-refine-results.md` "문장 교정")에서 외부 공급자는 이것을 해냈고 로컬 4B는 여전히 못 했다.
+
+| 공급자 | 교정 방식 | 근거 | 용어 사전 |
+| --- | --- | --- | --- |
+| `local` | **용어 교정** — 코드가 발음 후보를 만들고 LLM이 O/X 판정 (아래 "실행과 큐"의 1~5, 변경 없음) | 로컬 4B의 문장 교정은 10분 회의에서 8개 전부 틀림 | 필수 |
+| `claude-api`·`claude-cli`·`openai-api` | **문장 교정** — LLM이 고친 줄을 내고 코드가 발음 가드로 거른다 (아래 "문장 교정") | 10분 17개 모두 맞음, 71분 123개 중 명백한 오류 0 | 선택 (있으면 프롬프트에 넣는다) |
+
+- 문장 교정은 용어 교정이 하던 일(카볼→tarball, 기터브→GitHub)을 포함하므로 외부 공급자에서는 **용어 교정을 돌리지 않는다.** 두 방식을 겹쳐 돌리지 않는다.
+- 어느 방식이든 교정이 본문을 바꾸면 **발화의 교정 전 원문을 `utterances.original_text`에 보관**하고, 상세 화면에서 발화별로 원문을 보고 되돌릴 수 있다
+  (`data-model.md` "자동 교정 결과 저장"). 문장 교정은 고치는 범위가 넓어 잘못 고쳤을 때 인라인 편집만으로 되돌리기 어렵기 때문이다.
+
 ### 실행과 큐
 
 - **자동 실행**: 파이프라인 잡이 `status='done'`으로 저장을 끝낸 뒤 `scheduleAutoRefine`이 조건을 보고 **같은 잡 큐(동시성 1)** 에
-  `{ kind: 'refine', meetingId }`를 넣는다. 조건은 두 가지다 — 전역 용어가 하나 이상 있고(`getGlossarySettings().terms`),
-  LLM 공급자가 준비돼 있다(`isLlmReady(await getLlmStatus())`). 하나라도 아니면 **조용히 건너뛰고 로그만 남긴다** —
-  용어 사전을 쓰지 않는 사용자에게 회의마다 오류를 띄우지 않기 위해서다. 회의록은 교정 없이도 `done`이다.
+  `{ kind: 'refine', meetingId }`를 넣는다. 조건은 LLM 공급자가 준비돼 있고(`isLlmReady(await getLlmStatus())`), 공급자별로 다음을 만족하는 것이다.
+  - 로컬: 전역 용어가 하나 이상 있다(`getGlossarySettings().terms`).
+  - 외부: 설정 **"회의록을 만들면 자동으로 교정"** 스위치(`AppSettings.isAutoRefineExternal`, DB 키 `refine.autoExternal`, **기본 꺼짐**)가 켜져 있다. 용어 사전은 필요 없다.
+    자동 교정은 회의가 끝날 때마다 회의록을 그 회사 서버로 보내므로, 요약(버튼으로만 전송)과 달리 사용자가 명시적으로 켜야 한다 (2026-09-28 사용자 결정).
+    이 결정 전에는 외부 공급자 + 용어 사전이면 자동으로 돌았는데, 이제 스위치를 켜야 돈다.
+    스위치는 설정의 LLM 공급자 섹션에서 외부 공급자를 골랐을 때만 보인다(`LlmSection`의 `externalSlot` ← `features/refine/AutoRefineToggle`).
+  조건이 아니면 **조용히 건너뛰고 로그만 남긴다** — 회의마다 오류를 띄우지 않기 위해서다. 회의록은 교정 없이도 `done`이다.
+  스위치가 꺼져 있어도 상세의 "다시 교정"은 돈다(사용자가 그 회의를 보내겠다고 누른 것이다).
 - **수동 실행**: 상세 레일의 "다시 교정" 버튼이 `refine:run { meetingId }`를 보낸다. 용어 사전을 고친 뒤 기존 회의를 다시 돌리는 용도다.
-  이때는 조건을 건너뛰지 않고 실패로 알린다 (용어가 없으면 "전역 용어 사전이 비어 있습니다", LLM 미준비는 `createLlmClient`의 메시지).
-  같은 회의의 교정 잡이 이미 줄 서 있으면 다시 넣지 않는다.
-- 잡은 `src/main/refine/run.ts`의 `runRefine`이 돈다. 순서는 스크립트(`scripts/refine.ts`)와 같다:
+  이때는 조건을 건너뛰지 않고 실패로 알린다 (로컬인데 용어가 없으면 "전역 용어 사전이 비어 있습니다", LLM 미준비는 `createLlmClient`의 메시지).
+  같은 회의의 교정 잡이 이미 줄 서 있으면 다시 넣지 않는다. 다시 교정은 **지금 본문**(이전 교정·사용자 편집이 들어간 것)을 입력으로 쓴다.
+- 잡은 `src/main/refine/run.ts`가 돈다. 공급자를 잡 시작 시 한 번 읽어 로컬이면 `runRefine`(용어 교정), 외부면 `runSentenceRefine`(문장 교정)으로 간다.
+  용어 교정의 순서는 스크립트(`scripts/refine.ts`)와 같다:
   1. 용어 사전 = `normalizeGlossaryTerms(전역 용어)`.
   2. `read` 단계: 읽기가 없는 라틴 문자 용어가 있으면 LLM에 한글 읽기를 한 번 묻는다 (`buildReadingPrompt`). 없으면 건너뛴다.
   3. 코드가 후보를 만든다 (`findRefineCandidates`). 후보가 없으면 판정 없이 빈 결과로 끝난다.
@@ -1398,12 +1417,33 @@ claude -p --output-format json --tools "" --no-session-persistence --setting-sou
 - 임시 파일은 `userData/refine/<meetingId>/`에 두고 잡이 끝나면 실패해도 지운다 (요약과 같은 규칙).
 - **교정 실패는 회의 상태와 본문을 건드리지 않는다.** `refine:progress`의 `'error'`로만 알리고 이전 결과는 그대로 둔다.
 
+### 문장 교정 (외부 공급자, 2026-09-28)
+
+역할 분담을 용어 교정과 반대로 둔다 — **LLM이 고친 줄을 내고, 코드가 거른다.** 순수 로직은 `src/shared/sentenceRefine.ts`(vitest), 호출은 `runSentenceRefine`.
+
+1. 발화를 `SENTENCE_CHUNK_CHARS`(12,000자) 조각으로 자른다. 요약의 외부 예산(40만 자)을 쓰지 않는 이유는 출력이 고친 줄 전체를 다시 적어 길어지기 때문이다
+   (71분 회의 = 3조각, Claude CLI 174초). 진행률은 조각 수로 잰다(`stage: 'sentence'`).
+2. 프롬프트(`buildSentencePrompt`)는 용어 사전(`표기 = 읽기`, 있을 때만) + 조각 안에서 1부터 매긴 번호의 발화. 발화 id(uuid)는 모델에 보내지 않는다.
+   시스템 프롬프트(`SENTENCE_SYSTEM_PROMPT`)의 규칙: 소리가 비슷한 말로만 바꾼다 / 더하거나 빼지 않는다 / 말투·군말·반복·끊긴 문장을 다듬지 않는다 /
+   **사람 이름·숫자는 바꾸지 않는다** / 용어 사전은 잘못 적힌 말을 고칠 때만 사전 표기로 쓴다(맞게 말한 "시맨틱 버저닝"을 semver로 바꾸지 않는다) / 확신이 없으면 고치지 않는다.
+   출력은 고친 줄만 `[번호] 고친 줄 전체`, 없으면 `없음`. 외부 공급자라 문법이 없으므로 형식 지시는 프롬프트에 있고, 형식에 맞지 않는 줄은 파서가 버린다.
+   생성 상한은 `SENTENCE_MAX_TOKENS`(32K) — 적응형 사고·추론 토큰과 다시 적는 줄이 함께 들어간다.
+3. **발음 가드**(`guardSentence`): 원문과 수정문을 어절 LCS로 맞춰 바뀐 덩어리를 찾고, 덩어리마다 자모 발음 유사도를 잰다.
+   `SENTENCE_MIN_SIMILARITY`(0.5) 이상인 덩어리만 반영하고 나머지 자리에는 원문 어절을 남긴다. 어절을 넣기만 하거나 빼기만 한 덩어리는 유사도 0이라 반영되지 않는다.
+   영문은 용어 사전 읽기 → `@meeting-stt/core/termReadings` → `acronymReading`(E2E → 이투이) 순으로 한글 읽기로 바꿔 비교하고, 원래 표기끼리도 비교한다(CIE → CI).
+   여러 단어 용어(peer dependency)는 쪼개기 전에 통째로 읽는다. 읽기를 모르는 영어 단어("false negative")는 소리로 확인할 수 없어 떨어진다 — 의도한 동작이다.
+4. 반영된 덩어리가 곧 `RefinePair`(`from`, `to`, `similarity`)다. 결과 저장은 용어 교정과 같다(`applyRefineResult`) — 결과 형식·화면을 새로 만들지 않는다.
+
 ### 결과 기록
 
 - `MeetingDetail.refineResult`에 마지막 교정 결과가 실린다: `{ refinedAt, appliedPairs }`. 한 번도 교정하지 않았으면 `null`.
   `appliedPairs`는 실제로 본문을 바꾼 쌍(`RefinePair[]`)이고, 비어 있으면 "고칠 곳을 찾지 못했다"는 뜻이다.
-- 같은 쌍(from → to)이 여러 발화에 반복되므로(기터브→GitHub 8곳) 화면은 **쌍 단위로 묶어**(`groupRefinePairs`) "무엇을 몇 곳 고쳤는지"만 보여 준다. 되돌리기 버튼은 두지 않는다 —
-  발화 인라인 편집이 이미 있고, 자동 치환을 쌍 단위로 되돌리려면 원문을 따로 저장해야 하는데 그만한 가치가 없다.
+- 같은 쌍(from → to)이 여러 발화에 반복되므로(기터브→GitHub 8곳) 화면은 **쌍 단위로 묶어**(`groupRefinePairs`) "무엇을 몇 곳 고쳤는지"만 보여 준다.
+- **되돌리기는 발화 단위다** (2026-09-28, 문장 교정과 함께). 교정이 본문을 바꾼 발화는 `Utterance.originalText`(교정 전 원문)를 갖고,
+  발화 행에 "교정됨" 표시가 붙는다. 표시를 누르면 원문이 펼쳐지고 "원문으로 되돌리기"로 본문을 원문으로 돌린다(`utterances:revertRefine`).
+  되돌리면 그 발화의 쌍은 `refine_applied`에서도 빠진다 — 레일 목록이 본문과 어긋나지 않게 한다.
+  쌍 단위 되돌리기는 두지 않는다. 한 발화에 여러 쌍이 겹치고, 사용자가 원문과 비교해 판단하는 단위는 발화다.
+- `original_text`는 **처음 교정되기 전 원문**이다. 다시 교정해도, 교정 뒤 사용자가 인라인 편집해도 바뀌지 않는다. 되돌리기는 사용자 편집도 함께 버린다(원문을 펼쳐 보여 주므로 누르기 전에 알 수 있다).
 - `done` 이벤트에 결과를 싣지 않는다. 결과는 상세의 일부라 `useMeeting`이 `done`에서 상세를 다시 읽는다 (파이프라인 `done`과 같은 규칙).
   교정이 본문을 바꾸므로 어차피 발화 전체를 main에서 다시 받아야 한다.
 
@@ -1412,15 +1452,19 @@ claude -p --output-format json --tools "" --no-session-persistence --setting-sou
 | 키 | 채널 | 방향 | 용도 |
 | --- | --- | --- | --- |
 | `refine.run` | `refine:run` | invoke (응답 없음) | `{ meetingId }`. 교정 잡을 큐에 예약한다 (수동 재실행) |
-| `events.refine` | `refine:progress` | push | `{ meetingId, stage: 'read' \| 'verify' \| 'done' \| 'error', percent, errorMessage? }` |
+| `events.refine` | `refine:progress` | push | `{ meetingId, stage: 'read' \| 'verify' \| 'sentence' \| 'done' \| 'error', percent, errorMessage? }` |
+| `utterances.revertRefine` | `utterances:revertRefine` | invoke | `{ meetingId, utteranceId }` → `MutateMeetingResponse`(회의 상세 — 본문과 `refineResult`가 함께 바뀐다). 한 트랜잭션으로 `text = original_text`, `original_text = NULL`, 그 발화의 쌍을 `refine_applied`에서 뺀다 (2026-09-28) |
 
 ### 화면
 
 - `features/refine/RefinePanel` — 상세 오른쪽 레일에서 요약 아래, 화자 목록 위. `TranscriptSection`이 `useMeeting`의 `refineResult`를 넘긴다
   (본문과 결과가 같은 상태여야 하므로 패널이 `useMeeting`을 따로 부르지 않는다). LLM 준비 여부(`useLlmStatus`)·전역 용어(`useGlossary`)·진행률(`useRefine`)은 패널이 스스로 구독한다.
 - 본문 구성:
-  - 진행 중: 단계 문구("용어 읽기를 정하는 중" / "후보를 판정하는 중") + 진행률 막대.
+  - 진행 중: 단계 문구("용어 읽기를 정하는 중" / "후보를 판정하는 중" / "문장을 교정하는 중") + 진행률 막대.
+  - 로컬 공급자일 때는 "로컬 모델은 용어 사전의 단어만 고칩니다. 문장까지 고치려면 설정에서 외부 공급자를 고르세요"를 한 줄로 보여 준다.
   - 결과가 있을 때: 고친 쌍 목록. 행마다 `«from» → to`와 걸린 발화 수. 쌍이 없으면 "고칠 곳을 찾지 못했습니다".
-  - 결과가 없을 때(`null`): 아직 교정하지 않았다는 안내. 전역 용어가 없으면 설정 링크와 함께 "용어를 저장하면 회의록이 만들어질 때 자동으로 교정합니다"를 보여 준다.
+  - 결과가 없을 때(`null`): 아직 교정하지 않았다는 안내. **로컬 공급자이고** 전역 용어가 없으면 설정 링크와 함께 "용어를 저장하면 회의록이 만들어질 때 자동으로 교정합니다"를 보여 준다.
     LLM이 준비되지 않았으면 요약과 같은 문구(`llmMissingMessage`)와 설정 링크.
-  - 아래에 "다시 교정" 버튼. 전역 용어가 없거나 LLM이 준비되지 않았거나 진행 중이면 막는다.
+  - 아래에 "다시 교정" 버튼. LLM이 준비되지 않았거나, 로컬 공급자인데 전역 용어가 없거나, 진행 중이면 막는다.
+- 발화 행(`TranscriptSection/ui/UtteranceRow`): `originalText`가 있으면 "교정됨" 표시 버튼(`aria-expanded`)을 두고, 펼치면 원문과 "원문으로 되돌리기" 버튼을 보여 준다.
+  되돌리기는 바로 실행한다 — 되돌린 뒤에도 "다시 교정"으로 복구할 수 있어 2단계 확인 대상(회의 삭제·화자 병합)이 아니다.

@@ -8,7 +8,11 @@ import {
   reprocessMeetingApi
 } from '@renderer/shared/api/meetings'
 import { mergeSpeakersApi, renameSpeakerApi } from '@renderer/shared/api/speakers'
-import { reassignUtteranceApi, updateUtteranceTextApi } from '@renderer/shared/api/utterances'
+import {
+  reassignUtteranceApi,
+  revertUtteranceRefineApi,
+  updateUtteranceTextApi
+} from '@renderer/shared/api/utterances'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 interface UseMeetingParams {
@@ -94,6 +98,10 @@ const useMeeting = ({ meetingId }: UseMeetingParams) => {
     speakerLabel: string
   }) => applyMutation(() => reassignUtteranceApi({ meetingId, utteranceId, speakerLabel }))
 
+  /** 교정된 발화를 원문으로 되돌린다. 응답에 교정 결과(refineResult)도 함께 바뀌어 온다 */
+  const revertUtteranceRefine = ({ utteranceId }: { utteranceId: string }) =>
+    applyMutation(() => revertUtteranceRefineApi({ meetingId, utteranceId }))
+
   const renameSpeaker = ({ label, displayName }: { label: string; displayName: string }) =>
     applyMutation(() => renameSpeakerApi({ meetingId, label, displayName }))
 
@@ -130,6 +138,7 @@ const useMeeting = ({ meetingId }: UseMeetingParams) => {
     renameMeeting,
     editUtteranceText,
     reassignUtterance,
+    revertUtteranceRefine,
     renameSpeaker,
     mergeSpeakers,
     reprocessMeeting,

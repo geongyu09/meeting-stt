@@ -6,6 +6,7 @@ import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import type { SpeakerOption } from '../types/transcript'
 import { speakerToneOf } from '../utils/speakerTone'
+import RefinedOriginal from './RefinedOriginal'
 import styles from './UtteranceRow.module.css'
 
 interface UtteranceRowProps {
@@ -14,6 +15,8 @@ interface UtteranceRowProps {
   isCopied: boolean
   onChangeSpeaker: (params: { utteranceId: string; speakerLabel: string }) => void
   onCommitText: (params: { utteranceId: string; text: string }) => void
+  /** 교정된 발화(`originalText`가 있는 발화)를 원문으로 되돌린다 */
+  onRevertRefine: (params: { utteranceId: string }) => void
   onCopy: (params: { utterance: Utterance }) => void
   /** 원본 녹음이 있을 때만 넘긴다. 있으면 시각이 재생 위치 이동 버튼이 된다 */
   onSeek?: (sec: number) => void
@@ -26,6 +29,7 @@ export default function UtteranceRow({
   isCopied,
   onChangeSpeaker,
   onCommitText,
+  onRevertRefine,
   onCopy,
   onSeek
 }: UtteranceRowProps) {
@@ -75,6 +79,12 @@ export default function UtteranceRow({
           ariaLabel={labels.textLabel}
           onCommit={(text) => onCommitText({ utteranceId: utterance.id, text })}
         />
+        {utterance.originalText !== null && (
+          <RefinedOriginal
+            originalText={utterance.originalText}
+            onRevert={() => onRevertRefine({ utteranceId: utterance.id })}
+          />
+        )}
       </div>
       <button
         type="button"

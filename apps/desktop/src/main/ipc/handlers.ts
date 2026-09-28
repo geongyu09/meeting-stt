@@ -59,7 +59,7 @@ import {
   stopRecording
 } from '../audio/session'
 import { findMeeting, listMeetings, renameMeeting, searchMeetings } from '../db/meetings'
-import { getRefineResult } from '../db/refine'
+import { getRefineResult, revertUtteranceRefine } from '../db/refine'
 import {
   getAppSettings,
   getGlossarySettings,
@@ -238,7 +238,8 @@ const readSettings = (payload: unknown) => ({
   widgetShortcut: readShortcut({ payload, key: 'widgetShortcut' }),
   inputDevice: readInputDevice(payload),
   locale: readLocale(payload),
-  theme: readTheme(payload)
+  theme: readTheme(payload),
+  isAutoRefineExternal: readBoolean({ payload, key: 'isAutoRefineExternal' })
 })
 
 const RECORDING_COMMAND_KINDS: RecordingCommandEvent['kind'][] = ['start', 'stop', 'toggle']
@@ -387,6 +388,15 @@ const handleReassignUtterance = (payload: unknown) => {
     utteranceId: readUtteranceId(payload),
     speakerLabel
   })
+  if (!changed) throw new Error(t().main.errors.utteranceNotFound)
+
+  return requireMeetingDetail({ meetingId })
+}
+
+/** 원문이 보관되지 않은 발화(교정된 적 없음)는 되돌릴 것이 없으므로 발화를 못 찾은 것과 같게 다룬다 */
+const handleRevertUtteranceRefine = (payload: unknown) => {
+  const meetingId = readMeetingId(payload)
+  const changed = revertUtteranceRefine({ meetingId, utteranceId: readUtteranceId(payload) })
   if (!changed) throw new Error(t().main.errors.utteranceNotFound)
 
   return requireMeetingDetail({ meetingId })
@@ -575,6 +585,9 @@ export const registerIpcHandlers = () => {
 
   ipcMain.handle(IPC.utterances.reassign, (_event, payload): MutateMeetingResponse =>
     handleReassignUtterance(payload)
+  )
+  ipcMain.handle(IPC.utterances.revertRefine, (_event, payload): MutateMeetingResponse =>
+    handleRevertUtteranceRefine(payload)
   )
 
   ipcMain.handle(IPC.speakers.rename, (_event, payload): MutateMeetingResponse =>

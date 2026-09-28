@@ -238,6 +238,15 @@
 - [x] renderer: `api/refine`, `useRefine`·`useGlossary` 훅, `features/refine/RefinePanel`(고친 쌍 목록·진행률·"다시 교정") + 통합 테스트.
       `TranscriptSection`이 레일에 배치하고 `useMeeting`이 결과를 상세와 함께 든다 (2026-09-25)
 - [ ] `pnpm dev`로 실제 앱에서 확인 — 전역 용어 저장 → 녹음·처리 → 자동 교정 진행률 → 본문 반영·고친 목록 → 재시작 후 유지 → "다시 교정"
+**문장 교정 — 2026-09-28 사용자 요청.** 용어 사전 밖의 오인식까지 문장 뜻을 보고 고친다. 측정 결과 외부 공급자만 해낸다
+(`docs/phase5-refine-results.md` "문장 교정"). 설계는 `architecture.md` "회의록 교정 > 문장 교정", 저장은 `data-model.md` "자동 교정 결과 저장".
+
+- [x] 검증 스크립트 `scripts/sentenceRefine.ts` — 로컬·Claude CLI × line·pair, 10분·71분 회의록 (2026-09-28)
+- [x] 계약 변경: 마이그레이션 5(`utterances.original_text`), `Utterance.originalText`, `RefineStage`에 `'sentence'`, IPC `utterances:revertRefine`, 설정 `refine.autoExternal`(`isAutoRefineExternal`, 기본 꺼짐) (2026-09-28)
+- [x] 순수 로직 `src/shared/sentenceRefine.ts` — 조각 나누기·프롬프트·출력 파싱·어절 LCS·발음 가드(영문 읽기 포함) + vitest (2026-09-28)
+- [x] main: 공급자별 분기(`runSentenceRefine`), 자동 실행 조건(외부 공급자는 용어 없이도), 교정 반영 시 `original_text` 보관, 되돌리기 트랜잭션 (2026-09-28)
+- [x] renderer: 발화 행 "교정됨" 표시·원문 펼치기·되돌리기, 레일 문구(로컬 안내·문장 교정 단계), 설정 LLM 섹션의 자동 교정 스위치(`features/refine/AutoRefineToggle`) + 통합 테스트 (2026-09-28)
+- [ ] `pnpm dev`로 실제 앱에서 확인 — 외부 공급자로 녹음·처리 → 문장 교정 반영 → 원문 보기·되돌리기 → 재시작 후 유지
 - [ ] 후속 후보: 자동 반영의 오탐을 줄이기 위한 유사도 하한 상향 또는 판정 2회 교차
 - [ ] 후속 후보: Whisper 토큰 확률을 후보 가중치로(스키마 변경 필요)
 - [ ] 후속 후보: 용어 사전을 인식 단계에도 쓰기 (`--prompt --carry-initial-prompt`). 측정상 효과가 크다(`docs/phase5-refine-results.md`)

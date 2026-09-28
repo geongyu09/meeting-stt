@@ -9,7 +9,8 @@ const utteranceOf = (speakerLabel: string, ord: number): Utterance => ({
   speakerLabel,
   startSec: ord,
   endSec: ord + 1,
-  text: '내용'
+  text: '내용',
+  originalText: null
 })
 
 const speakerOf = (label: string, displayName: string | null = null): Speaker => ({

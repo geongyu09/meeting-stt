@@ -40,10 +40,12 @@ const renderReadiness = ({ status, copy }: RenderReadinessParams) => {
 interface LlmSectionProps {
   /** 로컬 실행 방식을 골랐을 때 라디오 아래에 끼우는 요약 모델 파일 다운로드 행 (`model/SummaryModelSection`) */
   localModelSlot?: ReactNode
+  /** 외부 공급자를 골랐을 때 연결 확인 아래에 끼우는 행 (`features/refine/AutoRefineToggle`) */
+  externalSlot?: ReactNode
 }
 
 /** 요약·용어 초안을 어떤 방식으로 만들지. 기본은 로컬이고, 외부 공급자를 고르면 회의록이 밖으로 나간다 */
-export default function LlmSection({ localModelSlot }: LlmSectionProps) {
+export default function LlmSection({ localModelSlot, externalSlot }: LlmSectionProps) {
   const { t } = useLocale()
   const {
     status,
@@ -124,6 +126,7 @@ export default function LlmSection({ localModelSlot }: LlmSectionProps) {
             {isChecking && <span className={styles.hint}>{t.llm.section.checkHint}</span>}
           </div>
         )}
+        {status.provider !== 'local' && externalSlot}
 
         {notice && (
           <p className={styles.notice} role="status">

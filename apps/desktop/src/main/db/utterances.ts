@@ -10,6 +10,7 @@ interface UtteranceRow {
   start_sec: number
   end_sec: number
   text: string
+  original_text: string | null
 }
 
 const toUtterance = (row: UtteranceRow): Utterance => ({
@@ -19,7 +20,8 @@ const toUtterance = (row: UtteranceRow): Utterance => ({
   speakerLabel: row.speaker_label,
   startSec: row.start_sec,
   endSec: row.end_sec,
-  text: row.text
+  text: row.text,
+  originalText: row.original_text
 })
 
 export const listUtterances = ({ meetingId }: { meetingId: string }) =>

@@ -44,7 +44,12 @@ const renderSection = async (status: LlmStatus) => {
   vi.mocked(getLlmStatusApi).mockResolvedValue(status)
 
   await act(async () => {
-    render(<LlmSection localModelSlot={<p>로컬 모델 파일 행</p>} />)
+    render(
+      <LlmSection
+        localModelSlot={<p>로컬 모델 파일 행</p>}
+        externalSlot={<p>자동 교정 스위치 행</p>}
+      />
+    )
   })
 }
 
@@ -73,6 +78,17 @@ describe('LlmSection', () => {
     cleanup()
     await renderSection(statusOf({ provider: 'claude-api' }))
     expect(screen.queryByText('로컬 모델 파일 행')).toBeNull()
+  })
+
+  it('외부 공급자를 골랐을 때만 자동 교정 스위치 행을 끼운다', async () => {
+    await renderSection(statusOf())
+    expect(screen.queryByText('자동 교정 스위치 행')).toBeNull()
+    cleanup()
+
+    await renderSection(
+      statusOf({ provider: 'claude-cli', claudeCliPath: '/usr/local/bin/claude' })
+    )
+    expect(screen.getByText('자동 교정 스위치 행')).toBeTruthy()
   })
 
   it('Claude API를 고르면 저장하고 Anthropic 키 입력란을 보여 준다', async () => {

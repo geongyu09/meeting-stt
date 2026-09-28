@@ -2,7 +2,13 @@ import type { PipelineProgressEvent, RefineProgressEvent, SummaryProgressEvent }
 import { normalizeGlossaryTerms } from '@shared/glossary'
 import { isLlmReady } from '@shared/llm'
 import { applyRefinePairs } from '@shared/refine'
-import type { PipelineStage, RefinePair, RefineStage, SummaryStage } from '@shared/types'
+import type {
+  PipelineStage,
+  RefinePair,
+  RefineSource,
+  RefineStage,
+  SummaryStage
+} from '@shared/types'
 import { discardRecording } from '../audio/recordings'
 import {
   findAudioPath,
@@ -15,10 +21,12 @@ import { getAppSettings, getGlossarySettings } from '../db/settings'
 import { saveTranscript } from '../db/transcript'
 import { listUtterances } from '../db/utterances'
 import { runGlossaryDraft } from '../glossary/draft'
-import { getLlmStatus } from '../llm/provider'
+import { createLlmClient, getLlmStatus } from '../llm/provider'
+import type { LlmClient } from '../llm/types'
 import { error as logError, info, messageOf, warn } from '../log'
 import { notifyMeetingsChanged } from '../meetingsChanged'
 import { runRefine } from '../refine/run'
+import { runSentenceRefine } from '../refine/sentence'
 import { runSummary } from '../summary/run'
 import { buildTranscriptText } from '../summary/transcript'
 import { runPipeline } from './run'
@@ -136,20 +144,19 @@ const summarizeMeeting = async (meetingId: string) => {
 
 const globalGlossary = () => normalizeGlossaryTerms(getGlossarySettings().terms)
 
-/**
- * 전역 용어 사전만 근거로 삼고, 통과한 쌍은 바로 본문에 반영한다. 결과는 이전 것을 통째로 대체한다
- * (references/architecture.md "회의록 교정").
- */
-const refineMeeting = async (meetingId: string) => {
-  const sources = listUtterances({ meetingId }).map(({ id, text }) => ({ id, text }))
-  if (!sources.length) throw new Error(t().main.refine.nothingToRefine)
+interface RefineRunParams {
+  client: LlmClient
+  meetingId: string
+  sources: RefineSource[]
+  glossary: string[]
+}
 
-  const glossary = globalGlossary()
-  if (!glossary.length) {
-    throw new Error(t().main.refine.glossaryEmpty)
-  }
+/** 로컬의 용어 교정. 코드 후보 + O/X 판정으로 쌍을 얻고, 본문에 실제로 들어간 쌍만 남긴다 */
+const runTermRefine = async ({ client, meetingId, sources, glossary }: RefineRunParams) => {
+  if (!glossary.length) throw new Error(t().main.refine.glossaryEmpty)
 
   const pairs = await runRefine({
+    client,
     meetingId,
     sources,
     glossary,
@@ -163,34 +170,57 @@ const refineMeeting = async (meetingId: string) => {
         suggestion.id === utteranceId &&
         suggestion.pairs.some((applied) => applied.from === from && applied.to === to)
     )
-  const appliedPairs = pairs.filter(isApplied)
 
-  applyRefineResult({
-    meetingId,
+  return {
     texts: suggestions.map(({ id, after }) => ({ id, text: after })),
-    appliedPairs,
-    refinedAt: Date.now()
-  })
-  reportRefine({ meetingId, stage: 'done', percent: DONE_PERCENT })
-  info(
-    `회의 ${meetingId} 교정 완료 (발화 ${suggestions.length}개, 쌍 ${appliedPairs.length}개 반영)`
-  )
+    pairs: pairs.filter(isApplied)
+  }
 }
 
 /**
- * 파이프라인 뒤의 자동 교정. 용어가 없거나 LLM이 준비되지 않았으면 오류 대신 로그만 남기고 건너뛴다 —
- * 용어 사전을 쓰지 않는 사용자에게 회의마다 실패를 띄우지 않기 위해서다 (references/architecture.md "회의록 교정").
+ * 공급자에 따라 로컬은 용어 교정, 외부는 문장 교정을 돌리고 결과를 바로 본문에 반영한다.
+ * 결과는 이전 것을 통째로 대체한다 (references/architecture.md "회의록 교정").
+ */
+const refineMeeting = async (meetingId: string) => {
+  const sources = listUtterances({ meetingId }).map(({ id, text }) => ({ id, text }))
+  if (!sources.length) throw new Error(t().main.refine.nothingToRefine)
+
+  const client = await createLlmClient()
+  const params = { client, meetingId, sources, glossary: globalGlossary() }
+  const { texts, pairs } =
+    client.provider === 'local'
+      ? await runTermRefine(params)
+      : await runSentenceRefine({
+          ...params,
+          onProgress: ({ stage, percent }) => reportRefine({ meetingId, stage, percent })
+        })
+
+  applyRefineResult({ meetingId, texts, appliedPairs: pairs, refinedAt: Date.now() })
+  reportRefine({ meetingId, stage: 'done', percent: DONE_PERCENT })
+  info(`회의 ${meetingId} 교정 완료 (발화 ${texts.length}개, 쌍 ${pairs.length}개 반영)`)
+}
+
+/** 자동 교정을 건너뛸 이유. 없으면 null. 로컬은 용어 사전, 외부는 자동 교정 스위치가 필요하다 */
+const autoRefineSkipReason = async () => {
+  const status = await getLlmStatus()
+  if (!isLlmReady(status)) return 'LLM이 준비되지 않음'
+  if (status.provider === 'local')
+    return globalGlossary().length ? null : '전역 용어 사전이 비어 있음'
+
+  // 외부 공급자는 회의록이 그 회사 서버로 전송되므로 사용자가 켰을 때만 자동으로 돈다
+  return getAppSettings().isAutoRefineExternal ? null : '외부 공급자 자동 교정이 꺼져 있음'
+}
+
+/**
+ * 파이프라인 뒤의 자동 교정. 조건이 아니면 오류 대신 로그만 남기고 건너뛴다 —
+ * 회의마다 실패를 띄우지 않기 위해서다 (references/architecture.md "회의록 교정").
  */
 const scheduleAutoRefine = async ({ meetingId }: { meetingId: string }) => {
-  if (!globalGlossary().length) {
-    info(`회의 ${meetingId} 자동 교정 건너뜀: 전역 용어 사전이 비어 있음`)
-    return
-  }
-
   // 회의록은 이미 done으로 저장됐다. 여기서 실패해도 잡을 실패로 만들지 않는다 (applyAudioRetention과 같은 규칙)
   try {
-    if (!isLlmReady(await getLlmStatus())) {
-      info(`회의 ${meetingId} 자동 교정 건너뜀: LLM이 준비되지 않음`)
+    const reason = await autoRefineSkipReason()
+    if (reason) {
+      info(`회의 ${meetingId} 자동 교정 건너뜀: ${reason}`)
       return
     }
   } catch (caught) {

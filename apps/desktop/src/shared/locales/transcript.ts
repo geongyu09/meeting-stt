@@ -69,7 +69,13 @@ export const transcriptKo = {
     changeSpeaker: '화자 변경',
     textLabel: '발화 내용',
     copied: '복사했습니다',
-    copyThis: '이 발화 복사'
+    copyThis: '이 발화 복사',
+    refined: '교정됨',
+    showOriginal: '교정 전 원문 보기',
+    hideOriginal: '교정 전 원문 숨기기',
+    originalLabel: '교정 전',
+    revert: '원문으로 되돌리기',
+    revertHint: '이 발화에서 직접 고친 내용도 함께 원문으로 돌아갑니다'
   },
   railResizer: {
     label: '오른쪽 패널 폭 조절',
@@ -153,7 +159,13 @@ export const transcriptEn: typeof transcriptKo = {
     changeSpeaker: 'Change speaker',
     textLabel: 'Utterance text',
     copied: 'Copied',
-    copyThis: 'Copy this utterance'
+    copyThis: 'Copy this utterance',
+    refined: 'Corrected',
+    showOriginal: 'Show text before correction',
+    hideOriginal: 'Hide text before correction',
+    originalLabel: 'Before correction',
+    revert: 'Revert to original',
+    revertHint: 'Your own edits to this utterance are reverted as well'
   },
   railResizer: {
     label: 'Resize right panel',

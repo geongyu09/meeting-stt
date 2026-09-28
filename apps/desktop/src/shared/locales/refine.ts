@@ -11,6 +11,7 @@ export const refineKo = {
   stages: {
     read: '용어의 한글 읽기를 정하는 중입니다',
     verify: '후보가 문맥에 맞는지 판정하는 중입니다',
+    sentence: '문장을 읽고 잘못 받아 적은 말을 고치는 중입니다',
     done: '교정을 마쳤습니다',
     error: '교정에 실패했습니다'
   } satisfies Record<RefineStage, string>,
@@ -20,10 +21,19 @@ export const refineKo = {
   notRefined: '아직 교정하지 않은 회의입니다',
   nothingFound: '고칠 곳을 찾지 못했습니다',
   applied: ({ termCount }: { termCount: number }) =>
-    `전역 용어 ${termCount}개를 근거로 잘못 받아 적은 말을 자동으로 고쳤습니다. 잘못 고친 곳은 발화를 직접 편집해 되돌릴 수 있습니다`,
+    `전역 용어 ${termCount}개를 근거로 잘못 받아 적은 말을 자동으로 고쳤습니다. 잘못 고친 곳은 발화의 "교정됨" 표시에서 원문으로 되돌릴 수 있습니다`,
+  appliedSentence:
+    '문장 뜻을 보고 잘못 받아 적은 말을 자동으로 고쳤습니다. 잘못 고친 곳은 발화의 "교정됨" 표시에서 원문으로 되돌릴 수 있습니다',
+  localHint:
+    '로컬 모델은 용어 사전의 단어만 고칩니다. 문장까지 고치려면 설정에서 외부 공급자를 고르세요',
   listLabel: '고친 용어',
   rerun: '다시 교정',
   placeCount: ({ count }: { count: number }) => `${count}곳`,
+  autoToggle: {
+    title: '회의록을 만들면 자동으로 교정',
+    description:
+      '회의록이 만들어질 때마다 문장 뜻을 보고 잘못 받아 적은 말을 고칩니다. 켜면 회의가 끝날 때마다 회의록이 선택한 공급자 서버로 전송됩니다. 꺼 두어도 회의 상세의 "다시 교정"으로 직접 교정할 수 있습니다'
+  },
   errors: {
     request: '교정을 시작하지 못했습니다'
   }
@@ -38,6 +48,7 @@ export const refineEn: typeof refineKo = {
   stages: {
     read: 'Determining Korean readings of terms',
     verify: 'Checking whether candidates fit the context',
+    sentence: 'Reading sentences and fixing misheard words',
     done: 'Correction complete',
     error: 'Correction failed'
   },
@@ -47,10 +58,19 @@ export const refineEn: typeof refineKo = {
   notRefined: 'This meeting has not been corrected yet',
   nothingFound: 'Nothing to correct was found',
   applied: ({ termCount }) =>
-    `Misheard words were corrected automatically using ${termCount} global ${termCount === 1 ? 'term' : 'terms'}. Undo a wrong fix by editing the utterance directly`,
+    `Misheard words were corrected automatically using ${termCount} global ${termCount === 1 ? 'term' : 'terms'}. Revert a wrong fix from the utterance's "Corrected" tag`,
+  appliedSentence:
+    'Misheard words were corrected automatically by reading each sentence. Revert a wrong fix from the utterance\'s "Corrected" tag',
+  localHint:
+    'The local model only fixes glossary words. Choose an external provider in Settings to correct whole sentences',
   listLabel: 'Corrected terms',
   rerun: 'Correct again',
   placeCount: ({ count }) => `${count} ${count === 1 ? 'place' : 'places'}`,
+  autoToggle: {
+    title: 'Correct transcripts automatically',
+    description:
+      'Fixes misheard words by reading each sentence whenever a transcript is created. When on, every transcript is sent to the selected provider after each meeting. You can still correct a meeting yourself with "Correct again" when this is off'
+  },
   errors: {
     request: 'Could not start the correction'
   }

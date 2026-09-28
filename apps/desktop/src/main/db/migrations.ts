@@ -54,7 +54,10 @@ const MIGRATIONS = [
   ALTER TABLE meetings RENAME COLUMN refine_pairs TO refine_applied;
   UPDATE meetings SET refine_applied = NULL;
   ALTER TABLE meetings ADD COLUMN refined_at INTEGER;
-  `
+  `,
+  // 5: 교정이 처음 바꾸기 전 원문 (2026-09-28). 문장 교정은 고치는 범위가 넓어 발화별로 되돌릴 수 있게 한다
+  //    (references/data-model.md "자동 교정 결과 저장")
+  'ALTER TABLE utterances ADD COLUMN original_text TEXT;'
 ]
 
 export const migrate = (db: Database) => {

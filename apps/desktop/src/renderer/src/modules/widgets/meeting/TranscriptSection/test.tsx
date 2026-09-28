@@ -15,7 +15,8 @@ vi.mock('@renderer/shared/api/meetings', () => ({
 }))
 vi.mock('@renderer/shared/api/utterances', () => ({
   updateUtteranceTextApi: vi.fn(),
-  reassignUtteranceApi: vi.fn()
+  reassignUtteranceApi: vi.fn(),
+  revertUtteranceRefineApi: vi.fn()
 }))
 vi.mock('@renderer/shared/api/speakers', () => ({
   renameSpeakerApi: vi.fn(),
@@ -42,7 +43,11 @@ import {
   reprocessMeetingApi
 } from '@renderer/shared/api/meetings'
 import { mergeSpeakersApi, renameSpeakerApi } from '@renderer/shared/api/speakers'
-import { reassignUtteranceApi, updateUtteranceTextApi } from '@renderer/shared/api/utterances'
+import {
+  reassignUtteranceApi,
+  revertUtteranceRefineApi,
+  updateUtteranceTextApi
+} from '@renderer/shared/api/utterances'
 import TranscriptSection from './index'
 
 const MEETING_ID = 'meeting-1'
@@ -66,6 +71,7 @@ const utteranceOf = (overrides: Partial<Utterance> = {}): Utterance => ({
   startSec: 0,
   endSec: 3,
   text: '회의를 시작하겠습니다',
+  originalText: null,
   ...overrides
 })
 
@@ -160,6 +166,43 @@ describe('TranscriptSection 자동 교정', () => {
     expect(await screen.findByText('GitHub에 올립니다')).toBeTruthy()
     expect(screen.getByRole('list', { name: '고친 용어' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: /수락/ })).toBeNull()
+  })
+
+  it('교정된 발화는 교정 전 원문을 펼쳐 보고 원문으로 되돌릴 수 있다', async () => {
+    const user = userEvent.setup()
+    const pair = { utteranceId: 'utterance-1', from: '통지를', to: '정지를', similarity: 0.75 }
+    vi.mocked(getMeetingApi).mockResolvedValue(
+      detailOf({
+        utterances: [
+          utteranceOf({ text: '차 정지를 해야 되나', originalText: '차 통지를 해야 되나' }),
+          secondUtterance()
+        ],
+        refineResult: { refinedAt: 1, appliedPairs: [pair] }
+      })
+    )
+    vi.mocked(revertUtteranceRefineApi).mockResolvedValue(
+      detailOf({
+        utterances: [utteranceOf({ text: '차 통지를 해야 되나' }), secondUtterance()],
+        refineResult: { refinedAt: 1, appliedPairs: [] }
+      })
+    )
+    renderSection()
+
+    // 교정되지 않은 발화에는 표시가 없다
+    const toggles = await screen.findAllByRole('button', { name: '교정 전 원문 보기' })
+    expect(toggles).toHaveLength(1)
+    expect(screen.queryByText('차 통지를 해야 되나')).toBeNull()
+
+    await user.click(toggles[0])
+    expect(screen.getByText('차 통지를 해야 되나')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: '원문으로 되돌리기' }))
+
+    expect(revertUtteranceRefineApi).toHaveBeenCalledWith({
+      meetingId: MEETING_ID,
+      utteranceId: 'utterance-1'
+    })
+    expect(await screen.findByText('차 통지를 해야 되나')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /교정 전 원문/ })).toBeNull()
   })
 
   it('처리 중인 회의에는 교정 패널을 그리지 않는다', async () => {

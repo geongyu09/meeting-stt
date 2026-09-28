@@ -26,7 +26,8 @@ const SETTINGS: AppSettings = {
   widgetShortcut: 'Alt+Command+W',
   inputDevice: null,
   locale: 'ko',
-  theme: 'system'
+  theme: 'system',
+  isAutoRefineExternal: false
 }
 
 function Probe() {

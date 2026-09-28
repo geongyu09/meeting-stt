@@ -41,6 +41,7 @@ const RECORDING_SHORTCUT_KEY = 'shortcut.recording'
 const WIDGET_SHORTCUT_KEY = 'shortcut.widget'
 const GLOSSARY_TEAM_KEY = 'glossary.team'
 const GLOSSARY_TERMS_KEY = 'glossary.terms'
+const REFINE_AUTO_EXTERNAL_KEY = 'refine.autoExternal'
 const LLM_PROVIDER_KEY = 'llm.provider'
 const LLM_OPENAI_MODEL_KEY = 'llm.openaiModel'
 /** 회사별 암호화 키의 settings 키. Anthropic은 OpenAI 추가 전 이름을 그대로 둬 저장된 키를 잃지 않는다 */
@@ -60,7 +61,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   widgetShortcut: DEFAULT_WIDGET_SHORTCUT,
   inputDevice: null,
   locale: DEFAULT_LOCALE,
-  theme: DEFAULT_THEME
+  theme: DEFAULT_THEME,
+  isAutoRefineExternal: false
 }
 
 /** 값이 없거나 JSON이 깨져도 undefined로 읽는다. 설정 하나 때문에 앱이 멈추면 안 된다 */
@@ -160,7 +162,11 @@ export const getAppSettings = (): AppSettings => ({
   }),
   inputDevice: readInputDevice({ key: AUDIO_INPUT_DEVICE_KEY }),
   locale: readLocale({ key: UI_LOCALE_KEY }),
-  theme: readTheme({ key: UI_THEME_KEY })
+  theme: readTheme({ key: UI_THEME_KEY }),
+  isAutoRefineExternal: readBoolean({
+    key: REFINE_AUTO_EXTERNAL_KEY,
+    fallback: DEFAULT_SETTINGS.isAutoRefineExternal
+  })
 })
 
 export const updateAppSettings = ({
@@ -174,7 +180,8 @@ export const updateAppSettings = ({
   widgetShortcut,
   inputDevice,
   locale,
-  theme
+  theme,
+  isAutoRefineExternal
 }: AppSettings) => {
   writeValue({ key: AUDIO_KEEP_KEY, value: isAudioKept })
   writeValue({ key: UPDATE_CHECK_KEY, value: isUpdateCheckEnabled })
@@ -187,6 +194,7 @@ export const updateAppSettings = ({
   writeValue({ key: AUDIO_INPUT_DEVICE_KEY, value: inputDevice })
   writeValue({ key: UI_LOCALE_KEY, value: locale })
   writeValue({ key: UI_THEME_KEY, value: theme })
+  writeValue({ key: REFINE_AUTO_EXTERNAL_KEY, value: isAutoRefineExternal })
 
   return getAppSettings()
 }

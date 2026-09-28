@@ -18,7 +18,6 @@ import {
   VERIFY_SYSTEM_PROMPT
 } from '@shared/refine'
 import type { RefinePair, RefineSource, RefineStage } from '@shared/types'
-import { createLlmClient } from '../llm/provider'
 import type { LlmClient } from '../llm/types'
 import { info } from '../log'
 
@@ -133,6 +132,8 @@ const verify = async ({ client, sources, candidates, workDir, onProgress }: Veri
 }
 
 interface RunRefineParams {
+  /** 로컬 공급자. 외부 공급자는 문장 교정(`./sentence.ts`)으로 간다 */
+  client: LlmClient
   meetingId: string
   sources: RefineSource[]
   /** 전역 + 회의별을 합쳐 정리한 용어 줄. 비어 있으면 호출하는 쪽이 먼저 거절한다 */
@@ -142,11 +143,15 @@ interface RunRefineParams {
 
 /**
  * 회의록 발화와 용어 사전으로 수정 제안 쌍을 만든다. 코드가 발음 유사도로 후보를 만들고 LLM은 O/X만 답한다
- * (docs/phase5-refine-results.md). 공급자는 잡이 시작할 때 설정에서 한 번 읽는다.
+ * (docs/phase5-refine-results.md). 공급자는 잡이 시작할 때 호출하는 쪽이 설정에서 한 번 읽는다.
  */
-export const runRefine = async ({ meetingId, sources, glossary, onProgress }: RunRefineParams) => {
-  const client = await createLlmClient()
-
+export const runRefine = async ({
+  client,
+  meetingId,
+  sources,
+  glossary,
+  onProgress
+}: RunRefineParams) => {
   const workDir = refineWorkDir({ meetingId })
   await mkdir(workDir, { recursive: true })
   info(

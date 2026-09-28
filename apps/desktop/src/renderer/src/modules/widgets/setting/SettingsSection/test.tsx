@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('@renderer/shared/api/settings', () => ({
@@ -69,7 +69,8 @@ const DEFAULT_SETTINGS = {
   widgetShortcut: 'Alt+Command+W',
   inputDevice: null,
   locale: 'ko' as const,
-  theme: 'system' as const
+  theme: 'system' as const,
+  isAutoRefineExternal: false
 }
 
 const toDeviceInfo = ({ deviceId, label }: { deviceId: string; label: string }) => ({
@@ -216,7 +217,12 @@ describe('SettingsSection', () => {
 
     fireEvent.change(await screen.findByLabelText(OPACITY_LABEL), { target: { value: '0.3' } })
 
-    expect(updateSettingsApi).toHaveBeenCalledWith({ ...DEFAULT_SETTINGS, widgetFadeOpacity: 0.3 })
+    await waitFor(() =>
+      expect(updateSettingsApi).toHaveBeenCalledWith({
+        ...DEFAULT_SETTINGS,
+        widgetFadeOpacity: 0.3
+      })
+    )
     expect(await screen.findByText('30%')).toBeTruthy()
   })
 
@@ -237,10 +243,12 @@ describe('SettingsSection', () => {
 
     fireEvent.keyDown(button, { code: 'F5', key: 'F5', ctrlKey: true, shiftKey: true })
 
-    expect(updateSettingsApi).toHaveBeenCalledWith({
-      ...DEFAULT_SETTINGS,
-      recordingShortcut: 'Control+Shift+F5'
-    })
+    await waitFor(() =>
+      expect(updateSettingsApi).toHaveBeenCalledWith({
+        ...DEFAULT_SETTINGS,
+        recordingShortcut: 'Control+Shift+F5'
+      })
+    )
     expect(await screen.findByText('⌃⇧F5')).toBeTruthy()
     expect(setShortcutsSuspendedApi).toHaveBeenLastCalledWith({ isSuspended: false })
   })

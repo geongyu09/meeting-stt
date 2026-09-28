@@ -59,7 +59,8 @@ const utteranceOf = (): Utterance => ({
   speakerLabel: 'speaker_00',
   startSec: 0,
   endSec: 3,
-  text: '회의를 시작하겠습니다'
+  text: '회의를 시작하겠습니다',
+  originalText: null
 })
 
 const detailOf = (overrides: Partial<MeetingDetail> = {}): MeetingDetail => ({

@@ -52,6 +52,7 @@ export default function TranscriptSection({ meetingId, aside }: TranscriptSectio
     renameMeeting,
     editUtteranceText,
     reassignUtterance,
+    revertUtteranceRefine,
     renameSpeaker,
     mergeSpeakers,
     reprocessMeeting,
@@ -140,6 +141,7 @@ export default function TranscriptSection({ meetingId, aside }: TranscriptSectio
             isCopied={copiedKey === utterance.id}
             onChangeSpeaker={reassignUtterance}
             onCommitText={editUtteranceText}
+            onRevertRefine={revertUtteranceRefine}
             onCopy={copyUtterance}
             onSeek={meeting.hasAudio ? seekTo : undefined}
           />
