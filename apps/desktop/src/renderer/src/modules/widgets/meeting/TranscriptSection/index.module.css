@@ -6,7 +6,7 @@
   /* 가운데 칸은 폭 조절 핸들. 양옆 gap과 핸들 폭을 합쳐 예전 36px 간격을 유지한다.
      레일 폭은 사용자가 끈 값이 인라인 --rail-width로 덮어쓰고, 50% 상한은 useRailResize와 같다 */
   grid-template-columns: minmax(0, 1fr) var(--space-3) min(var(--rail-width), 50%);
-  gap: var(--space-3);
+  gap: var(--space-5) var(--space-3);
   align-items: start;
   min-height: 0;
   overflow-y: auto;
@@ -19,6 +19,11 @@
 .content[data-resizing='true'] {
   cursor: col-resize;
   user-select: none;
+}
+
+/* 헤더(제목·복사 버튼)는 세 칸 전체 폭을 쓰고, 회의록·핸들·레일은 그 아래 줄에서 시작한다 */
+.header {
+  grid-column: 1 / -1;
 }
 
 .transcript {

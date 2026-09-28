@@ -19,6 +19,7 @@ import RailResizer from './ui/RailResizer'
 import RecordingBar from './ui/RecordingBar'
 import SpeakerPanel from './ui/SpeakerPanel'
 import TranscriptActions from './ui/TranscriptActions'
+import TranscriptCopyActions from './ui/TranscriptCopyActions'
 import TranscriptHeader from './ui/TranscriptHeader'
 import UtteranceRow from './ui/UtteranceRow'
 import { toSpeakerOptions } from './utils/toSpeakerOptions'
@@ -149,14 +150,7 @@ export default function TranscriptSection({ meetingId, aside }: TranscriptSectio
 
   return (
     <>
-      <TopBar title={`${topBarTitle} · ${groupLabel}`}>
-        <TranscriptActions
-          isCopyEnabled={utterances.length > 0}
-          copiedKey={copiedKey}
-          onCopy={copyAll}
-          onDelete={handleDelete}
-        />
-      </TopBar>
+      <TopBar title={`${topBarTitle} · ${groupLabel}`} />
       <div
         ref={contentRef}
         className={styles.content}
@@ -164,12 +158,23 @@ export default function TranscriptSection({ meetingId, aside }: TranscriptSectio
         // 끈 폭은 런타임 값이라 CSS 변수 기본값(assets/layout.css)을 인라인으로 덮어쓴다
         style={{ '--rail-width': `${railWidth}px` } as CSSProperties}
       >
+        <TranscriptHeader
+          className={styles.header}
+          meeting={meeting}
+          speakerCount={speakerOptions.length}
+          onRenameTitle={(title) => renameMeeting({ title })}
+          actions={
+            <>
+              <TranscriptCopyActions
+                isCopyEnabled={utterances.length > 0}
+                copiedKey={copiedKey}
+                onCopy={copyAll}
+              />
+              <TranscriptActions onDelete={handleDelete} />
+            </>
+          }
+        />
         <section className={styles.transcript} aria-label={t.transcript.sectionLabel}>
-          <TranscriptHeader
-            meeting={meeting}
-            speakerCount={speakerOptions.length}
-            onRenameTitle={(title) => renameMeeting({ title })}
-          />
           {actionError ? (
             <p className={styles.error} role="alert">
               {actionError.message}
