@@ -80,6 +80,15 @@ export const onRecordingCommand = (listener: (event: RecordingCommandEvent) => v
   window.api.events.onRecordingCommand(listener)
 
 /**
+ * @description 모델 다운로드가 끝났다는 알림을 구독합니다. 내용은 없으니 모델 상태를 다시 조회합니다.
+ * @param listener - 알림 콜백
+ * @returns 구독 해제 함수
+ * @example
+ * useEffect(() => onModelsChanged(fetchStatus), [fetchStatus])
+ */
+export const onModelsChanged = (listener: () => void) => window.api.events.onModelsChanged(listener)
+
+/**
  * @description 회의 목록이 바뀌었다는 알림(녹음 시작·정지, 제목 변경, 삭제, 처리 시작·완료·실패)을 구독합니다. 내용은 없으니 다시 조회합니다.
  * @param listener - 알림 콜백
  * @returns 구독 해제 함수

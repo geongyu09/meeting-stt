@@ -42,7 +42,8 @@ export default function WidgetPanelSection() {
         </p>
       )
     }
-    if (!isModelReady) return <p className={styles.hint}>{t.widget.modelNotReady}</p>
+    // 상태를 읽기 전(null)에 띄우면 모델이 있는 사용자에게도 안내가 한 번 깜빡인다
+    if (status && !status.isReady) return <p className={styles.hint}>{t.widget.modelNotReady}</p>
     if (isPaused) return <p className={styles.hint}>{t.widget.pausedHint}</p>
 
     return <p className={styles.hint}>{isRecording ? t.widget.stopHint : t.widget.startHint}</p>

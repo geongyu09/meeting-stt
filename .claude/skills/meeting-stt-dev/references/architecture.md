@@ -115,6 +115,7 @@ export const IPC = {
   //   clipboard.writeText
   // Phase 4 (references/distribution.md 3·7절)
   //   models.status / models.download / models.downloadSummary, events.modelDownload
+  //   events.modelsChanged (다운로드가 끝나면 모든 창이 모델 상태를 다시 읽는다 — distribution.md 3절)
   //   update.check / update.download / update.install, events.updateAvailable
   // Phase 5
   //   summary.create, events.summary

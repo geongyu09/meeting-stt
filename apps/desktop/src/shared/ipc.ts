@@ -69,6 +69,8 @@ export const IPC = {
     summary: 'summary:progress',
     refine: 'refine:progress',
     modelDownload: 'models:downloadProgress',
+    // 위젯 창은 앱 시작 때 모델 상태를 읽고 언마운트되지 않는다. 다운로드 뒤 다시 읽게 알린다 (references/distribution.md 3절)
+    modelsChanged: 'models:changed',
     updateAvailable: 'update:available',
     // 조회 채널과 이름이 겹칠 수 없어 이벤트 쪽에 Changed를 붙인다 (references/architecture.md IPC 규약)
     recordingState: 'recording:stateChanged',

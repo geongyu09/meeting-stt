@@ -65,13 +65,15 @@ export const recordingKo = {
     hide: '위젯 숨기기',
     start: '녹음 시작',
     stop: '녹음 정지',
-    modelNotReady: '메인 창에서 모델을 먼저 준비해 주세요',
+    modelNotReady: '음성 인식 모델을 받으면 녹음할 수 있습니다',
     stopHint: '정지하면 메인 창에서 회의록을 만듭니다',
     pausedHint: '일시정지 동안의 소리는 회의록에 남지 않습니다',
     startHint: '회의가 시작되면 녹음을 누르세요'
   },
   errors: {
     permissionDenied: '마이크 사용 권한이 없습니다. 시스템 설정에서 마이크 접근을 허용해 주세요',
+    modelNotReady:
+      '녹음하려면 음성 인식 모델이 필요합니다. 설정의 음성 인식 모델에서 내려받아 주세요',
     unknown: '녹음 중 알 수 없는 오류가 발생했습니다',
     stateUnavailable: '녹음 상태를 불러오지 못했습니다',
     devicesUnavailable: '마이크 목록을 불러오지 못했습니다',
@@ -149,13 +151,15 @@ export const recordingEn: typeof recordingKo = {
     hide: 'Hide widget',
     start: 'Start recording',
     stop: 'Stop recording',
-    modelNotReady: 'Set up the models in the main window first',
+    modelNotReady: 'Download the speech model to start recording',
     stopHint: 'Stopping creates the transcript in the main window',
     pausedHint: 'Audio while paused is not included in the transcript',
     startHint: 'Press record when the meeting starts'
   },
   errors: {
     permissionDenied: 'Microphone access is not allowed. Allow it in System Settings',
+    modelNotReady:
+      'Recording needs the speech recognition model. Download it under Speech recognition model in Settings',
     unknown: 'An unknown error occurred while recording',
     stateUnavailable: 'Could not load the recording state',
     devicesUnavailable: 'Could not load the microphone list',

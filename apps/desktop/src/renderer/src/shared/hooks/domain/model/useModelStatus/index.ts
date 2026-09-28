@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { ModelDownloadProgressEvent, ModelStatusResponse } from '@shared/ipc'
 import type { ModelKey, WhisperModelId } from '@shared/types'
-import { onModelDownloadProgress } from '@renderer/shared/api/events'
+import { onModelDownloadProgress, onModelsChanged } from '@renderer/shared/api/events'
 import {
   downloadModelsApi,
   downloadSummaryModelApi,
@@ -44,6 +44,9 @@ const useModelStatus = () => {
   useEffect(() => {
     fetchStatus()
   }, [fetchStatus])
+
+  // 다른 창이 받은 모델도 반영한다. 위젯 창은 언마운트되지 않아 마운트 때 읽은 값만으로는 부족하다
+  useEffect(() => onModelsChanged(fetchStatus), [fetchStatus])
 
   useEffect(
     () =>

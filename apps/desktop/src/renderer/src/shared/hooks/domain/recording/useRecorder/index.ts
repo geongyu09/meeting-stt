@@ -115,7 +115,7 @@ const useRecorder = ({ isReady }: UseRecorderParams) => {
     setIsBusy(true)
 
     try {
-      if (!isReady) throw new Error(t.recording.widget.modelNotReady)
+      if (!isReady) throw new Error(t.recording.errors.modelNotReady)
       if (!(await requestMicrophonePermissionApi())) {
         throw new Error(t.recording.errors.permissionDenied)
       }

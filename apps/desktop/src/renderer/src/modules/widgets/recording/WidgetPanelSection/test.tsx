@@ -18,7 +18,8 @@ vi.mock('@renderer/shared/api/recording', () => ({
 vi.mock('@renderer/shared/api/events', () => ({
   onRecordingState: vi.fn(),
   onRecordingCommand: vi.fn(),
-  onModelDownloadProgress: vi.fn()
+  onModelDownloadProgress: vi.fn(),
+  onModelsChanged: vi.fn()
 }))
 
 vi.mock('@renderer/shared/api/models', () => ({
@@ -32,7 +33,7 @@ vi.mock('@renderer/shared/api/settings', () => ({
   getSettingsApi: vi.fn().mockResolvedValue({ inputDevice: null })
 }))
 
-import { onRecordingState } from '@renderer/shared/api/events'
+import { onModelsChanged, onRecordingState } from '@renderer/shared/api/events'
 import { getModelStatusApi } from '@renderer/shared/api/models'
 import {
   getRecordingStateApi,
@@ -67,6 +68,9 @@ const READY_MODEL_STATUS = {
 /** main이 보내는 상태 이벤트를 테스트에서 직접 흘려보내기 위해 구독자를 잡아 둔다 */
 let pushState: (event: RecordingStateEvent) => void = () => {}
 
+/** 메인 창에서 모델을 다 받았다는 알림을 흘려보낸다 */
+let pushModelsChanged: () => void = () => {}
+
 /** happy-dom에는 오디오 그래프가 없어 위젯이 쓰는 최소한만 흉내 낸다 */
 const stubAudioGraph = () => {
   class FakeAudioWorkletNode {
@@ -98,6 +102,11 @@ beforeEach(() => {
 
     return () => {}
   })
+  vi.mocked(onModelsChanged).mockImplementation((listener) => {
+    pushModelsChanged = listener
+
+    return () => {}
+  })
   vi.mocked(getRecordingStateApi).mockResolvedValue(IDLE_STATE)
   vi.mocked(getModelStatusApi).mockResolvedValue(READY_MODEL_STATUS)
   vi.mocked(requestMicrophonePermissionApi).mockResolvedValue(true)
@@ -117,8 +126,19 @@ describe('WidgetPanelSection', () => {
     vi.mocked(getModelStatusApi).mockResolvedValue({ ...READY_MODEL_STATUS, isReady: false })
     render(<WidgetPanelSection />)
 
-    expect(await screen.findByText('메인 창에서 모델을 먼저 준비해 주세요')).toBeTruthy()
+    expect(await screen.findByText('음성 인식 모델을 받으면 녹음할 수 있습니다')).toBeTruthy()
     expect(screen.getByRole('button', { name: '녹음 시작' }).hasAttribute('disabled')).toBe(true)
+  })
+
+  it('다른 창에서 모델을 다 받으면 상태를 다시 읽어 시작 버튼을 연다', async () => {
+    vi.mocked(getModelStatusApi).mockResolvedValueOnce({ ...READY_MODEL_STATUS, isReady: false })
+    render(<WidgetPanelSection />)
+    await screen.findByText('음성 인식 모델을 받으면 녹음할 수 있습니다')
+
+    await act(async () => pushModelsChanged())
+
+    expect(screen.queryByText('음성 인식 모델을 받으면 녹음할 수 있습니다')).toBeNull()
+    expect(screen.getByRole('button', { name: '녹음 시작' }).hasAttribute('disabled')).toBe(false)
   })
 
   it('녹음 시작을 누르면 마이크 권한을 받고 녹음을 시작한다', async () => {

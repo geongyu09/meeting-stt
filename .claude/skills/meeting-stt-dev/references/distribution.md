@@ -43,7 +43,7 @@ main 프로세스의 온보딩 다운로더와 `scripts/setupModels.ts`(Phase 1 
 
 ```ts
 models:   { status: 'models:status', download: 'models:download', downloadSummary: 'models:downloadSummary' }
-events:   { modelDownload: 'models:downloadProgress' }
+events:   { modelDownload: 'models:downloadProgress', modelsChanged: 'models:changed' }
 ```
 
 | 채널 | 요청 | 응답 |
@@ -52,6 +52,13 @@ events:   { modelDownload: 'models:downloadProgress' }
 | `models:download` | `{ whisperModelId }` | 완료 후 `ModelStatusResponse`. 고른 모델을 `settings.stt.model`에 저장하고 런타임 선택값도 바꾼다 |
 | `models:downloadSummary` | 없음 | 완료 후 `ModelStatusResponse` (요약 모델만 받는다) |
 | `models:downloadProgress` (push) | — | `{ key, receivedBytes, totalBytes, percent }` |
+| `models:changed` (push) | — | 없음. `models:download`·`models:downloadSummary`가 성공한 뒤 모든 창에 보낸다 |
+
+- **`models:changed`가 필요한 이유** (2026-09-28): 위젯 창은 메인 창과 함께 앱 시작 때 만들어지고 언마운트되지 않는다.
+  모델 상태를 마운트 때 한 번만 읽으면, 첫 실행에서 온보딩으로 모델을 받은 뒤에도 위젯은 `isReady: false`를 계속 들고 있다.
+  메인 창의 "녹음 시작"도 위젯의 오디오 그래프로 녹음하므로(architecture.md "녹음 위젯 패널"), 앱을 다시 켤 때까지 어느 창에서도 녹음이 막혔다.
+  `useModelStatus`는 이 이벤트를 구독해 상태를 다시 읽는다. payload는 없다 — `models:status`가 파일 존재 확인뿐이라 싸다.
+  상태를 아직 못 읽은 동안(`status === null`)에는 "모델 없음" 안내를 띄우지 않는다.
 
 ```ts
 interface ModelStatusItem {

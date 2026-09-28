@@ -206,6 +206,14 @@ const api = {
         ipcRenderer.removeListener(IPC.events.modelDownload, handler)
       }
     },
+    onModelsChanged: (listener: () => void) => {
+      const handler = () => listener()
+      ipcRenderer.on(IPC.events.modelsChanged, handler)
+
+      return () => {
+        ipcRenderer.removeListener(IPC.events.modelsChanged, handler)
+      }
+    },
     onRecordingState: (listener: (event: RecordingStateEvent) => void) => {
       const handler = (_: IpcRendererEvent, payload: RecordingStateEvent) => listener(payload)
       ipcRenderer.on(IPC.events.recordingState, handler)

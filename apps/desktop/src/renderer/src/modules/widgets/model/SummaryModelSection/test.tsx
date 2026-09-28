@@ -10,7 +10,8 @@ vi.mock('@renderer/shared/api/models', () => ({
   downloadSummaryModelApi: vi.fn()
 }))
 vi.mock('@renderer/shared/api/events', () => ({
-  onModelDownloadProgress: vi.fn(() => () => {})
+  onModelDownloadProgress: vi.fn(() => () => {}),
+  onModelsChanged: vi.fn(() => () => {})
 }))
 
 import { onModelDownloadProgress } from '@renderer/shared/api/events'

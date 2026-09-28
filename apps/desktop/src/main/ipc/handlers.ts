@@ -449,12 +449,23 @@ const broadcastModelDownloadProgress = ({
   })
 }
 
+/** 요청한 창은 응답으로 새 상태를 받지만, 위젯 창은 이 알림이 없으면 앱 시작 때 읽은 상태에 머문다 */
+const broadcastModelsChanged = (status: DownloadModelsResponse) => {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    window.webContents.send(IPC.events.modelsChanged)
+  })
+
+  return status
+}
+
 /** 고른 모델은 다운로드 성공과 무관하게 먼저 저장한다 — 창을 닫았다 다시 들어와도 같은 선택으로 이어받는다 */
 const handleDownloadModels = async (payload: unknown): Promise<DownloadModelsResponse> => {
   const whisperModelId = readWhisperModelId(payload)
   setWhisperModelId({ whisperModelId })
 
-  return downloadModels({ whisperModelId, onProgress: broadcastModelDownloadProgress })
+  return broadcastModelsChanged(
+    await downloadModels({ whisperModelId, onProgress: broadcastModelDownloadProgress })
+  )
 }
 
 export const registerIpcHandlers = () => {
@@ -604,8 +615,10 @@ export const registerIpcHandlers = () => {
 
   ipcMain.handle(IPC.models.download, (_event, payload) => handleDownloadModels(payload))
 
-  ipcMain.handle(IPC.models.downloadSummary, (): Promise<DownloadModelsResponse> =>
-    downloadSummaryModel({ onProgress: broadcastModelDownloadProgress })
+  ipcMain.handle(IPC.models.downloadSummary, async (): Promise<DownloadModelsResponse> =>
+    broadcastModelsChanged(
+      await downloadSummaryModel({ onProgress: broadcastModelDownloadProgress })
+    )
   )
 
   ipcMain.handle(IPC.update.check, () => checkForUpdatesNow())
