@@ -12,6 +12,7 @@ export const settingsKo = {
     shortcut: '단축키',
     sttModel: '음성 인식 모델',
     update: '업데이트',
+    appearance: '화면',
     language: '언어'
   },
   inputDevice: {
@@ -84,6 +85,15 @@ export const settingsKo = {
     title: '시작할 때 업데이트 확인',
     description: '기본은 꺼짐이며, 켜도 다음 실행부터 확인합니다. 회의 내용은 보내지 않습니다.'
   },
+  theme: {
+    title: '화면 테마',
+    description: '시스템 설정을 따르면 macOS의 라이트·다크 모드가 바뀔 때 함께 바뀝니다.',
+    options: {
+      system: '시스템 설정 따르기',
+      light: '라이트',
+      dark: '다크'
+    }
+  },
   locale: {
     title: 'UI 언어',
     description: '화면·메뉴바 문구의 언어입니다. 음성 인식과 요약은 계속 한국어로 동작합니다.'
@@ -103,6 +113,7 @@ export const settingsEn: typeof settingsKo = {
     shortcut: 'Shortcuts',
     sttModel: 'Speech recognition model',
     update: 'Updates',
+    appearance: 'Appearance',
     language: 'Language'
   },
   inputDevice: {
@@ -177,6 +188,15 @@ export const settingsEn: typeof settingsKo = {
     title: 'Check for updates at launch',
     description:
       'Off by default. When on, checks start from the next launch. Meeting content is never sent.'
+  },
+  theme: {
+    title: 'Theme',
+    description: 'When following the system, the app switches with macOS light and dark mode.',
+    options: {
+      system: 'Match system',
+      light: 'Light',
+      dark: 'Dark'
+    }
   },
   locale: {
     title: 'UI language',

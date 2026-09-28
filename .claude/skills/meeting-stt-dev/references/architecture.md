@@ -905,6 +905,10 @@ export interface LiveTranscriptState {
 2026-09-28 사용자 요청으로 Design 캔버스 "meeting-stt 다크 모드" 시안(다크 토큰·회의 상세·녹음 중)을 근거로 넣었다. 2026-09-24의 "다크 모드 보류"를 대체한다.
 
 - `base.css`의 `@media (prefers-color-scheme: dark)` 블록이 `:root` 변수 값만 바꾸고 `color-scheme: light dark`로 스크롤바·폼 컨트롤도 맞춘다.
+- **테마 설정** (2026-09-28 사용자 요청): 설정 "화면" 카테고리에서 `system`(시스템 설정 따르기, 기본) · `light` · `dark` 중 고른다 (`AppSettings.theme`, `src/shared/theme.ts`, DB 키 `ui.theme`).
+  main이 앱 시작 시 창을 만들기 **전에**, 그리고 `settings:update`에서 값이 바뀔 때 `nativeTheme.themeSource`에 그대로 넣는다.
+  그러면 Chromium이 모든 창의 `prefers-color-scheme`을 바꾸고 위젯 패널의 vibrancy 재질도 같은 외형을 따른다 — renderer는 테마를 따로 알 필요가 없고 `data-theme` 같은 속성도 두지 않는다.
+  `system`이면 macOS 외형이 바뀔 때 앱도 즉시 따라간다. 창 생성 전에 적용하므로 재시작해도 첫 화면부터 저장된 테마로 뜬다.
 - 변수 이름은 그대로, 값만 바꾼다. 컴포넌트 CSS는 토큰만 쓰므로 수정하지 않는다. 면은 잉크 계열 차가운 무채색으로 층을 쌓고(바탕 < 사이드바 < 카드 < hover), 강조 인디고는 밝혀 글자·버튼 모두 4.5:1을 넘긴다.
   **강조·주요 버튼 글자는 `--color-text-inverse`가 어두운 잉크로 뒤집힌다.** 빨강은 여전히 오류 전용이다.
 - 위젯 패널은 `vibrancy: 'popover'`라 시스템 외형을 따라 재질이 바뀌고, 글자는 같은 토큰으로 따라간다.

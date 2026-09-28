@@ -6,8 +6,9 @@
 
 import type { MergedUtterance } from '@meeting-stt/core/types'
 import type { Locale } from './i18n'
+import type { ThemePreference } from './theme'
 
-export type { Locale }
+export type { Locale, ThemePreference }
 export type {
   MergedUtterance,
   SpeakerPiece,
@@ -78,6 +79,8 @@ export interface AppSettings {
   inputDevice: AudioInputDevice | null
   /** UI 언어 (기본 'ko'). 인식·요약 언어가 아니라 화면·메뉴바·오류 문구의 언어다 (`src/shared/i18n.ts`) */
   locale: Locale
+  /** 화면 테마 (기본 'system'). main이 `nativeTheme.themeSource`로 모든 창에 적용한다 (`src/shared/theme.ts`) */
+  theme: ThemePreference
 }
 
 /**

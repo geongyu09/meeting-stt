@@ -33,6 +33,7 @@ import { readGlossarySettings, readTeamDescription } from '@shared/glossary'
 import { isLlmProvider, isOpenaiModelId, readApiKeyPayload } from '@shared/llm'
 import { isValidAccelerator } from '@shared/shortcut'
 import { isLocale } from '@shared/i18n'
+import { isThemePreference } from '@shared/theme'
 import {
   isWidgetFadeOpacity,
   MAX_WIDGET_FADE_OPACITY,
@@ -77,6 +78,7 @@ import type { ModelDownloadProgress } from '../models/download'
 import { isWhisperModelId } from '@meeting-stt/models/desktop'
 import { notifyMeetingsChanged } from '../meetingsChanged'
 import { setCurrentLocale, t } from '../locale'
+import { applyTheme } from '../theme'
 import { downloadModels, downloadSummaryModel, modelStatus } from '../models/service'
 import { enqueueGlossaryDraft, enqueueRefineJob, enqueueSummaryJob } from '../pipeline/queue'
 import { reprocessMeeting } from '../pipeline/reprocess'
@@ -218,6 +220,13 @@ const readLocale = (payload: unknown) => {
   return value
 }
 
+const readTheme = (payload: unknown) => {
+  const value = isRecord(payload) ? payload.theme : undefined
+  if (!isThemePreference(value)) throw new Error(t().main.errors.unknownTheme)
+
+  return value
+}
+
 const readSettings = (payload: unknown) => ({
   isAudioKept: readBoolean({ payload, key: 'isAudioKept' }),
   isUpdateCheckEnabled: readBoolean({ payload, key: 'isUpdateCheckEnabled' }),
@@ -228,7 +237,8 @@ const readSettings = (payload: unknown) => ({
   recordingShortcut: readShortcut({ payload, key: 'recordingShortcut' }),
   widgetShortcut: readShortcut({ payload, key: 'widgetShortcut' }),
   inputDevice: readInputDevice(payload),
-  locale: readLocale(payload)
+  locale: readLocale(payload),
+  theme: readTheme(payload)
 })
 
 const RECORDING_COMMAND_KINDS: RecordingCommandEvent['kind'][] = ['start', 'stop', 'toggle']
@@ -600,6 +610,7 @@ export const registerIpcHandlers = () => {
       setCurrentLocale(settings.locale)
       refreshTray()
     }
+    if (settings.theme !== previous.theme) applyTheme(settings.theme)
     BrowserWindow.getAllWindows().forEach((window) => {
       window.webContents.send(IPC.events.settingsChanged, settings)
     })

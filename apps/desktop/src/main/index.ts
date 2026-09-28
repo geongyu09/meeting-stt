@@ -19,6 +19,7 @@ import { closeDb } from './db/connection'
 import { failStaleMeetings } from './db/meetings'
 import { getAppSettings, getWhisperModelId } from './db/settings'
 import { setCurrentLocale } from './locale'
+import { applyTheme } from './theme'
 import { registerIpcHandlers } from './ipc/handlers'
 import { error as logError, info, messageOf, warn } from './log'
 import { setMeetingsChangedListener } from './meetingsChanged'
@@ -127,6 +128,8 @@ app.whenReady().then(async () => {
   setSelectedWhisperModelId(getWhisperModelId())
   // main의 문구 언어. 이후에는 settings:update 핸들러가 바꾼다 (references/architecture.md "UI 언어")
   setCurrentLocale(getAppSettings().locale)
+  // 창을 만들기 전에 넣어야 재시작해도 첫 화면부터 저장된 테마로 뜬다 (references/architecture.md "다크 모드")
+  applyTheme(getAppSettings().theme)
   await cleanupPreviousRun()
 
   const mainWindow = createMainWindow()

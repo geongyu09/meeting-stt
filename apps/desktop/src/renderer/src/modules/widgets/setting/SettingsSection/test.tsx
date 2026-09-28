@@ -38,6 +38,7 @@ const FADE_LABEL = '위젯 반투명'
 const OPACITY_LABEL = /포커스가 없을 때 불투명도/
 const RECORDING_SHORTCUT_BUTTON = '녹음 시작·정지 변경'
 const LOCALE_LABEL = 'UI 언어'
+const THEME_LABEL = '화면 테마'
 
 /** 설정 행의 켜기/끄기는 제목을 이름으로 갖는 role="switch" 버튼이다 */
 const findSwitch = (name: string) => screen.findByRole('switch', { name })
@@ -67,7 +68,8 @@ const DEFAULT_SETTINGS = {
   recordingShortcut: 'Alt+Command+R',
   widgetShortcut: 'Alt+Command+W',
   inputDevice: null,
-  locale: 'ko' as const
+  locale: 'ko' as const,
+  theme: 'system' as const
 }
 
 const toDeviceInfo = ({ deviceId, label }: { deviceId: string; label: string }) => ({
@@ -303,6 +305,7 @@ describe('SettingsSection', () => {
       '단축키',
       '음성 인식 모델',
       '업데이트',
+      '화면',
       '언어'
     ])
     expect(
@@ -423,6 +426,26 @@ describe('SettingsSection', () => {
     expect(
       ((await screen.findByRole('combobox', { name: LOCALE_LABEL })) as HTMLSelectElement).value
     ).toBe('en')
+  })
+
+  it('화면 테마를 다크로 바꾸면 theme을 저장한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
+    vi.mocked(updateSettingsApi).mockResolvedValue({ ...DEFAULT_SETTINGS, theme: 'dark' })
+    render(<SettingsSection />)
+
+    const select = (await screen.findByRole('combobox', {
+      name: THEME_LABEL
+    })) as HTMLSelectElement
+    expect(select.value).toBe('system')
+    expect(screen.getByRole('option', { name: '시스템 설정 따르기' })).toBeTruthy()
+
+    await user.selectOptions(select, 'dark')
+
+    expect(updateSettingsApi).toHaveBeenCalledWith({ ...DEFAULT_SETTINGS, theme: 'dark' })
+    expect(
+      ((await screen.findByRole('combobox', { name: THEME_LABEL })) as HTMLSelectElement).value
+    ).toBe('dark')
   })
 
   it('설정을 못 불러와도 children은 보여준다', async () => {

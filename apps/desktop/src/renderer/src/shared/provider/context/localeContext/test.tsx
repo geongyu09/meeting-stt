@@ -25,7 +25,8 @@ const SETTINGS: AppSettings = {
   recordingShortcut: 'Alt+Command+R',
   widgetShortcut: 'Alt+Command+W',
   inputDevice: null,
-  locale: 'ko'
+  locale: 'ko',
+  theme: 'system'
 }
 
 function Probe() {

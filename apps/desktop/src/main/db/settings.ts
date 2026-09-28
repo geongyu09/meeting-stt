@@ -21,6 +21,7 @@ import {
 } from '@shared/shortcut'
 import { DEFAULT_WIDGET_FADE_OPACITY, isWidgetFadeOpacity } from '@shared/widget'
 import { DEFAULT_LOCALE, isLocale } from '@shared/i18n'
+import { DEFAULT_THEME, isThemePreference } from '@shared/theme'
 import { getDb } from './connection'
 
 /** DB 키와 TS 필드명의 변환은 이 파일에서만 한다 (references/data-model.md) */
@@ -28,6 +29,7 @@ const AUDIO_KEEP_KEY = 'audio.keep'
 const AUDIO_INPUT_DEVICE_KEY = 'audio.inputDevice'
 const AUDIO_SYSTEM_CAPTURE_KEY = 'audio.systemCapture'
 const UI_LOCALE_KEY = 'ui.locale'
+const UI_THEME_KEY = 'ui.theme'
 const UPDATE_CHECK_KEY = 'update.check'
 const STT_MODEL_KEY = 'stt.model'
 const PIPELINE_QUIET_KEY = 'pipeline.quiet'
@@ -57,7 +59,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   recordingShortcut: DEFAULT_RECORDING_SHORTCUT,
   widgetShortcut: DEFAULT_WIDGET_SHORTCUT,
   inputDevice: null,
-  locale: DEFAULT_LOCALE
+  locale: DEFAULT_LOCALE,
+  theme: DEFAULT_THEME
 }
 
 /** 값이 없거나 JSON이 깨져도 undefined로 읽는다. 설정 하나 때문에 앱이 멈추면 안 된다 */
@@ -111,6 +114,13 @@ const readLocale = ({ key }: { key: string }) => {
   return isLocale(value) ? value : DEFAULT_SETTINGS.locale
 }
 
+/** 모르는 테마 값은 시스템 설정 따르기로 읽는다 */
+const readTheme = ({ key }: { key: string }) => {
+  const value = readValue(key)
+
+  return isThemePreference(value) ? value : DEFAULT_SETTINGS.theme
+}
+
 /** 모양이 깨진 값은 시스템 기본 마이크(null)로 읽는다 */
 const readInputDevice = ({ key }: { key: string }) => {
   const value = readValue(key)
@@ -149,7 +159,8 @@ export const getAppSettings = (): AppSettings => ({
     fallback: DEFAULT_SETTINGS.widgetShortcut
   }),
   inputDevice: readInputDevice({ key: AUDIO_INPUT_DEVICE_KEY }),
-  locale: readLocale({ key: UI_LOCALE_KEY })
+  locale: readLocale({ key: UI_LOCALE_KEY }),
+  theme: readTheme({ key: UI_THEME_KEY })
 })
 
 export const updateAppSettings = ({
@@ -162,7 +173,8 @@ export const updateAppSettings = ({
   recordingShortcut,
   widgetShortcut,
   inputDevice,
-  locale
+  locale,
+  theme
 }: AppSettings) => {
   writeValue({ key: AUDIO_KEEP_KEY, value: isAudioKept })
   writeValue({ key: UPDATE_CHECK_KEY, value: isUpdateCheckEnabled })
@@ -174,6 +186,7 @@ export const updateAppSettings = ({
   writeValue({ key: WIDGET_SHORTCUT_KEY, value: widgetShortcut })
   writeValue({ key: AUDIO_INPUT_DEVICE_KEY, value: inputDevice })
   writeValue({ key: UI_LOCALE_KEY, value: locale })
+  writeValue({ key: UI_THEME_KEY, value: theme })
 
   return getAppSettings()
 }

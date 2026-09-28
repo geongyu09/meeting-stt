@@ -12,6 +12,7 @@ export const mainKo = {
   },
   errors: {
     unknownLocale: '알 수 없는 언어입니다',
+    unknownTheme: '알 수 없는 화면 테마입니다',
     invalidRequest: ({ what }: { what: string }) => `잘못된 요청입니다 (${what} 없음)`,
     fieldEmpty: ({ label }: { label: string }) => `${label}을(를) 비워 둘 수 없습니다`,
     fieldTooLong: ({ label, maxLength }: { label: string; maxLength: number }) =>
@@ -156,6 +157,7 @@ export const mainEn: typeof mainKo = {
   },
   errors: {
     unknownLocale: 'Unknown language',
+    unknownTheme: 'Unknown theme',
     invalidRequest: ({ what }) => `Invalid request (missing ${what})`,
     fieldEmpty: ({ label }) => `${label} cannot be empty`,
     fieldTooLong: ({ label, maxLength }) => `${label} is too long (up to ${maxLength} characters)`,

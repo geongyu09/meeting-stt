@@ -22,6 +22,7 @@ import MicrophoneTest from './ui/MicrophoneTest'
 import OpacitySlider from './ui/OpacitySlider'
 import SettingToggle from './ui/SettingToggle'
 import ShortcutField from './ui/ShortcutField'
+import ThemeSelect from './ui/ThemeSelect'
 import styles from './index.module.css'
 
 interface SettingsSectionProps {
@@ -143,6 +144,9 @@ export default function SettingsSection({ children }: SettingsSectionProps) {
           {t.settings.updateCheck.description}
         </SettingToggle>
         <UpdateCheck />
+      </SettingGroup>
+      <SettingGroup title={t.settings.groups.appearance}>
+        <ThemeSelect value={settings.theme} onChange={(theme) => updateSettings({ theme })} />
       </SettingGroup>
       <SettingGroup title={t.settings.groups.language}>
         <LocaleSelect value={settings.locale} onChange={(locale) => updateSettings({ locale })} />
