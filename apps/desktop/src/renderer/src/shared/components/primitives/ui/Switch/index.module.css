@@ -26,11 +26,12 @@
   left: 3px;
   width: 20px;
   height: 20px;
-  background: var(--color-surface);
+  background: var(--color-thumb);
   border-radius: var(--radius-full);
   transition: transform 0.15s ease;
 }
 
 .track[aria-checked='true'] .thumb {
+  background: var(--color-text-inverse);
   transform: translateX(18px);
 }

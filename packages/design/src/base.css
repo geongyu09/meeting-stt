@@ -3,8 +3,7 @@
  * 값의 근거는 .claude/skills/meeting-stt-dev/references/architecture.md "화면 디자인" 절
  */
 :root {
-  /* 다크 팔레트를 설계하기 전까지 밝은 화면만 지원한다 */
-  color-scheme: light;
+  color-scheme: light dark;
 
   --color-bg: #ffffff;
   --color-sidebar: #f7f7f8;
@@ -24,6 +23,9 @@
   --color-danger: #b4232a;
   --color-danger-soft: #fdecec;
   --color-success: #15803d;
+  --color-success-soft: #e7f4ec;
+  --color-thumb: #ffffff;
+  --color-disabled-text: #ffffff;
 
   --color-speaker-1: #0f766e;
   --color-speaker-2: #c2410c;
@@ -60,6 +62,41 @@
   --font-display: 40px;
   --font-hero: 44px;
   --font-timer: 88px;
+}
+
+/* 변수 이름은 그대로 두고 값만 바꾼다. 강조·주요 버튼 글자는 어두운 잉크로 뒤집힌다 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #121214;
+    --color-sidebar: #18181b;
+    --color-surface: #1c1c20;
+    --color-surface-hover: #232328;
+    --color-border: #2a2a30;
+    --color-border-strong: #3a3a41;
+    --color-divider: #222226;
+    --color-disabled: #45454c;
+    --color-text: #ececef;
+    --color-text-muted: #9b9ba5;
+    --color-text-inverse: #111113;
+    --color-accent: #8b8ff7;
+    --color-accent-text: #111113;
+    --color-accent-soft: #26264a;
+    --color-danger: #f47a74;
+    --color-danger-soft: #3a1c1d;
+    --color-success: #4cc97a;
+    --color-success-soft: #173323;
+    --color-thumb: #ececef;
+    --color-disabled-text: #8a8a93;
+
+    --color-speaker-1: #2dc4b0;
+    --color-speaker-2: #f08a4b;
+    --color-speaker-3: #f06aa8;
+    --color-speaker-4: #d2a23a;
+    --color-speaker-5: #6aa3f8;
+    --color-speaker-6: #b98af5;
+    --color-speaker-7: #8cc43a;
+    --color-speaker-8: #98a3b3;
+  }
 }
 
 *,

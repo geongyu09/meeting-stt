@@ -76,7 +76,7 @@
 
 .markerDone {
   color: var(--color-success);
-  background: #e7f4ec;
+  background: var(--color-success-soft);
 }
 
 .markerWaiting {

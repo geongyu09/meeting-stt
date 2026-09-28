@@ -64,6 +64,6 @@
 .button:disabled {
   background: var(--color-disabled);
   border-color: transparent;
-  color: var(--color-text-inverse);
+  color: var(--color-disabled-text);
   cursor: not-allowed;
 }

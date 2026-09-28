@@ -891,11 +891,47 @@ export interface LiveTranscriptState {
 | `--font-sans` (추가) | `'Google Sans', 'Pretendard', -apple-system, sans-serif` | 전체 |
 | `--font-mono` (추가) | `'Google Sans Code', 'Google Sans', monospace` + `font-variant-numeric: tabular-nums` | 타이머·타임스탬프·퍼센트·단축키 |
 
-- **다크 모드는 보류한다.** 리디자인 동안 `@media (prefers-color-scheme: dark)` 블록을 지우고 `color-scheme: light`로 고정한다.
-  반쪽짜리 다크 토큰이 남으면 새 화면이 다크에서 깨진 채로 배포된다. 다크 팔레트는 따로 설계해 다시 넣는다.
+| `--color-thumb` (추가, 2026-09-28) | `#FFFFFF` | 꺼진 스위치 손잡이. 켜진 손잡이는 `--color-text-inverse` |
+| `--color-disabled-text` (추가, 2026-09-28) | `#FFFFFF` | 비활성 버튼 글자 |
+| `--color-success-soft` (추가, 2026-09-28) | `#E7F4EC` | 완료 표시 바탕 (브라우저 프로토타입 처리 단계) |
+
+- 다크 모드는 아래 "다크 모드" 절을 따른다. 새 토큰을 추가하면 다크 값도 같은 커밋에 넣는다 — 반쪽짜리 다크 토큰은 새 화면을 다크에서 깨뜨린다.
 - 간격 4·8·12·16·24·32는 기존 `--space-1`~`6`을 그대로 쓴다. 반경은 `--radius-sm` 6 · `--radius-md` 10 · `--radius-lg` 12(추가) · `--radius-full`이다.
   시안의 8px 반경은 토큰을 따로 두지 않고 `--radius-sm`으로 맞춘다 (2px 차이로 단계를 하나 늘릴 이유가 없다).
 - 포커스 표시는 모든 컨트롤이 `:focus-visible`에 `2px solid var(--color-accent)` 외곽선 + 2px 간격으로 통일한다.
+
+### 다크 모드 (2026-09-28)
+
+2026-09-28 사용자 요청으로 Design 캔버스 "meeting-stt 다크 모드" 시안(다크 토큰·회의 상세·녹음 중)을 근거로 넣었다. 2026-09-24의 "다크 모드 보류"를 대체한다.
+
+- `base.css`의 `@media (prefers-color-scheme: dark)` 블록이 `:root` 변수 값만 바꾸고 `color-scheme: light dark`로 스크롤바·폼 컨트롤도 맞춘다.
+- 변수 이름은 그대로, 값만 바꾼다. 컴포넌트 CSS는 토큰만 쓰므로 수정하지 않는다. 면은 잉크 계열 차가운 무채색으로 층을 쌓고(바탕 < 사이드바 < 카드 < hover), 강조 인디고는 밝혀 글자·버튼 모두 4.5:1을 넘긴다.
+  **강조·주요 버튼 글자는 `--color-text-inverse`가 어두운 잉크로 뒤집힌다.** 빨강은 여전히 오류 전용이다.
+- 위젯 패널은 `vibrancy: 'popover'`라 시스템 외형을 따라 재질이 바뀌고, 글자는 같은 토큰으로 따라간다.
+
+| 변수 | 다크 값 | 비고 |
+| --- | --- | --- |
+| `--color-bg` | `#121214` | 본문 바탕 |
+| `--color-sidebar` | `#18181B` | 사이드바 · 선택 행 |
+| `--color-surface` | `#1C1C20` | 카드 · 입력 (한 단 떠오름) |
+| `--color-surface-hover` | `#232328` | hover · 중립 배지 |
+| `--color-border` | `#2A2A30` | 카드 선 |
+| `--color-border-strong` | `#3A3A41` | 버튼 · 입력 테두리 |
+| `--color-divider` | `#222226` | 행 구분 · 상단 바 밑줄 |
+| `--color-disabled` | `#45454C` | 꺼진 스위치 · 빈 레벨 칸 |
+| `--color-text` | `#ECECEF` | 본문 · 주요 버튼 바탕 (15.9:1) |
+| `--color-text-muted` | `#9B9BA5` | 보조 글자 (6.8:1) |
+| `--color-text-inverse` | `#111113` | 주요·강조 버튼 글자, 켜진 스위치 손잡이 |
+| `--color-accent` | `#8B8FF7` | 새 녹음 · 포커스 · 녹음 표시 (6.6:1) |
+| `--color-accent-text` | `#111113` | 강조 위 글자 |
+| `--color-accent-soft` | `#26264A` | 녹음 점 둘레 · 검색 `mark` |
+| `--color-danger` | `#F47A74` | 오류 전용 (7.0:1) |
+| `--color-danger-soft` | `#3A1C1D` | 오류 배지 · 삭제 바탕 |
+| `--color-success` | `#4CC97A` | 완료 체크 (8.9:1) |
+| `--color-success-soft` | `#173323` | 완료 표시 바탕 (시안 밖, 같은 규칙으로 정함) |
+| `--color-thumb` | `#ECECEF` | 꺼진 스위치 손잡이 |
+| `--color-disabled-text` | `#8A8A93` | 비활성 버튼 글자 |
+| `--color-speaker-1`~`8` | `#2DC4B0` `#F08A4B` `#F06AA8` `#D2A23A` `#6AA3F8` `#B98AF5` `#8CC43A` `#98A3B3` | 라이트와 같은 색상환 순서, 명도만 올림. 모두 바탕·면 대비 5.9:1 이상 |
 
 ### 공통 컴포넌트 (`shared/components/primitives/ui`)
 

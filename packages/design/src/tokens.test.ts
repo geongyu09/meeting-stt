@@ -26,6 +26,9 @@ const REQUIRED_TOKENS = [
   '--color-danger',
   '--color-danger-soft',
   '--color-success',
+  '--color-success-soft',
+  '--color-thumb',
+  '--color-disabled-text',
   '--color-speaker-1',
   '--color-speaker-4',
   '--color-speaker-8',
@@ -46,8 +49,13 @@ describe('디자인 토큰', () => {
     expect(baseCss).toContain(`${token}:`)
   })
 
-  it('다크 모드 토큰을 두지 않는다 (다크 팔레트 설계 전까지 보류)', () => {
-    expect(baseCss).not.toContain('prefers-color-scheme')
+  it('색 토큰마다 다크 값이 있다 (반쪽짜리 다크 토큰은 새 화면을 다크에서 깨뜨린다)', () => {
+    const [lightBlock, darkBlock = ''] = baseCss.split('@media (prefers-color-scheme: dark)')
+    const colorTokensOf = (css: string) => new Set(css.match(/--color-[\w-]+(?=:)/g) ?? [])
+
+    expect([...colorTokensOf(darkBlock)].toSorted()).toEqual(
+      [...colorTokensOf(lightBlock)].toSorted()
+    )
   })
 })
 
