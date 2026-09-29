@@ -1,8 +1,10 @@
+import { useId, useState } from 'react'
 import { Link } from 'react-router'
 import { llmMissingMessage } from '@shared/llm'
 import { groupRefinePairs } from '@shared/refine'
 import type { RefineResult } from '@shared/types'
 import Button from '@renderer/shared/components/primitives/ui/Button'
+import Icon from '@renderer/shared/components/primitives/ui/Icon'
 import ProgressBar from '@renderer/shared/components/primitives/ui/ProgressBar'
 import useGlossary from '@renderer/shared/hooks/domain/glossary/useGlossary'
 import useLlmStatus from '@renderer/shared/hooks/domain/llm/useLlmStatus'
@@ -19,6 +21,8 @@ interface RefinePanelProps {
   refineResult: RefineResult | null
 }
 
+const CHEVRON_SIZE = 14
+
 /**
  * 상세 오른쪽 레일의 교정 패널. 교정은 파이프라인 뒤에 자동으로 돌아 본문에 바로 반영되므로,
  * 여기서는 무엇을 몇 곳 고쳤는지 보여 주고 다시 돌리는 버튼만 둔다. 로컬은 용어 교정이라 용어 사전이 필요하고,
@@ -30,6 +34,8 @@ export default function RefinePanel({ meetingId, refineResult }: RefinePanelProp
   const { stage, percent, error, isRunning, runRefine } = useRefine({ meetingId })
   const { status: llmStatus } = useLlmStatus()
   const { glossary } = useGlossary()
+  const [isExpanded, setIsExpanded] = useState(true)
+  const bodyId = useId()
 
   const groups = groupRefinePairs({ pairs: refineResult?.appliedPairs ?? [] })
   const globalTermCount = glossary?.terms.length ?? 0
@@ -119,14 +125,28 @@ export default function RefinePanel({ meetingId, refineResult }: RefinePanelProp
 
   return (
     <section className={styles.section} aria-label={t.refine.sectionLabel}>
-      <header className={styles.header}>
-        <h2 className={styles.title}>{t.refine.title}</h2>
-        <span className={styles.caption}>{caption}</span>
-      </header>
-      <div className={styles.body}>
-        {renderBody()}
-        {error && <p className={styles.error}>{error}</p>}
-      </div>
+      {/* 요약 카드와 같이 헤더 전체가 접기 버튼이다. 캡션은 접힌 채로도 진행률·고친 수를 알려 준다 */}
+      <button
+        type="button"
+        className={styles.toggle}
+        aria-expanded={isExpanded}
+        aria-controls={bodyId}
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <span className={styles.chevron}>
+          <Icon name="chevronDown" size={CHEVRON_SIZE} />
+        </span>
+        <span className={styles.titleContainer}>
+          <h2 className={styles.title}>{t.refine.title}</h2>
+          {caption && <span className={styles.caption}>{caption}</span>}
+        </span>
+      </button>
+      {isExpanded && (
+        <div id={bodyId} className={styles.body}>
+          {renderBody()}
+          {error && <p className={styles.error}>{error}</p>}
+        </div>
+      )}
     </section>
   )
 }

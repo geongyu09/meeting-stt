@@ -170,6 +170,33 @@ describe('RefinePanel', () => {
     expect(screen.queryByRole('button', { name: /수락/ })).toBeNull()
   })
 
+  it('제목을 누르면 본문과 버튼을 접고 캡션은 남기며 다시 누르면 펼친다', async () => {
+    await renderPanel({ refineResult: resultOf([pairOf('u1', '기터브', 'GitHub')]) })
+    const toggle = screen.getByRole('button', { name: /교정/, expanded: true })
+
+    await userEvent.click(toggle)
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByRole('list', { name: '고친 용어' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '다시 교정' })).toBeNull()
+    expect(screen.getByText('1가지 고침')).toBeTruthy()
+
+    await userEvent.click(toggle)
+
+    expect(screen.getByRole('list', { name: '고친 용어' })).toBeTruthy()
+    expect(rerunButton()).toBeTruthy()
+  })
+
+  it('접어 둔 채 교정이 돌면 캡션에 진행률을 보여 준다', async () => {
+    await renderPanel()
+    await userEvent.click(screen.getByRole('button', { name: /교정/, expanded: true }))
+
+    await emitRefineProgress({ meetingId: MEETING_ID, stage: 'verify', percent: 40 })
+
+    expect(screen.getByText('교정 중 40%')).toBeTruthy()
+    expect(screen.queryByRole('progressbar')).toBeNull()
+  })
+
   it('교정했는데 고친 곳이 없으면 찾지 못했다고 알린다', async () => {
     await renderPanel({ refineResult: resultOf([]) })
 

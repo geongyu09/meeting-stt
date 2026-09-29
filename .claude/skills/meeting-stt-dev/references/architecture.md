@@ -1512,6 +1512,8 @@ codex exec --ephemeral --skip-git-repo-check --ignore-user-config --ignore-rules
 
 - `features/refine/RefinePanel` — 상세 오른쪽 레일에서 요약 아래, 화자 목록 위. `TranscriptSection`이 `useMeeting`의 `refineResult`를 넘긴다
   (본문과 결과가 같은 상태여야 하므로 패널이 `useMeeting`을 따로 부르지 않는다). LLM 준비 여부(`useLlmStatus`)·전역 용어(`useGlossary`)·진행률(`useRefine`)은 패널이 스스로 구독한다.
+- 헤더는 요약 카드와 같은 접기/펼치기 토글이다(2026-09-29 사용자 요청) — 헤더 전체가 버튼(셰브런·"교정" 제목·그 아랫줄 캡션)이고 `aria-expanded`를 단다.
+  기본은 펼침, 접으면 본문·"다시 교정" 버튼이 숨고 헤더만 남는다. 캡션(진행 중이면 진행률, 결과가 있으면 "N가지 고침", 아니면 공급자 라벨)은 접힌 채로도 보인다. 접힘 상태는 저장하지 않는다.
 - 본문 구성:
   - 진행 중: 단계 문구("용어 읽기를 정하는 중" / "후보를 판정하는 중" / "문장을 교정하는 중") + 진행률 막대.
   - 로컬 공급자일 때는 "로컬 모델은 용어 사전의 단어만 고칩니다. 문장까지 고치려면 설정에서 외부 공급자를 고르세요"를 한 줄로 보여 준다.

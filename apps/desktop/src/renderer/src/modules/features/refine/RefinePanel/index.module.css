@@ -1,18 +1,56 @@
 .section {
+  --section-padding: 18px;
+
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: 18px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
 }
 
-.header {
+/* 헤더 전체가 접기 버튼이라 제목 쪽 어디를 눌러도 접힌다 (SummarySection과 같은 모양) */
+.toggle {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-2);
+  margin: 0;
+  padding: var(--section-padding);
+  color: var(--color-text);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: inherit;
+  cursor: pointer;
+}
+
+.toggle[aria-expanded='true'] {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.toggle:hover {
+  background: var(--color-surface-hover);
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.chevron {
+  display: flex;
+  color: var(--color-text-muted);
+  transition: transform 0.15s ease;
+}
+
+.toggle[aria-expanded='false'] .chevron {
+  transform: rotate(-90deg);
+}
+
+.titleContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .title {
@@ -30,6 +68,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  padding: 0 var(--section-padding) var(--section-padding);
 }
 
 .list {
