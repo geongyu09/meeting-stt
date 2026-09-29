@@ -60,6 +60,7 @@ export const IPC = {
     setProvider: 'llm:setProvider',
     setApiKey: 'llm:setApiKey',
     setOpenaiModel: 'llm:setOpenaiModel',
+    setCodexModel: 'llm:setCodexModel',
     check: 'llm:check'
   },
   models: {
@@ -349,6 +350,12 @@ export interface SetOpenaiModelRequest {
   model: OpenaiModelId
 }
 export type SetOpenaiModelResponse = LlmStatus
+
+/** `codex-cli`가 부를 모델 저장. `null`이면 CLI 기본 모델. 갱신된 상태를 돌려준다 */
+export interface SetCodexModelRequest {
+  model: string | null
+}
+export type SetCodexModelResponse = LlmStatus
 
 /** 현재 공급자로 짧은 프롬프트 한 번. 실패는 reject(한국어 메시지)로 알린다 */
 export interface CheckLlmResponse {

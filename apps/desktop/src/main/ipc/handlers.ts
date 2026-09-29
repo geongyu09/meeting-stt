@@ -22,6 +22,7 @@ import {
   type SetLlmApiKeyResponse,
   type SetLlmProviderResponse,
   type SetOpenaiModelResponse,
+  type SetCodexModelResponse,
   type StartRecordingRequest,
   type StartRecordingResponse,
   type StopRecordingResponse,
@@ -30,7 +31,12 @@ import {
 } from '@shared/ipc'
 import { isAudioInputDevice } from '@shared/audio'
 import { readGlossarySettings, readTeamDescription } from '@shared/glossary'
-import { isLlmProvider, isOpenaiModelId, readApiKeyPayload } from '@shared/llm'
+import {
+  isLlmProvider,
+  isOpenaiModelId,
+  readApiKeyPayload,
+  readCodexModelPayload
+} from '@shared/llm'
 import { isValidAccelerator } from '@shared/shortcut'
 import { isLocale } from '@shared/i18n'
 import { isThemePreference } from '@shared/theme'
@@ -65,6 +71,7 @@ import {
   getGlossarySettings,
   setLlmProvider,
   setOpenaiModel,
+  setCodexModel,
   setWhisperModelId,
   updateAppSettings,
   updateGlossarySettings
@@ -697,6 +704,12 @@ export const registerIpcHandlers = () => {
 
   ipcMain.handle(IPC.llm.setOpenaiModel, (_event, payload): Promise<SetOpenaiModelResponse> => {
     setOpenaiModel({ model: readOpenaiModel(payload) })
+
+    return getLlmStatus()
+  })
+
+  ipcMain.handle(IPC.llm.setCodexModel, (_event, payload): Promise<SetCodexModelResponse> => {
+    setCodexModel({ model: readCodexModelPayload(payload, t().llm.errors) })
 
     return getLlmStatus()
   })

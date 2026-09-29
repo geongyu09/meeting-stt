@@ -30,6 +30,10 @@ const llmStatusOf = (overrides: Partial<LlmStatus> = {}): LlmStatus => ({
   openaiModel: 'gpt-6-sol',
   claudeCliPath: null,
   claudeCliVersion: null,
+  codexCliPath: null,
+  codexCliVersion: null,
+  codexModel: null,
+  codexModels: [],
   ...overrides
 })
 

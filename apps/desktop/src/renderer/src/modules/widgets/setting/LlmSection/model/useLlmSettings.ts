@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { LlmApiVendor, LlmProvider, OpenaiModelId } from '@shared/types'
 import {
   checkLlmApi,
+  setCodexModelApi,
   setLlmApiKeyApi,
   setLlmProviderApi,
   setOpenaiModelApi
@@ -13,7 +14,7 @@ const messageOf = ({ caught, fallback }: { caught: unknown; fallback: string }) 
   caught instanceof Error && caught.message ? caught.message : fallback
 
 /**
- * 설정의 "요약 · 용어 초안" 카테고리 상태. 공급자·키·GPT 모델 저장과 연결 확인은 각각 즉시 main에 보내고
+ * 설정의 "요약 · 용어 초안" 카테고리 상태. 공급자·키·GPT 모델·Codex 모델 저장과 연결 확인은 각각 즉시 main에 보내고
  * 응답(`LlmStatus`)을 그대로 반영한다 (references/architecture.md "LLM 공급자").
  */
 const useLlmSettings = () => {
@@ -80,6 +81,12 @@ const useLlmSettings = () => {
       fallback: t.llm.actions.modelError
     })
 
+  const selectCodexModel = (model: string | null) =>
+    runAction({
+      action: async () => applyStatus(await setCodexModelApi({ model })),
+      fallback: t.llm.actions.codexModelError
+    })
+
   const checkConnection = async () => {
     setIsChecking(true)
     setActionError(null)
@@ -109,6 +116,7 @@ const useLlmSettings = () => {
     saveApiKey,
     clearApiKey,
     selectOpenaiModel,
+    selectCodexModel,
     checkConnection
   }
 }

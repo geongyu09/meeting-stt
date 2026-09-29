@@ -9,6 +9,7 @@ import { useLocale } from '@renderer/shared/provider/context/localeContext'
 import { PROVIDER_ORDER } from './constants/providers'
 import useLlmSettings from './model/useLlmSettings'
 import ApiKeyField from './ui/ApiKeyField'
+import CodexModelSelect from './ui/CodexModelSelect'
 import OpenaiModelSelect from './ui/OpenaiModelSelect'
 import ProviderOption from './ui/ProviderOption'
 import styles from './index.module.css'
@@ -18,8 +19,21 @@ interface RenderReadinessParams {
   copy: Messages['llm']['section']
 }
 
-/** Claude Code를 골랐을 때의 준비 상태. 로컬의 준비 상태는 파일 다운로드 행(슬롯)이 스스로 보여준다 */
+/** Claude Code·Codex를 골랐을 때의 준비 상태. 로컬의 준비 상태는 파일 다운로드 행(슬롯)이 스스로 보여준다 */
 const renderReadiness = ({ status, copy }: RenderReadinessParams) => {
+  if (status.provider === 'codex-cli') {
+    return status.codexCliPath ? (
+      <p className={styles.hint}>
+        {copy.cliFoundPrefix}
+        <code className={styles.code}>{status.codexCliPath}</code>
+        {copy.codexFoundSuffix({ version: status.codexCliVersion })}
+      </p>
+    ) : (
+      <p className={styles.warning} role="alert">
+        {copy.codexMissing}
+      </p>
+    )
+  }
   if (status.provider === 'claude-cli') {
     return status.claudeCliPath ? (
       <p className={styles.hint}>
@@ -61,6 +75,7 @@ export default function LlmSection({ localModelSlot, externalSlot }: LlmSectionP
     saveApiKey,
     clearApiKey,
     selectOpenaiModel,
+    selectCodexModel,
     checkConnection
   } = useLlmSettings()
 
@@ -117,6 +132,14 @@ export default function LlmSection({ localModelSlot, externalSlot }: LlmSectionP
           />
         )}
         {renderReadiness({ status, copy: t.llm.section })}
+        {status.provider === 'codex-cli' && status.codexCliPath && (
+          <CodexModelSelect
+            value={status.codexModel}
+            options={status.codexModels}
+            isDisabled={isBusy}
+            onChange={selectCodexModel}
+          />
+        )}
 
         {status.provider !== 'local' && (
           <div className={styles.actions}>

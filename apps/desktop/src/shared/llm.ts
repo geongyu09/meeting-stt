@@ -1,17 +1,23 @@
 /**
  * LLM 공급자 선택의 순수 로직 (references/architecture.md "LLM 공급자").
- * 공급자 유니온·라벨·API 키 회사·GPT 모델 목록·준비 여부 판정과 Claude Code CLI 인자·출력 파싱을 둔다.
+ * 공급자 유니온·라벨·API 키 회사·GPT 모델 목록·준비 여부 판정과 Claude Code·Codex CLI 인자·출력 파싱을 둔다.
  * spawn·SDK 호출·키 저장은 `src/main/llm/*`이 담당한다.
  */
 
 import { llmKo } from './locales/llm'
-import type { LlmApiVendor, LlmProvider, LlmStatus, OpenaiModelId } from './types'
+import type { CodexModelOption, LlmApiVendor, LlmProvider, LlmStatus, OpenaiModelId } from './types'
 
 /** main이 던지는 오류 문구. 기본은 한국어 사전이고 main은 현재 언어의 `t().llm.errors`를 넘긴다 */
 export type LlmErrorMessages = typeof llmKo.errors
 export type LlmMissingMessages = Pick<typeof llmKo, 'missing' | 'apiKeyLabels'>
 
-export const LLM_PROVIDERS: LlmProvider[] = ['local', 'claude-api', 'claude-cli', 'openai-api']
+export const LLM_PROVIDERS: LlmProvider[] = [
+  'local',
+  'claude-api',
+  'claude-cli',
+  'openai-api',
+  'codex-cli'
+]
 
 export const DEFAULT_LLM_PROVIDER: LlmProvider = 'local'
 
@@ -38,6 +44,16 @@ export const DEFAULT_OPENAI_MODEL_ID: OpenaiModelId = 'gpt-6-sol'
 export const API_CHUNK_BUDGET_CHARS = 400_000
 
 /**
+ * Codex CLI의 구독 모델은 컨텍스트가 27만 2천 토큰이고 Codex 기본 지시문이 앞에 붙는다.
+ * 20만 자(약 14만 토큰)면 여유가 남는다 (references/architecture.md "LLM 공급자").
+ */
+export const CODEX_CHUNK_BUDGET_CHARS = 200_000
+
+/** Codex 모델 id 형식. 카탈로그 밖의 값이 argv로 새는 것(붙여 넣기 실수·옵션 주입)을 막는다 */
+const CODEX_MODEL_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
+export const CODEX_MODEL_ID_MAX_CHARS = 64
+
+/**
  * Claude의 적응형 사고와 GPT-6의 추론 토큰은 출력 상한에 포함된다. 로컬용 상한(1200)을 그대로 주면
  * 사고만 하다 잘리므로 이 값 아래로는 내리지 않는다.
  */
@@ -60,6 +76,12 @@ export const isLlmApiVendor = (value: unknown): value is LlmApiVendor =>
 
 export const isOpenaiModelId = (value: unknown): value is OpenaiModelId =>
   typeof value === 'string' && (OPENAI_MODEL_IDS as string[]).includes(value)
+
+/** 목록이 등급마다 달라 값이 아니라 형식만 본다 */
+export const isCodexModelId = (value: unknown): value is string =>
+  typeof value === 'string' &&
+  value.length <= CODEX_MODEL_ID_MAX_CHARS &&
+  CODEX_MODEL_ID_PATTERN.test(value)
 
 /**
  * @description 공급자가 API 키를 쓰는지, 쓴다면 어느 회사 키인지 알려줍니다. 키 저장·상태·화면이 이 대응 하나를 본다.
@@ -87,6 +109,9 @@ export const apiVendorOf = (provider: LlmProvider): LlmApiVendor | null => {
 export const llmMissingMessage = (status: LlmStatus, messages: LlmMissingMessages = llmKo) => {
   if (status.provider === 'claude-cli') {
     return status.claudeCliPath ? null : messages.missing.cli
+  }
+  if (status.provider === 'codex-cli') {
+    return status.codexCliPath ? null : messages.missing.codexCli
   }
 
   const vendor = apiVendorOf(status.provider)
@@ -168,6 +193,129 @@ export const parseClaudeCliOutput = (stdout: string, errors: LlmErrorMessages = 
   }
 
   return result
+}
+
+interface BuildCodexCliArgsParams {
+  system: string
+  /** null이면 `-m`을 넘기지 않아 CLI 기본 모델을 쓴다 */
+  model: string | null
+  /** 마지막 답변을 쓸 파일. stdout은 머리말·토큰 수가 섞인 사람용 출력이다 */
+  outputFile: string
+}
+
+/**
+ * @description `codex exec` 인자를 만듭니다. 프롬프트는 stdin(`-`)으로 넘기므로 여기에 없다.
+ * 사용자 config(MCP 서버·알림 훅)는 끄고 인증만 쓴다 (references/architecture.md "Codex CLI 호출").
+ * @param system - 시스템 프롬프트. `-c` 값은 TOML로 파싱되므로 JSON 문자열(TOML 기본 문자열과 호환)로 넣는다
+ * @param model - 모델 id. null이면 CLI 기본 모델
+ * @param outputFile - 답변 파일 경로
+ * @returns spawn에 넘길 인자 배열
+ * @example
+ * runBinary({ command: codexPath, args: buildCodexCliArgs({ system, model, outputFile }), input: prompt })
+ */
+export const buildCodexCliArgs = ({ system, model, outputFile }: BuildCodexCliArgsParams) => [
+  'exec',
+  '--ephemeral',
+  '--skip-git-repo-check',
+  '--ignore-user-config',
+  '--ignore-rules',
+  '--sandbox',
+  'read-only',
+  '--color',
+  'never',
+  '-c',
+  `developer_instructions=${JSON.stringify(system)}`,
+  // 요약은 정형 작업이라 깊은 추론이 필요 없다 (OpenAI API의 reasoning.effort와 같은 값)
+  '-c',
+  'model_reasoning_effort="low"',
+  ...(model ? ['--model', model] : []),
+  '--output-last-message',
+  outputFile,
+  '-'
+]
+
+const readCatalogEntry = (entry: unknown) => {
+  if (!isRecord(entry) || entry.visibility !== 'list' || !isCodexModelId(entry.slug)) return null
+
+  return {
+    id: entry.slug,
+    label: typeof entry.display_name === 'string' ? entry.display_name : entry.slug,
+    description: typeof entry.description === 'string' ? entry.description : null,
+    priority: typeof entry.priority === 'number' ? entry.priority : Number.MAX_SAFE_INTEGER
+  }
+}
+
+/**
+ * @description `codex debug models`의 JSON에서 구독 계정이 고를 수 있는 모델을 꺼냅니다.
+ * 숨김(`visibility !== 'list'`) 모델은 빼고 CLI가 정한 `priority` 순으로 둔다. 형식이 다르면 빈 배열.
+ * @param stdout - CLI 표준 출력 전체
+ * @returns 모델 선택지
+ * @example
+ * parseCodexModels('{"models":[{"slug":"gpt-6-luna","display_name":"GPT-6-Luna","visibility":"list"}]}')
+ * // [{ id: 'gpt-6-luna', label: 'GPT-6-Luna', description: null }]
+ */
+export const parseCodexModels = (stdout: string): CodexModelOption[] => {
+  const parsed = extractJson(stdout)
+  if (!isRecord(parsed) || !Array.isArray(parsed.models)) return []
+
+  return parsed.models
+    .map(readCatalogEntry)
+    .filter((entry) => entry !== null)
+    .toSorted((a, b) => a.priority - b.priority)
+    .map(({ id, label, description }) => ({ id, label, description }))
+}
+
+const CODEX_ERROR_LINE_PREFIX = 'ERROR: '
+
+const errorMessageOfLine = (line: string) => {
+  try {
+    const parsed = JSON.parse(line.slice(CODEX_ERROR_LINE_PREFIX.length)) as unknown
+    if (isRecord(parsed) && isRecord(parsed.error) && typeof parsed.error.message === 'string') {
+      return parsed.error.message
+    }
+  } catch {
+    // JSON이 아닌 ERROR 줄은 문장 그대로 쓴다
+  }
+
+  return line.slice(CODEX_ERROR_LINE_PREFIX.length).trim()
+}
+
+/**
+ * @description `codex exec`가 실패했을 때 stderr에서 사람이 읽을 사유를 꺼냅니다.
+ * `ERROR: {json}` 줄의 `error.message`를 먼저 보고, 없으면 마지막 비어 있지 않은 줄을 쓴다.
+ * @param stderr - CLI 표준 오류 전체
+ * @returns 사유. stderr가 비어 있으면 null
+ * @example
+ * codexErrorReason('ERROR: {"error":{"message":"The model is not supported"}}') // 'The model is not supported'
+ */
+export const codexErrorReason = (stderr: string) => {
+  const lines = stderr
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const errorLine = lines.findLast((line) => line.startsWith(CODEX_ERROR_LINE_PREFIX))
+  if (errorLine) return errorMessageOfLine(errorLine)
+
+  return lines.at(-1) ?? null
+}
+
+/**
+ * @description renderer가 보낸 Codex 모델 요청을 검증합니다. null(CLI 기본 모델) 또는 형식에 맞는 id만 받는다.
+ * @param payload - `llm:setCodexModel` 요청 payload
+ * @param errors - 오류 문구 사전. 생략하면 한국어
+ * @returns 모델 id 또는 null
+ * @example
+ * const model = readCodexModelPayload({ model: 'gpt-6-luna' }) // 'gpt-6-luna'
+ */
+export const readCodexModelPayload = (
+  payload: unknown,
+  errors: LlmErrorMessages = llmKo.errors
+) => {
+  if (!isRecord(payload) || !('model' in payload)) throw new Error(errors.invalidCodexModel)
+  if (payload.model === null) return null
+  if (!isCodexModelId(payload.model)) throw new Error(errors.invalidCodexModel)
+
+  return payload.model
 }
 
 /**

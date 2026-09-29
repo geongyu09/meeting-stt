@@ -9,7 +9,8 @@ export const llmKo = {
     local: '로컬 모델',
     'claude-api': 'Claude API',
     'claude-cli': 'Claude Code',
-    'openai-api': 'OpenAI API'
+    'openai-api': 'OpenAI API',
+    'codex-cli': 'Codex'
   },
   /** 키 입력란 라벨과 준비 안내에 쓰는 이름. 회사 이름이 아니라 사용자가 아는 제품 이름으로 적는다 */
   apiKeyLabels: {
@@ -37,6 +38,11 @@ export const llmKo = {
       title: 'OpenAI API 키 (GPT)',
       description:
         'OpenAI 플랫폼에서 발급한 API 키로 GPT를 호출합니다. 회의록이 OpenAI 서버로 전송되고 토큰 요금이 부과됩니다. 모델은 아래에서 고릅니다.'
+    },
+    'codex-cli': {
+      title: 'Codex (ChatGPT 구독)',
+      description:
+        '이 컴퓨터에 설치된 Codex CLI(codex 명령)를 실행해 로그인한 ChatGPT 구독 계정으로 호출합니다. 회의록이 OpenAI 서버로 전송되며 구독 사용량에 포함됩니다. 모델은 아래에서 고릅니다.'
     }
   },
   apiKeyField: {
@@ -64,6 +70,15 @@ export const llmKo = {
     fallbackDescription: '요약과 용어 초안에 쓸 모델입니다',
     appliesNext: '다음 요약부터 적용됩니다.'
   },
+  /** 목록은 CLI가 로그인 계정 기준으로 알려준다. 앱에는 기본값 문구만 둔다 (references/architecture.md "Codex CLI 호출") */
+  codexModelSelect: {
+    label: 'Codex 모델',
+    defaultOption: 'Codex 기본 모델',
+    defaultDescription: 'Codex CLI에 내장된 기본 모델을 씁니다',
+    unlistedSuffix: ' (목록에 없음)',
+    emptyHint: '모델 목록을 읽지 못해 기본 모델만 고를 수 있습니다.',
+    appliesNext: '구독 등급이 허용하는 모델만 쓸 수 있고, 다음 요약부터 적용됩니다.'
+  },
   section: {
     title: '요약 · 용어 초안',
     intro:
@@ -77,6 +92,10 @@ export const llmKo = {
       `${version ? ` (${version})` : ''}. 터미널에서 로그인한 계정을 그대로 씁니다.`,
     cliMissing:
       'claude 명령을 찾을 수 없습니다. Claude Code를 설치하고 터미널에서 한 번 로그인한 뒤 앱을 다시 켜 주세요.',
+    codexFoundSuffix: ({ version }: { version: string | null }) =>
+      `${version ? ` (${version})` : ''}. 로그인한 ChatGPT 계정을 그대로 씁니다.`,
+    codexMissing:
+      'codex 명령을 찾을 수 없습니다. Codex CLI를 설치하고(또는 ChatGPT 데스크탑 앱 설치) 터미널에서 codex login으로 로그인한 뒤 앱을 다시 켜 주세요.',
     checking: '확인하는 중…',
     checkConnection: '연결 확인',
     checkHint: '짧은 요청 한 번을 보냅니다'
@@ -85,6 +104,7 @@ export const llmKo = {
     providerError: 'LLM 공급자를 저장하지 못했습니다',
     keyError: 'API 키를 저장하지 못했습니다',
     modelError: 'GPT 모델을 저장하지 못했습니다',
+    codexModelError: 'Codex 모델을 저장하지 못했습니다',
     checkError: '연결을 확인하지 못했습니다',
     keySaved: 'API 키를 저장했습니다',
     keyCleared: '저장된 API 키를 지웠습니다'
@@ -92,6 +112,7 @@ export const llmKo = {
   /** 준비되지 않았을 때의 안내. main(잡 시작 전 확인)과 renderer(버튼 막기)가 같은 문구를 쓴다 */
   missing: {
     cli: 'Claude Code(claude 명령)를 찾을 수 없습니다',
+    codexCli: 'Codex CLI(codex 명령)를 찾을 수 없습니다',
     apiKey: ({ label }: { label: string }) => `${label}가 저장되어 있지 않습니다`,
     localModel: '로컬 요약 모델 파일이 설치되어 있지 않습니다'
   },
@@ -99,6 +120,10 @@ export const llmKo = {
     cliOutputUnreadable: 'Claude Code 결과를 읽지 못했습니다 (출력 형식이 예상과 다릅니다)',
     cliFailed: ({ reason }: { reason: string }) =>
       `Claude Code가 요청을 처리하지 못했습니다: ${reason}`,
+    codexFailed: ({ reason }: { reason: string }) =>
+      `Codex가 요청을 처리하지 못했습니다: ${reason}`,
+    codexEmptyAnswer: 'Codex가 빈 답변을 돌려주었습니다',
+    invalidCodexModel: '잘못된 Codex 모델입니다',
     unknownReason: '원인 불명',
     invalidVendor: '잘못된 요청입니다 (API 키 회사 없음)',
     missingApiKey: '잘못된 요청입니다 (API 키 없음)',
@@ -113,7 +138,8 @@ export const llmEn: typeof llmKo = {
     local: 'Local model',
     'claude-api': 'Claude API',
     'claude-cli': 'Claude Code',
-    'openai-api': 'OpenAI API'
+    'openai-api': 'OpenAI API',
+    'codex-cli': 'Codex'
   },
   apiKeyLabels: {
     anthropic: 'Claude API key',
@@ -139,6 +165,11 @@ export const llmEn: typeof llmKo = {
       title: 'OpenAI API key (GPT)',
       description:
         'Calls GPT with an API key issued from the OpenAI platform. Transcripts are sent to OpenAI servers and token fees apply. Choose the model below.'
+    },
+    'codex-cli': {
+      title: 'Codex (ChatGPT subscription)',
+      description:
+        'Runs the Codex CLI installed on this computer (the codex command) with your logged-in ChatGPT subscription account. Transcripts are sent to OpenAI servers and count toward your subscription usage. Choose the model below.'
     }
   },
   apiKeyField: {
@@ -168,6 +199,15 @@ export const llmEn: typeof llmKo = {
     fallbackDescription: 'The model used for summaries and glossary drafts',
     appliesNext: 'Applies from the next summary.'
   },
+  codexModelSelect: {
+    label: 'Codex model',
+    defaultOption: 'Codex default model',
+    defaultDescription: 'Uses the default model built into the Codex CLI',
+    unlistedSuffix: ' (not listed)',
+    emptyHint: 'Could not read the model list, so only the default model is available.',
+    appliesNext:
+      'Only models your subscription plan allows will work. Applies from the next summary.'
+  },
   section: {
     title: 'Summary & glossary drafts',
     intro:
@@ -180,6 +220,10 @@ export const llmEn: typeof llmKo = {
       `${version ? ` (${version})` : ''}. Uses the account you logged in with in the terminal.`,
     cliMissing:
       'The claude command was not found. Install Claude Code, log in once in the terminal, then relaunch the app.',
+    codexFoundSuffix: ({ version }: { version: string | null }) =>
+      `${version ? ` (${version})` : ''}. Uses the ChatGPT account you logged in with.`,
+    codexMissing:
+      'The codex command was not found. Install the Codex CLI (or the ChatGPT desktop app), log in with codex login in the terminal, then relaunch the app.',
     checking: 'Checking…',
     checkConnection: 'Check connection',
     checkHint: 'Sends one short request'
@@ -188,12 +232,14 @@ export const llmEn: typeof llmKo = {
     providerError: 'Could not save the LLM provider',
     keyError: 'Could not save the API key',
     modelError: 'Could not save the GPT model',
+    codexModelError: 'Could not save the Codex model',
     checkError: 'Could not check the connection',
     keySaved: 'API key saved',
     keyCleared: 'Saved API key deleted'
   },
   missing: {
     cli: 'Claude Code (the claude command) was not found',
+    codexCli: 'The Codex CLI (the codex command) was not found',
     apiKey: ({ label }: { label: string }) => `No ${label} is saved`,
     localModel: 'The local summary model file is not installed'
   },
@@ -201,6 +247,10 @@ export const llmEn: typeof llmKo = {
     cliOutputUnreadable: 'Could not read the Claude Code result (unexpected output format)',
     cliFailed: ({ reason }: { reason: string }) =>
       `Claude Code could not handle the request: ${reason}`,
+    codexFailed: ({ reason }: { reason: string }) =>
+      `Codex could not handle the request: ${reason}`,
+    codexEmptyAnswer: 'Codex returned an empty answer',
+    invalidCodexModel: 'Invalid Codex model',
     unknownReason: 'unknown reason',
     invalidVendor: 'Invalid request (missing API key vendor)',
     missingApiKey: 'Invalid request (missing API key)',

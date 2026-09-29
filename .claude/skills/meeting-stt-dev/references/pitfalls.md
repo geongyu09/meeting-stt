@@ -174,7 +174,7 @@
   상세에서 제목을 바꾸거나 회의를 지워도 목록이 그대로 남는다. main이 목록 변경 뒤 `meetings:changed`를 push하고 사이드바가 다시 불러온다 (`architecture.md` "화면 디자인").
 - **글꼴 서브셋·woff2 변환본은 원래 이름으로 동봉하지 않는다.** OFL 예약 글꼴 이름 조항 때문이다. 배포처가 준 파일을 그대로 넣는다.
 
-## LLM 공급자 (Claude API · Claude Code CLI · OpenAI API)
+## LLM 공급자 (Claude API · Claude Code CLI · OpenAI API · Codex CLI)
 
 - **Finder에서 띄운 Electron 앱의 `PATH`에는 `claude`가 없다.** GUI 앱은 로그인 셸의 PATH를 받지 않아 `/usr/bin:/bin:/usr/sbin:/sbin`뿐이다.
   잘 알려진 설치 위치를 먼저 보고, 없으면 `$SHELL -ilc 'command -v claude'`로 한 번 찾아 캐시한다. spawn할 때도 PATH를 로그인 셸 값으로 바꿔 준다 — npm 설치본은 `node`를 PATH에서 찾는다.
@@ -188,4 +188,7 @@
 - **Claude 응답에서 `stop_reason`을 본다.** `refusal`은 텍스트가 비어 있고, `max_tokens`는 문장 중간에서 끝난다. 둘 다 빈 요약·잘린 요약으로 저장되지 않게 오류로 바꾼다.
 - **OpenAI Responses 응답에서 `status`를 본다.** HTTP 200이어도 `status: 'incomplete'`면 `output_text`가 잘려 있다. `incomplete_details.reason`(`max_output_tokens`·`content_filter`)으로 나눠 오류로 바꾼다.
 - **GPT-6의 추론 토큰도 `max_output_tokens`에 포함된다.** Claude의 적응형 사고와 같은 이유로 하한(`API_MIN_MAX_TOKENS`)을 둔다. 온도(`temperature`)는 추론 모델이 받지 않으므로 넘기지 않는다.
+- **Codex CLI의 구독 모델은 API 모델과 다르다.** ChatGPT 계정으로는 `gpt-6-sol`·`gpt-6-astra`가 400(`not supported when using Codex with a ChatGPT account`)으로 거절된다 (2026-09-29, Plus 실측). `OPENAI_MODEL_IDS`를 재사용하지 말고 `codex debug models` 카탈로그를 읽는다.
+- **`codex exec`는 사용자 config의 MCP 서버·알림 훅을 그대로 띄운다.** `--ignore-user-config`로 끈다 — 로그인은 `CODEX_HOME`의 인증 파일이라 유지된다. 대신 config의 `model`도 무시된다.
+- **`codex exec` stdout은 사람용 출력이다.** 머리말(`workdir:`·`model:`)·`tokens used`가 섞이므로 답은 `-o` 파일로 받는다. 실패 사유는 stderr의 `ERROR: {json}` 줄에 있다.
 - **API 키를 공급자가 아니라 회사 단위로 저장한다.** 공급자 라디오를 오갈 때마다 키를 다시 붙여 넣게 하지 않기 위해서다. 새 공급자를 붙일 때 `apiVendorOf`에 대응만 추가하면 키 저장·상태·화면이 따라온다.

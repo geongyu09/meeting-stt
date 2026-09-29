@@ -16,6 +16,8 @@ import {
   type SettingsChangedEvent,
   type SetOpenaiModelRequest,
   type SetOpenaiModelResponse,
+  type SetCodexModelRequest,
+  type SetCodexModelResponse,
   type DownloadModelsRequest,
   type DownloadModelsResponse,
   type DraftGlossaryRequest,
@@ -164,6 +166,8 @@ const api = {
       ipcRenderer.invoke(IPC.llm.setApiKey, payload),
     setOpenaiModel: (payload: SetOpenaiModelRequest): Promise<SetOpenaiModelResponse> =>
       ipcRenderer.invoke(IPC.llm.setOpenaiModel, payload),
+    setCodexModel: (payload: SetCodexModelRequest): Promise<SetCodexModelResponse> =>
+      ipcRenderer.invoke(IPC.llm.setCodexModel, payload),
     check: (): Promise<CheckLlmResponse> => ipcRenderer.invoke(IPC.llm.check)
   },
   models: {

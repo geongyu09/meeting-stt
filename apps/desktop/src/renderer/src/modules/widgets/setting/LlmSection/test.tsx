@@ -9,12 +9,14 @@ vi.mock('@renderer/shared/api/llm', () => ({
   setLlmProviderApi: vi.fn(),
   setLlmApiKeyApi: vi.fn(),
   setOpenaiModelApi: vi.fn(),
+  setCodexModelApi: vi.fn(),
   checkLlmApi: vi.fn()
 }))
 
 import {
   checkLlmApi,
   getLlmStatusApi,
+  setCodexModelApi,
   setLlmApiKeyApi,
   setLlmProviderApi,
   setOpenaiModelApi
@@ -31,6 +33,10 @@ const statusOf = (overrides: Partial<LlmStatus> = {}): LlmStatus => ({
   openaiModel: 'gpt-6-sol',
   claudeCliPath: null,
   claudeCliVersion: null,
+  codexCliPath: null,
+  codexCliVersion: null,
+  codexModel: null,
+  codexModels: [],
   ...overrides
 })
 
@@ -67,7 +73,7 @@ describe('LlmSection', () => {
     expect(findRadio(/로컬 모델/).hasAttribute('checked')).toBe(true)
     expect(screen.getByText(/기기 밖으로 나가지 않습니다/)).toBeTruthy()
     expect(screen.getAllByText(/Anthropic 서버로 전송/)).toHaveLength(2)
-    expect(screen.getByText(/OpenAI 서버로 전송/)).toBeTruthy()
+    expect(screen.getAllByText(/OpenAI 서버로 전송/)).toHaveLength(2)
     expect(screen.queryByRole('button', { name: '연결 확인' })).toBeNull()
   })
 
@@ -202,6 +208,56 @@ describe('LlmSection', () => {
 
     expect(screen.getByText('/Users/me/.local/bin/claude')).toBeTruthy()
     expect(screen.getByText(/2\.1\.281/)).toBeTruthy()
+  })
+
+  it('Codex를 골랐는데 명령을 못 찾으면 설치 안내만 보이고 모델 선택은 없다', async () => {
+    await renderSection(statusOf({ provider: 'codex-cli' }))
+
+    expect(screen.getByRole('alert').textContent).toContain('codex 명령을 찾을 수 없습니다')
+    expect(screen.queryByLabelText('Codex 모델')).toBeNull()
+  })
+
+  it('Codex 모델은 CLI 기본값과 카탈로그 목록에서 고른다', async () => {
+    const user = userEvent.setup()
+    const codex = {
+      provider: 'codex-cli' as const,
+      codexCliPath: '/Applications/ChatGPT.app/Contents/Resources/codex',
+      codexCliVersion: 'codex-cli 0.155.0',
+      codexModels: [
+        { id: 'gpt-6-luna', label: 'GPT-6-Luna', description: 'Fast and affordable model' },
+        { id: 'gpt-5.6-terra', label: 'GPT-5.6-Terra', description: null }
+      ]
+    }
+    vi.mocked(setCodexModelApi)
+      .mockResolvedValueOnce(statusOf({ ...codex, codexModel: 'gpt-6-luna' }))
+      .mockResolvedValueOnce(statusOf({ ...codex, codexModel: null }))
+    await renderSection(statusOf(codex))
+
+    const select = () => screen.getByLabelText('Codex 모델') as HTMLSelectElement
+    expect(select().value).toBe('')
+    expect(screen.getByText(/Codex CLI에 내장된 기본 모델/)).toBeTruthy()
+
+    await user.selectOptions(select(), 'gpt-6-luna')
+    expect(setCodexModelApi).toHaveBeenCalledWith({ model: 'gpt-6-luna' })
+    expect(select().value).toBe('gpt-6-luna')
+    expect(screen.getByText(/Fast and affordable model/)).toBeTruthy()
+
+    await user.selectOptions(select(), '')
+    expect(setCodexModelApi).toHaveBeenLastCalledWith({ model: null })
+  })
+
+  it('저장한 Codex 모델이 목록에서 사라져도 선택지에 남긴다', async () => {
+    await renderSection(
+      statusOf({
+        provider: 'codex-cli',
+        codexCliPath: '/opt/homebrew/bin/codex',
+        codexModel: 'gpt-6-sol'
+      })
+    )
+
+    expect((screen.getByLabelText('Codex 모델') as HTMLSelectElement).value).toBe('gpt-6-sol')
+    expect(screen.getByText('gpt-6-sol (목록에 없음)')).toBeTruthy()
+    expect(screen.getByText(/기본 모델만 고를 수 있습니다/)).toBeTruthy()
   })
 
   it('연결 확인 결과를 보여 주고 실패하면 안내한다', async () => {

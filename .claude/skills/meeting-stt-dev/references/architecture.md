@@ -72,7 +72,7 @@ src/
     models/{paths,download,recommend,service}.ts   # 경로 해석·다운로드·저사양 권장 (자산 목록은 @meeting-stt/models/desktop)
     summary/{llama,run,paths,transcript}.ts        # 요약 (Phase 5). LLM 호출은 llm/*을 거친다
     glossary/draft.ts, refine/{run,paths}.ts       # 용어 초안·회의록 자동 교정 (Phase 5-4). LLM 호출은 llm/*을 거친다
-    llm/{provider,local,claudeApi,claudeCli,openaiApi,apiKey,check}.ts  # LLM 공급자 추상화 (아래 "LLM 공급자" 절)
+    llm/{provider,local,claudeApi,claudeCli,codexCli,cliEnv,openaiApi,apiKey,check}.ts  # LLM 공급자 추상화 (아래 "LLM 공급자" 절)
     updater.ts                # electron-updater, 기본 꺼짐 (references/distribution.md)
     bin/{paths,spawn}.ts
     ipc/handlers.ts
@@ -133,7 +133,7 @@ export const IPC = {
   // 녹음 파일 가져오기 (아래 같은 이름의 절)
   //   meetings.import
   // LLM 공급자 선택 (아래 "LLM 공급자" 절)
-  //   llm.status / llm.setProvider / llm.setApiKey / llm.setOpenaiModel / llm.check
+  //   llm.status / llm.setProvider / llm.setApiKey / llm.setOpenaiModel / llm.setCodexModel / llm.check
   // 라이브 받아쓰기 (아래 같은 이름의 절)
   //   recording.setLiveTranscript (결과는 events.recordingState의 liveTranscript로 push)
   //   recording.setSystemAudio (결과는 events.recordingState의 systemAudio로 push, Phase 5-2)
@@ -1185,7 +1185,7 @@ events: { progress: 'pipeline:progress', summary: 'summary:progress' }
 요약과 용어 초안은 **LLM을 부르는 방식이 같고 프롬프트만 다르다.** 사용자가 이미 구독하거나 발급받은 Claude·GPT를 쓸 수 있게
 LLM 호출을 `src/main/llm/*`의 **공급자 추상화** 뒤로 모으고, 설정에서 공급자를 고른다. 지원 외부 LLM은 Claude와 GPT다 (SKILL.md 1절).
 
-### 네 공급자
+### 다섯 공급자
 
 | `LlmProvider` | 실행 | 준비 조건 | 비용·전송 |
 | --- | --- | --- | --- |
@@ -1193,6 +1193,7 @@ LLM 호출을 `src/main/llm/*`의 **공급자 추상화** 뒤로 모으고, 설�
 | `claude-api` | `@anthropic-ai/sdk`로 Messages API 호출 (main 프로세스) | 설정에 저장한 Anthropic API 키 | Anthropic 콘솔 토큰 요금. 회의록이 Anthropic 서버로 전송된다 |
 | `claude-cli` | 설치된 Claude Code `claude -p`를 `child_process.spawn` | `claude` 실행 파일 + CLI에 로그인된 구독 계정 | 구독 사용량. 회의록이 Anthropic 서버로 전송된다 |
 | `openai-api` | `openai` SDK로 Responses API 호출 (main 프로세스) | 설정에 저장한 OpenAI API 키 | OpenAI 플랫폼 토큰 요금. 회의록이 OpenAI 서버로 전송된다 |
+| `codex-cli` | 설치된 Codex CLI `codex exec`를 `child_process.spawn` (2026-09-29) | `codex` 실행 파일 + CLI에 로그인된 ChatGPT 구독 계정 | 구독 사용량. 회의록이 OpenAI 서버로 전송된다 |
 
 - **회의록 전송 사실은 설정 화면의 공급자 설명에 그대로 적는다.** 로컬 우선 약속의 예외를 사용자가 알고 고르게 한다.
   외부 공급자의 자동 교정은 별도 스위치(기본 꺼짐)로 켜고, 켜면 회의가 끝날 때마다 회의록이 전송된다는 것을 스위치 설명에 적는다 (2026-09-28, "회의록 교정" 절).
@@ -1201,12 +1202,18 @@ LLM 호출을 `src/main/llm/*`의 **공급자 추상화** 뒤로 모으고, 설�
   키가 필요한 공급자와 회사의 대응은 `apiVendorOf(provider)` 한 곳에 둔다 (`claude-api` → `anthropic`, `openai-api` → `openai`, 나머지 null).
 - **모델**: Claude API는 `claude-opus-5` 고정, 적응형 사고(`thinking: { type: 'adaptive' }`) + `output_config.effort: 'medium'`(요약은 정형 작업이라 높은 노력이 필요 없다).
   CLI는 `--model`을 넘기지 않고 **사용자가 CLI에 설정한 기본 모델**을 쓴다 — 구독 등급마다 쓸 수 있는 모델이 달라 앱이 고르면 실패할 수 있다.
+  **Codex CLI는 사용자가 모델을 고른다** (2026-09-29 사용자 요청) — ChatGPT 구독으로 쓸 수 있는 모델은 API 모델 목록과 다르고 등급마다 다르다
+  (실측: Plus 계정에서 `gpt-6-sol`·`gpt-6-astra`는 400 `not supported when using Codex with a ChatGPT account`, `gpt-6-luna`·`gpt-5.6-terra`는 성공).
+  그래서 목록을 앱에 고정하지 않고 **`codex debug models`(CLI가 로그인 계정 기준으로 내려받은 모델 카탈로그 JSON)** 에서 `visibility === 'list'`인 모델을 `priority` 순으로 읽어 보여준다.
+  선택값은 문자열 id(`llm.codexModel`)이고 **`null`이면 `-m`을 넘기지 않아 CLI 기본 모델**을 쓴다(기본값). 저장한 모델이 카탈로그에서 사라져도 값은 지우지 않고 선택지에 남겨, 실패하면 CLI 오류 문장이 그대로 보이게 한다.
+  `model_reasoning_effort`는 `low`(OpenAI API의 `reasoning.effort`와 같은 이유).
   OpenAI는 **GPT-6 계열 셋 중 사용자가 고른다** (`OpenaiModelId = 'gpt-6-astra' | 'gpt-6-sol' | 'gpt-6-luna'`, 기본 `gpt-6-sol`) —
   요금이 모델마다 크게 달라 앱이 하나로 고정하면 비싼 쪽(Astra)이나 부족한 쪽(Luna)을 강요하게 된다. `reasoning.effort`는 `'low'`.
   GPT 모델 목록은 `src/shared/llm.ts`의 `OPENAI_MODELS` 한 곳에만 둔다.
 - **컨텍스트 예산은 공급자가 정한다.** `local`은 기존 `CHUNK_BUDGET_CHARS`(8K 컨텍스트)로 map-reduce하고, 외부 API는 컨텍스트가 커서
   `API_CHUNK_BUDGET_CHARS`(40만 자, 약 28만 토큰)까지 한 번에 넣는다. 실무 회의록은 전부 한 번에 들어가 reduce 단계가 없다.
   `splitTranscript`의 `budgetChars` 인자로 넘기므로 순수 로직은 바뀌지 않는다.
+  **Codex CLI만 예외로 `CODEX_CHUNK_BUDGET_CHARS`(20만 자, 약 14만 토큰)** 를 쓴다 — 구독 모델의 컨텍스트가 27만 2천 토큰이고 Codex 자체 기본 지시문이 앞에 붙기 때문이다.
 - **생성 상한의 하한(`API_MIN_MAX_TOKENS`, 16K)도 외부 API 공통이다.** Claude의 적응형 사고와 GPT-6의 추론 토큰이 모두 출력 상한에 포함되므로 로컬용 상한(1200)을 그대로 주면 사고만 하다 잘린다.
 - **GBNF 문법은 `local`에서만 쓸 수 있다.** 용어 초안은 외부 API에서는 문법 대신 출력 형식 지시문을 프롬프트 끝에 붙이고, 파싱(`parseGlossaryDraft`)이
   형식에 맞지 않는 줄을 버리는 것으로 같은 결과를 얻는다.
@@ -1220,7 +1227,9 @@ src/main/llm/types.ts        # LlmClient·LlmCompleteParams 인터페이스
 src/main/llm/provider.ts     # 설정을 읽어 LlmClient 하나를 만든다(createLlmClient)·현재 상태(getLlmStatus). 요약·용어 초안은 이것만 부른다
 src/main/llm/local.ts        # llama-cli (기존 summary/llama.ts의 인자 조립·답변 추출을 그대로 쓴다)
 src/main/llm/claudeApi.ts    # Anthropic SDK. 스트리밍으로 받아 finalMessage()만 쓴다 (긴 출력에서 HTTP 타임아웃 회피)
+src/main/llm/cliEnv.ts       # 두 CLI 공용 — 로그인 셸 조회·PATH, 실행 파일 탐색(후보 경로 → command -v)·버전, 빈 cwd(userData/llm)
 src/main/llm/claudeCli.ts    # claude 실행 파일 탐색·spawn. 프롬프트는 stdin, 시스템 프롬프트는 --system-prompt
+src/main/llm/codexCli.ts     # codex 실행 파일 탐색·모델 카탈로그(codex debug models)·spawn(codex exec). 프롬프트는 stdin, 답은 -o 파일
 src/main/llm/openaiApi.ts    # OpenAI SDK Responses API. instructions=시스템 프롬프트, input=프롬프트, output_text만 쓴다
 src/main/llm/apiKey.ts       # 회사별 API 키 저장·조회 (safeStorage 암호화)
 src/main/llm/check.ts        # 설정 화면 "연결 확인" — 짧은 프롬프트 한 번
@@ -1274,6 +1283,24 @@ claude -p --output-format json --tools "" --no-session-persistence --setting-sou
   없으면 로그인 셸(`$SHELL -ilc 'command -v claude'`)로 한 번 찾아 캐시한다. spawn할 때 `PATH`도 로그인 셸의 값으로 바꿔 준다
   (npm 설치본은 `node`를 PATH에서 찾는다). 결과(`path`·`version`)는 `llm:status`로 설정 화면에 보여준다.
 
+### Codex CLI 호출 (2026-09-29)
+
+```
+codex exec --ephemeral --skip-git-repo-check --ignore-user-config --ignore-rules -s read-only
+  -c developer_instructions=<시스템 프롬프트, TOML 문자열> -c model_reasoning_effort="low" [-m <모델>]
+  -o <답변 파일> -
+  (프롬프트는 stdin으로)
+```
+
+- **`--ignore-user-config`**: 사용자의 `~/.codex/config.toml`(MCP 서버·알림 훅·개인 지시)을 읽지 않는다. 인증은 그대로 `CODEX_HOME`에서 읽으므로 구독 로그인은 유지된다 (2026-09-29 실측).
+  대신 사용자가 config에 적은 기본 모델도 무시되므로 "CLI 기본 모델"은 **CLI 내장 기본값**이다 — 화면 문구에 그렇게 적는다.
+- **`--ephemeral`**(세션 파일 남기지 않음), **`--skip-git-repo-check`**(빈 cwd는 git 저장소가 아니다), **`-s read-only`**(요약에 쓰기 권한이 필요 없다), **`--ignore-rules`**.
+- 시스템 프롬프트는 `-c developer_instructions=…`로 넘긴다. 값은 TOML로 파싱되므로 `JSON.stringify`한 문자열(TOML 기본 문자열과 호환)을 넣는다. Codex 자체 기본 지시문은 그대로 남는다.
+- **답은 `-o <파일>`(마지막 메시지)로 받는다.** stdout에는 머리말·사용 토큰 같은 사람용 출력이 섞인다. 파일은 호출 쪽 `workDir`가 아니라 CLI 전용 임시 폴더에 두고 읽은 뒤 지운다.
+- **실패하면 종료 코드 1**이고 stderr에 `ERROR: {"type":"error","status":400,"error":{"message":…}}` 줄이 남는다. 그 JSON의 `error.message`를 꺼내 한국어 안내 뒤에 붙이고, 없으면 stderr 마지막 줄을 붙인다.
+- **실행 파일 탐색**: `~/.local/bin/codex` → `/opt/homebrew/bin/codex` → `/usr/local/bin/codex` → `/Applications/ChatGPT.app/Contents/Resources/codex`(ChatGPT 데스크탑 앱이 동봉) → `/Applications/Codex.app/Contents/Resources/codex` 순서, 없으면 로그인 셸 `command -v codex`. 탐색·PATH·버전 확인은 Claude Code와 같은 코드(`cliEnv.ts`)를 쓴다.
+- **모델 카탈로그**는 `llm:status`마다 `codex debug models`로 읽는다(수십 ms). 파싱은 `unknown`으로 받아 `models[].slug`·`display_name`·`description`·`visibility`·`priority`만 좁혀 쓰고, 실패하면 빈 목록(= CLI 기본 모델만)으로 둔다.
+
 ### Claude API 호출
 
 - `new Anthropic({ apiKey })` → `client.messages.stream({...}).finalMessage()`. 스트리밍은 화면에 흘리지 않고 타임아웃 회피용이다.
@@ -1299,6 +1326,7 @@ claude -p --output-format json --tools "" --no-session-persistence --setting-sou
 | `llm.setProvider` | `llm:setProvider` | invoke | 공급자 저장. 갱신된 `LlmStatus`를 돌려준다 |
 | `llm.setApiKey` | `llm:setApiKey` | invoke | 회사(`vendor`)의 키 저장(`apiKey: string`) 또는 삭제(`null`). 갱신된 `LlmStatus`를 돌려준다 |
 | `llm.setOpenaiModel` | `llm:setOpenaiModel` | invoke | GPT 모델 저장(`model: OpenaiModelId`). 갱신된 `LlmStatus`를 돌려준다 |
+| `llm.setCodexModel` | `llm:setCodexModel` | invoke | Codex CLI 모델 저장(`model: string \| null`, null이면 CLI 기본 모델). id는 영숫자·`.`·`_`·`-` 64자 이하만 받는다. 갱신된 `LlmStatus`를 돌려준다 (2026-09-29) |
 | `llm.check` | `llm:check` | invoke | 현재 공급자로 짧은 프롬프트 한 번. 성공 메시지를 돌려주고 실패는 reject |
 
 - 공급자는 `AppSettings`에 넣지 않는다 — 키 저장·CLI 탐색·연결 확인 같은 비동기 동작이 붙어 있어 용어 사전과 같은 이유로 **자기 채널**을 쓴다 (`references/data-model.md`).

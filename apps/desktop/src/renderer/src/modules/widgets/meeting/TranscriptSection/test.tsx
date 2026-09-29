@@ -127,7 +127,11 @@ const LLM_STATUS: LlmStatus = {
   },
   openaiModel: 'gpt-6-sol',
   claudeCliPath: null,
-  claudeCliVersion: null
+  claudeCliVersion: null,
+  codexCliPath: null,
+  codexCliVersion: null,
+  codexModel: null,
+  codexModels: []
 }
 
 // 레일의 교정 패널이 스스로 읽는 값. 이 테스트의 관심사가 아니라 준비된 상태로 고정한다

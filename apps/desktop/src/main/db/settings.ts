@@ -12,6 +12,7 @@ import {
   DEFAULT_LLM_PROVIDER,
   DEFAULT_OPENAI_MODEL_ID,
   isLlmProvider,
+  isCodexModelId,
   isOpenaiModelId
 } from '@shared/llm'
 import {
@@ -44,6 +45,7 @@ const GLOSSARY_TERMS_KEY = 'glossary.terms'
 const REFINE_AUTO_EXTERNAL_KEY = 'refine.autoExternal'
 const LLM_PROVIDER_KEY = 'llm.provider'
 const LLM_OPENAI_MODEL_KEY = 'llm.openaiModel'
+const LLM_CODEX_MODEL_KEY = 'llm.codexModel'
 /** 회사별 암호화 키의 settings 키. Anthropic은 OpenAI 추가 전 이름을 그대로 둬 저장된 키를 잃지 않는다 */
 const LLM_API_KEY_KEYS: Record<LlmApiVendor, string> = {
   anthropic: 'llm.claudeApiKey',
@@ -286,6 +288,16 @@ export const getOpenaiModel = (): OpenaiModelId => {
 
 export const setOpenaiModel = ({ model }: { model: OpenaiModelId }) =>
   writeValue({ key: LLM_OPENAI_MODEL_KEY, value: model })
+
+/** `codex-cli`가 `-m`으로 넘길 모델. 없거나 형식이 틀리면 null(CLI 기본 모델)로 읽는다 */
+export const getCodexModel = () => {
+  const value = readValue(LLM_CODEX_MODEL_KEY)
+
+  return isCodexModelId(value) ? value : null
+}
+
+export const setCodexModel = ({ model }: { model: string | null }) =>
+  writeValue({ key: LLM_CODEX_MODEL_KEY, value: model })
 
 /**
  * safeStorage로 암호화한 회사별 API 키(base64). 평문은 여기까지 오지 않는다 —

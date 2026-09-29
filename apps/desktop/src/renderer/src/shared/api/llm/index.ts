@@ -1,4 +1,9 @@
-import type { SetLlmApiKeyRequest, SetLlmProviderRequest, SetOpenaiModelRequest } from '@shared/ipc'
+import type {
+  SetCodexModelRequest,
+  SetLlmApiKeyRequest,
+  SetLlmProviderRequest,
+  SetOpenaiModelRequest
+} from '@shared/ipc'
 import { llmKo } from '@shared/locales/llm'
 
 // Electron은 main에서 던진 에러를 "Error invoking remote method '<채널>': Error: <원문>"으로 감싼다
@@ -10,6 +15,7 @@ const STATUS_ERROR_MESSAGE = llmKo.section.loadError
 const PROVIDER_ERROR_MESSAGE = llmKo.actions.providerError
 const API_KEY_ERROR_MESSAGE = llmKo.actions.keyError
 const OPENAI_MODEL_ERROR_MESSAGE = llmKo.actions.modelError
+const CODEX_MODEL_ERROR_MESSAGE = llmKo.actions.codexModelError
 const CHECK_ERROR_MESSAGE = llmKo.actions.checkError
 
 interface ToUserErrorParams {
@@ -42,7 +48,7 @@ const invokeLlm = async <T>({ call, fallback }: InvokeLlmParams<T>) => {
 
 /**
  * @description 요약·용어 초안이 쓰는 LLM 공급자의 현재 상태를 불러옵니다. API 키 자체는 오지 않고 유무와 마지막 4자만 옵니다.
- * @returns 공급자, 로컬 모델 준비 여부, 회사별 키 유무, GPT 모델, `claude` 실행 파일 경로·버전
+ * @returns 공급자, 로컬 모델 준비 여부, 회사별 키 유무, GPT 모델, `claude`·`codex` 실행 파일 경로·버전, Codex 모델과 선택지
  * @example
  * const status = await getLlmStatusApi()
  */
@@ -51,7 +57,7 @@ export const getLlmStatusApi = async () =>
 
 /**
  * @description LLM 공급자를 저장합니다. 진행 중인 요약에는 적용되지 않고 다음 잡부터 바뀝니다.
- * @param provider - 'local' | 'claude-api' | 'claude-cli' | 'openai-api'
+ * @param provider - 'local' | 'claude-api' | 'claude-cli' | 'openai-api' | 'codex-cli'
  * @returns 갱신된 상태
  * @example
  * const status = await setLlmProviderApi({ provider: 'claude-api' })
@@ -87,6 +93,19 @@ export const setOpenaiModelApi = async ({ model }: SetOpenaiModelRequest) =>
   invokeLlm({
     call: () => window.api.llm.setOpenaiModel({ model }),
     fallback: OPENAI_MODEL_ERROR_MESSAGE
+  })
+
+/**
+ * @description Codex CLI가 부를 모델을 저장합니다. 목록은 `llm:status`의 `codexModels`에서 고르고, 다음 요약부터 적용됩니다.
+ * @param model - 모델 id. `null`이면 CLI 기본 모델
+ * @returns 갱신된 상태
+ * @example
+ * const status = await setCodexModelApi({ model: 'gpt-6-luna' })
+ */
+export const setCodexModelApi = async ({ model }: SetCodexModelRequest) =>
+  invokeLlm({
+    call: () => window.api.llm.setCodexModel({ model }),
+    fallback: CODEX_MODEL_ERROR_MESSAGE
   })
 
 /**

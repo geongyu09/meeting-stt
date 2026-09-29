@@ -102,15 +102,25 @@ export interface GlossarySettings {
 
 /**
  * 요약·용어 초안이 쓰는 LLM 공급자 (references/architecture.md "LLM 공급자").
- * 'local'은 llama.cpp, 나머지는 사용자의 Claude API 키·Claude Code CLI(구독)·OpenAI API 키다.
+ * 'local'은 llama.cpp, 나머지는 사용자의 Claude API 키·Claude Code CLI(구독)·OpenAI API 키·Codex CLI(ChatGPT 구독)다.
  */
-export type LlmProvider = 'local' | 'claude-api' | 'claude-cli' | 'openai-api'
+export type LlmProvider = 'local' | 'claude-api' | 'claude-cli' | 'openai-api' | 'codex-cli'
 
 /** API 키를 저장하는 단위. 공급자가 아니라 회사별이라 공급자를 오가도 키를 다시 넣지 않는다 */
 export type LlmApiVendor = 'anthropic' | 'openai'
 
 /** `openai-api`가 부르는 GPT 모델. 목록은 `src/shared/llm.ts`의 OPENAI_MODEL_IDS, 라벨은 사전 `llm.openaiModels` */
 export type OpenaiModelId = 'gpt-6-astra' | 'gpt-6-sol' | 'gpt-6-luna'
+
+/**
+ * Codex CLI가 로그인한 구독 계정으로 쓸 수 있는 모델 하나. 등급마다 달라 유니온으로 고정하지 않고
+ * `codex debug models` 카탈로그에서 읽는다 (references/architecture.md "Codex CLI 호출")
+ */
+export interface CodexModelOption {
+  id: string
+  label: string
+  description: string | null
+}
 
 /** 저장된 키의 유무와 마지막 4자. 키 자체는 renderer로 보내지 않는다 */
 export interface LlmApiKeyStatus {
@@ -131,6 +141,13 @@ export interface LlmStatus {
   /** 찾은 `claude` 실행 파일. 없으면 null */
   claudeCliPath: string | null
   claudeCliVersion: string | null
+  /** 찾은 `codex` 실행 파일. 없으면 null */
+  codexCliPath: string | null
+  codexCliVersion: string | null
+  /** `codex-cli`가 `-m`으로 넘길 모델. null이면 CLI 기본 모델 */
+  codexModel: string | null
+  /** 구독 계정으로 고를 수 있는 모델. CLI가 없거나 카탈로그를 못 읽으면 빈 배열 */
+  codexModels: CodexModelOption[]
 }
 
 /**

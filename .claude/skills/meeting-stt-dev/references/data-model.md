@@ -184,15 +184,16 @@ export interface AppSettings {
   저장할 때 main이 줄 앞뒤 공백을 자르고 빈 줄·중복 용어(`=` 앞부분 기준, 대소문자 무시)를 뺀다. 한도를 넘으면 거절한다.
 - **`widget.bounds`도 `AppSettings`에 넣지 않는다.** 설정 화면에서 사람이 고르는 값이 아니라 창을 옮길 때 main이 적어 두는
   런타임 상태이고, 읽고 쓰는 쪽이 `src/main/windows/widget.ts` 하나뿐이기 때문이다.
-- **LLM 공급자(`llm.provider`, `llm.claudeApiKey`, `llm.openaiApiKey`, `llm.openaiModel`)도 `AppSettings`에 넣지 않는다** (2026-09-24). 키 저장·CLI 탐색·연결 확인이 붙은
-  별도 카테고리라 자기 채널(`llm:status`/`llm:setProvider`/`llm:setApiKey`/`llm:setOpenaiModel`)로 읽고 쓴다 (`references/architecture.md` "LLM 공급자").
+- **LLM 공급자(`llm.provider`, `llm.claudeApiKey`, `llm.openaiApiKey`, `llm.openaiModel`, `llm.codexModel`)도 `AppSettings`에 넣지 않는다** (2026-09-24). 키 저장·CLI 탐색·연결 확인이 붙은
+  별도 카테고리라 자기 채널(`llm:status`/`llm:setProvider`/`llm:setApiKey`/`llm:setOpenaiModel`/`llm:setCodexModel`)로 읽고 쓴다 (`references/architecture.md` "LLM 공급자").
 
   | 키 | 타입 | 기본값 | 뜻 |
   | --- | --- | --- | --- |
-  | `llm.provider` | `'local' \| 'claude-api' \| 'claude-cli' \| 'openai-api'` | `'local'` | 요약·용어 초안이 쓰는 LLM. 모르는 값은 `'local'`로 읽는다 |
+  | `llm.provider` | `'local' \| 'claude-api' \| 'claude-cli' \| 'openai-api' \| 'codex-cli'` | `'local'` | 요약·용어 초안이 쓰는 LLM. 모르는 값은 `'local'`로 읽는다 |
   | `llm.claudeApiKey` | string (base64) | 없음 | `safeStorage.encryptString`으로 암호화한 Anthropic API 키. **평문을 저장하지 않고 renderer에 돌려주지 않는다.** 복호화는 요청 직전 main에서만 한다 |
   | `llm.openaiApiKey` | string (base64) | 없음 | 같은 방식으로 암호화한 OpenAI API 키. 키 이름은 회사(`LlmApiVendor`)별로 `apiKey.ts`가 대응시킨다 |
   | `llm.openaiModel` | `'gpt-6-astra' \| 'gpt-6-sol' \| 'gpt-6-luna'` | `'gpt-6-sol'` | `openai-api`가 부르는 모델. 모르는 값은 기본값으로 읽는다 |
+  | `llm.codexModel` | string \| 없음 | 없음 | `codex-cli`가 `-m`으로 넘기는 모델 id (2026-09-29). 없으면 CLI 기본 모델. 구독 등급마다 목록이 달라 유니온으로 고정하지 않고, 형식(영숫자·`.`·`_`·`-`, 64자 이하)만 검증한다 |
 
   ```ts
   export type LlmProvider = 'local' | 'claude-api' | 'claude-cli' | 'openai-api'
