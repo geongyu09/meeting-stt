@@ -22,6 +22,7 @@ const TERMS_LIST = { name: '용어 목록' }
 const DRAFT_BUTTON = { name: '용어 초안 만들기' }
 const SAVE_BUTTON = { name: '저장' }
 
+const MANY_TERMS = ['A1', 'B2', 'C3', 'D4', 'E5', 'F6', 'G7']
 const SAVED = { teamDescription: '프론트엔드 개발팀', terms: ['GitHub = 깃허브', '모노레포'] }
 
 afterEach(() => {
@@ -220,6 +221,39 @@ describe('GlossarySection', () => {
 
     expect(await shownTerms()).toEqual(['모노레포'])
     expect(screen.getByText('저장하지 않은 변경이 있습니다')).toBeTruthy()
+  })
+
+  it('용어가 5개를 넘으면 앞 5행만 보이고 더보기로 펼치고 접는다', async () => {
+    vi.mocked(getGlossaryApi).mockResolvedValue({ teamDescription: '', terms: MANY_TERMS })
+    render(<GlossarySection />)
+    await termList()
+
+    expect(await shownTerms()).toEqual(MANY_TERMS.slice(0, 5))
+
+    await userEvent.click(screen.getByRole('button', { name: '더보기 (2개)' }))
+    expect(await shownTerms()).toEqual(MANY_TERMS)
+
+    await userEvent.click(screen.getByRole('button', { name: '접기' }))
+    expect(await shownTerms()).toEqual(MANY_TERMS.slice(0, 5))
+  })
+
+  it('5개 이하면 더보기 버튼이 없다', async () => {
+    vi.mocked(getGlossaryApi).mockResolvedValue(SAVED)
+    render(<GlossarySection />)
+    await termList()
+
+    expect(screen.queryByRole('button', { name: /더보기/ })).toBeNull()
+  })
+
+  it('접힌 상태에서 용어를 추가하면 목록을 펼치고 새 행에 초점을 둔다', async () => {
+    vi.mocked(getGlossaryApi).mockResolvedValue({ teamDescription: '', terms: MANY_TERMS })
+    render(<GlossarySection />)
+    await termList()
+
+    await userEvent.click(screen.getByRole('button', { name: '용어 추가' }))
+
+    expect(await shownTerms()).toEqual([...MANY_TERMS, ''])
+    expect(document.activeElement).toBe(termInput(8))
   })
 
   it('팀 소개가 비어 있으면 초안을 만들 수 없다', async () => {

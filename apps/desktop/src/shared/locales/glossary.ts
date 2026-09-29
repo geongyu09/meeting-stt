@@ -25,6 +25,8 @@ export const glossaryKo = {
     termList: '용어 목록',
     addTerm: '용어 추가',
     copyList: '목록 복사',
+    showMore: ({ count }: { count: number }) => `더보기 (${count}개)`,
+    showLess: '접기',
     saving: '저장하는 중…',
     save: '저장',
     unsaved: '저장하지 않은 변경이 있습니다'
@@ -82,6 +84,8 @@ export const glossaryEn: typeof glossaryKo = {
     termList: 'Term list',
     addTerm: 'Add term',
     copyList: 'Copy list',
+    showMore: ({ count }: { count: number }) => `Show ${count} more`,
+    showLess: 'Show less',
     saving: 'Saving…',
     save: 'Save',
     unsaved: 'You have unsaved changes'

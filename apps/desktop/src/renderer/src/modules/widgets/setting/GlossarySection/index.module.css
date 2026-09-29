@@ -59,6 +59,26 @@
   list-style: none;
 }
 
+.moreToggle {
+  align-self: flex-start;
+  padding: var(--space-1) 0;
+  font: inherit;
+  font-size: var(--font-sm);
+  color: var(--color-accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.moreToggle:hover {
+  text-decoration: underline;
+}
+
+.moreToggle:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
 .actions {
   display: flex;
   align-items: center;
