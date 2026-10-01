@@ -174,6 +174,7 @@ src/
 | `llm` | LLM 공급자 상태 조회·공급자 저장·API 키 저장·연결 확인 (api 래퍼·`useLlmStatus` 훅. 화면은 `setting/LlmSection`) |
 | `refine` | 회의록 자동 교정 — 진행률 구독·수동 재실행·고친 쌍 목록 (api 래퍼·`useRefine` 훅·`features/refine/RefinePanel`·외부 공급자 자동 교정 스위치 `features/refine/AutoRefineToggle`. 결과 자체는 회의 상세의 일부라 `useMeeting`이 든다) |
 | `feedback` | GitHub 이슈 작성 화면을 브라우저로 열기 (api 래퍼·`features/feedback/FeedbackButton`. 설정 "피드백" 카테고리) |
+| `summaryTemplate` | 요약 템플릿 목록·저장·삭제 (api 래퍼·`useSummaryTemplates` 훅. 편집 화면은 `summaryTemplate/SummaryTemplateEditorSection`(페이지 `/summary-templates`), 설정의 이동 행은 `setting/SummaryTemplateSection`, 요약할 때 고르는 칸은 `meeting/SummarySection`) |
 
 ## 레이어별 역할 (renderer)
 

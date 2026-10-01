@@ -34,7 +34,12 @@ import { t } from '../locale'
 
 const DONE_PERCENT = 100
 
-type MeetingJob = { kind: 'pipeline' | 'summary' | 'refine'; meetingId: string }
+/** templateId는 요약 잡만 쓴다. 없으면 기본 템플릿 (references/architecture.md "요약 템플릿") */
+type MeetingJob = {
+  kind: 'pipeline' | 'summary' | 'refine'
+  meetingId: string
+  templateId?: string
+}
 
 /** 용어 초안은 회의에 묶이지 않고 결과를 invoke로 돌려줘야 해서, 성공·실패 처리를 `run`이 스스로 한다 */
 type GlossaryJob = { kind: 'glossary'; run: () => Promise<void> }
@@ -127,13 +132,14 @@ const processMeeting = async (meetingId: string) => {
   await scheduleAutoRefine({ meetingId })
 }
 
-const summarizeMeeting = async (meetingId: string) => {
+const summarizeMeeting = async ({ meetingId, templateId }: MeetingJob) => {
   const transcript = buildTranscriptText({ meetingId })
   if (!transcript.trim()) throw new Error(t().main.summary.nothingToSummarize)
 
   const summary = await runSummary({
     meetingId,
     transcript,
+    templateId,
     onProgress: ({ stage, percent }) => reportSummary({ meetingId, stage, percent })
   })
 
@@ -253,8 +259,9 @@ const failJob = ({ kind, meetingId }: MeetingJob, message: string) => {
   notifyMeetingsChanged()
 }
 
-const runMeetingJob = ({ kind, meetingId }: MeetingJob) => {
-  if (kind === 'summary') return summarizeMeeting(meetingId)
+const runMeetingJob = (job: MeetingJob) => {
+  const { kind, meetingId } = job
+  if (kind === 'summary') return summarizeMeeting(job)
   if (kind === 'refine') return refineMeeting(meetingId)
 
   return processMeeting(meetingId)
@@ -292,11 +299,16 @@ const enqueue = (job: Job) => {
 export const enqueuePipelineJob = ({ meetingId }: { meetingId: string }) =>
   enqueue({ kind: 'pipeline', meetingId })
 
+interface EnqueueSummaryJobParams {
+  meetingId: string
+  templateId?: string
+}
+
 /** 같은 회의의 요약이 이미 줄 서 있으면 두 번 돌리지 않는다 */
-export const enqueueSummaryJob = ({ meetingId }: { meetingId: string }) => {
+export const enqueueSummaryJob = ({ meetingId, templateId }: EnqueueSummaryJobParams) => {
   if (pending.some((job) => job.kind === 'summary' && job.meetingId === meetingId)) return
 
-  enqueue({ kind: 'summary', meetingId })
+  enqueue({ kind: 'summary', meetingId, templateId })
 }
 
 /** 같은 회의의 교정이 이미 줄 서 있으면 두 번 돌리지 않는다 */

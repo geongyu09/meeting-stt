@@ -1,16 +1,19 @@
 import { useId, useState } from 'react'
 import { Link } from 'react-router'
 import { llmMissingMessage } from '@shared/llm'
+import { DEFAULT_SUMMARY_TEMPLATE_ID } from '@shared/summaryTemplate'
 import Button from '@renderer/shared/components/primitives/ui/Button'
 import Icon from '@renderer/shared/components/primitives/ui/Icon'
 import ProgressBar from '@renderer/shared/components/primitives/ui/ProgressBar'
 import useLlmStatus from '@renderer/shared/hooks/domain/llm/useLlmStatus'
 import useMeeting from '@renderer/shared/hooks/domain/meeting/useMeeting'
 import useSummary from '@renderer/shared/hooks/domain/meeting/useSummary'
+import useSummaryTemplates from '@renderer/shared/hooks/domain/summaryTemplate/useSummaryTemplates'
 import { PATHS } from '@renderer/shared/routes/paths'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import useSummaryCopy from './model/useSummaryCopy'
+import TemplatePicker from './ui/TemplatePicker'
 import styles from './index.module.css'
 
 interface SummarySectionProps {
@@ -28,6 +31,8 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
   })
   const { isCopied, copyError, copySummary } = useSummaryCopy({ summary })
   const { status: llmStatus } = useLlmStatus()
+  const { templates } = useSummaryTemplates()
+  const [templateId, setTemplateId] = useState(DEFAULT_SUMMARY_TEMPLATE_ID)
   const [isExpanded, setIsExpanded] = useState(true)
   const bodyId = useId()
 
@@ -41,6 +46,12 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
   // 접어 둔 채로 요약이 돌면 진행률이 안 보이므로 캡션이 대신 알려 준다
   const caption = !isExpanded && isRunning ? t.summary.runningCaption({ percent }) : providerLabel
   const isCopyVisible = summary !== '' && !isRunning
+  // 사용자 템플릿이 없으면 고를 것이 없어 선택 칸을 숨긴다. 고른 템플릿이 지워졌으면 기본으로 돌아간다
+  const isPickerVisible = templates.length > 1
+  const selectedTemplateId = templates.some(({ id }) => id === templateId)
+    ? templateId
+    : DEFAULT_SUMMARY_TEMPLATE_ID
+  const isCreateDisabled = isRunning || !hasTranscript || missingMessage !== null
 
   const renderBody = () => {
     if (isRunning) {
@@ -110,11 +121,19 @@ export default function SummarySection({ meetingId }: SummarySectionProps) {
           {copyError && <p className={styles.error}>{copyError}</p>}
 
           <div className={styles.actions}>
+            {isPickerVisible && (
+              <TemplatePicker
+                templates={templates}
+                value={selectedTemplateId}
+                isDisabled={isCreateDisabled}
+                onChange={setTemplateId}
+              />
+            )}
             <Button
               size="sm"
               className={styles.action}
-              onClick={createSummary}
-              disabled={isRunning || !hasTranscript || missingMessage !== null}
+              onClick={() => createSummary(selectedTemplateId)}
+              disabled={isCreateDisabled}
             >
               {summary ? t.summary.regenerate : t.summary.create}
             </Button>

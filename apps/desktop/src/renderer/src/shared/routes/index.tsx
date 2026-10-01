@@ -4,6 +4,7 @@ import MeetingDetail from '@renderer/pages/MeetingDetail'
 import Onboarding from '@renderer/pages/Onboarding'
 import Record from '@renderer/pages/Record'
 import Settings from '@renderer/pages/Settings'
+import SummaryTemplates from '@renderer/pages/SummaryTemplates'
 import Widget from '@renderer/pages/Widget'
 
 import { RequireModels } from './guards'
@@ -28,7 +29,8 @@ export const router = createHashRouter([
               { path: PATHS.home, element: <Home /> },
               { path: PATHS.record, element: <Record /> },
               { path: PATHS.meetingDetail, element: <MeetingDetail /> },
-              { path: PATHS.settings, element: <Settings /> }
+              { path: PATHS.settings, element: <Settings /> },
+              { path: PATHS.summaryTemplates, element: <SummaryTemplates /> }
             ]
           }
         ]

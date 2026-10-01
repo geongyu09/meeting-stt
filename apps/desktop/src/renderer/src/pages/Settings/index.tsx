@@ -4,6 +4,7 @@ import SummaryModelSection from '@renderer/modules/widgets/model/SummaryModelSec
 import GlossarySection from '@renderer/modules/widgets/setting/GlossarySection'
 import LlmSection from '@renderer/modules/widgets/setting/LlmSection'
 import SettingsSection from '@renderer/modules/widgets/setting/SettingsSection'
+import SummaryTemplateSection from '@renderer/modules/widgets/setting/SummaryTemplateSection'
 import PageToc from '@renderer/shared/components/composites/PageToc'
 import SettingGroup from '@renderer/shared/components/primitives/layout/SettingGroup'
 import TopBar from '@renderer/shared/components/primitives/layout/TopBar'
@@ -29,6 +30,7 @@ export default function Settings() {
               localModelSlot={<SummaryModelSection />}
               externalSlot={<AutoRefineToggle />}
             />
+            <SummaryTemplateSection />
             <GlossarySection />
           </SettingsSection>
         </div>

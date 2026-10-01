@@ -51,7 +51,8 @@ export const mainKo = {
     sampleRate: 'sampleRate',
     pcmChunk: 'PCM 청크',
     settingValue: '설정 값',
-    searchQuery: '검색어'
+    searchQuery: '검색어',
+    templateId: '요약 템플릿 ID'
   },
   recording: {
     defaultTitle: ({ date }: { date: string }) => `${date} 회의`,
@@ -197,7 +198,8 @@ export const mainEn: typeof mainKo = {
     sampleRate: 'sampleRate',
     pcmChunk: 'PCM chunk',
     settingValue: 'setting value',
-    searchQuery: 'search query'
+    searchQuery: 'search query',
+    templateId: 'summary template ID'
   },
   recording: {
     defaultTitle: ({ date }) => `Meeting ${date}`,

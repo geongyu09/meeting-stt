@@ -11,6 +11,9 @@ import {
   SUMMARY_CTX_TOKENS,
   SUMMARY_MAX_PREDICT_TOKENS
 } from './summary'
+import { compileTemplate, DEFAULT_SUMMARY_TEMPLATE } from './summaryTemplate'
+
+const { finalFormat, chunkFormat } = compileTemplate({ blocks: DEFAULT_SUMMARY_TEMPLATE.blocks })
 
 const line = (index: number) => `[00:0${index}:00] 화자 1: 배포 일정을 정리하겠습니다.`
 
@@ -61,7 +64,7 @@ describe('splitTranscript', () => {
 
 describe('buildWholePrompt', () => {
   it('회의록 본문과 최종 형식을 함께 담는다', () => {
-    const prompt = buildWholePrompt({ transcript: line(1) })
+    const prompt = buildWholePrompt({ transcript: line(1), format: finalFormat })
 
     expect(prompt).toContain(line(1))
     expect(prompt).toContain('## 핵심 요약')
@@ -72,14 +75,14 @@ describe('buildWholePrompt', () => {
 
 describe('buildChunkPrompt', () => {
   it('구간 번호를 1부터 세어 알려 준다', () => {
-    const prompt = buildChunkPrompt({ chunk: line(1), index: 0, total: 5 })
+    const prompt = buildChunkPrompt({ chunk: line(1), index: 0, total: 5, format: chunkFormat })
 
     expect(prompt).toContain('5개 구간 중 1번째')
     expect(prompt).toContain(line(1))
   })
 
   it('부분 요약 형식을 쓰고 최종 형식은 쓰지 않는다', () => {
-    const prompt = buildChunkPrompt({ chunk: line(1), index: 2, total: 5 })
+    const prompt = buildChunkPrompt({ chunk: line(1), index: 2, total: 5, format: chunkFormat })
 
     expect(prompt).toContain('## 논의')
     expect(prompt).not.toContain('## 핵심 요약')
@@ -88,7 +91,10 @@ describe('buildChunkPrompt', () => {
 
 describe('buildReducePrompt', () => {
   it('부분 요약을 순서대로 담고 최종 형식을 요구한다', () => {
-    const prompt = buildReducePrompt({ partials: ['## 논의\n- 첫째', '## 논의\n- 둘째'] })
+    const prompt = buildReducePrompt({
+      partials: ['## 논의\n- 첫째', '## 논의\n- 둘째'],
+      format: finalFormat
+    })
 
     expect(prompt.indexOf('첫째')).toBeLessThan(prompt.indexOf('둘째'))
     expect(prompt).toContain('### 구간 1')

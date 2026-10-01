@@ -1,0 +1,34 @@
+.dropZone {
+  display: flex;
+  flex-direction: column;
+  min-height: 160px;
+  padding: var(--space-2);
+  background: var(--color-sidebar);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.dropZone[data-drag-active='true'] {
+  border-color: var(--color-accent);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.empty {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  text-align: center;
+}

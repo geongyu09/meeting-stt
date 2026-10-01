@@ -57,7 +57,18 @@ const MIGRATIONS = [
   `,
   // 5: 교정이 처음 바꾸기 전 원문 (2026-09-28). 문장 교정은 고치는 범위가 넓어 발화별로 되돌릴 수 있게 한다
   //    (references/data-model.md "자동 교정 결과 저장")
-  'ALTER TABLE utterances ADD COLUMN original_text TEXT;'
+  'ALTER TABLE utterances ADD COLUMN original_text TEXT;',
+  // 6: 사용자 요약 템플릿 (2026-09-29). 내장 기본 템플릿은 코드 상수라 넣지 않는다
+  //    (references/data-model.md "요약 템플릿 저장")
+  `
+  CREATE TABLE IF NOT EXISTS summary_templates (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    blocks      TEXT NOT NULL,
+    created_at  INTEGER NOT NULL,
+    updated_at  INTEGER NOT NULL
+  );
+  `
 ]
 
 export const migrate = (db: Database) => {

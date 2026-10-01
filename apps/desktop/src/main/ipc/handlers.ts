@@ -9,15 +9,18 @@ import {
   type GetMeetingRequest,
   type GetMeetingResponse,
   type GetMeetingsResponse,
+  type DeleteSummaryTemplateResponse,
   type DraftGlossaryResponse,
   type GetGlossaryResponse,
   type GetSettingsResponse,
+  type ListSummaryTemplatesResponse,
   type GetRecordingStateResponse,
   type ModelDownloadProgressEvent,
   type ModelStatusResponse,
   type MutateMeetingResponse,
   type RecordingCommandEvent,
   type RequestMicrophonePermissionResponse,
+  type SaveSummaryTemplateResponse,
   type SearchMeetingsResponse,
   type SetLlmApiKeyResponse,
   type SetLlmProviderResponse,
@@ -38,6 +41,7 @@ import {
   readCodexModelPayload
 } from '@shared/llm'
 import { isValidAccelerator } from '@shared/shortcut'
+import { readSummaryTemplateDraft } from '@shared/summaryTemplate'
 import { isLocale } from '@shared/i18n'
 import { isThemePreference } from '@shared/theme'
 import {
@@ -80,6 +84,11 @@ import { clearApiKey, saveApiKey } from '../llm/apiKey'
 import { checkLlm } from '../llm/check'
 import { getLlmStatus } from '../llm/provider'
 import { hasSpeaker, listSpeakers, mergeSpeakers, renameSpeaker } from '../db/speakers'
+import {
+  deleteSummaryTemplate,
+  listSummaryTemplates,
+  saveSummaryTemplate
+} from '../db/summaryTemplates'
 import { listUtterances, updateUtteranceSpeaker, updateUtteranceText } from '../db/utterances'
 import type { ModelDownloadProgress } from '../models/download'
 import { isWhisperModelId } from '@meeting-stt/models/desktop'
@@ -139,6 +148,20 @@ const readMeetingId = (payload: unknown) =>
     maxLength: LABEL_MAX_LENGTH,
     label: t().main.fields.meetingId
   })
+
+/** 요약 템플릿 id. 요약 요청에서는 생략할 수 있다 (없으면 기본 템플릿) */
+const readTemplateId = (payload: unknown) =>
+  readText({ payload, key: 'id', maxLength: LABEL_MAX_LENGTH, label: t().main.fields.templateId })
+
+const readOptionalTemplateId = (payload: unknown) =>
+  isRecord(payload) && payload.templateId !== undefined
+    ? readText({
+        payload,
+        key: 'templateId',
+        maxLength: LABEL_MAX_LENGTH,
+        label: t().main.fields.templateId
+      })
+    : undefined
 
 const readUtteranceId = (payload: unknown) =>
   readText({
@@ -674,7 +697,23 @@ export const registerIpcHandlers = () => {
 
   // 요약은 수 분이 걸려 invoke를 매달아 둘 수 없다. 큐에 넣기만 하고 결과는 이벤트로 보낸다
   ipcMain.handle(IPC.summary.create, (_event, payload) =>
-    enqueueSummaryJob({ meetingId: readMeetingId(payload) })
+    enqueueSummaryJob({
+      meetingId: readMeetingId(payload),
+      templateId: readOptionalTemplateId(payload)
+    })
+  )
+
+  ipcMain.handle(IPC.summaryTemplates.list, (): ListSummaryTemplatesResponse =>
+    listSummaryTemplates()
+  )
+
+  ipcMain.handle(IPC.summaryTemplates.save, (_event, payload): SaveSummaryTemplateResponse => {
+    const { errors, blocks } = t().summaryTemplate
+    return saveSummaryTemplate(readSummaryTemplateDraft(payload, errors, blocks))
+  })
+
+  ipcMain.handle(IPC.summaryTemplates.delete, (_event, payload): DeleteSummaryTemplateResponse =>
+    deleteSummaryTemplate({ id: readTemplateId(payload) })
   )
 
   // 교정은 파이프라인 뒤에 자동으로 돌고, 이 채널은 수동 재실행이다. 요약처럼 큐에 넣기만 하고 결과는 이벤트로 보낸다

@@ -43,6 +43,13 @@ CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,                   -- 'audio.keep' (Phase 3), 'stt.model' (Phase 4) ...
   value TEXT NOT NULL                       -- JSON 문자열
 );
+CREATE TABLE IF NOT EXISTS summary_templates (  -- 마이그레이션 6 (2026-09-29, 요약 템플릿)
+  id          TEXT PRIMARY KEY,             -- uuid. 내장 기본 템플릿('default')은 DB에 없다
+  name        TEXT NOT NULL,                -- 1~30자, 템플릿끼리 중복 불가 (main이 검증)
+  blocks      TEXT NOT NULL,                -- SummaryBlock[] JSON, 1~10개
+  created_at  INTEGER NOT NULL,             -- epoch ms. 목록 순서
+  updated_at  INTEGER NOT NULL
+);
 ```
 
 - 화자 이름은 반드시 `speakers` 매핑으로만 관리한다. `utterances.speaker_label`은 익명 라벨.
@@ -53,6 +60,7 @@ CREATE TABLE IF NOT EXISTS settings (
     4: `DROP COLUMN glossary_terms` + `RENAME COLUMN refine_pairs TO refine_applied` + `UPDATE … SET refine_applied = NULL` + `ADD COLUMN refined_at INTEGER`
        (2026-09-25, 자동 교정으로 전환. 3에서 저장된 미확정 제안은 반영된 적이 없으므로 비운다. 개발 DB가 이미 버전 3이라 3을 고치지 않고 4를 더했다).
     5: `ALTER TABLE utterances ADD COLUMN original_text TEXT` (2026-09-28, 문장 교정과 발화별 되돌리기. 이전에 교정된 발화는 원문이 없어 NULL로 남는다).
+    6: `CREATE TABLE summary_templates` (2026-09-29, 요약 템플릿. `architecture.md` "요약 템플릿" 절).
 
 ## 편집 동작 (Phase 3)
 
@@ -83,6 +91,20 @@ CREATE TABLE IF NOT EXISTS settings (
 - 요약 중 임시 파일은 `userData/summaries/<meetingId>/`에 두고 **잡이 끝나면 실패해도 지운다**.
 - 요약은 자동 실행이 아니라 사용자가 버튼으로 요청한다. 잡 큐는 파이프라인과 공유하며 동시성은 1이다
   (`{ kind: 'pipeline' | 'summary' }`). 같은 회의의 요약 잡이 이미 큐에 있으면 다시 넣지 않는다.
+
+## 요약 템플릿 저장 (2026-09-29)
+
+| 동작 | SQL |
+| --- | --- |
+| 목록 | `SELECT * FROM summary_templates ORDER BY created_at` (앞에 코드 상수인 내장 기본 템플릿을 붙여 돌려준다) |
+| 만들기 | `INSERT INTO summary_templates (id, name, blocks, created_at, updated_at) VALUES (?, ?, ?, ?, ?)` |
+| 고치기 | `UPDATE summary_templates SET name = ?, blocks = ?, updated_at = ? WHERE id = ?` |
+| 지우기 | `DELETE FROM summary_templates WHERE id = ?` |
+
+- 템플릿은 회의와 무관한 전역 데이터라 `meetings`를 참조하지 않는다. 템플릿을 지워도 이미 만든 요약은 그대로다 — 요약은 결과 텍스트만 저장한다.
+- 템플릿 수(최대 20)·블록 수·제목 길이 같은 제약은 SQL이 아니라 main 저장 함수가 검증한다 (`architecture.md` "요약 템플릿" 제약 표).
+- `blocks`는 읽을 때 `unknown`으로 받아 좁힌다. 모르는 `kind`는 버리고, 블록이 하나도 남지 않은 행은 목록에서 뺀다(행은 지우지 않는다 — 앱을 되돌린 뒤 다시 읽힐 수 있다).
+- **`settings` 키로 두지 않는 이유**: 템플릿은 id가 있는 여러 항목을 하나씩 만들고 지운다. 설정 키 하나에 배열로 두면 저장마다 전체를 다시 써야 하고 두 창이 동시에 고칠 때 한쪽이 사라진다.
 
 ## 다시 인식 (2026-09-25)
 
@@ -270,6 +292,13 @@ export type PipelineStage = 'stt' | 'diarize' | 'merge' | 'save' | 'done' | 'err
 // 요약 잡의 단계. 'summarize'는 구간별 부분 요약(map), 'reduce'는 합치기.
 // 회의록이 컨텍스트에 한 번에 들어가면 'reduce' 없이 'summarize' → 'done'으로 끝난다.
 export type SummaryStage = 'summarize' | 'reduce' | 'done' | 'error'
+
+// 요약 템플릿 (2026-09-29, architecture.md "요약 템플릿")
+export type SummaryBlockKind =
+  | 'oneLine' | 'overview' | 'topics' | 'speakers' | 'decisions'
+  | 'actions' | 'openQuestions' | 'numbers' | 'quotes' | 'custom'
+export interface SummaryBlock { kind: SummaryBlockKind; heading: string; description?: string }
+export interface SummaryTemplate { id: string; name: string; blocks: SummaryBlock[]; isBuiltIn: boolean }
 ```
 
 진행률 이벤트 payload(`PipelineProgressEvent`)는 프로세스 간 계약이므로 `src/shared/types.ts`가 아니라

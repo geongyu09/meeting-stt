@@ -10,7 +10,9 @@ import type {
   ModelKey,
   PipelineStage,
   RefineStage,
+  SummaryBlock,
   SummaryStage,
+  SummaryTemplate,
   WhisperModelId
 } from './types'
 
@@ -53,6 +55,11 @@ export const IPC = {
   settings: { get: 'settings:get', update: 'settings:update' },
   clipboard: { writeText: 'clipboard:writeText' },
   summary: { create: 'summary:create' },
+  summaryTemplates: {
+    list: 'summaryTemplates:list',
+    save: 'summaryTemplates:save',
+    delete: 'summaryTemplates:delete'
+  },
   glossary: { get: 'glossary:get', update: 'glossary:update', draft: 'glossary:draft' },
   refine: { run: 'refine:run' },
   llm: {
@@ -379,7 +386,26 @@ export interface PipelineProgressEvent {
  */
 export interface CreateSummaryRequest {
   meetingId: string
+  /** 없으면 기본 템플릿. 잡이 시작할 때 읽으며, 그 사이 지워졌으면 기본 템플릿으로 요약한다 */
+  templateId?: string
 }
+
+/** 내장 기본 템플릿이 맨 앞, 나머지는 만든 순 (references/architecture.md "요약 템플릿") */
+export type ListSummaryTemplatesResponse = SummaryTemplate[]
+
+/** id가 없으면 새로 만든다. 내장 기본 템플릿은 거절한다 */
+export interface SaveSummaryTemplateRequest {
+  id?: string
+  name: string
+  blocks: SummaryBlock[]
+}
+/** 뮤테이션은 갱신된 목록을 돌려준다 */
+export type SaveSummaryTemplateResponse = SummaryTemplate[]
+
+export interface DeleteSummaryTemplateRequest {
+  id: string
+}
+export type DeleteSummaryTemplateResponse = SummaryTemplate[]
 
 export interface SummaryProgressEvent {
   meetingId: string

@@ -4,6 +4,7 @@ export const PATHS = {
   record: '/record',
   meetingDetail: '/meetings/:meetingId',
   settings: '/settings',
+  summaryTemplates: '/summary-templates',
   onboarding: '/onboarding',
   widget: '/widget'
 } as const

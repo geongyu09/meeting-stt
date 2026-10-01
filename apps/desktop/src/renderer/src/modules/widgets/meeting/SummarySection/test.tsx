@@ -4,7 +4,7 @@ import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import type { SummaryProgressEvent } from '@shared/ipc'
-import type { LlmStatus, Meeting, MeetingDetail, Utterance } from '@shared/types'
+import type { LlmStatus, Meeting, MeetingDetail, SummaryTemplate, Utterance } from '@shared/types'
 
 vi.mock('@renderer/shared/api/meetings', () => ({
   getMeetingApi: vi.fn(),
@@ -21,6 +21,11 @@ vi.mock('@renderer/shared/api/speakers', () => ({
 }))
 vi.mock('@renderer/shared/api/clipboard', () => ({ writeClipboardTextApi: vi.fn() }))
 vi.mock('@renderer/shared/api/summary', () => ({ createSummaryApi: vi.fn() }))
+vi.mock('@renderer/shared/api/summaryTemplate', () => ({
+  getSummaryTemplatesApi: vi.fn(),
+  saveSummaryTemplateApi: vi.fn(),
+  deleteSummaryTemplateApi: vi.fn()
+}))
 vi.mock('@renderer/shared/api/llm', () => ({
   getLlmStatusApi: vi.fn(),
   setLlmProviderApi: vi.fn(),
@@ -38,6 +43,8 @@ import { onSummaryProgress } from '@renderer/shared/api/events'
 import { getLlmStatusApi } from '@renderer/shared/api/llm'
 import { getMeetingApi } from '@renderer/shared/api/meetings'
 import { createSummaryApi } from '@renderer/shared/api/summary'
+import { getSummaryTemplatesApi } from '@renderer/shared/api/summaryTemplate'
+import { DEFAULT_SUMMARY_TEMPLATE } from '@shared/summaryTemplate'
 import SummarySection from './index'
 
 const MEETING_ID = 'meeting-1'
@@ -88,17 +95,29 @@ const llmStatusOf = (overrides: Partial<LlmStatus> = {}): LlmStatus => ({
   ...overrides
 })
 
+const WEEKLY_TEMPLATE: SummaryTemplate = {
+  id: 'weekly',
+  name: '주간 회의',
+  blocks: [{ kind: 'oneLine', heading: '한 줄 요약' }],
+  isBuiltIn: false
+}
+
 interface RenderSectionParams {
   detail: MeetingDetail | null
   llmStatus?: LlmStatus
+  templates?: SummaryTemplate[]
 }
 
 const renderSection = async (
   detail: MeetingDetail | null,
-  { llmStatus = llmStatusOf() }: Partial<RenderSectionParams> = {}
+  {
+    llmStatus = llmStatusOf(),
+    templates = [DEFAULT_SUMMARY_TEMPLATE]
+  }: Partial<RenderSectionParams> = {}
 ) => {
   vi.mocked(getMeetingApi).mockResolvedValue(detail)
   vi.mocked(getLlmStatusApi).mockResolvedValue(llmStatus)
+  vi.mocked(getSummaryTemplatesApi).mockResolvedValue(templates)
 
   await act(async () => {
     render(
@@ -190,8 +209,33 @@ describe('SummarySection', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '요약 만들기' }))
 
-    expect(vi.mocked(createSummaryApi)).toHaveBeenCalledWith({ meetingId: MEETING_ID })
+    expect(vi.mocked(createSummaryApi)).toHaveBeenCalledWith({
+      meetingId: MEETING_ID,
+      templateId: DEFAULT_SUMMARY_TEMPLATE.id
+    })
     expect(screen.getByRole('progressbar', { name: '요약 진행률' })).toBeTruthy()
+  })
+
+  it('사용자 템플릿이 없으면 템플릿 선택 칸을 숨긴다', async () => {
+    await renderSection(detailOf())
+
+    expect(screen.queryByRole('combobox', { name: '요약 템플릿' })).toBeNull()
+  })
+
+  it('고른 템플릿으로 요약을 요청하고, 기본 선택은 기본 템플릿이다', async () => {
+    await renderSection(detailOf(), { templates: [DEFAULT_SUMMARY_TEMPLATE, WEEKLY_TEMPLATE] })
+    const picker = screen.getByRole('combobox', { name: '요약 템플릿' })
+
+    expect((picker as HTMLSelectElement).value).toBe(DEFAULT_SUMMARY_TEMPLATE.id)
+    expect(screen.getByRole('option', { name: '기본' })).toBeTruthy()
+
+    await userEvent.selectOptions(picker, '주간 회의')
+    await userEvent.click(screen.getByRole('button', { name: '요약 만들기' }))
+
+    expect(vi.mocked(createSummaryApi)).toHaveBeenCalledWith({
+      meetingId: MEETING_ID,
+      templateId: WEEKLY_TEMPLATE.id
+    })
   })
 
   it('구간을 합치는 단계로 넘어가면 안내 문구가 바뀐다', async () => {

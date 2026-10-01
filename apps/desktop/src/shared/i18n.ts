@@ -9,6 +9,7 @@ import { refineEn, refineKo } from './locales/refine'
 import { settingsEn, settingsKo } from './locales/settings'
 import { sidebarEn, sidebarKo } from './locales/sidebar'
 import { summaryEn, summaryKo } from './locales/summary'
+import { summaryTemplateEn, summaryTemplateKo } from './locales/summaryTemplate'
 import { transcriptEn, transcriptKo } from './locales/transcript'
 import { updateEn, updateKo } from './locales/update'
 
@@ -35,6 +36,7 @@ const ko = {
   sidebar: sidebarKo,
   transcript: transcriptKo,
   summary: summaryKo,
+  summaryTemplate: summaryTemplateKo,
   refine: refineKo,
   pipeline: pipelineKo,
   recording: recordingKo,
@@ -54,6 +56,7 @@ const en: Messages = {
   sidebar: sidebarEn,
   transcript: transcriptEn,
   summary: summaryEn,
+  summaryTemplate: summaryTemplateEn,
   refine: refineEn,
   pipeline: pipelineEn,
   recording: recordingEn,

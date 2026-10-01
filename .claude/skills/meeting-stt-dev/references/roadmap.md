@@ -404,6 +404,32 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 - [x] 테스트 — `feedbackUrl.test.ts`, `externalUrl.test.ts`, `FeedbackButton/test.tsx`. `pnpm test` / `pnpm typecheck` / `pnpm lint` 통과 (2026-09-28)
 - [x] `pnpm dev` 실제 확인 — 버튼을 누르면 브라우저에 이슈 작성 화면이 열린다 (2026-09-28 사용자 확인). 버전·OS 필드 채움은 `feedback.yml`이 원격 main에 푸시된 뒤 확인
 
+## 요약 템플릿 (2026-09-29, Phase 번호 밖)
+
+사용자 요청. 미리 준비된 블록을 위에서부터 쌓아 요약 형식(템플릿)을 만들고, 요약할 때마다 고른다. 설계는 `architecture.md` "요약 템플릿", 저장은 `data-model.md` "요약 템플릿 저장".
+1차 범위: 평평한 쌓기(중첩 없음), 블록 제목 바꾸기만, 공유 없음. 기본 템플릿은 지금 형식 그대로 내장.
+
+- [x] 순수 로직 `src/shared/summaryTemplate.ts` — 블록 카탈로그, `compileTemplate`, 저장 검증, `buildTemplatePreview` + 테스트.
+      **기본 템플릿 컴파일 결과 = 기존 `FINAL_FORMAT`·`CHUNK_FORMAT`** 을 테스트로 고정
+- [x] `src/shared/summary.ts` 프롬프트 조립 함수가 형식 문자열을 인자로 받게 바꾸기 (기존 테스트 유지)
+- [x] 마이그레이션 6 `summary_templates` + `src/main/db/summaryTemplates.ts` (목록·저장·삭제, `blocks` JSON 좁히기)
+- [x] IPC `summaryTemplates:list/save/delete`, `CreateSummaryRequest.templateId`, preload·renderer api(`shared/api/summaryTemplate`)
+- [x] `main/summary/run.ts` — 잡 시작 시 템플릿을 읽어 컴파일(없으면 기본 + 경고 로그), 결과에 제목이 빠지면 경고 로그
+- [x] `useSummaryTemplates` 훅, 설정 `setting/SummaryTemplateSection`(블록 모음·쌓인 블록·미리보기·↑↓/드래그·키보드) + 통합 테스트
+- [x] 요약 카드 템플릿 선택 + 통합 테스트
+- [x] 편집기를 전용 페이지 `/summary-templates`로 옮기고 설정에는 "템플릿 관리" 이동 행만 남기기 (2026-09-29 사용자 요청, 통합 테스트 포함. `pnpm dev` 화면 확인은 남음)
+- [x] 사전 `src/shared/locales/summaryTemplate.ts` (`ko`·`en`)
+- [x] 편집기를 좌(블록 모음)·우(놓는 곳) 두 칸으로 바꾸고 블록 모음 → 놓는 곳 드래그앤드롭 추가 (2026-09-29 사용자 요청, 통합 테스트 포함)
+- [ ] 측정 — `scripts/summarize.ts --template <블록.json>`(구현 완료, 빠진 제목 수를 출력)로 71분 회의를 블록 3·6·10개 템플릿으로 로컬 요약해 제목 누락률을 재고, 안내 임계값(잠정 6)을 확정
+- [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` 통과 (2026-09-29), `pnpm dev` 실제 확인 (템플릿 만들기 → 요약 카드에서 골라 요약 → 결과 모양 일치).
+      설정 화면에서 복제·블록 추가·↑↓·저장·재시작 후 유지는 Electron 스크린샷으로 확인(2026-09-29). 요약 카드에서 골라 실제 요약하는 흐름은 남음
+
+후속 후보 (1차 범위 밖):
+
+- [ ] 반복 블록("주제마다"·"참석자마다", 깊이 1) — 측정 결과를 보고 외부 공급자 전용 여부와 함께 결정
+- [ ] 블록 손잡이(개수·모양·빈 경우 처리)
+- [ ] 블록 카탈로그 확장
+
 ## 품질 점검 후속 (2026-09-26, Phase 번호 밖)
 
 2026-09-26 전체 코드 점검(main 견고성·renderer UX·테스트/배포/문서)에서 나온 개선 항목을 사용자 지시로 로드맵에 올린다.

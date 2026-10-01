@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink } from 'react-router'
+import { NavLink, useMatch } from 'react-router'
 import Icon from '@renderer/shared/components/primitives/ui/Icon'
 import useMeetings from '@renderer/shared/hooks/domain/meeting/useMeetings'
 import useMeetingSearch from '@renderer/shared/hooks/domain/meeting/useMeetingSearch'
@@ -21,6 +21,8 @@ export default function MeetingSidebarSection() {
   const [query, setQuery] = useState('')
   const { meetings, isLoading, error, refetch } = useMeetings()
   const search = useMeetingSearch({ query })
+  // 요약 템플릿 페이지는 설정의 하위 화면이라 설정 항목을 강조한 채로 둔다
+  const isSummaryTemplates = useMatch(PATHS.summaryTemplates) !== null
 
   return (
     <aside className={styles.sidebar}>
@@ -49,7 +51,7 @@ export default function MeetingSidebarSection() {
         <NavLink
           to={PATHS.settings}
           className={({ isActive }) =>
-            [styles.settingsLink, isActive ? styles.active : ''].join(' ')
+            [styles.settingsLink, isActive || isSummaryTemplates ? styles.active : ''].join(' ')
           }
         >
           <Icon name="settings" />

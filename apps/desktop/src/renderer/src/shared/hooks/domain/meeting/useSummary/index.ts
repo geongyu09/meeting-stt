@@ -34,13 +34,14 @@ const useSummary = ({ meetingId, initialSummary }: UseSummaryParams) => {
     [meetingId, t]
   )
 
-  const createSummary = async () => {
+  /** templateId를 생략하면 기본 템플릿으로 요약한다 */
+  const createSummary = async (templateId?: string) => {
     setStage('summarize')
     setPercent(0)
     setError(null)
 
     try {
-      await createSummaryApi({ meetingId })
+      await createSummaryApi({ meetingId, templateId })
     } catch (caught) {
       setStage('error')
       setError(caught instanceof Error ? caught.message : t.summary.errors.request)

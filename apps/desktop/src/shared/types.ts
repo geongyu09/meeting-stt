@@ -174,6 +174,35 @@ export type PipelineStage = 'stt' | 'diarize' | 'merge' | 'save' | 'done' | 'err
  */
 export type SummaryStage = 'summarize' | 'reduce' | 'done' | 'error'
 
+/** 요약 템플릿에 쌓는 블록 종류. 순서는 블록 모음에 보이는 순서다 (references/architecture.md "요약 템플릿") */
+export type SummaryBlockKind =
+  | 'oneLine'
+  | 'overview'
+  | 'topics'
+  | 'speakers'
+  | 'decisions'
+  | 'actions'
+  | 'openQuestions'
+  | 'numbers'
+  | 'quotes'
+  | 'custom'
+
+export interface SummaryBlock {
+  kind: SummaryBlockKind
+  /** 결과에 `## <heading>`으로 찍힌다 */
+  heading: string
+  /** custom만. 무엇을 적을지 한 줄 */
+  description?: string
+}
+
+export interface SummaryTemplate {
+  /** 내장 기본 템플릿은 'default', 사용자 템플릿은 uuid */
+  id: string
+  name: string
+  blocks: SummaryBlock[]
+  isBuiltIn: boolean
+}
+
 /**
  * 교정 잡의 단계 (Phase 5-4). 'read'는 읽기가 없는 라틴 문자 용어의 한글 읽기를 묻는 단계,
  * 'verify'는 후보를 배치로 판정하는 단계다. 'done'·'error'는 마지막에 한 번만 보낸다.

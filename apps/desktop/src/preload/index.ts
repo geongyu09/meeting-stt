@@ -35,6 +35,11 @@ import {
   type MutateMeetingResponse,
   type PipelineProgressEvent,
   type CreateSummaryRequest,
+  type DeleteSummaryTemplateRequest,
+  type DeleteSummaryTemplateResponse,
+  type ListSummaryTemplatesResponse,
+  type SaveSummaryTemplateRequest,
+  type SaveSummaryTemplateResponse,
   type ReassignUtteranceRequest,
   type RevertUtteranceRefineRequest,
   type RecordingCommandEvent,
@@ -147,6 +152,14 @@ const api = {
   summary: {
     create: (payload: CreateSummaryRequest): Promise<void> =>
       ipcRenderer.invoke(IPC.summary.create, payload)
+  },
+  summaryTemplates: {
+    list: (): Promise<ListSummaryTemplatesResponse> =>
+      ipcRenderer.invoke(IPC.summaryTemplates.list),
+    save: (payload: SaveSummaryTemplateRequest): Promise<SaveSummaryTemplateResponse> =>
+      ipcRenderer.invoke(IPC.summaryTemplates.save, payload),
+    delete: (payload: DeleteSummaryTemplateRequest): Promise<DeleteSummaryTemplateResponse> =>
+      ipcRenderer.invoke(IPC.summaryTemplates.delete, payload)
   },
   refine: {
     run: (payload: RunRefineRequest): Promise<void> => ipcRenderer.invoke(IPC.refine.run, payload)

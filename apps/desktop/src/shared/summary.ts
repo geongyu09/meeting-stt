@@ -52,28 +52,6 @@ export const SUMMARY_SYSTEM_PROMPT = [
   '항상 한국어로, 요청받은 형식만 출력합니다. 인사말이나 설명을 덧붙이지 않습니다.'
 ].join('\n')
 
-const FINAL_FORMAT = [
-  '## 핵심 요약',
-  '- (가장 중요한 것부터 5개 이내, 한 줄에 하나)',
-  '',
-  '## 결정 사항',
-  '- (회의에서 확정된 것만 5개 이내. 없으면 "없음")',
-  '',
-  '## 다음 할 일',
-  '- (할 일 하나에 한 줄, 5개 이내. 이름이 회의록에 분명히 나온 경우에만 "이름: "을 앞에 붙이고, 아니면 할 일만 적는다. 기한도 회의록에 나온 경우에만 덧붙인다. 없으면 "없음")'
-].join('\n')
-
-const CHUNK_FORMAT = [
-  '## 논의',
-  '- (이 구간에서 다룬 주제와 결론)',
-  '',
-  '## 결정',
-  '- (이 구간에서 확정된 것만. 없으면 "없음")',
-  '',
-  '## 할 일',
-  '- (할 일 하나에 한 줄. 이름이 분명히 나온 경우에만 "이름: "을 앞에 붙인다. 없으면 "없음")'
-].join('\n')
-
 interface SplitTranscriptParams {
   text: string
   budgetChars?: number
@@ -118,11 +96,12 @@ export const splitTranscript = ({
 /**
  * @description 회의록 전체가 한 번에 들어갈 때 쓰는 요약 프롬프트를 만듭니다.
  * @param transcript - 회의록 전문
+ * @param format - 최종 형식. 요약 템플릿의 `compileTemplate().finalFormat`
  * @returns llama-cli에 파일로 넘길 프롬프트
  * @example
- * const prompt = buildWholePrompt({ transcript })
+ * const prompt = buildWholePrompt({ transcript, format: finalFormat })
  */
-export const buildWholePrompt = ({ transcript }: { transcript: string }) =>
+export const buildWholePrompt = ({ transcript, format }: { transcript: string; format: string }) =>
   [
     '아래는 회의록 전문입니다.',
     '',
@@ -130,13 +109,14 @@ export const buildWholePrompt = ({ transcript }: { transcript: string }) =>
     '',
     '위 회의록을 다음 형식으로 요약하세요.',
     '',
-    FINAL_FORMAT
+    format
   ].join('\n')
 
 interface BuildChunkPromptParams {
   chunk: string
   index: number
   total: number
+  format: string
 }
 
 /**
@@ -144,11 +124,12 @@ interface BuildChunkPromptParams {
  * @param chunk - 구간 본문
  * @param index - 0부터 시작하는 구간 번호
  * @param total - 전체 구간 수
+ * @param format - 구간 요약 형식. 요약 템플릿의 `compileTemplate().chunkFormat`
  * @returns llama-cli에 파일로 넘길 프롬프트
  * @example
- * const prompt = buildChunkPrompt({ chunk, index: 0, total: 5 })
+ * const prompt = buildChunkPrompt({ chunk, index: 0, total: 5, format: chunkFormat })
  */
-export const buildChunkPrompt = ({ chunk, index, total }: BuildChunkPromptParams) =>
+export const buildChunkPrompt = ({ chunk, index, total, format }: BuildChunkPromptParams) =>
   [
     `아래는 회의록 전체 ${total}개 구간 중 ${index + 1}번째 구간입니다.`,
     '앞뒤 구간은 보이지 않으므로, 이 구간에 실제로 나온 내용만 정리하세요.',
@@ -157,17 +138,18 @@ export const buildChunkPrompt = ({ chunk, index, total }: BuildChunkPromptParams
     '',
     '이 구간을 다음 형식으로 정리하세요.',
     '',
-    CHUNK_FORMAT
+    format
   ].join('\n')
 
 /**
  * @description 부분 요약들을 하나의 회의 요약으로 합치는 프롬프트를 만듭니다 (reduce 단계).
  * @param partials - `buildChunkPrompt`로 얻은 구간별 부분 요약
+ * @param format - 최종 형식. 요약 템플릿의 `compileTemplate().finalFormat`
  * @returns llama-cli에 파일로 넘길 프롬프트
  * @example
- * const prompt = buildReducePrompt({ partials })
+ * const prompt = buildReducePrompt({ partials, format: finalFormat })
  */
-export const buildReducePrompt = ({ partials }: { partials: string[] }) =>
+export const buildReducePrompt = ({ partials, format }: { partials: string[]; format: string }) =>
   [
     '아래는 한 회의를 구간별로 나눠 정리한 부분 요약입니다.',
     '',
@@ -176,7 +158,7 @@ export const buildReducePrompt = ({ partials }: { partials: string[] }) =>
     '부분 요약들을 하나의 회의 요약으로 합치세요.',
     '중복되는 항목은 하나로 묶고, 구간 번호는 결과에 남기지 마세요.',
     '',
-    FINAL_FORMAT
+    format
   ].join('\n')
 
 const CODE_FENCE = /^```[a-z]*\n([\s\S]*?)\n```$/

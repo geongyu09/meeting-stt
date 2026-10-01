@@ -1,0 +1,36 @@
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.skeleton {
+  margin: 0;
+  padding: var(--space-3);
+  font-family: var(--font-sans);
+  font-size: var(--font-sm);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  color: var(--color-text);
+  background: var(--color-sidebar);
+  border-radius: var(--radius-sm);
+}
+
+.prompt {
+  margin-top: var(--space-1);
+}
+
+.promptToggle {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  cursor: pointer;
+}
+
+.prompt[open] .promptToggle {
+  margin-bottom: var(--space-1);
+}

@@ -141,6 +141,8 @@ export const IPC = {
   //   recording.setPaused (결과는 events.recordingState의 pausedAt으로 push)
   // 피드백 보내기 (아래 같은 이름의 절)
   //   feedback.open
+  // 요약 템플릿 (아래 같은 이름의 절)
+  //   summaryTemplates.list / summaryTemplates.save / summaryTemplates.delete (summary.create에 templateId 추가)
 } as const
 ```
 
@@ -668,18 +670,20 @@ export interface RecordingStateEvent {
 
 | 순서 | 카테고리 | 항목 | 위치 |
 | --- | --- | --- | --- |
-| 1 | 마이크 | 입력 장치(`inputDevice`), 마이크 테스트 (2026-09-25, 위 "마이크 입력 장치와 테스트" 절) | `SettingsSection` |
-| 2 | 녹음·처리 | 원본 녹음 파일 보관(`isAudioKept`), 조용히 처리(`isQuietProcessing`) | `SettingsSection` |
-| 3 | 녹음 위젯 | 위젯 패널(`isWidgetEnabled`), 위젯 반투명(`isWidgetFadeEnabled`), 비활성 불투명도(`widgetFadeOpacity`) | `SettingsSection` |
-| 4 | 단축키 | 녹음 시작·정지(`recordingShortcut`), 위젯 표시·숨김(`widgetShortcut`) | `SettingsSection` |
-| 5 | 음성 인식 모델 | 음성 인식 모델 변경 | `ModelDownloadSection` (온보딩과 공유) |
-| 6 | 요약 · 용어 초안 | 실행 방식(로컬 / Claude API 키 / Claude Code / OpenAI API 키), 로컬을 골랐을 때만 **로컬 요약 모델 파일** 다운로드, API 키(공급자별), GPT 모델 선택, CLI 상태, 연결 확인 | `setting/LlmSection` — 파일 다운로드 행 `model/SummaryModelSection`은 페이지가 `localModelSlot`으로 끼운다 (아래 "LLM 공급자" 절). 2026-09-24까지는 "모델" 카테고리에 음성 인식 모델과 나란히 있었는데, 로컬 실행 방식의 부속품이 별개 설정처럼 보여 옮겼다 |
-| 7 | 용어 사전 | 팀 소개, 초안 만들기, 용어 목록 (Phase 5-4) | `setting/GlossarySection` (자기 채널로 따로 읽고 쓰므로 `SettingsSection`의 한 번 로드와 무관하다. 모델 위젯과 같이 `children`으로 끼운다) |
-| 8 | 업데이트 | 업데이트 확인(`isUpdateCheckEnabled`), 지금 확인(`UpdateCheck`) | `SettingsSection` |
-| 9 | 언어 | UI 언어(`locale`, 한국어 / 영어, 2026-09-25, 위 "UI 언어" 절) | `SettingsSection` |
+| 1 | 화면 | 테마(`theme`, 시스템 / 라이트 / 다크, 2026-09-28, 아래 "다크 모드" 절). 자주 바꾸는 항목이라 맨 위에 둔다 (2026-09-29 사용자 요청) | `SettingsSection` |
+| 2 | 마이크 | 입력 장치(`inputDevice`), 마이크 테스트 (2026-09-25, 위 "마이크 입력 장치와 테스트" 절) | `SettingsSection` |
+| 3 | 녹음·처리 | 원본 녹음 파일 보관(`isAudioKept`), 조용히 처리(`isQuietProcessing`) | `SettingsSection` |
+| 4 | 녹음 위젯 | 위젯 패널(`isWidgetEnabled`), 위젯 반투명(`isWidgetFadeEnabled`), 비활성 불투명도(`widgetFadeOpacity`) | `SettingsSection` |
+| 5 | 단축키 | 녹음 시작·정지(`recordingShortcut`), 위젯 표시·숨김(`widgetShortcut`) | `SettingsSection` |
+| 6 | 음성 인식 모델 | 음성 인식 모델 변경 | `ModelDownloadSection` (온보딩과 공유) |
+| 7 | 요약 · 용어 초안 | 실행 방식(로컬 / Claude API 키 / Claude Code / OpenAI API 키), 로컬을 골랐을 때만 **로컬 요약 모델 파일** 다운로드, API 키(공급자별), GPT 모델 선택, CLI 상태, 연결 확인 | `setting/LlmSection` — 파일 다운로드 행 `model/SummaryModelSection`은 페이지가 `localModelSlot`으로 끼운다 (아래 "LLM 공급자" 절). 2026-09-24까지는 "모델" 카테고리에 음성 인식 모델과 나란히 있었는데, 로컬 실행 방식의 부속품이 별개 설정처럼 보여 옮겼다 |
+| 8 | 요약 템플릿 | 만든 템플릿 수 + "템플릿 관리" 버튼 → 전용 페이지 `/summary-templates`로 이동 (2026-09-29, 아래 "요약 템플릿 > 화면" 절) | `setting/SummaryTemplateSection` (자기 채널로 목록만 읽는다. 용어 사전과 같이 `children`으로 끼운다) |
+| 9 | 용어 사전 | 팀 소개, 초안 만들기, 용어 목록 (Phase 5-4) | `setting/GlossarySection` (자기 채널로 따로 읽고 쓰므로 `SettingsSection`의 한 번 로드와 무관하다. 모델 위젯과 같이 `children`으로 끼운다) |
+| 10 | 업데이트 | 업데이트 확인(`isUpdateCheckEnabled`), 지금 확인(`UpdateCheck`) | `SettingsSection` |
+| 11 | 언어 | UI 언어(`locale`, 한국어 / 영어, 2026-09-25, 위 "UI 언어" 절) | `SettingsSection` |
 
-- 설정값 로드는 한 번만 한다. 그래서 `SettingsSection`이 1~4와 8·9를 모두 그리고, 5~7은 `children`으로 받아 4와 8 사이에 끼운다.
-  페이지는 `<SettingsSection><SettingGroup title="음성 인식 모델"><ModelDownloadSection /></SettingGroup><LlmSection localModelSlot={<SummaryModelSection />} /><GlossarySection /></SettingsSection>` 형태로 배치만 한다.
+- 설정값 로드는 한 번만 한다. 그래서 `SettingsSection`이 1~5와 10·11을 모두 그리고, 6~9는 `children`으로 받아 5와 10 사이에 끼운다.
+  페이지는 `<SettingsSection><SettingGroup title="음성 인식 모델"><ModelDownloadSection /></SettingGroup><LlmSection localModelSlot={<SummaryModelSection />} /><SummaryTemplateSection /><GlossarySection /></SettingsSection>` 형태로 배치만 한다.
   widgets는 widgets를 import하지 않으므로(`.claude/rules/component-abstract-pattern.md`) `SummaryModelSection`은 페이지가 슬롯으로 넘긴다.
 - **오른쪽에 목차(TOC)를 둔다** (2026-09-24 사용자 요청). 카테고리가 7개(지금은 8개)로 늘어 스크롤로 찾기 어려워졌기 때문이다.
   목차는 composite `PageToc`가 스크롤 영역 안의 `h2`를 **DOM에서 읽어** 만든다 — 카테고리가 여러 위젯에 흩어져 있고
@@ -976,7 +980,7 @@ export interface LiveTranscriptState {
 | 컴포넌트 | 계약 |
 | --- | --- |
 | `TopBar` | 본문 상단 52px 바. `title`(왼쪽 회색 글자) + `children`(오른쪽 동작). 바 전체가 창 끌기 영역이고 안의 컨트롤은 `no-drag` |
-| `SettingGroup` | 설정 카테고리 — 회색 소제목(`h2`) + 행 목록. `aria-labelledby`로 제목과 묶는다 |
+| `SettingGroup` | 설정 카테고리 — 회색 소제목(`h2`) + 행 목록. `aria-labelledby`로 제목과 묶는다. 설정 화면(`SettingsSection`)에서는 카테고리 사이를 구분선 없이 144px 띄운다(2026-09-29 사용자 요청) |
 | `SettingRow` | 설정 한 행 — 왼쪽 제목·설명, 오른쪽 `control`, 아래 `children`(펼침 영역). 제목 id를 `titleId`로 받아 `Switch`의 `ariaLabelledBy`에 넘긴다. 행 사이는 `--color-divider` 선 |
 
 ### 글꼴 동봉
@@ -1078,7 +1082,8 @@ export interface LiveTranscriptState {
 | `/` | `pages/Home` | 빈 상태 안내 ("회의를 고르거나 새로 녹음하세요") |
 | `/record` | `pages/Record` | `recording/RecorderSection` |
 | `/meetings/:meetingId` | `pages/MeetingDetail` | `meeting/TranscriptSection` (오른쪽 레일에 `meeting/SummarySection`을 슬롯으로 받음) |
-| `/settings` | `pages/Settings` | `setting/SettingsSection` (카테고리 묶음, 모델·LLM·용어 사전 위젯을 `children`으로 받음), `model/ModelDownloadSection`, `setting/LlmSection` (`model/SummaryModelSection`을 슬롯으로 받음), `setting/GlossarySection`, 오른쪽 목차 `composites/PageToc` |
+| `/settings` | `pages/Settings` | `setting/SettingsSection` (카테고리 묶음, 모델·LLM·용어 사전 위젯을 `children`으로 받음), `model/ModelDownloadSection`, `setting/LlmSection` (`model/SummaryModelSection`을 슬롯으로 받음), `setting/SummaryTemplateSection`(편집 페이지로 가는 행), `setting/GlossarySection`, 오른쪽 목차 `composites/PageToc` |
+| `/summary-templates` | `pages/SummaryTemplates` | `summaryTemplate/SummaryTemplateEditorSection` (2026-09-29, 설정에서 들어오는 하위 화면) |
 | `/onboarding` | `pages/Onboarding` | `model/ModelDownloadSection` |
 | `/widget` | `pages/Widget` | `recording/WidgetPanelSection` (위젯 창 전용, 가드 밖) |
 
@@ -1179,6 +1184,137 @@ events: { progress: 'pipeline:progress', summary: 'summary:progress' }
 - llama.cpp 실행 파일의 rpath는 `@loader_path`라 **바이너리와 dylib을 같은 폴더에** 두면 그대로 동작한다 (sherpa-onnx와 같은 구조).
 - 아카이브가 `tar.gz`라 `scripts/shell.ts`의 `extractArchive`는 압축 방식을 고정하지 않고 `tar -xf`로 자동 판별한다.
 - 릴리스 빌드 번호(`b10622` 등)는 `scripts/assets.ts`에 상수로 고정한다. 최신 빌드를 자동 추적하면 체크섬이 매번 바뀐다.
+
+## 요약 템플릿 (2026-09-29)
+
+사용자 요청. 요약 결과의 **모양**을 사용자가 정할 수 있게 한다. AI·프롬프트를 모르는 사람도 만질 수 있도록
+**미리 준비된 블록을 위에서부터 쌓는 방식**(블록 코딩)으로 템플릿을 만들고, 요약할 때마다 템플릿을 고른다.
+사용자는 프롬프트를 한 글자도 쓰지 않는다 — 블록마다 검증된 지시문 조각을 코드가 갖고 있고, 쌓은 순서대로 이어 붙여(컴파일) 요약 형식을 만든다.
+
+사용자 결정 (2026-09-29):
+
+- **요약할 때마다 템플릿을 고른다.** 요약 카드에서 기본 선택은 기본 템플릿이고, 고른 것을 기억하지 않는다.
+- **기본 템플릿은 지금 형식 그대로다** — `핵심 요약` / `결정 사항` / `다음 할 일`. 코드에 내장되어 수정·삭제할 수 없다.
+- **1차는 중첩 없이 평평하게 쌓는다.** "주제마다·참석자마다 반복" 같은 블록 안의 블록은 로컬 모델로 측정한 뒤 2차에 검토한다. 블록 카탈로그는 이후 계속 늘린다.
+- **공유(내보내기·가져오기)는 하지 않는다.**
+- 블록의 손잡이(개수·글머리/문단/표·빈 경우 처리)는 1차에 넣지 않는다. 사용자가 바꿀 수 있는 건 **제목(heading)** 뿐이다.
+
+### 블록 모델
+
+순수 로직은 `src/shared/summaryTemplate.ts`(카탈로그·컴파일·검증·미리보기) + 테스트. 웹 앱은 요약을 쓰지 않아 `packages/core`로 올리지 않는다.
+
+```ts
+// src/shared/types.ts
+type SummaryBlockKind =
+  | 'oneLine' | 'overview' | 'topics' | 'speakers' | 'decisions'
+  | 'actions' | 'openQuestions' | 'numbers' | 'quotes' | 'custom'
+
+interface SummaryBlock {
+  kind: SummaryBlockKind
+  heading: string            // 결과에 `## <heading>`으로 찍힌다. 기본값은 카탈로그의 한국어 제목
+  description?: string       // custom만. "무엇을 적을지" 한 줄
+}
+
+interface SummaryTemplate {
+  id: string                 // 내장 기본 템플릿은 'default', 사용자 템플릿은 uuid
+  name: string
+  blocks: SummaryBlock[]
+  isBuiltIn: boolean
+}
+```
+
+카탈로그(블록 종류마다 코드가 가진 것): 기본 제목, 최종 지시문(`finalInstruction`), 긴 회의의 구간 요약에서 모아 둘 **재료**(`material`).
+
+| kind | 기본 제목 | 최종 지시문 요지 | 재료 |
+| --- | --- | --- | --- |
+| `oneLine` | 한 줄 요약 | 회의 전체를 한 문장으로 | 논의 |
+| `overview` | 핵심 요약 | 가장 중요한 것부터 5개 이내 (기존 문구 그대로) | 논의 |
+| `topics` | 논의 사항 | 주제마다 한 줄: 무엇을 논의했고 결론이 무엇인지 | 논의 |
+| `speakers` | 참석자별 발언 | 회의록에 나온 화자 이름마다 주요 의견. 번호 라벨(`화자 1`)은 그대로 쓰고 이름을 지어내지 않는다 | 발언 |
+| `decisions` | 결정 사항 | 확정된 것만 5개 이내, 없으면 "없음" (기존 문구 그대로) | 결정 |
+| `actions` | 다음 할 일 | 기존 문구 그대로 (이름·기한은 회의록에 나온 경우에만) | 할 일 |
+| `openQuestions` | 미해결 · 보류 | 결론이 나지 않았거나 다음으로 미룬 것. 없으면 "없음" | 미해결 |
+| `numbers` | 숫자 · 일정 | 회의록에 나온 수치·날짜를 원문 그대로. 계산하거나 추정하지 않는다 | 숫자 |
+| `quotes` | 주요 발언 | 핵심 발언 3개 이내를 원문 그대로 인용, 화자 이름과 함께 | 인용 |
+| `custom` | (사용자 입력) | 사용자가 적은 `description`을 "- (…)" 지시로 감싼다 | 논의 |
+
+- 블록 이름·설명(블록 모음에 보이는 문구)은 UI 사전(`src/shared/locales/summaryTemplate.ts`, `ko`·`en`)에 둔다.
+  **기본 제목과 지시문은 언어 설정과 무관하게 한국어다** — 요약 언어는 UI 언어가 아니다 ("UI 언어" 절).
+- 같은 종류는 템플릿에 한 번만 넣는다. `custom`만 여러 개 넣을 수 있다.
+
+### 컴파일
+
+`compileTemplate({ blocks })` → `{ finalFormat, chunkFormat, headings }`.
+
+- `finalFormat`: 블록 순서대로 `## <heading>\n- (<finalInstruction>)`를 빈 줄로 이어 붙인다. 지금의 `FINAL_FORMAT` 자리에 들어간다.
+- `chunkFormat`: 긴 회의의 map 단계 형식. 템플릿에 쓰인 블록들의 **재료를 중복 없이, 카탈로그의 고정 순서로** 모아 만든다.
+  재료를 블록이 아니라 종류로 두는 이유는 `oneLine`·`overview`·`topics`처럼 같은 재료(논의)를 쓰는 블록이 여럿이라 구간 요약이 부풀지 않게 하기 위해서다.
+  구간 요약에서 모으지 않은 재료는 reduce 단계에서 만들 수 없다 — 인용 블록이 있으면 구간마다 인용을 모아야 한다.
+- `headings`: 결과 검증용. 요약이 끝나면 각 `## <heading>`이 결과에 있는지 확인하고, 빠지면 **경고 로그만 남기고 그대로 저장한다**
+  (1차. 재시도는 로컬 요약 시간을 두 배로 만들어 측정 뒤 결정).
+- **기본 템플릿의 컴파일 결과는 기존 `FINAL_FORMAT`·`CHUNK_FORMAT`과 글자 하나 다르지 않아야 한다** — 단위 테스트로 고정한다.
+  이미 측정(`docs/phase5-results.md`)을 거친 형식을 그대로 지키기 위해서다.
+- `SUMMARY_SYSTEM_PROMPT`(지어내지 말 것, 번호 라벨은 이름이 아님)는 템플릿과 무관하게 항상 붙는다. `custom` 블록의 설명도 이 규칙 아래에서 돈다.
+- `buildWholePrompt`·`buildChunkPrompt`·`buildReducePrompt`는 형식 문자열을 인자로 받는다.
+
+### 제약 (저장 시 main이 검증, 어기면 거절)
+
+| 항목 | 값 |
+| --- | --- |
+| 템플릿 이름 | 1~30자, 사용자 템플릿끼리 중복 불가 |
+| 사용자 템플릿 수 | 최대 20개 |
+| 블록 수 | 1~10개 |
+| 제목 | 1~30자, 줄바꿈·`#` 불가 (결과의 마크다운 제목 구조가 깨진다) |
+| `custom` 설명 | 1~100자, 줄바꿈 불가 |
+
+- 로컬 공급자는 블록이 많을수록 형식을 놓치기 쉽다. 편집기에서 블록이 **6개를 넘으면** "로컬 모델은 블록이 많으면 일부를 빠뜨릴 수 있어요" 안내를 보인다(막지는 않는다).
+  임계값 6은 잠정값이며 `scripts/summarize.ts --template`로 측정한 뒤 고친다.
+
+### 저장·IPC
+
+- 사용자 템플릿은 `summary_templates` 테이블(`data-model.md`). 내장 기본 템플릿은 DB에 넣지 않고 코드 상수(`DEFAULT_SUMMARY_TEMPLATE`)다.
+- 채널 (뮤테이션은 갱신된 목록을 돌려준다):
+
+  ```ts
+  summaryTemplates: {
+    list: 'summaryTemplates:list',     // () → SummaryTemplate[]  (내장 기본이 맨 앞, 나머지는 만든 순)
+    save: 'summaryTemplates:save',     // SaveSummaryTemplateRequest { id?, name, blocks } → SummaryTemplate[]  (id 없으면 새로 만든다)
+    delete: 'summaryTemplates:delete'  // { id } → SummaryTemplate[]
+  }
+  ```
+
+  내장 기본 템플릿의 `save`·`delete`는 거절한다. DB에서 읽은 `blocks` JSON은 `unknown`으로 받아 좁히고, 모르는 `kind`의 블록은 버린다(블록이 하나도 남지 않으면 그 템플릿은 목록에서 뺀다).
+- `summary:create`의 `CreateSummaryRequest`에 `templateId?: string`을 더한다. 없으면 기본 템플릿이다.
+  템플릿은 **잡이 시작할 때** 읽는다 — 큐에 있는 동안 템플릿이 지워지면 기본 템플릿으로 요약하고 경고 로그를 남긴다.
+- 요약 결과에 어느 템플릿을 썼는지는 저장하지 않는다(1차). "다시 요약"도 기본 템플릿이 선택된 채로 시작한다.
+
+### 화면
+
+- **전용 페이지 `/summary-templates`** (`pages/SummaryTemplates`) — 편집기는 설정 카테고리 안에 두지 않고 따로 연다 (2026-09-29 사용자 요청).
+  블록 모음·쌓인 블록·미리보기가 한 화면에 필요해 설정의 다른 카테고리 사이에 끼우면 좁고 길어서다.
+  편집기 위젯은 `widgets/summaryTemplate/SummaryTemplateEditorSection`이고, 페이지는 상단 바("설정으로" 버튼)와 `h1` 아래에 그것만 배치한다.
+  사이드바에서는 설정의 하위 화면이므로 "설정" 항목을 강조한 채로 둔다.
+- **설정 "요약 템플릿" 카테고리** — `widgets/setting/SummaryTemplateSection`. "요약 · 용어 초안" 바로 아래.
+  한 행에 "내가 만든 템플릿 N개" 설명과 **"템플릿 관리" 버튼**만 두고, 누르면 `/summary-templates`로 이동한다.
+- **편집기(`SummaryTemplateEditorSection`)**:
+  - 위: 템플릿 목록을 **두 그룹**으로 나눈다 (2026-09-29 사용자 요청 — "기본"과 "새 템플릿"이 같은 줄·같은 모양이면 고를 대상과 만드는 동작이 구분되지 않는다).
+    "기본 제공" 그룹에 기본 템플릿("기본" 표시, 편집 불가·"복제해서 만들기"만), "내 템플릿" 그룹에 사용자 템플릿.
+    **"새 템플릿"은 "내 템플릿" 그룹 끝의 점선 `+` 항목**이다 — 만든 결과가 들어갈 자리에 둔다. 한도에 닿으면 비활성. 내 템플릿이 없으면 그 그룹엔 `+` 항목만 보인다.
+  - 편집기: **블록 모음**(카드 목록, 이미 넣은 종류는 비활성) + **쌓인 블록**(위→아래 순서가 결과 순서) + **결과 미리보기**.
+  - **좌우 두 칸 배치** (2026-09-29 사용자 요청 — 세로 한 줄이면 블록 모음과 쌓인 블록 사이를 오르내려야 한다).
+    왼쪽은 블록 모음(세로 목록, 스크롤해도 따라오는 sticky), 오른쪽은 **블록을 놓는 곳**(쌓인 블록) → 결과 미리보기 → 저장 버튼.
+    블록 모음 칸은 220px. 편집기 폭이 좁으면(컨테이너 쿼리 기준 520px 미만) 한 칸으로 접는다. 페이지 본문 최대 폭은 1080px.
+    - **블록 모음 → 놓는 곳 드래그앤드롭**: 카드를 끌어 쌓인 블록의 원하는 자리(블록 사이, 끝)에 놓으면 그 자리에 들어간다. 놓을 자리는 가로 선으로 보여 준다.
+      끌기 데이터는 `dataTransfer`의 전용 MIME(`application/x-summary-block-kind`)에 종류를 담아, 앱 밖 파일·글자를 놓으면 받지 않는다.
+      카드를 **누르면** 맨 아래에 붙는 동작도 그대로 둔다(키보드 경로).
+    - 순서 바꾸기는 같은 놓는 곳 안에서 HTML5 드래그(손잡이)와 블록마다 ↑↓ 버튼 둘 다. 놓는 자리는 "i번째 블록 앞 / 끝" 삽입 위치로 통일한다.
+      드래그 라이브러리는 들이지 않는다. 키보드만으로 추가·이동·삭제·제목 수정이 되어야 한다.
+    - 블록 카드 안에서 제목을 바로 고친다. `custom`은 설명 칸이 하나 더 있다.
+    - 미리보기는 **AI에게 보내는 지시문이 아니라 결과 모양**이다 (`buildTemplatePreview` → `## 결정 사항\n- …` 같은 뼈대). 지시문 전문은 "AI에게 보내는 지시 보기"로 접어 둔다.
+  - 저장은 버튼으로 한다(용어 사전과 같음). 삭제는 2단계 인라인 확인.
+- **요약 카드(`meeting/SummarySection`)** — 만들기/다시 요약 버튼 옆에 템플릿 선택(`<select>`, 기본 템플릿 선택됨). 사용자 템플릿이 없으면 선택 칸을 숨긴다.
+  목록은 `useSummaryTemplates` 훅(`shared/hooks/domain/summaryTemplate/`)으로 읽는다 — 설정 화면과 요약 카드 두 곳이 쓰기 때문이다.
+- 요약 결과는 지금처럼 줄바꿈을 보존한 일반 텍스트로 보여 준다(마크다운 렌더링 없음).
 
 ## LLM 공급자 (2026-09-24)
 
