@@ -118,6 +118,7 @@ const processMeeting = async (meetingId: string) => {
     speakerCount: findMeeting({ meetingId })?.speakerCount,
     // 잡이 시작할 때 한 번 읽는다. 진행 중인 잡의 스레드는 바꿀 수 없다
     isQuiet: getAppSettings().isQuietProcessing,
+    glossaryTerms: globalGlossary(),
     onProgress: ({ stage, percent }) => report({ meetingId, stage, percent })
   })
 

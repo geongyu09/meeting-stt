@@ -1,6 +1,7 @@
 // STT만 돌려 정답 전사본과의 CER·반복 환각·처리 시간을 잰다. 화자 분리는 하지 않는다.
 // 사용: pnpm --filter meeting-stt exec tsx scripts/sttBench.ts <audio.wav> [--tag=이름] [--model=경로]
 //       [--bin=whisper-cli 경로] [--ref=정답.txt] [--extra="-mc 0 -sns"] [--no-vad]
+//       [--prompt-file=용어.txt] (공백이 든 프롬프트는 --extra로 못 넘겨 파일로 받는다)
 // 정답은 기본으로 scripts/fixtures/reference/<오디오 이름>.txt 를 쓴다.
 import { existsSync } from 'node:fs'
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
@@ -34,6 +35,7 @@ interface BenchOptions {
   binPath: string
   referencePath: string
   extraArgs: string[]
+  promptPath?: string
   useVad: boolean
 }
 
@@ -54,6 +56,7 @@ const parseOptions = (argv: string[]): BenchOptions => {
     binPath: valueOf('bin') ?? WHISPER_BIN,
     referencePath: valueOf('ref') ?? path.join(REFERENCE_DIR, `${baseName}.txt`),
     extraArgs: (valueOf('extra') ?? '').split(' ').filter(Boolean),
+    promptPath: valueOf('prompt-file'),
     useVad: !argv.includes('--no-vad')
   }
 }
@@ -95,6 +98,9 @@ const runWhisper = async ({ options, audioPath }: { options: BenchOptions; audio
     `${path.basename(options.audioPath, '.wav')}.${options.tag}`
   )
   const { stt } = await threadPlan()
+  const promptArgs = options.promptPath
+    ? ['--prompt', (await readFile(options.promptPath, 'utf-8')).trim()]
+    : []
   const args = [
     ...buildWhisperArgs({
       modelPath: options.modelPath,
@@ -103,6 +109,7 @@ const runWhisper = async ({ options, audioPath }: { options: BenchOptions; audio
       threads: stt,
       vadModelPath: options.useVad ? VAD_MODEL : undefined
     }),
+    ...promptArgs,
     ...options.extraArgs
   ]
 

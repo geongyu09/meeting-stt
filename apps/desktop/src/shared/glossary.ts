@@ -149,7 +149,16 @@ export const acronymReading = (term: string) => {
     .join(' ')
 }
 
-const termKeyOf = (line: string) => line.split(READING_SEPARATOR)[0].trim().toLowerCase()
+/**
+ * @description 용어 줄에서 읽기를 뺀 용어 표기만 꺼냅니다.
+ * @param line - `용어` 또는 `용어 = 읽기1, 읽기2` 줄
+ * @returns 용어 표기
+ * @example
+ * termNameOf('GitHub = 깃허브') // 'GitHub'
+ */
+export const termNameOf = (line: string) => line.split(READING_SEPARATOR)[0].trim()
+
+const termKeyOf = (line: string) => termNameOf(line).toLowerCase()
 
 /**
  * @description 용어 줄을 정리합니다. 앞뒤 공백을 자르고 빈 줄과 중복 용어(`=` 앞부분, 대소문자 무시)를 뺍니다.

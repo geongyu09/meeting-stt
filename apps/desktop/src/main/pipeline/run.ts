@@ -3,16 +3,18 @@ import { readdir, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { assignSpeakers, mergeUtterances } from '@meeting-stt/core/merge'
+import { termNameOf } from '@shared/glossary'
 import type { PipelineStage, SpeakerSegment, SttSegment } from '@shared/types'
 import { diarizeBinPath, whisperBinPath } from '../bin/paths'
 import { runBinary } from '../bin/spawn'
 import { threadPlan } from '../bin/threads'
-import { info } from '../log'
+import { info, messageOf, warn } from '../log'
 import { missingModelLabels, modelPath } from '../models/paths'
 import { buildDiarizeArgs, parseDiarizeOutput, parseDiarizeProgress } from './diarize'
 import { normalizeWavFile } from './normalize'
 import { reclusterSpeakers } from './recluster'
 import { buildWhisperArgs, parseWhisperOutput, parseWhisperProgress } from './whisper'
+import { buildTermPrompt, readWhisperVocab } from './whisperPrompt'
 import { t } from '../locale'
 
 /** 코어가 적으면 STT와 화자 분리를 동시에 돌리는 게 오히려 느리다 (references/pitfalls.md) */
@@ -37,6 +39,8 @@ interface RunPipelineParams {
   speakerCount?: number
   /** 조용히 처리. 화자 분리 스레드를 줄이고 STT와 순차로 돌린다 (references/architecture.md) */
   isQuiet: boolean
+  /** 전역 용어 사전 줄. 인식 단계 프롬프트로 쓴다 (references/architecture.md "인식 단계 용어 프롬프트") */
+  glossaryTerms: string[]
   onProgress: (progress: ProgressParams) => void
 }
 
@@ -72,20 +76,49 @@ const ensureReady = () => {
 interface RunSttParams {
   audioPath: string
   outputPath: string
+  glossaryTerms: string[]
   onProgress: (progress: ProgressParams) => void
 }
 
-const runStt = async ({ audioPath, outputPath, onProgress }: RunSttParams) => {
+/** 어휘를 못 읽으면 프롬프트 없이 인식한다. 용어 프롬프트는 품질 보탬이라 인식 자체를 막지 않는다 */
+const termPromptOf = async ({
+  terms,
+  whisperModelPath
+}: {
+  terms: string[]
+  whisperModelPath: string
+}) => {
+  if (!terms.length) return undefined
+
+  try {
+    const vocab = await readWhisperVocab(whisperModelPath)
+    const { prompt, tokenCount, droppedCount } = buildTermPrompt({
+      terms: terms.map(termNameOf),
+      vocab
+    })
+    info(`용어 프롬프트: ${terms.length - droppedCount}개 · ${tokenCount}토큰`)
+    if (droppedCount) warn(`용어 프롬프트: 토큰 한도를 넘어 뒤쪽 ${droppedCount}개를 뺌`)
+    return prompt ? { text: prompt, tokenCount } : undefined
+  } catch (caught) {
+    warn(`용어 프롬프트 없이 인식: 어휘를 읽지 못함 (${messageOf(caught)})`)
+    return undefined
+  }
+}
+
+const runStt = async ({ audioPath, outputPath, glossaryTerms, onProgress }: RunSttParams) => {
   const { stt } = await threadPlan()
+  const whisperModelPath = modelPath('whisper')
+  const termPrompt = await termPromptOf({ terms: glossaryTerms, whisperModelPath })
 
   await runBinary({
     command: whisperBinPath(),
     args: buildWhisperArgs({
-      modelPath: modelPath('whisper'),
+      modelPath: whisperModelPath,
       audioPath,
       outputPath,
       threads: stt,
-      vadModelPath: modelPath('vad')
+      vadModelPath: modelPath('vad'),
+      termPrompt
     }),
     onStderrLine: (line) => {
       const percent = parseWhisperProgress(line)
@@ -158,6 +191,7 @@ interface TranscribeParams {
   outputPath: string
   speakerCount?: number
   isQuiet: boolean
+  glossaryTerms: string[]
   onProgress: (progress: ProgressParams) => void
 }
 
@@ -170,15 +204,16 @@ const transcribeAndDiarize = async ({
   outputPath,
   speakerCount,
   isQuiet,
+  glossaryTerms,
   onProgress
 }: TranscribeParams) =>
   !isQuiet && os.cpus().length >= PARALLEL_MIN_CORES
     ? Promise.all([
-        runStt({ audioPath, outputPath, onProgress }),
+        runStt({ audioPath, outputPath, glossaryTerms, onProgress }),
         runDiarization({ audioPath, speakerCount, isQuiet, onProgress })
       ])
     : ([
-        await runStt({ audioPath, outputPath, onProgress }),
+        await runStt({ audioPath, outputPath, glossaryTerms, onProgress }),
         await runDiarization({ audioPath, speakerCount, isQuiet, onProgress })
       ] as const)
 
@@ -190,6 +225,7 @@ export const runPipeline = async ({
   audioPath,
   speakerCount,
   isQuiet,
+  glossaryTerms,
   onProgress
 }: RunPipelineParams) => {
   ensureReady()
@@ -218,6 +254,7 @@ export const runPipeline = async ({
       outputPath,
       speakerCount,
       isQuiet,
+      glossaryTerms,
       onProgress
     })
 

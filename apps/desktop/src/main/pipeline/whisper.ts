@@ -7,6 +7,8 @@ const DEFAULT_LANGUAGE = 'ko'
  * (large-v3 102분 회의 2,338초, turbo 71분 1,034초 → 각각 2초, 25초). docs/stt-tuning-results.md
  */
 const MAX_CONTEXT_TOKENS = 0
+/** carry 프롬프트 앞에 whisper.cpp가 붙이는 이전 문맥 표시 토큰 */
+const PREV_MARKER_TOKENS = 1
 const MS_PER_SEC = 1000
 /** t_dtw는 10ms 단위 정수다 */
 const MS_PER_DTW_UNIT = 10
@@ -177,6 +179,11 @@ interface BuildWhisperArgsParams {
    * (안 그러면 whisper-cli가 조용히 DTW를 끈다).
    */
   dtwPreset?: string
+  /**
+   * 매 창 앞에 붙일 용어 프롬프트. -mc를 토큰 수 + 1로 맞춰 직전 출력 문맥은 0으로 둔다
+   * (-mc 0이면 whisper.cpp가 프롬프트까지 끈다, references/architecture.md "인식 단계 용어 프롬프트").
+   */
+  termPrompt?: { text: string; tokenCount: number }
 }
 
 export const buildWhisperArgs = ({
@@ -186,7 +193,8 @@ export const buildWhisperArgs = ({
   threads,
   vadModelPath,
   language = DEFAULT_LANGUAGE,
-  dtwPreset
+  dtwPreset,
+  termPrompt
 }: BuildWhisperArgsParams) => [
   '-m',
   modelPath,
@@ -197,7 +205,8 @@ export const buildWhisperArgs = ({
   '-t',
   String(threads),
   '-mc',
-  String(MAX_CONTEXT_TOKENS),
+  String(termPrompt ? termPrompt.tokenCount + PREV_MARKER_TOKENS : MAX_CONTEXT_TOKENS),
+  ...(termPrompt ? ['--prompt', termPrompt.text, '--carry-initial-prompt'] : []),
   '--output-json-full',
   '-of',
   outputPath,

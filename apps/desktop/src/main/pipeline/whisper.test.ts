@@ -121,6 +121,20 @@ describe('buildWhisperArgs', () => {
     expect(args.join(' ')).toContain('-mc 0')
   })
 
+  it('용어 프롬프트가 있으면 매 창에 붙이고 문맥 예산을 프롬프트로 꽉 채운다', () => {
+    const args = buildWhisperArgs({
+      modelPath: '/models/ggml.bin',
+      audioPath: '/audio/a.wav',
+      outputPath: '/out/a',
+      threads: 8,
+      termPrompt: { text: 'GitHub, 모노레포', tokenCount: 7 }
+    })
+
+    expect(args.join(' ')).toContain('-mc 8')
+    expect(args).toContain('--carry-initial-prompt')
+    expect(args[args.indexOf('--prompt') + 1]).toBe('GitHub, 모노레포')
+  })
+
   it('DTW를 켜면 flash attention을 함께 끈다', () => {
     const args = buildWhisperArgs({
       modelPath: '/models/ggml.bin',
