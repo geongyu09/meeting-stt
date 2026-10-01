@@ -64,6 +64,9 @@ export default function SettingsSection({ children }: SettingsSectionProps) {
           {error.message}
         </p>
       ) : null}
+      <SettingGroup title={t.settings.groups.appearance}>
+        <ThemeSelect value={settings.theme} onChange={(theme) => updateSettings({ theme })} />
+      </SettingGroup>
       <SettingGroup title={t.settings.groups.microphone}>
         <InputDeviceSelect
           value={settings.inputDevice}
@@ -145,9 +148,6 @@ export default function SettingsSection({ children }: SettingsSectionProps) {
           {t.settings.updateCheck.description}
         </SettingToggle>
         <UpdateCheck />
-      </SettingGroup>
-      <SettingGroup title={t.settings.groups.appearance}>
-        <ThemeSelect value={settings.theme} onChange={(theme) => updateSettings({ theme })} />
       </SettingGroup>
       <SettingGroup title={t.settings.groups.language}>
         <LocaleSelect value={settings.locale} onChange={(locale) => updateSettings({ locale })} />
