@@ -1,0 +1,28 @@
+/* 처리 중 안내(.pending)와 같은 테두리 상자. 오류가 아니라 권고라 빨강을 쓰지 않는다 */
+.notice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-hover);
+}
+
+.title,
+.detail {
+  margin: 0;
+  word-break: keep-all;
+}
+
+.title {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.detail {
+  font-size: var(--font-sm);
+  color: var(--color-text-muted);
+}

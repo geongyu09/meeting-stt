@@ -14,6 +14,7 @@ import { meetingDateGroupLabel, meetingDateGroupOf } from '@renderer/shared/util
 import useAudioSeek from './model/useAudioSeek'
 import useRailResize from './model/useRailResize'
 import useTranscriptCopy from './model/useTranscriptCopy'
+import AudioQualityNotice from './ui/AudioQualityNotice'
 import Placeholder from './ui/Placeholder'
 import RailResizer from './ui/RailResizer'
 import RecordingBar from './ui/RecordingBar'
@@ -181,6 +182,9 @@ export default function TranscriptSection({ meetingId, aside }: TranscriptSectio
             <p className={styles.error} role="alert">
               {actionError.message}
             </p>
+          ) : null}
+          {meeting.status === 'done' && meeting.audioQualityIssue ? (
+            <AudioQualityNotice issue={meeting.audioQualityIssue} />
           ) : null}
           {renderBody()}
         </section>

@@ -53,6 +53,18 @@ export const recordingKo = {
     badge: '상대방 소리 포함',
     toggleError: '설정을 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요'
   },
+  quality: {
+    silent: {
+      title: '소리가 들어오지 않습니다.',
+      advice: '마이크가 음소거됐거나 다른 입력 장치가 선택됐을 수 있습니다.',
+      widget: '소리가 들어오지 않습니다. 마이크를 확인해 주세요'
+    },
+    faint: {
+      title: '말소리가 주변 소리에 묻혀 들어옵니다.',
+      advice: '마이크를 말하는 사람 가까이 두면 회의록이 더 정확해집니다.',
+      widget: '말소리가 잘 들리지 않습니다. 마이크를 가까이 두세요'
+    }
+  },
   importer: {
     label: '녹음 파일 가져오기',
     action: '가져오기',
@@ -138,6 +150,18 @@ export const recordingEn: typeof recordingKo = {
     hint: 'Captures what others say in Zoom, Meet and similar apps. Headphones give better results. Turn it on before you start',
     badge: 'Includes speaker audio',
     toggleError: 'Could not change this setting. Please try again shortly'
+  },
+  quality: {
+    silent: {
+      title: 'No sound is coming in.',
+      advice: 'The microphone may be muted, or a different input device may be selected.',
+      widget: 'No sound is coming in. Check the microphone'
+    },
+    faint: {
+      title: 'Voices are getting lost in the background sound.',
+      advice: 'Move the microphone closer to the speakers for a more accurate transcript.',
+      widget: 'Voices are hard to hear. Move the microphone closer'
+    }
   },
   importer: {
     label: 'Import a recording',

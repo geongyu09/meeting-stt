@@ -129,4 +129,23 @@ describe('normalizeWavBuffer', () => {
     expect(measureSpeechRmsDb({ ...readWavPcm(buffer) })).toBeCloseTo(-20, 0)
     expect(result.clippedRatio).toBe(0)
   })
+
+  it('게인을 곱하기 전 원본의 발화 음량과 바닥 잡음을 함께 돌려준다', () => {
+    // 말소리 3초(-23 dBFS) + 조용한 구간 7초(-63 dBFS)
+    const pcm = Int16Array.from([
+      ...sinePcm({ amplitude: 0.1, seconds: 3 }),
+      ...sinePcm({ amplitude: 0.001, seconds: 7 })
+    ])
+
+    const { result } = normalizeWavBuffer(buildWav({ pcm }))
+
+    expect(result.audioQuality.speechDb).toBeCloseTo(-23, 0)
+    expect(result.audioQuality.noiseDb).toBeCloseTo(-63, 0)
+  })
+
+  it('소리가 전혀 없으면 품질 지표를 바닥값으로 준다', () => {
+    const { result } = normalizeWavBuffer(buildWav({ pcm: new Int16Array(SAMPLE_RATE_HZ) }))
+
+    expect(result.audioQuality).toEqual({ speechDb: -96, noiseDb: -96 })
+  })
 })

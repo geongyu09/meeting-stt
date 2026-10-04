@@ -197,6 +197,61 @@ describe('RecorderSection', () => {
     expect(screen.getByText(/1~20 사이의 정수만 쓸 수 있습니다/)).toBeTruthy()
   })
 
+  it('녹음 중 품질 문제가 생기면 기본 안내 자리에 알리고, 풀리면 기본 안내로 돌아간다', () => {
+    renderSection()
+    const recording = { ...IDLE_STATE, meetingId: MEETING_ID, startedAt: Date.now(), level: 0.2 }
+
+    act(() => {
+      pushState({ ...recording, qualityIssue: 'faint' })
+    })
+
+    expect(screen.getByText(/말소리가 주변 소리에 묻혀 들어옵니다/)).toBeTruthy()
+    expect(screen.getByText(/마이크를 말하는 사람 가까이 두면/)).toBeTruthy()
+    expect(screen.queryByText(/창을 닫거나 다른 화면으로 옮겨도/)).toBeNull()
+
+    act(() => {
+      pushState(recording)
+    })
+
+    expect(screen.queryByText(/말소리가 주변 소리에 묻혀 들어옵니다/)).toBeNull()
+    expect(screen.getByText(/창을 닫거나 다른 화면으로 옮겨도/)).toBeTruthy()
+  })
+
+  it('소리가 들어오지 않으면 마이크를 확인하라고 알린다', () => {
+    renderSection()
+
+    act(() => {
+      pushState({
+        ...IDLE_STATE,
+        meetingId: MEETING_ID,
+        startedAt: Date.now(),
+        qualityIssue: 'silent'
+      })
+    })
+
+    expect(screen.getByText(/소리가 들어오지 않습니다/)).toBeTruthy()
+    expect(
+      screen.getByText(/마이크가 음소거됐거나 다른 입력 장치가 선택됐을 수 있습니다/)
+    ).toBeTruthy()
+  })
+
+  it('오류가 있으면 품질 안내 대신 오류를 보여준다', () => {
+    renderSection()
+
+    act(() => {
+      pushState({
+        ...IDLE_STATE,
+        meetingId: MEETING_ID,
+        startedAt: Date.now(),
+        qualityIssue: 'faint',
+        errorMessage: '녹음 파일에 쓰지 못했습니다'
+      })
+    })
+
+    expect(screen.getByRole('alert').textContent).toBe('녹음 파일에 쓰지 못했습니다')
+    expect(screen.queryByText(/말소리가 주변 소리에 묻혀 들어옵니다/)).toBeNull()
+  })
+
   it('위젯에서 일어난 녹음 실패를 메인 창에도 보여준다', () => {
     renderSection()
 

@@ -1,3 +1,4 @@
+import { audioQualityIssueOf, type AudioQualityMetrics } from '@shared/audioQuality'
 import type { MeetingSearchResult } from '@shared/ipc'
 import type { Meeting, MeetingStatus } from '@shared/types'
 import { SEARCH_RESULT_LIMIT, toLikePattern } from '../searchQuery'
@@ -14,19 +15,26 @@ interface MeetingRow {
   audio_path: string | null
   summary: string | null
   speaker_count: number | null
+  audio_quality: string | null
 }
 
-const toMeeting = (row: MeetingRow): Meeting => ({
-  id: row.id,
-  title: row.title,
-  createdAt: row.created_at,
-  durationSec: row.duration_sec,
-  status: row.status,
-  ...(row.error_message ? { errorMessage: row.error_message } : {}),
-  ...(row.summary ? { summary: row.summary } : {}),
-  ...(row.speaker_count ? { speakerCount: row.speaker_count } : {}),
-  hasAudio: row.audio_path !== null
-})
+const toMeeting = (row: MeetingRow): Meeting => {
+  // 판정은 저장하지 않고 읽을 때 계산한다 (references/data-model.md "녹음 품질 지표 저장")
+  const audioQualityIssue = audioQualityIssueOf(row.audio_quality)
+
+  return {
+    id: row.id,
+    title: row.title,
+    createdAt: row.created_at,
+    durationSec: row.duration_sec,
+    status: row.status,
+    ...(row.error_message ? { errorMessage: row.error_message } : {}),
+    ...(row.summary ? { summary: row.summary } : {}),
+    ...(row.speaker_count ? { speakerCount: row.speaker_count } : {}),
+    hasAudio: row.audio_path !== null,
+    ...(audioQualityIssue ? { audioQualityIssue } : {})
+  }
+}
 
 interface InsertMeetingParams {
   id: string
@@ -132,6 +140,19 @@ export const updateMeetingDuration = ({
   getDb()
     .prepare('UPDATE meetings SET duration_sec = @durationSec WHERE id = @meetingId')
     .run({ meetingId, durationSec })
+}
+
+/** 파이프라인이 원본 WAV에서 잰 품질 지표. 판정은 읽을 때 한다 (references/data-model.md "녹음 품질 지표 저장") */
+export const updateMeetingAudioQuality = ({
+  meetingId,
+  audioQuality
+}: {
+  meetingId: string
+  audioQuality: AudioQualityMetrics
+}) => {
+  getDb()
+    .prepare('UPDATE meetings SET audio_quality = @audioQuality WHERE id = @meetingId')
+    .run({ meetingId, audioQuality: JSON.stringify(audioQuality) })
 }
 
 /** 녹음 정지 시 입력한 참석자 수. 파이프라인이 화자 분리 전에 읽는다 */

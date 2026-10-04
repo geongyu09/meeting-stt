@@ -5,6 +5,7 @@
  */
 
 import type { MergedUtterance } from '@meeting-stt/core/types'
+import type { AudioQualityIssue } from './audioQuality'
 import type { Locale } from './i18n'
 import type { ThemePreference } from './theme'
 
@@ -32,6 +33,11 @@ export interface Meeting {
   speakerCount?: number
   /** 원본 WAV가 남아 있는지. 재생·내보내기·다시 인식은 이 값이 true일 때만 할 수 있다 (references/architecture.md) */
   hasAudio: boolean
+  /**
+   * 원본 녹음의 품질 문제. 문제가 없거나 재지 않은 회의면 없다.
+   * 회의록이 부정확할 수 있다는 안내에 쓴다 (references/architecture.md "녹음 품질 안내")
+   */
+  audioQualityIssue?: AudioQualityIssue
 }
 
 export interface Utterance extends MergedUtterance {

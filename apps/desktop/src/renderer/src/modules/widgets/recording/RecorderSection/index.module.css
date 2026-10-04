@@ -162,6 +162,7 @@
 
 /* 안내 두 줄(13px × 1.6 × 2). 오류는 같은 자리·같은 높이에 대신 쓴다. 줄이 더 늘면 아래 여백으로 흘러나가게 두고 높이는 지킨다 */
 .hint,
+.quality,
 .error {
   height: 42px;
   margin: 0;
@@ -176,6 +177,11 @@
 
 .error {
   color: var(--color-danger);
+}
+
+/* 오류가 아니라 권고다. 빨강은 쓰지 않고 기본 안내(흐린 글자)보다 진하게만 한다 */
+.quality {
+  color: var(--color-text);
 }
 
 .key {

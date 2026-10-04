@@ -1,3 +1,4 @@
+import type { AudioQualityIssue } from './audioQuality'
 import type {
   AppSettings,
   GlossarySettings,
@@ -146,6 +147,11 @@ export interface RecordingStateEvent {
   liveTranscript: LiveTranscriptState
   /** 온라인 회의 소리(스피커 출력) 함께 녹음 (Phase 5-2, references/architecture.md "시스템 오디오 캡처") */
   systemAudio: SystemAudioState
+  /**
+   * 지금 들어오는 소리의 품질 문제. 녹음 중이고 일시정지가 아닐 때만 실리고, 문제가 없으면 없다.
+   * 조건이 풀리면 다음 청크에서 사라진다 (references/architecture.md "녹음 품질 안내")
+   */
+  qualityIssue?: AudioQualityIssue
 }
 
 export interface SystemAudioState {

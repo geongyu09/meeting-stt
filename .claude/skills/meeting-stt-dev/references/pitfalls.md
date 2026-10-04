@@ -63,6 +63,13 @@
 - **워크릿 파일이 `data:` URL로 인라인되면 프로덕션 빌드에서만 녹음이 죽는다.** Vite가 4KB 미만 에셋을 인라인하는데 renderer CSP는 `script-src 'self'`라
   `audioWorklet.addModule('data:text/javascript;...')`가 차단된다. 개발 서버에서는 재현되지 않으므로 `pnpm build` 뒤 `out/renderer/assets/`에 워크릿 파일이 있는지 확인한다.
 - `AudioContext({ sampleRate: 16000 })`이 일부 장치에서 무시될 수 있다 → 실제 `context.sampleRate`를 확인하고 다르면 main에서 리샘플링하거나 오류 안내.
+- **Chromium의 잡음 억제(`noiseSuppression`)는 Whisper에 해롭다.** 같은 소리를 앱 캡처 경로로 녹음하면 잡음 억제를 켰을 때 CER이 3~7%p 높고(삭제 오류가 는다),
+  끄면 파일을 직접 넣은 것과 같아진다. 자동 게인·에코 제거는 영향이 없다 (`docs/recording-quality-results.md` 4절, 가짜 마이크 측정).
+  지금 제약은 아직 켜 둔 상태다 — 끄는 결정은 `references/roadmap.md` "녹음 품질 안내"에서 사용자 확인을 기다린다.
+- **잡음 억제를 거친 녹음은 바닥 잡음이 17~20dB 낮게 찍힌다.** 발화 음량 − 바닥 잡음(폭)으로 녹음 품질을 판정하는데, 잡음 억제가 켜져 있으면
+  원거리 녹음도 폭이 20dB를 넘어 `faint`가 뜨지 않는다. 가져온 파일(Chromium을 거치지 않음)에는 임계값이 그대로 통한다.
+- **앱 캡처 경로를 파일로 재현하려면** Electron에 `--use-fake-device-for-media-stream --use-file-for-fake-audio-capture=<wav> --disable-features=AudioServiceSandbox`를 준다.
+  마지막 플래그가 없으면 오디오 서비스 샌드박스가 파일을 못 읽어 **오류 없이 무음**만 들어온다.
 - 녹음 중 앱 종료/크래시 대비: WAV 헤더는 정지 시 확정하지만, 청크는 이미 디스크에 있으므로 다음 실행 시 "미완료 녹음 복구" 처리를 고려한다 (Phase 3 이후).
 - **`afconvert`로 스테레오를 mono로 바꿀 때 `--mix`를 빼면 채널을 섞지 않고 버린다.** 한쪽 채널에만 목소리가 있는 녹음이 통째로 무음이 된다.
 - **`afconvert`의 WAV 출력 헤더는 44바이트가 아닐 수 있다.** 원본이 모노(음성 메모 AAC)면 `WAVE_FORMAT_EXTENSIBLE`(fmt 40바이트, `data`가 68바이트 위치)로 쓰고 끄는 옵션이 없다.

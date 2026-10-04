@@ -22,7 +22,8 @@ export default function WidgetPanelSection() {
   const { t: messages } = useLocale()
   const t = messages.recording
   const { status } = useModelStatus()
-  const { isRecording, isPaused, elapsedSec, speakerCount, errorMessage } = useRecordingState()
+  const { isRecording, isPaused, elapsedSec, speakerCount, errorMessage, qualityIssue } =
+    useRecordingState()
   const isModelReady = status?.isReady ?? false
   const { isBusy, start, stop } = useRecorder({ isReady: isModelReady })
   const { text, isValid, changeText } = useSpeakerCount({ speakerCount })
@@ -45,6 +46,13 @@ export default function WidgetPanelSection() {
     // 상태를 읽기 전(null)에 띄우면 모델이 있는 사용자에게도 안내가 한 번 깜빡인다
     if (status && !status.isReady) return <p className={styles.hint}>{t.widget.modelNotReady}</p>
     if (isPaused) return <p className={styles.hint}>{t.widget.pausedHint}</p>
+    if (qualityIssue) {
+      return (
+        <p className={styles.quality} role="status">
+          {t.quality[qualityIssue].widget}
+        </p>
+      )
+    }
 
     return <p className={styles.hint}>{isRecording ? t.widget.stopHint : t.widget.startHint}</p>
   }

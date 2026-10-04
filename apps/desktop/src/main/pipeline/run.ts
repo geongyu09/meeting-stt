@@ -218,7 +218,7 @@ const transcribeAndDiarize = async ({
       ] as const)
 
 /**
- * WAV 한 개를 회의록 발화 목록으로 바꾼다. Phase 1 검증 스크립트(scripts/pipeline.ts)와 같은 흐름이며,
+ * WAV 한 개를 회의록 발화 목록과 원본의 품질 지표로 바꾼다. Phase 1 검증 스크립트(scripts/pipeline.ts)와 같은 흐름이며,
  * 파라미터는 docs/phase1-results.md에서 확정한 기본값(정규화 + turbo-q5 + VAD 켬 + DTW 끔)을 쓴다.
  */
 export const runPipeline = async ({
@@ -236,11 +236,13 @@ export const runPipeline = async ({
   onProgress({ stage: 'stt', percent: 0 })
 
   // whisper는 입력 음량을 정규화하지 않아 작게 녹음된 발화를 통째로 놓친다 (docs/phase1-results.md)
-  const { speechRmsDb, gainDb } = await normalizeWavFile({
+  const { speechRmsDb, gainDb, audioQuality } = await normalizeWavFile({
     inputPath: audioPath,
     outputPath: normalizedPath
   })
-  info(`음량 정규화: 발화 ${speechRmsDb.toFixed(1)}dBFS → 게인 ${gainDb.toFixed(1)}dB`)
+  info(
+    `음량 정규화: 발화 ${speechRmsDb.toFixed(1)}dBFS → 게인 ${gainDb.toFixed(1)}dB (바닥 잡음 ${audioQuality.noiseDb.toFixed(1)}dBFS)`
+  )
 
   try {
     info(
@@ -261,9 +263,11 @@ export const runPipeline = async ({
     onProgress({ stage: 'merge', percent: 0 })
 
     // 참석자 수로 자른 클러스터는 전부 실제 화자다. 흡수하면 짧게 말한 참석자가 사라진다
-    return mergeUtterances(
+    const utterances = mergeUtterances(
       assignSpeakers({ segments, speakerSegments, isMinorSpeakerAbsorbed: !speakerCount })
     )
+
+    return { utterances, audioQuality }
   } finally {
     // 원본에서 다시 만들 수 있는 파생물이라 실패해도 남기지 않는다 (references/architecture.md)
     await rm(normalizedPath, { force: true })

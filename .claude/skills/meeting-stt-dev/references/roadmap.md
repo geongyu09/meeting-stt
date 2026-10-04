@@ -502,3 +502,46 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 - [ ] **CI.** `build.yml`에 whisper.cpp 소스 빌드 캐시, `concurrency`(이전 실행 취소), `apps/web` 빌드 포함
 - [ ] **문서 드리프트.** k-means 결정 근거가 git 제외된 `docs/external/`에만 있어 커밋된 문서만 보면 AHC가 정답처럼 읽힌다 → 근거 요약을 `docs/diarization-clustering-results.md`에 옮긴다. `data-model.md` 설정 키 표에 `llm.provider`·`llm.openaiModel`·`llm.*ApiKey` 추가. `architecture.md` IPC 규약 블록에 `events.settingsChanged` 추가. `.claude/rules/*`의 존재하지 않는 예시(`useAudioLevel`, `RecordButton`, `groupBySpeaker`)를 실제 코드 예로 교체. Windows 잔재(`win`/`nsis` 블록, `build:win`, `icon.ico`, `electron-winstaller`)는 제거하거나 "유지하지 않음"을 파일 주석으로
 - [ ] 완료 기준: `pnpm build:mac` 결과 크기가 문서 목표 이하, `release:mac` 없음, `.nvmrc`로 새 셸에서 `pnpm test` 전부 통과, 웹 프로토타입이 core 군집으로 데스크탑과 같은 라벨을 냄
+
+## 녹음 품질 안내 (2026-10-02, Phase 번호 밖)
+
+"녹음 품질 자체가 나빠서 인식이 망가지는 경우를 기획으로 풀 수 있는가"라는 사용자 질문에서 시작했다. 측정 → 녹음 중 안내 → 사후 표시 순서로 진행한다 (2026-10-02 사용자 결정).
+설계는 `architecture.md` "녹음 품질 안내", 수치는 `docs/recording-quality-results.md`.
+
+### 측정 (먼저)
+
+- [x] 가진 녹음 17편의 지표(발화 음량·바닥 잡음·폭·클리핑) — 폭이 근거리(24dB 이상)와 원거리(20dB 미만)를 가른다 (`scripts/qualitySurvey.ts survey`)
+- [x] 실제 회의 발췌를 감쇠·잡음·클리핑·대역 제한으로 나쁘게 만든 21개 조건의 CER — 음량은 무관, 폭이 CER을 정한다 (`scripts/qualityDegradeBench.ts`)
+- [x] 실제 회의 안에서 화자·턴 음량별 CER — 5dB 작게 들어온 턴이 1.5배 (`scripts/qualitySurvey.ts speakers`, `scripts/cerAlign.ts`)
+- [x] 앱 캡처 경로(가짜 마이크로 파일 입력)의 지표와 CER, 마이크 제약 변형 3종 — Chromium 잡음 억제가 CER을 3~7%p 올린다
+- [ ] 실제 마이크로 녹음한 회의에서 임계값(폭 20dB, 발화 −60 dBFS) 확인 — 사용자 몫. `meetings.audio_quality`에 쌓이는 지표로 본다
+
+### 잡음 억제 끄기 (제안, 사용자 확인 대기)
+
+측정 4절에서 나온 제안이다. **확인 전에는 코드를 바꾸지 않는다** — 녹음 제약은 `architecture.md` "녹음 (renderer)"에 적힌 계약이다.
+
+- [ ] 사용자 확인: `getUserMedia` 제약의 `noiseSuppression`을 `true` → `false`로 (에코 제거·자동 게인은 그대로)
+- [ ] 확인되면: `architecture.md` "녹음 (renderer)"·`pitfalls.md`·`plan.md` 인용부 → `shared/utils/microphone`의 제약과 테스트 → 웹 프로토타입(`apps/web/src/audio/recorder.ts`)도 같은 값으로
+- [ ] 완료 기준: `pnpm dev`에서 실제 마이크로 녹음한 회의의 `audio_quality` 폭이 직접 녹음 수준(조용한 방에서 30dB 안팎)으로 나오고, 같은 자리에서 잡음 억제를 켠 녹음보다 회의록이 나쁘지 않다
+
+### 녹음 중 안내
+
+- [ ] `src/shared/audioQuality.ts` — 프레임 RMS 분위수(발화 음량·바닥 잡음), `assessAudioQuality`(`silent` −60 dBFS / `faint` 폭 20dB) + vitest
+- [ ] `src/main/audio/qualityMonitor.ts` — 청크를 50ms 프레임으로 잘라 20초·180초 창에 쌓고 판정 + vitest (무음 → `silent`, 좁은 폭 → `faint`, 60초 전에는 `faint` 없음, 조건이 풀리면 해제)
+- [ ] `RecordingStateEvent.qualityIssue` — `session.ts`가 WAV에 쓰는 샘플을 모니터에 넣고 상태에 싣는다. 일시정지 중에는 넣지 않는다
+- [ ] 사전 `recording.quality.*` (`ko`·`en`), `RecorderSection` 안내 두 줄 자리, `WidgetPanelSection` 맨 아래 안내 자리 + 컴포넌트 테스트
+- [ ] 완료 기준: `pnpm dev`에서 마이크를 음소거한 채 녹음하면 20초 뒤 두 창에 안내가 뜨고, 음소거를 풀면 사라진다. 레이아웃이 밀리지 않는다
+
+### 사후 표시
+
+- [ ] `pipeline/normalize.ts` — 프레임 RMS에서 바닥 잡음까지 뽑아 `NormalizeResult`에 싣기, `runPipeline`이 `{ utterances, audioQuality }` 반환
+- [ ] 마이그레이션 7 `meetings.audio_quality`, `db/meetings.ts` 저장·읽기(`Meeting.audioQualityIssue`), `queue.ts`가 발화 저장 뒤 기록
+- [ ] 사전 `transcript.audioQuality.*` (`ko`·`en`), `TranscriptSection/ui/AudioQualityNotice.tsx` + 컴포넌트 테스트
+- [ ] 완료 기준: 원거리 녹음 파일(폭 20dB 미만)을 가져오면 회의록 위에 안내가 보이고, 근거리 녹음에는 보이지 않는다
+
+### 보류 (측정에서 근거가 약했던 것)
+
+- 발화 단위 "잘 안 들린 구간" 표시 — 음량이 작은 턴도 글자의 4분의 3은 맞는다. whisper 토큰 확률이 오류 위치를 맞히는지부터 재야 한다 (`scripts/cerAlign.ts`로 잴 수 있다)
+- 블루투스 통화 모드 마이크 안내(+4.8%p) — 소리 지표에 드러나지 않고 Chromium이 연결 방식을 주지 않는다. 트랙의 표본화율로 가릴 수 있는지 실제 장치로 확인 필요
+- 이어폰을 낀 온라인 회의에서 시스템 오디오가 꺼져 있을 때의 안내 — 출력 장치 종류를 알아야 한다
+- 마이크에서 먼 참석자의 말이 더 틀리는 문제(같은 회의 안 1.5배) — 녹음 전체에 게인 하나를 곱하는 정규화로는 못 푼다. 구간별 정규화(ffmpeg `dynaudnorm`)는 Phase 1에서 오인식이 더 많았다(`docs/phase1-results.md`)

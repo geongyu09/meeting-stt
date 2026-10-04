@@ -16,6 +16,17 @@ export const transcriptKo = {
     retry: '다시 시도',
     noUtterances: '인식된 발화가 없습니다'
   },
+  audioQuality: {
+    label: '녹음 품질 안내',
+    faint: {
+      title: '녹음 상태가 좋지 않아 회의록이 부정확할 수 있습니다',
+      detail: '말소리가 주변 소리에 묻혀 녹음됐습니다. 다음에는 마이크를 말하는 사람 가까이 두세요.'
+    },
+    silent: {
+      title: '소리가 거의 녹음되지 않았습니다',
+      detail: '마이크가 음소거됐거나 다른 입력 장치로 녹음됐을 수 있습니다.'
+    }
+  },
   header: {
     titleLabel: '회의 제목',
     speakerCount: ({ count }: { count: number }) => `화자 ${count}명`
@@ -104,6 +115,18 @@ export const transcriptEn: typeof transcriptKo = {
     defaultError: 'Could not create the transcript',
     retry: 'Retry',
     noUtterances: 'No speech was recognized'
+  },
+  audioQuality: {
+    label: 'Recording quality notice',
+    faint: {
+      title: 'The recording was poor, so the transcript may be inaccurate',
+      detail:
+        'Voices were lost in the background sound. Next time, place the microphone closer to the speakers.'
+    },
+    silent: {
+      title: 'Almost no sound was recorded',
+      detail: 'The microphone may have been muted, or a different input device may have been used.'
+    }
   },
   header: {
     titleLabel: 'Meeting title',

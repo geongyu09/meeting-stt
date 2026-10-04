@@ -140,6 +140,7 @@
 }
 
 .hint,
+.quality,
 .error {
   margin: 0;
   font-size: var(--font-xs);
@@ -152,4 +153,9 @@
 
 .error {
   color: var(--color-danger);
+}
+
+/* 오류가 아니라 권고다. 빨강은 쓰지 않고 기본 안내(흐린 글자)보다 진하게만 한다 */
+.quality {
+  color: var(--color-text);
 }

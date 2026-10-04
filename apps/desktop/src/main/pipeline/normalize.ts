@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { frameSamplesOf, gainDbFor, gainOf, speechRmsDbOf } from '@meeting-stt/core/normalize'
+import { measureAudioQuality, type AudioQualityMetrics } from '@shared/audioQuality'
 import { t } from '../locale'
 
 /**
@@ -67,8 +68,8 @@ export const readWavPcm = (buffer: Buffer): WavPcm => {
   return { headerBytes: data.dataOffset, sampleRate: buffer.readUInt32LE(fmt.dataOffset + 4), pcm }
 }
 
-/** 발화 구간의 대표 음량(dBFS). 무음뿐이면 -Infinity */
-export const measureSpeechRmsDb = ({ pcm, sampleRate }: Pick<WavPcm, 'pcm' | 'sampleRate'>) => {
+/** 50ms 프레임마다의 RMS(풀스케일 1 기준). 음량 정규화와 녹음 품질 지표가 같은 프레임을 쓴다 */
+const frameRmsOf = ({ pcm, sampleRate }: Pick<WavPcm, 'pcm' | 'sampleRate'>) => {
   const frameSamples = frameSamplesOf({ sampleRate })
   const frameRms: number[] = []
 
@@ -81,8 +82,12 @@ export const measureSpeechRmsDb = ({ pcm, sampleRate }: Pick<WavPcm, 'pcm' | 'sa
     frameRms.push(Math.sqrt(sumSquares / frameSamples))
   }
 
-  return speechRmsDbOf({ frameRms })
+  return frameRms
 }
+
+/** 발화 구간의 대표 음량(dBFS). 무음뿐이면 -Infinity */
+export const measureSpeechRmsDb = (wav: Pick<WavPcm, 'pcm' | 'sampleRate'>) =>
+  speechRmsDbOf({ frameRms: frameRmsOf(wav) })
 
 /** 게인을 적용하고 int16 범위를 넘는 샘플은 하드 클립한다 */
 export const applyGain = ({ pcm, gainDb }: { pcm: Int16Array; gainDb: number }) => {
@@ -103,12 +108,15 @@ export interface NormalizeResult {
   speechRmsDb: number
   gainDb: number
   clippedRatio: number
+  /** 게인을 곱하기 전 원본의 품질 지표 (references/architecture.md "녹음 품질 안내") */
+  audioQuality: AudioQualityMetrics
 }
 
 /** WAV 버퍼 전체를 정규화한 새 버퍼와 측정값을 돌려준다. 헤더는 그대로 두고 PCM만 바꾼다 */
 export const normalizeWavBuffer = (buffer: Buffer) => {
   const { headerBytes, sampleRate, pcm } = readWavPcm(buffer)
-  const speechRmsDb = measureSpeechRmsDb({ pcm, sampleRate })
+  const frameRms = frameRmsOf({ pcm, sampleRate })
+  const speechRmsDb = speechRmsDbOf({ frameRms })
   const gainDb = gainDbFor(speechRmsDb)
   const { pcm: normalized, clippedCount } = applyGain({ pcm, gainDb })
 
@@ -120,7 +128,8 @@ export const normalizeWavBuffer = (buffer: Buffer) => {
   const result: NormalizeResult = {
     speechRmsDb,
     gainDb,
-    clippedRatio: pcm.length === 0 ? 0 : clippedCount / pcm.length
+    clippedRatio: pcm.length === 0 ? 0 : clippedCount / pcm.length,
+    audioQuality: measureAudioQuality({ frameRms })
   }
 
   return { buffer: Buffer.concat([buffer.subarray(0, headerBytes), body]), result }

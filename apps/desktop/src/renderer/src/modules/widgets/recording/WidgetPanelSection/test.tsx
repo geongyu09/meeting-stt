@@ -221,6 +221,31 @@ describe('WidgetPanelSection', () => {
     expect(setRecordingPausedApi).toHaveBeenCalledWith({ isPaused: false })
   })
 
+  it('녹음 중 품질 문제가 생기면 맨 아래 안내 자리에 알리고, 풀리면 기본 안내로 돌아간다', async () => {
+    render(<WidgetPanelSection />)
+    await screen.findByRole('button', { name: '녹음 시작' })
+    const recording = { ...IDLE_STATE, meetingId: MEETING_ID, startedAt: Date.now(), level: 0.2 }
+
+    act(() => {
+      pushState({ ...recording, qualityIssue: 'faint' })
+    })
+
+    expect(screen.getByText('말소리가 잘 들리지 않습니다. 마이크를 가까이 두세요')).toBeTruthy()
+    expect(screen.queryByText('정지하면 메인 창에서 회의록을 만듭니다')).toBeNull()
+
+    act(() => {
+      pushState({ ...recording, qualityIssue: 'silent' })
+    })
+
+    expect(screen.getByText('소리가 들어오지 않습니다. 마이크를 확인해 주세요')).toBeTruthy()
+
+    act(() => {
+      pushState(recording)
+    })
+
+    expect(screen.getByText('정지하면 메인 창에서 회의록을 만듭니다')).toBeTruthy()
+  })
+
   it('세션이 보낸 오류 안내를 보여준다', async () => {
     render(<WidgetPanelSection />)
     await screen.findByRole('button', { name: '녹음 시작' })

@@ -38,7 +38,8 @@ export default function RecorderSection() {
     speakerCount,
     errorMessage,
     liveTranscript,
-    systemAudio
+    systemAudio,
+    qualityIssue
   } = useRecordingState()
   const { text, isValid, changeText } = useSpeakerCount({ speakerCount })
   const { settings } = useSettings()
@@ -113,6 +114,43 @@ export default function RecorderSection() {
 
   const message = controlError ?? errorMessage
 
+  // 오류·품질 안내·기본 안내가 같은 두 줄 자리를 쓴다. 높이가 같아 바뀌어도 아래가 밀리지 않는다
+  const renderNotice = () => {
+    if (message) {
+      return (
+        <p className={styles.error} role="alert">
+          {message}
+        </p>
+      )
+    }
+
+    if (qualityIssue) {
+      return (
+        <p className={styles.quality} role="status">
+          {t.quality[qualityIssue].title}
+          <br />
+          {t.quality[qualityIssue].advice}
+        </p>
+      )
+    }
+
+    return (
+      <p className={styles.hint}>
+        {t.recorder.keepsRunning}
+        <br />
+        {settings ? (
+          <>
+            {t.recorder.widgetHintPrefix}
+            <kbd className={styles.key}>{formatAccelerator(settings.recordingShortcut)}</kbd>
+            {t.recorder.widgetHintSuffix}
+          </>
+        ) : (
+          t.recorder.widgetHintPlain
+        )}
+      </p>
+    )
+  }
+
   return (
     <section className={styles.section} aria-label={t.recorder.sectionLabel}>
       <header className={styles.header}>
@@ -147,28 +185,7 @@ export default function RecorderSection() {
 
           <div className={styles.controls}>
             <div className={styles.controlRow}>{renderControls()}</div>
-            {/* 오류는 안내 두 줄 자리에 대신 쓴다. 높이가 같아 나타나거나 사라져도 아래가 밀리지 않는다 */}
-            {message ? (
-              <p className={styles.error} role="alert">
-                {message}
-              </p>
-            ) : (
-              <p className={styles.hint}>
-                {t.recorder.keepsRunning}
-                <br />
-                {settings ? (
-                  <>
-                    {t.recorder.widgetHintPrefix}
-                    <kbd className={styles.key}>
-                      {formatAccelerator(settings.recordingShortcut)}
-                    </kbd>
-                    {t.recorder.widgetHintSuffix}
-                  </>
-                ) : (
-                  t.recorder.widgetHintPlain
-                )}
-              </p>
-            )}
+            {renderNotice()}
           </div>
         </div>
 

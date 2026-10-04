@@ -3,6 +3,7 @@ import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { app } from 'electron'
 import { CHUNK_SAMPLES, rmsOf, SAMPLE_RATE_HZ } from '@shared/audio'
+import type { AudioQualityIssue } from '@shared/audioQuality'
 import type { RecordingStateEvent } from '@shared/ipc'
 import {
   findMeeting,
@@ -21,6 +22,7 @@ import {
   resetLiveTranscript,
   setLiveTranscriptEnabled
 } from './liveTranscript'
+import { createQualityMonitor, type QualityMonitor } from './qualityMonitor'
 import { probeSystemAudio, startSystemAudioCapture, type SystemAudioCapture } from './systemAudio'
 import { mixSamples } from './systemAudioMix'
 import { createWavWriter, type WavWriter } from './wavWriter'
@@ -39,6 +41,9 @@ interface RecordingSession {
   level: number
   /** 온라인 회의 소리 캡처. 켜져 있어도 도구가 실패하면 null이고 마이크만 녹음한다 */
   systemAudio: SystemAudioCapture | null
+  /** 들어오는 소리의 품질 판정. WAV에 쓰는 샘플을 그대로 넣는다 (references/architecture.md "녹음 품질 안내") */
+  quality: QualityMonitor
+  qualityIssue: AudioQualityIssue | null
 }
 
 /**
@@ -96,7 +101,8 @@ export const getRecordingState = (): RecordingStateEvent => ({
   systemAudio: {
     isEnabled: systemAudioEnabled(),
     ...(systemAudioError ? { errorMessage: systemAudioError } : {})
-  }
+  },
+  ...(session?.qualityIssue ? { qualityIssue: session.qualityIssue } : {})
 })
 
 /** `stoppedMeetingId`·`errorMessage`처럼 한 번만 실리는 값은 여기서 얹는다 */
@@ -133,7 +139,9 @@ export const startRecording = async ({ sampleRate }: { sampleRate: number }) => 
     pausedAt: null,
     writer,
     level: 0,
-    systemAudio: null
+    systemAudio: null,
+    quality: createQualityMonitor(),
+    qualityIssue: null
   }
   if (systemAudioEnabled()) session.systemAudio = openSystemAudio({ meetingId })
   resetLiveTranscript()
@@ -211,6 +219,7 @@ export const appendRecordingChunk = async ({
   await active.writer.appendChunk(samples)
   // 레벨 미터는 여기서 계산해 두 창에 같은 값을 보낸다 (renderer마다 따로 재지 않는다)
   active.level = rmsOf(samples)
+  active.qualityIssue = active.quality.push(samples)
   // 인식 결과는 따로 publish하지 않고 다음 청크 이벤트에 실린다 — 0.5초 안에 실려 가는 값이라 이벤트를 늘릴 이유가 없다
   feedLiveTranscript({ samples, rms: active.level })
   publish()
@@ -265,6 +274,8 @@ export const setRecordingPaused = (isPaused: boolean) => {
   if (isPaused) {
     session.pausedAt = now
     session.level = 0
+    // 멈춰 있는 동안에는 소리를 보지 않으므로 안내도 내린다. 재개하면 다음 청크에서 다시 판정한다
+    session.qualityIssue = null
   } else if (session.pausedAt !== null) {
     session.startedAt += now - session.pausedAt
     session.pausedAt = null

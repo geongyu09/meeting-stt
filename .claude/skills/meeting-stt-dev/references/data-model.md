@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS meetings (
   summary       TEXT,                       -- Phase 5 로컬 LLM 요약용
   speaker_count INTEGER,                    -- 녹음 정지 시 입력한 참석자 수 → diarization num-clusters (NULL이면 임계값 폴백). 마이그레이션 2
   refine_applied TEXT,                      -- Phase 5-4 마지막 자동 교정에서 본문에 반영한 쌍 (RefinePair[] JSON). 마이그레이션 3→4
-  refined_at    INTEGER                     -- 마지막 자동 교정 시각 (epoch ms). NULL이면 아직 교정하지 않음. 마이그레이션 4
+  refined_at    INTEGER,                    -- 마지막 자동 교정 시각 (epoch ms). NULL이면 아직 교정하지 않음. 마이그레이션 4
+  audio_quality TEXT                        -- 원본 녹음의 품질 지표 ({ speechDb, noiseDb } JSON). NULL이면 재지 않은 회의. 마이그레이션 7
 );
 
 CREATE TABLE IF NOT EXISTS utterances (
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS summary_templates (  -- 마이그레이션 6 (2026-09
        (2026-09-25, 자동 교정으로 전환. 3에서 저장된 미확정 제안은 반영된 적이 없으므로 비운다. 개발 DB가 이미 버전 3이라 3을 고치지 않고 4를 더했다).
     5: `ALTER TABLE utterances ADD COLUMN original_text TEXT` (2026-09-28, 문장 교정과 발화별 되돌리기. 이전에 교정된 발화는 원문이 없어 NULL로 남는다).
     6: `CREATE TABLE summary_templates` (2026-09-29, 요약 템플릿. `architecture.md` "요약 템플릿" 절).
+    7: `ALTER TABLE meetings ADD COLUMN audio_quality TEXT` (2026-10-02, 녹음 품질 안내. 아래 "녹음 품질 지표 저장" 절).
 
 ## 편집 동작 (Phase 3)
 
@@ -76,6 +78,16 @@ CREATE TABLE IF NOT EXISTS summary_templates (  -- 마이그레이션 6 (2026-09
 - `ord`는 편집으로 바뀌지 않는다. 발화 순서를 사용자가 바꾸는 기능은 범위에 없다.
 - 화자 재배정으로 앞뒤 발화의 화자가 같아져도 발화를 자동으로 합치지 않는다 (`references/architecture.md` 편집 UI 규칙).
 - 이름을 지운(빈 문자열) 경우 `display_name`을 `NULL`로 되돌리지 않는다. 빈 값은 저장 자체를 막는다.
+
+## 녹음 품질 지표 저장 (2026-10-02)
+
+- `meetings.audio_quality`는 `{ "speechDb": number, "noiseDb": number }` JSON이다. 파이프라인의 음량 정규화 단계가 **원본 WAV**에서 잰
+  발화 음량(프레임 RMS 90퍼센타일)과 바닥 잡음(10퍼센타일, 최소 −96)이며 단위는 dBFS다 (`architecture.md` "녹음 품질 안내").
+- **판정(`silent` / `faint`)은 저장하지 않는다.** 읽을 때 `assessAudioQuality`로 계산해 `Meeting.audioQualityIssue`에 싣는다.
+  임계값을 바꿔도 지난 회의를 다시 처리할 필요가 없고, 실제 녹음의 지표 분포를 나중에 볼 수 있다.
+- 발화를 저장하는 트랜잭션 뒤에 쓴다. 파이프라인이 실패한 회의는 NULL로 남고, "다시 인식"은 덮어쓴다.
+  소리가 전혀 없어 발화 음량이 −Infinity면 JSON에 담을 수 없으므로 −96으로 자른다.
+- 읽을 때 모양이 맞지 않으면(JSON 오류, 숫자가 아님) 지표가 없는 것으로 본다. 표시가 빠질 뿐 회의는 열린다.
 
 ## 요약 저장 (Phase 5)
 

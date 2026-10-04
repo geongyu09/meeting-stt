@@ -68,7 +68,10 @@ const MIGRATIONS = [
     created_at  INTEGER NOT NULL,
     updated_at  INTEGER NOT NULL
   );
-  `
+  `,
+  // 7: 원본 녹음의 품질 지표 ({ speechDb, noiseDb } JSON, 2026-10-02). 판정이 아니라 지표를 저장해
+  //    임계값을 바꿔도 지난 회의를 다시 처리하지 않는다 (references/data-model.md "녹음 품질 지표 저장")
+  'ALTER TABLE meetings ADD COLUMN audio_quality TEXT;'
 ]
 
 export const migrate = (db: Database) => {

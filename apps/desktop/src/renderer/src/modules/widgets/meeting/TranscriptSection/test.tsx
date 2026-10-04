@@ -236,6 +236,56 @@ describe('TranscriptSection 조회', () => {
     expect(screen.getByRole('button', { name: '김팀장 이름 수정' })).toBeTruthy()
   })
 
+  it('녹음 품질이 나빴던 회의는 회의록 위에 이유와 다음 행동을 알린다', async () => {
+    vi.mocked(getMeetingApi).mockResolvedValue(
+      detailOf({ meeting: meetingOf({ audioQualityIssue: 'faint' }) })
+    )
+    renderSection()
+
+    const notice = await screen.findByRole('note', { name: '녹음 품질 안내' })
+
+    expect(notice.textContent).toContain('녹음 상태가 좋지 않아 회의록이 부정확할 수 있습니다')
+    expect(notice.textContent).toContain('마이크를 말하는 사람 가까이 두세요')
+    expect(screen.getByText('회의를 시작하겠습니다')).toBeTruthy()
+  })
+
+  it('소리가 거의 녹음되지 않은 회의는 마이크 문제였을 수 있다고 알린다', async () => {
+    vi.mocked(getMeetingApi).mockResolvedValue(
+      detailOf({
+        meeting: meetingOf({ audioQualityIssue: 'silent' }),
+        utterances: [],
+        speakers: []
+      })
+    )
+    renderSection()
+
+    const notice = await screen.findByRole('note', { name: '녹음 품질 안내' })
+
+    expect(notice.textContent).toContain('소리가 거의 녹음되지 않았습니다')
+    expect(screen.getByText('인식된 발화가 없습니다')).toBeTruthy()
+  })
+
+  it('녹음 품질에 문제가 없거나 아직 처리 중이면 품질 안내를 그리지 않는다', async () => {
+    vi.mocked(getMeetingApi).mockResolvedValue(detailOf())
+    const { unmount } = renderSection()
+
+    await screen.findByText('회의를 시작하겠습니다')
+    expect(screen.queryByRole('note', { name: '녹음 품질 안내' })).toBeNull()
+    unmount()
+
+    vi.mocked(getMeetingApi).mockResolvedValue(
+      detailOf({
+        meeting: meetingOf({ status: 'processing', audioQualityIssue: 'faint' }),
+        utterances: [],
+        speakers: []
+      })
+    )
+    renderSection()
+
+    await screen.findByText(/회의록을 만들고 있습니다/)
+    expect(screen.queryByRole('note', { name: '녹음 품질 안내' })).toBeNull()
+  })
+
   it('처리 중인 회의는 안내와 진행률을 보여준다', async () => {
     const listeners: ((event: PipelineProgressEvent) => void)[] = []
     vi.mocked(onPipelineProgress).mockImplementation((listener) => {

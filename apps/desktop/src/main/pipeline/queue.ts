@@ -13,6 +13,7 @@ import { discardRecording } from '../audio/recordings'
 import {
   findAudioPath,
   findMeeting,
+  updateMeetingAudioQuality,
   updateMeetingStatus,
   updateMeetingSummary
 } from '../db/meetings'
@@ -113,7 +114,7 @@ const processMeeting = async (meetingId: string) => {
 
   updateMeetingStatus({ meetingId, status: 'processing' })
   notifyMeetingsChanged()
-  const utterances = await runPipeline({
+  const { utterances, audioQuality } = await runPipeline({
     audioPath,
     speakerCount: findMeeting({ meetingId })?.speakerCount,
     // 잡이 시작할 때 한 번 읽는다. 진행 중인 잡의 스레드는 바꿀 수 없다
@@ -124,6 +125,7 @@ const processMeeting = async (meetingId: string) => {
 
   report({ meetingId, stage: 'save', percent: 0 })
   saveTranscript({ meetingId, utterances })
+  updateMeetingAudioQuality({ meetingId, audioQuality })
   updateMeetingStatus({ meetingId, status: 'done' })
   report({ meetingId, stage: 'done', percent: DONE_PERCENT })
   notifyMeetingsChanged()
