@@ -5,7 +5,7 @@ import type { MergedUtterance, SpeakerPiece, SpeakerSegment } from '@shared/type
 import { normalizeForCer } from './cer'
 
 /** 클로바 노트는 1시간 전에는 `MM:SS`, 1시간부터는 `H:MM:SS`로 적는다 */
-const TURN_HEADER_PATTERN = /^(.+?) (?:(\d{1,2}):)?(\d{1,2}):(\d{2})$/
+export const TURN_HEADER_PATTERN = /^(.+?) (?:(\d{1,2}):)?(\d{1,2}):(\d{2})$/
 const SEC_PER_MIN = 60
 const SEC_PER_HOUR = 3600
 /** DER 프레임 길이. md-eval·pyannote.metrics와 같은 10ms */
