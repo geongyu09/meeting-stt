@@ -30,6 +30,13 @@ import {
   type GetSettingsResponse,
   type MergeSpeakersRequest,
   type ControlRecordingRequest,
+  type ControlDictationRequest,
+  type DictationCommandEvent,
+  type DictationStateEvent,
+  type GetDictationStateResponse,
+  type ReportDictationErrorRequest,
+  type SendDictationChunkRequest,
+  type StartDictationRequest,
   type ModelDownloadProgressEvent,
   type ModelStatusResponse,
   type MutateMeetingResponse,
@@ -98,6 +105,21 @@ const api = {
       ipcRenderer.invoke(IPC.recording.setSystemAudio, payload),
     setPaused: (payload: SetRecordingPausedRequest): Promise<GetRecordingStateResponse> =>
       ipcRenderer.invoke(IPC.recording.setPaused, payload)
+  },
+  // 받아쓰기(음성 입력). 그래프 소유자인 위젯만 start·chunk·stop을 부른다 (references/architecture.md "받아쓰기")
+  dictation: {
+    state: (): Promise<GetDictationStateResponse> => ipcRenderer.invoke(IPC.dictation.state),
+    control: (payload: ControlDictationRequest): Promise<void> =>
+      ipcRenderer.invoke(IPC.dictation.control, payload),
+    start: (payload: StartDictationRequest): Promise<GetDictationStateResponse> =>
+      ipcRenderer.invoke(IPC.dictation.start, payload),
+    chunk: (payload: SendDictationChunkRequest): Promise<void> =>
+      ipcRenderer.invoke(IPC.dictation.chunk, payload),
+    stop: (): Promise<GetDictationStateResponse> => ipcRenderer.invoke(IPC.dictation.stop),
+    reportError: (payload: ReportDictationErrorRequest): Promise<void> =>
+      ipcRenderer.invoke(IPC.dictation.reportError, payload),
+    openAccessibilitySettings: (): Promise<void> =>
+      ipcRenderer.invoke(IPC.dictation.openAccessibilitySettings)
   },
   widget: {
     setVisible: (payload: SetWidgetVisibleRequest): Promise<void> =>
@@ -251,6 +273,22 @@ const api = {
 
       return () => {
         ipcRenderer.removeListener(IPC.events.recordingCommand, handler)
+      }
+    },
+    onDictationState: (listener: (event: DictationStateEvent) => void) => {
+      const handler = (_: IpcRendererEvent, payload: DictationStateEvent) => listener(payload)
+      ipcRenderer.on(IPC.events.dictationState, handler)
+
+      return () => {
+        ipcRenderer.removeListener(IPC.events.dictationState, handler)
+      }
+    },
+    onDictationCommand: (listener: (event: DictationCommandEvent) => void) => {
+      const handler = (_: IpcRendererEvent, payload: DictationCommandEvent) => listener(payload)
+      ipcRenderer.on(IPC.events.dictationCommand, handler)
+
+      return () => {
+        ipcRenderer.removeListener(IPC.events.dictationCommand, handler)
       }
     },
     onMeetingsChanged: (listener: () => void) => {

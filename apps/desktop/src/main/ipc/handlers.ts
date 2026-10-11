@@ -19,6 +19,8 @@ import {
   type ModelStatusResponse,
   type MutateMeetingResponse,
   type RecordingCommandEvent,
+  type ControlDictationRequest,
+  type GetDictationStateResponse,
   type RequestMicrophonePermissionResponse,
   type SaveSummaryTemplateResponse,
   type SearchMeetingsResponse,
@@ -68,6 +70,16 @@ import {
   startRecording,
   stopRecording
 } from '../audio/session'
+import { openAccessibilitySettings } from '../dictation/insert'
+import {
+  appendDictationChunk,
+  assertNotDictating,
+  controlDictation,
+  getDictationState,
+  reportDictationError,
+  startDictation,
+  stopDictation
+} from '../dictation/session'
 import { findMeeting, listMeetings, renameMeeting, searchMeetings } from '../db/meetings'
 import { getRefineResult, revertUtteranceRefine } from '../db/refine'
 import {
@@ -268,6 +280,7 @@ const readSettings = (payload: unknown) => ({
   widgetFadeOpacity: readFadeOpacity(payload),
   recordingShortcut: readShortcut({ payload, key: 'recordingShortcut' }),
   widgetShortcut: readShortcut({ payload, key: 'widgetShortcut' }),
+  dictationShortcut: readShortcut({ payload, key: 'dictationShortcut' }),
   inputDevice: readInputDevice(payload),
   locale: readLocale(payload),
   theme: readTheme(payload),
@@ -283,6 +296,17 @@ const readRecordingCommandKind = (payload: unknown) => {
   }
 
   return kind as RecordingCommandEvent['kind']
+}
+
+const DICTATION_COMMAND_KINDS: ControlDictationRequest['kind'][] = ['start', 'stop', 'toggle']
+
+const readDictationCommandKind = (payload: unknown) => {
+  const kind = isRecord(payload) ? payload.kind : undefined
+  if (!DICTATION_COMMAND_KINDS.includes(kind as ControlDictationRequest['kind'])) {
+    throw new Error(t().main.errors.unknownDictationCommand)
+  }
+
+  return kind as ControlDictationRequest['kind']
 }
 
 const readLlmProvider = (payload: unknown) => {
@@ -523,9 +547,12 @@ const handleDownloadModels = async (payload: unknown): Promise<DownloadModelsRes
 export const registerIpcHandlers = () => {
   ipcMain.handle(IPC.recording.requestPermission, () => requestMicrophonePermission())
 
-  ipcMain.handle(IPC.recording.start, (_event, payload): Promise<StartRecordingResponse> =>
-    startRecording({ sampleRate: readSampleRate(payload) })
-  )
+  // 마이크 그래프와 GPU를 같이 쓰므로 받아쓰기와 녹음은 동시에 돌지 않는다 (references/architecture.md "받아쓰기")
+  ipcMain.handle(IPC.recording.start, (_event, payload): Promise<StartRecordingResponse> => {
+    assertNotDictating()
+
+    return startRecording({ sampleRate: readSampleRate(payload) })
+  })
 
   ipcMain.handle(IPC.recording.chunk, (_event, payload) =>
     appendRecordingChunk({ meetingId: readMeetingId(payload), pcm: readPcm(payload) })
@@ -573,6 +600,35 @@ export const registerIpcHandlers = () => {
       })
     })
   )
+
+  ipcMain.handle(IPC.dictation.state, (): GetDictationStateResponse => getDictationState())
+
+  ipcMain.handle(IPC.dictation.control, (_event, payload) =>
+    controlDictation({ kind: readDictationCommandKind(payload) })
+  )
+
+  ipcMain.handle(IPC.dictation.start, (_event, payload): Promise<GetDictationStateResponse> =>
+    startDictation({ sampleRate: readSampleRate(payload) })
+  )
+
+  ipcMain.handle(IPC.dictation.chunk, (_event, payload) =>
+    appendDictationChunk({ pcm: readPcm(payload) })
+  )
+
+  ipcMain.handle(IPC.dictation.stop, (): Promise<GetDictationStateResponse> => stopDictation())
+
+  ipcMain.handle(IPC.dictation.reportError, (_event, payload) =>
+    reportDictationError({
+      message: readText({
+        payload,
+        key: 'message',
+        maxLength: ERROR_MESSAGE_MAX_LENGTH,
+        label: t().main.fields.errorMessage
+      })
+    })
+  )
+
+  ipcMain.handle(IPC.dictation.openAccessibilitySettings, () => openAccessibilitySettings())
 
   ipcMain.handle(IPC.widget.setVisible, (_event, payload) =>
     setWidgetVisible({ isVisible: readBoolean({ payload, key: 'isVisible' }) })
@@ -641,7 +697,8 @@ export const registerIpcHandlers = () => {
 
     const isShortcutChanged =
       next.recordingShortcut !== previous.recordingShortcut ||
-      next.widgetShortcut !== previous.widgetShortcut
+      next.widgetShortcut !== previous.widgetShortcut ||
+      next.dictationShortcut !== previous.dictationShortcut
     if (isShortcutChanged) replaceGlobalShortcuts({ next, previous })
 
     const settings = updateAppSettings(next)

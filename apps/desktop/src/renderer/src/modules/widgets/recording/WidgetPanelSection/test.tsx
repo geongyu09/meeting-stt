@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { RecordingStateEvent } from '@shared/ipc'
+import type { DictationStateEvent, RecordingStateEvent } from '@shared/ipc'
 
 vi.mock('@renderer/shared/api/recording', () => ({
   requestMicrophonePermissionApi: vi.fn(),
@@ -18,8 +18,19 @@ vi.mock('@renderer/shared/api/recording', () => ({
 vi.mock('@renderer/shared/api/events', () => ({
   onRecordingState: vi.fn(),
   onRecordingCommand: vi.fn(),
+  onDictationState: vi.fn(),
+  onDictationCommand: vi.fn(),
   onModelDownloadProgress: vi.fn(),
   onModelsChanged: vi.fn()
+}))
+
+vi.mock('@renderer/shared/api/dictation', () => ({
+  getDictationStateApi: vi.fn(),
+  controlDictationApi: vi.fn(),
+  startDictationApi: vi.fn(),
+  sendDictationChunkApi: vi.fn(),
+  stopDictationApi: vi.fn(),
+  reportDictationErrorApi: vi.fn()
 }))
 
 vi.mock('@renderer/shared/api/models', () => ({
@@ -33,7 +44,18 @@ vi.mock('@renderer/shared/api/settings', () => ({
   getSettingsApi: vi.fn().mockResolvedValue({ inputDevice: null })
 }))
 
-import { onModelsChanged, onRecordingState } from '@renderer/shared/api/events'
+import {
+  getDictationStateApi,
+  reportDictationErrorApi,
+  startDictationApi,
+  stopDictationApi
+} from '@renderer/shared/api/dictation'
+import {
+  onDictationCommand,
+  onDictationState,
+  onModelsChanged,
+  onRecordingState
+} from '@renderer/shared/api/events'
 import { getModelStatusApi } from '@renderer/shared/api/models'
 import {
   getRecordingStateApi,
@@ -56,6 +78,15 @@ const IDLE_STATE: RecordingStateEvent = {
   systemAudio: { isEnabled: false }
 }
 
+const IDLE_DICTATION: DictationStateEvent = {
+  phase: 'idle',
+  startedAt: null,
+  level: 0,
+  insertMode: 'paste',
+  lastInsertedText: '',
+  hasLastResult: false
+}
+
 const READY_MODEL_STATUS = {
   isReady: true,
   isSummaryReady: false,
@@ -70,6 +101,10 @@ let pushState: (event: RecordingStateEvent) => void = () => {}
 
 /** 메인 창에서 모델을 다 받았다는 알림을 흘려보낸다 */
 let pushModelsChanged: () => void = () => {}
+
+/** main이 보내는 받아쓰기 상태·명령을 테스트에서 직접 흘려보낸다 */
+let pushDictationState: (event: DictationStateEvent) => void = () => {}
+let pushDictationCommand: (event: { kind: 'start' | 'stop' }) => void = () => {}
 
 /** happy-dom에는 오디오 그래프가 없어 위젯이 쓰는 최소한만 흉내 낸다 */
 const stubAudioGraph = () => {
@@ -107,6 +142,20 @@ beforeEach(() => {
 
     return () => {}
   })
+  vi.mocked(onDictationState).mockImplementation((listener) => {
+    pushDictationState = listener
+
+    return () => {}
+  })
+  vi.mocked(onDictationCommand).mockImplementation((listener) => {
+    pushDictationCommand = listener
+
+    return () => {}
+  })
+  vi.mocked(getDictationStateApi).mockResolvedValue(IDLE_DICTATION)
+  vi.mocked(startDictationApi).mockResolvedValue({ ...IDLE_DICTATION, phase: 'listening' })
+  vi.mocked(stopDictationApi).mockResolvedValue(IDLE_DICTATION)
+  vi.mocked(reportDictationErrorApi).mockResolvedValue(undefined)
   vi.mocked(getRecordingStateApi).mockResolvedValue(IDLE_STATE)
   vi.mocked(getModelStatusApi).mockResolvedValue(READY_MODEL_STATUS)
   vi.mocked(requestMicrophonePermissionApi).mockResolvedValue(true)
@@ -264,5 +313,83 @@ describe('WidgetPanelSection', () => {
     await user.click(await screen.findByRole('button', { name: '위젯 숨기기' }))
 
     expect(setWidgetVisibleApi).toHaveBeenCalledWith({ isVisible: false })
+  })
+
+  it('받아쓰기 시작 지시를 받으면 마이크 권한을 받고 받아쓰기 세션을 시작한다', async () => {
+    render(<WidgetPanelSection />)
+    await screen.findByRole('button', { name: '녹음 시작' })
+
+    await act(async () => pushDictationCommand({ kind: 'start' }))
+
+    expect(requestMicrophonePermissionApi).toHaveBeenCalled()
+    expect(startDictationApi).toHaveBeenCalledWith({ sampleRate: 16000 })
+    expect(startRecordingApi).not.toHaveBeenCalled()
+  })
+
+  it('받아쓰기 중에는 받아쓰기 보기로 바뀌고 마지막으로 넣은 글을 보여 준다', async () => {
+    render(<WidgetPanelSection />)
+    await screen.findByRole('button', { name: '녹음 시작' })
+
+    act(() => {
+      pushDictationState({
+        ...IDLE_DICTATION,
+        phase: 'listening',
+        startedAt: Date.now() - 12_000,
+        level: 0.3,
+        lastInsertedText: '내일 오전에 회의합시다'
+      })
+    })
+
+    expect(screen.getByText('받아쓰는 중')).toBeTruthy()
+    expect(screen.getByText('00:12')).toBeTruthy()
+    expect(screen.getByText('내일 오전에 회의합시다')).toBeTruthy()
+    expect(screen.getByText('말이 끊길 때마다 커서 자리에 글이 들어갑니다')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '녹음 시작' })).toBeNull()
+  })
+
+  it('인식 중이면 상태 문구가 바뀌고, 클립보드 모드면 ⌘V 안내를 보여 준다', async () => {
+    render(<WidgetPanelSection />)
+    await screen.findByRole('button', { name: '녹음 시작' })
+
+    act(() => {
+      pushDictationState({
+        ...IDLE_DICTATION,
+        phase: 'recognizing',
+        startedAt: Date.now(),
+        insertMode: 'clipboard'
+      })
+    })
+
+    expect(screen.getByText('글로 바꾸는 중')).toBeTruthy()
+    expect(screen.getByRole('status').textContent).toBe('복사됐습니다. ⌘V로 붙여 넣으세요')
+  })
+
+  it('받아쓰기 정지를 누르면 그래프를 끊고 세션을 끝낸다', async () => {
+    const user = userEvent.setup()
+    render(<WidgetPanelSection />)
+    await screen.findByRole('button', { name: '녹음 시작' })
+    await act(async () => pushDictationCommand({ kind: 'start' }))
+    act(() => {
+      pushDictationState({ ...IDLE_DICTATION, phase: 'listening', startedAt: Date.now() })
+    })
+
+    await user.click(screen.getByRole('button', { name: '받아쓰기 정지' }))
+
+    expect(stopDictationApi).toHaveBeenCalled()
+  })
+
+  it('받아쓰기 시작이 거절되면 녹음 보기에 그 안내를 보여 준다', async () => {
+    render(<WidgetPanelSection />)
+    await screen.findByRole('button', { name: '녹음 시작' })
+
+    act(() => {
+      pushDictationState({
+        ...IDLE_DICTATION,
+        errorMessage: '녹음 중에는 받아쓰기를 할 수 없습니다. 녹음을 정지한 뒤 다시 시도해 주세요'
+      })
+    })
+
+    expect(screen.getByRole('alert').textContent).toContain('녹음 중에는 받아쓰기를 할 수 없습니다')
+    expect(screen.getByRole('button', { name: '녹음 시작' })).toBeTruthy()
   })
 })

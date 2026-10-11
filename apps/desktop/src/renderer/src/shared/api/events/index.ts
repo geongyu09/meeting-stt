@@ -1,4 +1,6 @@
 import type {
+  DictationCommandEvent,
+  DictationStateEvent,
   ModelDownloadProgressEvent,
   PipelineProgressEvent,
   RecordingCommandEvent,
@@ -78,6 +80,26 @@ export const onRecordingState = (listener: (event: RecordingStateEvent) => void)
  */
 export const onRecordingCommand = (listener: (event: RecordingCommandEvent) => void) =>
   window.api.events.onRecordingCommand(listener)
+
+/**
+ * @description 받아쓰기 상태(단계·시작 시각·레벨·삽입 방식·마지막 조각) 변화를 구독합니다. 위젯 패널·설정 화면이 같은 값을 봅니다.
+ * @param listener - 받아쓰기 상태 이벤트 콜백
+ * @returns 구독 해제 함수
+ * @example
+ * useEffect(() => onDictationState(setState), [])
+ */
+export const onDictationState = (listener: (event: DictationStateEvent) => void) =>
+  window.api.events.onDictationState(listener)
+
+/**
+ * @description main이 보내는 받아쓰기 시작/정지 지시를 구독합니다. 오디오 그래프를 가진 위젯 창에서만 씁니다.
+ * @param listener - 받아쓰기 명령 콜백
+ * @returns 구독 해제 함수
+ * @example
+ * useEffect(() => onDictationCommand(({ kind }) => run(kind)), [run])
+ */
+export const onDictationCommand = (listener: (event: DictationCommandEvent) => void) =>
+  window.api.events.onDictationCommand(listener)
 
 /**
  * @description 모델 다운로드가 끝났다는 알림을 구독합니다. 내용은 없으니 모델 상태를 다시 조회합니다.

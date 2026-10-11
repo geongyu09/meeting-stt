@@ -1,4 +1,5 @@
 import { commonEn, commonKo } from './locales/common'
+import { dictationEn, dictationKo } from './locales/dictation'
 import { glossaryEn, glossaryKo } from './locales/glossary'
 import { llmEn, llmKo } from './locales/llm'
 import { mainEn, mainKo } from './locales/main'
@@ -40,6 +41,7 @@ const ko = {
   refine: refineKo,
   pipeline: pipelineKo,
   recording: recordingKo,
+  dictation: dictationKo,
   models: modelsKo,
   settings: settingsKo,
   llm: llmKo,
@@ -60,6 +62,7 @@ const en: Messages = {
   refine: refineEn,
   pipeline: pipelineEn,
   recording: recordingEn,
+  dictation: dictationEn,
   models: modelsEn,
   settings: settingsEn,
   llm: llmEn,

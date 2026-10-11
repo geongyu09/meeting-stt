@@ -10,6 +10,7 @@ export const settingsKo = {
     recording: '녹음·처리',
     widget: '녹음 위젯',
     shortcut: '단축키',
+    dictation: '받아쓰기',
     sttModel: '음성 인식 모델',
     update: '업데이트',
     appearance: '화면',
@@ -76,6 +77,11 @@ export const settingsKo = {
     title: '위젯 표시·숨김',
     description: '⌘·⌥·⌃ 중 하나 이상과 문자·숫자·기능키를 함께 누르세요. Esc를 누르면 취소합니다.'
   },
+  dictationShortcut: {
+    title: '받아쓰기 시작·정지',
+    description:
+      '다른 앱에서 이 키를 누르고 말하면 커서 자리에 글이 들어갑니다. 다시 누르면 끝납니다.'
+  },
   shortcutField: {
     changeLabel: ({ title }: { title: string }) => `${title} 변경`,
     pressKeys: '키를 누르세요…',
@@ -119,6 +125,7 @@ export const settingsEn: typeof settingsKo = {
     recording: 'Recording & processing',
     widget: 'Recording widget',
     shortcut: 'Shortcuts',
+    dictation: 'Dictation',
     sttModel: 'Speech recognition model',
     update: 'Updates',
     appearance: 'Appearance',
@@ -186,6 +193,11 @@ export const settingsEn: typeof settingsKo = {
     title: 'Show/hide widget',
     description:
       'Press at least one of ⌘, ⌥ or ⌃ together with a letter, number or function key. Press Esc to cancel.'
+  },
+  dictationShortcut: {
+    title: 'Start/stop dictation',
+    description:
+      'Press this key in another app and speak to insert text at the cursor. Press it again to finish.'
   },
   shortcutField: {
     changeLabel: ({ title }: { title: string }) => `Change ${title}`,

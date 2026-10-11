@@ -59,42 +59,61 @@ const setupLlamaCli = async ({ binDir, platformKey }: { binDir: string; platform
   await clearQuarantine(llamaBin)
 }
 
-/** Core Audio Taps API가 macOS 14.2부터 있다 (references/architecture.md "시스템 오디오 캡처") */
-const SYSTEM_AUDIO_TAP_TARGET = 'arm64-apple-macos14.2'
-const SYSTEM_AUDIO_TAP_SOURCE = path.join(PROJECT_ROOT, 'native', 'systemAudioTap', 'main.swift')
+interface SwiftTool {
+  name: string
+  /** `swiftc -target`. 도구가 쓰는 API가 생긴 OS 버전에 맞춘다 */
+  target: string
+  /** 빌드하지 못했을 때 어떤 기능만 막히는지 */
+  blockedFeature: string
+}
+
+/** 시스템 프레임워크만 링크하는 Swift 한 파일 도구들. 내려받지 않고 여기서 빌드한다 (references/distribution.md 5절) */
+const SWIFT_TOOLS: SwiftTool[] = [
+  // Core Audio Taps API가 macOS 14.2부터 있다 (references/architecture.md "시스템 오디오 캡처")
+  {
+    name: 'systemAudioTap',
+    target: 'arm64-apple-macos14.2',
+    blockedFeature: '온라인 회의 소리 녹음'
+  },
+  // 받아쓰기 조각 끼워 넣기. 없으면 클립보드 폴백으로만 동작한다 (references/architecture.md "받아쓰기" > "끼워 넣기")
+  {
+    name: 'textInsert',
+    target: 'arm64-apple-macos14.0',
+    blockedFeature: '받아쓰기의 커서 자리 끼워 넣기(클립보드 복사로 대신)'
+  }
+]
 
 /**
- * 시스템 오디오 캡처 도구 (Phase 5-2). 시스템 프레임워크만 링크하는 Swift 한 파일이라 내려받지 않고 여기서 빌드한다.
- * Xcode·Command Line Tools가 없으면 경고만 남긴다 — 이 기능만 막히고 STT 준비는 계속된다.
+ * Xcode·Command Line Tools가 없으면 경고만 남긴다 — 그 기능만 막히고 STT 준비는 계속된다.
+ * 소스가 바뀌지 않았으면 다시 빌드하지 않는다.
  */
-const setupSystemAudioTap = async ({ binDir }: { binDir: string }) => {
-  const target = path.join(binDir, 'systemAudioTap')
-  if (existsSync(target) && statSync(target).mtimeMs >= statSync(SYSTEM_AUDIO_TAP_SOURCE).mtimeMs) {
-    info('· systemAudioTap 이미 준비됨')
+const setupSwiftTool = async ({ binDir, tool }: { binDir: string; tool: SwiftTool }) => {
+  const source = path.join(PROJECT_ROOT, 'native', tool.name, 'main.swift')
+  const target = path.join(binDir, tool.name)
+  if (existsSync(target) && statSync(target).mtimeMs >= statSync(source).mtimeMs) {
+    info(`· ${tool.name} 이미 준비됨`)
     return
   }
 
   const swiftc = await which('swiftc')
   if (!swiftc) {
     warn(
-      'swiftc를 찾지 못해 systemAudioTap을 건너뜁니다 — 온라인 회의 소리 녹음만 막힙니다 (xcode-select --install)'
+      `swiftc를 찾지 못해 ${tool.name}을 건너뜁니다 — ${tool.blockedFeature}만 막힙니다 (xcode-select --install)`
     )
     return
   }
 
   const result = await run({
     command: swiftc,
-    args: ['-O', '-target', SYSTEM_AUDIO_TAP_TARGET, '-o', target, SYSTEM_AUDIO_TAP_SOURCE]
+    args: ['-O', '-target', tool.target, '-o', target, source]
   })
   if (result.code !== 0) {
-    warn(
-      `systemAudioTap 빌드 실패 — 온라인 회의 소리 녹음만 막힙니다: ${result.stderr.slice(-400)}`
-    )
+    warn(`${tool.name} 빌드 실패 — ${tool.blockedFeature}만 막힙니다: ${result.stderr.slice(-400)}`)
     return
   }
 
   await chmod(target, 0o755)
-  info('· systemAudioTap 빌드 완료')
+  info(`· ${tool.name} 빌드 완료`)
 }
 
 /** `--platform=win32-x64` 로 다른 플랫폼 자산을 미리 받을 수 있다 (CI·크로스 준비용) */
@@ -135,7 +154,9 @@ const main = async () => {
   await clearQuarantine(diarizeBin)
 
   await setupLlamaCli({ binDir, platformKey })
-  if (platformKey === 'darwin-arm64') await setupSystemAudioTap({ binDir })
+  if (platformKey === 'darwin-arm64') {
+    for (const tool of SWIFT_TOOLS) await setupSwiftTool({ binDir, tool })
+  }
 
   info('바이너리 준비 완료')
 }

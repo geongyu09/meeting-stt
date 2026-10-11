@@ -67,6 +67,7 @@ const DEFAULT_SETTINGS = {
   widgetFadeOpacity: 0.55,
   recordingShortcut: 'Alt+Command+R',
   widgetShortcut: 'Alt+Command+W',
+  dictationShortcut: 'Alt+Command+D',
   inputDevice: null,
   locale: 'ko' as const,
   theme: 'system' as const,
@@ -307,13 +308,13 @@ describe('SettingsSection', () => {
       .getAllByRole('region')
       .map((region) => region.getAttribute('aria-label') ?? region.querySelector('h2')?.textContent)
     expect(regions).toEqual([
+      '화면',
       '마이크',
       '녹음·처리',
       '녹음 위젯',
       '단축키',
       '음성 인식 모델',
       '업데이트',
-      '화면',
       '언어',
       '피드백'
     ])

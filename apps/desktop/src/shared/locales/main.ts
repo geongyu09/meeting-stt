@@ -6,6 +6,9 @@ export const mainKo = {
   tray: {
     startRecording: '녹음 시작',
     stopRecording: '녹음 정지',
+    startDictation: '받아쓰기 시작',
+    stopDictation: '받아쓰기 정지',
+    copyLastDictation: '마지막 받아쓰기 복사',
     toggleWidget: '위젯 표시/숨김',
     openMainWindow: '메인 창 열기',
     quit: '종료'
@@ -22,11 +25,12 @@ export const mainKo = {
     fadeOpacityRange: ({ min, max }: { min: number; max: number }) =>
       `위젯 불투명도는 ${min}~${max} 사이여야 합니다`,
     shortcutInvalid: '단축키는 ⌘·⌥·⌃ 중 하나 이상과 문자·숫자·기능키를 함께 눌러 지정해 주세요',
-    shortcutsMustDiffer: '녹음 단축키와 위젯 단축키를 다르게 지정해 주세요',
+    shortcutsMustDiffer: '녹음·위젯·받아쓰기 단축키를 서로 다르게 지정해 주세요',
     shortcutRegisterFailed: ({ shortcuts }: { shortcuts: string }) =>
       `단축키 ${shortcuts}를 등록하지 못했습니다. 다른 앱이 쓰는 중일 수 있습니다`,
     inputDeviceInvalid: '입력 장치 정보가 올바르지 않습니다',
     unknownRecordingCommand: '알 수 없는 녹음 명령입니다',
+    unknownDictationCommand: '알 수 없는 받아쓰기 명령입니다',
     unknownLlmProvider: '알 수 없는 LLM 공급자입니다',
     unknownOpenaiModel: '알 수 없는 GPT 모델입니다',
     unknownWhisperModel: '알 수 없는 음성 인식 모델입니다',
@@ -77,6 +81,27 @@ export const mainKo = {
     systemAudioStopped: '시스템 오디오 캡처가 끊겨 마이크만 녹음합니다',
     systemAudioTimeout:
       '시스템 오디오 캡처 도구가 응답하지 않습니다. 권한 창이 떠 있다면 허용한 뒤 다시 켜 주세요'
+  },
+  dictation: {
+    alreadyActive: '이미 받아쓰기가 진행 중입니다',
+    notActive: '진행 중인 받아쓰기가 아닙니다',
+    blockedByRecording:
+      '녹음 중에는 받아쓰기를 할 수 없습니다. 녹음을 정지한 뒤 다시 시도해 주세요',
+    recordingBlocked:
+      '받아쓰기 중에는 녹음을 시작할 수 없습니다. 받아쓰기를 끝낸 뒤 다시 시도해 주세요',
+    unavailable:
+      '받아쓰기에 필요한 음성 인식 모델이 준비되지 않았습니다. 설정의 음성 인식 모델에서 내려받아 주세요',
+    recognizeFailed: '방금 구간을 글로 바꾸지 못했습니다. 계속 듣고 있습니다',
+    maxReached: ({ minutes }: { minutes: number }) =>
+      `받아쓰기가 ${minutes}분을 넘어 자동으로 끝났습니다. 계속하려면 다시 시작해 주세요`,
+    insert: {
+      accessibility: '접근성 권한이 없어 클립보드에 복사했습니다. ⌘V로 붙여 넣으세요',
+      secureInput:
+        '암호 입력란처럼 보안 입력이 켜진 곳에는 넣을 수 없어 클립보드에 복사했습니다. ⌘V로 붙여 넣으세요',
+      selfFrontmost:
+        '이 앱 창이 맨 앞에 있어 클립보드에만 복사했습니다. 글을 넣을 앱을 앞으로 가져온 뒤 ⌘V로 붙여 넣으세요',
+      failed: '글을 끼워 넣지 못해 클립보드에 복사했습니다. ⌘V로 붙여 넣으세요'
+    }
   },
   dialogs: {
     exportTitle: '녹음 파일 저장',
@@ -153,6 +178,9 @@ export const mainEn: typeof mainKo = {
   tray: {
     startRecording: 'Start recording',
     stopRecording: 'Stop recording',
+    startDictation: 'Start dictation',
+    stopDictation: 'Stop dictation',
+    copyLastDictation: 'Copy last dictation',
     toggleWidget: 'Show/hide widget',
     openMainWindow: 'Open main window',
     quit: 'Quit'
@@ -168,11 +196,12 @@ export const mainEn: typeof mainKo = {
     fadeOpacityRange: ({ min, max }) => `Widget opacity must be between ${min} and ${max}`,
     shortcutInvalid:
       'A shortcut needs at least one of ⌘, ⌥ or ⌃ together with a letter, number or function key',
-    shortcutsMustDiffer: 'The recording and widget shortcuts must be different',
+    shortcutsMustDiffer: 'The recording, widget and dictation shortcuts must all be different',
     shortcutRegisterFailed: ({ shortcuts }) =>
       `Could not register the shortcut ${shortcuts}. Another app may be using it`,
     inputDeviceInvalid: 'The input device information is invalid',
     unknownRecordingCommand: 'Unknown recording command',
+    unknownDictationCommand: 'Unknown dictation command',
     unknownLlmProvider: 'Unknown LLM provider',
     unknownOpenaiModel: 'Unknown GPT model',
     unknownWhisperModel: 'Unknown speech recognition model',
@@ -226,6 +255,27 @@ export const mainEn: typeof mainKo = {
     systemAudioStopped: 'System audio capture stopped. Only the microphone is being recorded',
     systemAudioTimeout:
       'The system audio capture tool is not responding. If a permission prompt is open, allow it and turn this on again'
+  },
+  dictation: {
+    alreadyActive: 'Dictation is already in progress',
+    notActive: 'Dictation is not in progress',
+    blockedByRecording:
+      'Dictation is unavailable while recording. Stop the recording and try again',
+    recordingBlocked: 'Recording cannot start during dictation. Finish dictation and try again',
+    unavailable:
+      'The speech recognition model needed for dictation is not ready. Download it under Settings → Speech recognition model',
+    recognizeFailed: 'Could not transcribe the last segment. Still listening',
+    maxReached: ({ minutes }) =>
+      `Dictation stopped automatically after ${minutes} minutes. Start again to continue`,
+    insert: {
+      accessibility:
+        'No accessibility permission, so the text was copied to the clipboard. Press ⌘V to paste',
+      secureInput:
+        'Text cannot be inserted where secure input is on (such as password fields), so it was copied to the clipboard. Press ⌘V to paste',
+      selfFrontmost:
+        'This app is in front, so the text was only copied to the clipboard. Bring the target app to the front and press ⌘V',
+      failed: 'Could not insert the text, so it was copied to the clipboard. Press ⌘V to paste'
+    }
   },
   dialogs: {
     exportTitle: 'Save recording',

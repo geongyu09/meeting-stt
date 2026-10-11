@@ -24,6 +24,7 @@ const SETTINGS: AppSettings = {
   widgetFadeOpacity: 0.55,
   recordingShortcut: 'Alt+Command+R',
   widgetShortcut: 'Alt+Command+W',
+  dictationShortcut: 'Alt+Command+D',
   inputDevice: null,
   locale: 'ko',
   theme: 'system',

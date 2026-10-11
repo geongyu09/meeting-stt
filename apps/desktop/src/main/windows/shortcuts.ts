@@ -2,20 +2,28 @@ import { globalShortcut } from 'electron'
 import { formatAccelerator } from '@shared/shortcut'
 import { getAppSettings } from '../db/settings'
 import { warn } from '../log'
+import { controlDictation } from '../dictation/session'
 import { requestRecordingCommand, toggleWidgetVisible } from './widget'
 import { t } from '../locale'
 
 interface ShortcutAccelerators {
   recordingShortcut: string
   widgetShortcut: string
+  dictationShortcut: string
 }
 
-const bindings = ({ recordingShortcut, widgetShortcut }: ShortcutAccelerators) => [
+const bindings = ({
+  recordingShortcut,
+  widgetShortcut,
+  dictationShortcut
+}: ShortcutAccelerators) => [
   {
     accelerator: recordingShortcut,
     action: () => requestRecordingCommand({ kind: 'toggle' })
   },
-  { accelerator: widgetShortcut, action: toggleWidgetVisible }
+  { accelerator: widgetShortcut, action: toggleWidgetVisible },
+  // 받아쓰기는 main 세션이 상태를 알고 있어 토글을 여기서 시작/정지로 푼다 (references/architecture.md "받아쓰기")
+  { accelerator: dictationShortcut, action: () => controlDictation({ kind: 'toggle' }) }
 ]
 
 /** 등록하지 못한 accelerator 목록. 다른 앱이 선점했거나 Electron이 모르는 키면 실패한다 */
@@ -56,7 +64,8 @@ export const replaceGlobalShortcuts = ({
   next: ShortcutAccelerators
   previous: ShortcutAccelerators
 }) => {
-  if (next.recordingShortcut === next.widgetShortcut) {
+  const accelerators = [next.recordingShortcut, next.widgetShortcut, next.dictationShortcut]
+  if (new Set(accelerators).size !== accelerators.length) {
     throw new Error(t().main.errors.shortcutsMustDiffer)
   }
 

@@ -1,0 +1,11 @@
+.granted {
+  color: var(--color-text);
+}
+
+.denied {
+  color: var(--color-text-muted);
+}
+
+.error {
+  color: var(--color-danger);
+}

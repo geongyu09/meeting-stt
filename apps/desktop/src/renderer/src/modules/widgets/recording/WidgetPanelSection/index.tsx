@@ -5,6 +5,8 @@ import { setWidgetVisibleApi } from '@renderer/shared/api/widget'
 import Button from '@renderer/shared/components/primitives/ui/Button'
 import Icon from '@renderer/shared/components/primitives/ui/Icon'
 import Stepper from '@renderer/shared/components/primitives/ui/Stepper'
+import useDictation from '@renderer/shared/hooks/domain/dictation/useDictation'
+import useDictationRecorder from '@renderer/shared/hooks/domain/dictation/useDictationRecorder'
 import useModelStatus from '@renderer/shared/hooks/domain/model/useModelStatus'
 import useRecorder from '@renderer/shared/hooks/domain/recording/useRecorder'
 import useRecordingState from '@renderer/shared/hooks/domain/recording/useRecordingState'
@@ -12,11 +14,13 @@ import useSpeakerCount from '@renderer/shared/hooks/domain/recording/useSpeakerC
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
 import { formatClock } from '@renderer/shared/utils/formatClock'
 
+import DictationView from './ui/DictationView'
 import styles from './index.module.css'
 
 /**
  * 오디오 그래프를 들고 있는 위젯 창의 화면. 메인 창을 앞으로 꺼내지 않고 녹음을 시작·정지한다
- * (references/architecture.md의 "녹음 위젯 패널").
+ * (references/architecture.md의 "녹음 위젯 패널"). 받아쓰기 중에는 같은 창이 받아쓰기 보기로 바뀐다 —
+ * 그래프 소유자가 하나여야 하므로 새 창을 만들지 않는다 ("받아쓰기").
  */
 export default function WidgetPanelSection() {
   const { t: messages } = useLocale()
@@ -28,14 +32,34 @@ export default function WidgetPanelSection() {
   const { isBusy, start, stop } = useRecorder({ isReady: isModelReady })
   const { text, isValid, changeText } = useSpeakerCount({ speakerCount })
   const [pauseError, setPauseError] = useState<string | null>(null)
+  const dictation = useDictation()
+  // 명령 구독은 보기와 무관하게 살아 있어야 한다. 받아쓰기 시작 지시는 녹음 보기에서 온다
+  const dictationRecorder = useDictationRecorder()
   const isCapturing = isRecording && !isPaused
 
   const handleHide = () => {
     setWidgetVisibleApi({ isVisible: false }).catch(() => console.error('위젯을 숨기지 못했습니다'))
   }
 
+  if (dictation.isActive) {
+    return (
+      <DictationView
+        phase={dictation.phase}
+        elapsedSec={dictation.elapsedSec}
+        level={dictation.level}
+        insertMode={dictation.insertMode}
+        lastInsertedText={dictation.lastInsertedText}
+        errorMessage={dictation.errorMessage}
+        isBusy={dictationRecorder.isBusy}
+        onStop={dictationRecorder.stop}
+        onHide={handleHide}
+      />
+    )
+  }
+
   const renderFooter = () => {
-    const error = errorMessage ?? pauseError
+    // 받아쓰기 시작 거절·자동 종료 안내는 idle 상태로 실려 온다. 녹음 안내보다 새 것이라 먼저 보인다
+    const error = dictation.errorMessage ?? errorMessage ?? pauseError
     if (error) {
       return (
         <p className={styles.error} role="alert">

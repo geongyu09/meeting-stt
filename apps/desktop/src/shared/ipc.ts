@@ -37,6 +37,16 @@ export const IPC = {
   },
   widget: { setVisible: 'widget:setVisible' },
   shortcuts: { setSuspended: 'shortcuts:setSuspended' },
+  // 받아쓰기(음성 입력). 녹음과 같은 모양이지만 WAV·회의 행을 만들지 않는다 (references/architecture.md "받아쓰기")
+  dictation: {
+    state: 'dictation:state',
+    control: 'dictation:control',
+    start: 'dictation:start',
+    chunk: 'dictation:chunk',
+    stop: 'dictation:stop',
+    reportError: 'dictation:reportError',
+    openAccessibilitySettings: 'dictation:openAccessibilitySettings'
+  },
   meetings: {
     list: 'meetings:list',
     get: 'meetings:get',
@@ -91,7 +101,9 @@ export const IPC = {
     meetingsChanged: 'meetings:changed',
     recordingCommand: 'recording:command',
     // 설정 화면이 바꾼 값을 위젯 창도 알아야 한다 (UI 언어). payload는 저장된 설정 전체다
-    settingsChanged: 'settings:changed'
+    settingsChanged: 'settings:changed',
+    dictationState: 'dictation:stateChanged',
+    dictationCommand: 'dictation:command'
   }
 } as const
 
@@ -212,6 +224,56 @@ export interface ReportRecordingErrorRequest {
 
 export interface SetWidgetVisibleRequest {
   isVisible: boolean
+}
+
+/** 받아쓰기(음성 입력) 단계. 조회·push가 같은 모양을 쓴다 (references/architecture.md "받아쓰기") */
+export type DictationPhase = 'idle' | 'listening' | 'recognizing'
+/** 접근성 권한과 삽입 도구가 있으면 커서 자리에 붙여 넣고(paste), 아니면 클립보드에만 남긴다(clipboard) */
+export type DictationInsertMode = 'paste' | 'clipboard'
+
+/**
+ * 진행 중 받아쓰기의 단일 출처. main 세션이 들고 위젯 패널·메인 창·메뉴바가 같은 값을 본다.
+ * 조회는 `dictation:state`, push는 `dictation:stateChanged`. 결과는 저장하지 않는다
+ */
+export interface DictationStateEvent {
+  phase: DictationPhase
+  /** 시작 시각(epoch ms). idle이면 null. 경과 시간은 받는 쪽이 계산한다 */
+  startedAt: number | null
+  /** 직전 청크의 RMS (0~1). 청크 주기(약 0.5초)로만 갱신된다 */
+  level: number
+  /** idle이면 지금 시작했을 때의 방식, 진행 중이면 이 세션의 방식 */
+  insertMode: DictationInsertMode
+  /** 이번 세션에서 마지막으로 넣은 조각. 패널이 "들어갔다"는 확인용으로 한 줄 보여 준다 */
+  lastInsertedText: string
+  /** 마지막 세션의 전체 텍스트가 메모리에 있는지 (메뉴바 "마지막 받아쓰기 복사") */
+  hasLastResult: boolean
+  /** 시작 거절·삽입 실패·자동 종료 안내. 한 번만 실리거나 다음 성공까지 남는다 */
+  errorMessage?: string
+}
+export type GetDictationStateResponse = DictationStateEvent
+
+/** 패널 버튼·메인 창·메뉴바·전역 단축키의 요청. main이 상태를 보고 위젯에 `dictation:command`로 시작/정지를 넘긴다 */
+export interface ControlDictationRequest {
+  kind: 'start' | 'stop' | 'toggle'
+}
+/** main → 위젯(그래프 소유자) 지시. 토글은 main이 풀어서 보낸다 */
+export interface DictationCommandEvent {
+  kind: 'start' | 'stop'
+}
+
+export interface StartDictationRequest {
+  /** renderer의 AudioContext가 실제로 쓰는 샘플레이트. 16kHz가 아니면 main이 거절한다 */
+  sampleRate: number
+}
+
+export interface SendDictationChunkRequest {
+  /** AudioWorklet이 넘긴 Float32 PCM 원본. main이 구간에 모았다가 인식한다 */
+  pcm: ArrayBuffer
+}
+
+/** 마이크 권한 거부처럼 위젯에서만 알 수 있는 실패를 받아쓰기 상태에 모은다 */
+export interface ReportDictationErrorRequest {
+  message: string
 }
 
 /** 설정 화면에서 새 단축키를 입력받는 동안 전역 단축키를 해제한다 */

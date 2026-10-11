@@ -41,3 +41,6 @@ export const llamaBinPath = () => path.join(binDir(), `llama-cli${EXE_SUFFIX}`)
 
 /** 시스템 오디오 캡처 도구 (Phase 5-2). macOS 전용이라 접미사가 없다 (references/architecture.md "시스템 오디오 캡처") */
 export const systemAudioTapBinPath = () => path.join(binDir(), 'systemAudioTap')
+
+/** 받아쓰기 조각을 커서 자리에 끼워 넣는 도구 (2026-10-11). 없으면 클립보드 폴백 (references/architecture.md "받아쓰기") */
+export const textInsertBinPath = () => path.join(binDir(), 'textInsert')

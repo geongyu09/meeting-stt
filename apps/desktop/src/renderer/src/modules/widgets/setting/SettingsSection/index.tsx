@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import FeedbackButton from '@renderer/modules/features/feedback/FeedbackButton'
 import UpdateCheck from '@renderer/modules/features/update/UpdateCheck'
 import {
+  DEFAULT_DICTATION_SHORTCUT,
   DEFAULT_RECORDING_SHORTCUT,
   DEFAULT_WIDGET_SHORTCUT,
   formatAccelerator
@@ -136,6 +137,14 @@ export default function SettingsSection({ children }: SettingsSectionProps) {
           onChange={(widgetShortcut) => updateSettings({ widgetShortcut })}
         >
           {t.settings.widgetShortcut.description}
+        </ShortcutField>
+        <ShortcutField
+          title={t.settings.dictationShortcut.title}
+          accelerator={settings.dictationShortcut}
+          defaultAccelerator={DEFAULT_DICTATION_SHORTCUT}
+          onChange={(dictationShortcut) => updateSettings({ dictationShortcut })}
+        >
+          {t.settings.dictationShortcut.description}
         </ShortcutField>
       </SettingGroup>
       {children}

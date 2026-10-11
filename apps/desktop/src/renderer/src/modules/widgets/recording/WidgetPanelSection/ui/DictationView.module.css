@@ -1,0 +1,139 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  height: 100vh;
+  padding: 18px;
+}
+
+/* 제목 표시줄이 없는 창이라 이 영역을 잡아 끈다 */
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  -webkit-app-region: drag;
+}
+
+.title {
+  flex: 1;
+  color: var(--color-accent);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.listeningDot,
+.recognizingDot {
+  width: 8px;
+  height: 8px;
+  background: var(--color-accent);
+  border-radius: var(--radius-full);
+}
+
+.listeningDot {
+  box-shadow: 0 0 0 4px var(--color-accent-soft);
+}
+
+/* 인식 중에는 듣는 표시(후광)를 거둬 "지금은 글로 바꾸는 중"임을 구분한다 */
+.recognizingDot {
+  opacity: 0.6;
+}
+
+.hideButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.hideButton:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+.clock {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.elapsed {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-xl);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.lastInserted {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 0;
+}
+
+.lastInsertedLabel {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+}
+
+/* 두 줄까지만 보인다. 조각이 길면 끝을 줄임표로 접어 패널 높이를 지킨다 */
+.lastInsertedText {
+  display: -webkit-box;
+  min-height: 2.8em;
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: var(--font-sm);
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.stopButton {
+  min-height: 44px;
+  gap: 10px;
+  color: var(--color-accent);
+  font-size: var(--font-md);
+  font-weight: 600;
+  border: 1.5px solid var(--color-accent);
+  border-radius: var(--radius-full);
+}
+
+.stopIcon {
+  width: 12px;
+  height: 12px;
+  background: currentColor;
+  border-radius: 3px;
+}
+
+.hint,
+.clipboardHint,
+.error {
+  margin: 0;
+  font-size: var(--font-xs);
+  text-align: center;
+}
+
+.hint {
+  color: var(--color-text-muted);
+}
+
+/* 오류가 아니라 안내다. 빨강은 쓰지 않고 기본 안내보다 진하게만 한다 */
+.clipboardHint {
+  color: var(--color-text);
+}
+
+.error {
+  color: var(--color-danger);
+}

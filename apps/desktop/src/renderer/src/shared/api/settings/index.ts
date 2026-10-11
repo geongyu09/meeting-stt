@@ -19,6 +19,7 @@ export const getSettingsApi = async () => window.api.settings.get()
  * @param widgetFadeOpacity - 포커스가 없을 때의 위젯 불투명도 (0.2~0.95)
  * @param recordingShortcut - 녹음 토글 전역 단축키 (Electron accelerator)
  * @param widgetShortcut - 위젯 표시/숨김 전역 단축키 (Electron accelerator)
+ * @param dictationShortcut - 받아쓰기(음성 입력) 토글 전역 단축키 (Electron accelerator)
  * @param inputDevice - 녹음에 쓸 마이크 (`{ deviceId, label }`). null이면 시스템 기본 마이크
  * @param locale - UI 언어 (`'ko'` | `'en'`). 인식·요약 언어는 바뀌지 않습니다
  * @param theme - 화면 테마 (`'system'` | `'light'` | `'dark'`). main이 모든 창에 바로 적용합니다
@@ -34,6 +35,7 @@ export const getSettingsApi = async () => window.api.settings.get()
  *   widgetFadeOpacity: 0.55,
  *   recordingShortcut: 'Alt+Command+R',
  *   widgetShortcut: 'Alt+Command+W',
+ *   dictationShortcut: 'Alt+Command+D',
  *   inputDevice: null,
  *   locale: 'ko',
  *   theme: 'system',
@@ -49,6 +51,7 @@ export const updateSettingsApi = async ({
   widgetFadeOpacity,
   recordingShortcut,
   widgetShortcut,
+  dictationShortcut,
   inputDevice,
   locale,
   theme,
@@ -63,6 +66,7 @@ export const updateSettingsApi = async ({
     widgetFadeOpacity,
     recordingShortcut,
     widgetShortcut,
+    dictationShortcut,
     inputDevice,
     locale,
     theme,

@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import { BrowserWindow, screen } from 'electron'
 import { is } from '@electron-toolkit/utils'
-import { IPC, type RecordingCommandEvent } from '@shared/ipc'
+import { IPC, type DictationCommandEvent, type RecordingCommandEvent } from '@shared/ipc'
 import { getAppSettings, getWidgetBounds, setWidgetBounds } from '../db/settings'
 import { warn } from '../log'
 
@@ -18,6 +18,8 @@ const WIDGET_ROUTE_HASH = '/widget'
  * 창이 없으면 전역 단축키로도 녹음할 수 없다 (references/architecture.md).
  */
 let widgetWindow: BrowserWindow | null = null
+/** 받아쓰기 때문에 띄운 패널인지. 끝나면 이전처럼 숨긴다 (references/architecture.md "받아쓰기") */
+let isShownForDictation = false
 
 export const getWidgetWindow = () => (widgetWindow?.isDestroyed() ? null : widgetWindow)
 
@@ -167,4 +169,39 @@ export const requestRecordingCommand = (event: RecordingCommandEvent) => {
   }
 
   window.webContents.send(IPC.events.recordingCommand, event)
+}
+
+/** 받아쓰기 시작/정지도 그래프 소유자인 위젯이 실행한다. 토글은 main 세션이 이미 풀어서 보낸다 */
+export const requestDictationCommand = (event: DictationCommandEvent) => {
+  const window = getWidgetWindow()
+  if (!window) {
+    warn('녹음 위젯 창이 없어 받아쓰기 명령을 전달하지 못했습니다')
+
+    return
+  }
+
+  window.webContents.send(IPC.events.dictationCommand, event)
+}
+
+/**
+ * 숨겨진 패널은 받아쓰기 동안만 보인다 — 어느 앱에서 말하든 듣는 중인지와 마지막 조각을 확인할 자리가 필요하다.
+ * `showInactive`라 포커스를 뺏지 않으므로 ⌘V가 패널로 들어가지 않는다. 끝나면 이전 상태로 되돌린다
+ */
+export const setWidgetShownForDictation = ({ isActive }: { isActive: boolean }) => {
+  const window = getWidgetWindow()
+  if (!window) return
+
+  if (isActive) {
+    if (window.isVisible()) return
+
+    isShownForDictation = true
+    window.showInactive()
+
+    return
+  }
+
+  if (!isShownForDictation) return
+
+  isShownForDictation = false
+  window.hide()
 }

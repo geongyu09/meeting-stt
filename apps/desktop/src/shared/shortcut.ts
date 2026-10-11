@@ -2,6 +2,8 @@
 
 export const DEFAULT_RECORDING_SHORTCUT = 'Alt+Command+R'
 export const DEFAULT_WIDGET_SHORTCUT = 'Alt+Command+W'
+/** 받아쓰기(음성 입력) 토글 (references/architecture.md "받아쓰기") */
+export const DEFAULT_DICTATION_SHORTCUT = 'Alt+Command+D'
 
 /** accelerator에 적는 순서이자 macOS 메뉴가 기호를 늘어놓는 순서 */
 const MODIFIERS = ['Control', 'Alt', 'Shift', 'Command'] as const

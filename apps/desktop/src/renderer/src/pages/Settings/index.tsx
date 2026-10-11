@@ -1,6 +1,7 @@
 import AutoRefineToggle from '@renderer/modules/features/refine/AutoRefineToggle'
 import ModelDownloadSection from '@renderer/modules/widgets/model/ModelDownloadSection'
 import SummaryModelSection from '@renderer/modules/widgets/model/SummaryModelSection'
+import DictationSection from '@renderer/modules/widgets/setting/DictationSection'
 import GlossarySection from '@renderer/modules/widgets/setting/GlossarySection'
 import LlmSection from '@renderer/modules/widgets/setting/LlmSection'
 import SettingsSection from '@renderer/modules/widgets/setting/SettingsSection'
@@ -22,6 +23,7 @@ export default function Settings() {
         <div className={styles.page}>
           <h1 className={styles.title}>{t.settings.title}</h1>
           <SettingsSection>
+            <DictationSection />
             <SettingGroup title={t.settings.groups.sttModel}>
               <ModelDownloadSection variant="setting" />
             </SettingGroup>

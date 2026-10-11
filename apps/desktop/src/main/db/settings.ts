@@ -16,6 +16,7 @@ import {
   isOpenaiModelId
 } from '@shared/llm'
 import {
+  DEFAULT_DICTATION_SHORTCUT,
   DEFAULT_RECORDING_SHORTCUT,
   DEFAULT_WIDGET_SHORTCUT,
   isValidAccelerator
@@ -40,6 +41,7 @@ const WIDGET_FADE_KEY = 'widget.fade'
 const WIDGET_FADE_OPACITY_KEY = 'widget.fadeOpacity'
 const RECORDING_SHORTCUT_KEY = 'shortcut.recording'
 const WIDGET_SHORTCUT_KEY = 'shortcut.widget'
+const DICTATION_SHORTCUT_KEY = 'shortcut.dictation'
 const GLOSSARY_TEAM_KEY = 'glossary.team'
 const GLOSSARY_TERMS_KEY = 'glossary.terms'
 const REFINE_AUTO_EXTERNAL_KEY = 'refine.autoExternal'
@@ -61,6 +63,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   widgetFadeOpacity: DEFAULT_WIDGET_FADE_OPACITY,
   recordingShortcut: DEFAULT_RECORDING_SHORTCUT,
   widgetShortcut: DEFAULT_WIDGET_SHORTCUT,
+  dictationShortcut: DEFAULT_DICTATION_SHORTCUT,
   inputDevice: null,
   locale: DEFAULT_LOCALE,
   theme: DEFAULT_THEME,
@@ -162,6 +165,10 @@ export const getAppSettings = (): AppSettings => ({
     key: WIDGET_SHORTCUT_KEY,
     fallback: DEFAULT_SETTINGS.widgetShortcut
   }),
+  dictationShortcut: readShortcut({
+    key: DICTATION_SHORTCUT_KEY,
+    fallback: DEFAULT_SETTINGS.dictationShortcut
+  }),
   inputDevice: readInputDevice({ key: AUDIO_INPUT_DEVICE_KEY }),
   locale: readLocale({ key: UI_LOCALE_KEY }),
   theme: readTheme({ key: UI_THEME_KEY }),
@@ -180,6 +187,7 @@ export const updateAppSettings = ({
   widgetFadeOpacity,
   recordingShortcut,
   widgetShortcut,
+  dictationShortcut,
   inputDevice,
   locale,
   theme,
@@ -193,6 +201,7 @@ export const updateAppSettings = ({
   writeValue({ key: WIDGET_FADE_OPACITY_KEY, value: widgetFadeOpacity })
   writeValue({ key: RECORDING_SHORTCUT_KEY, value: recordingShortcut })
   writeValue({ key: WIDGET_SHORTCUT_KEY, value: widgetShortcut })
+  writeValue({ key: DICTATION_SHORTCUT_KEY, value: dictationShortcut })
   writeValue({ key: AUDIO_INPUT_DEVICE_KEY, value: inputDevice })
   writeValue({ key: UI_LOCALE_KEY, value: locale })
   writeValue({ key: UI_THEME_KEY, value: theme })

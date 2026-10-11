@@ -1,6 +1,7 @@
 import { app, BrowserWindow, session } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import type {
+  DictationStateEvent,
   PipelineProgressEvent,
   RecordingStateEvent,
   RefineProgressEvent,
@@ -18,6 +19,7 @@ import { handleMeetingAudioProtocol, registerMeetingAudioScheme } from './audio/
 import { closeDb } from './db/connection'
 import { failStaleMeetings } from './db/meetings'
 import { getAppSettings, getWhisperModelId } from './db/settings'
+import { setDictationCommandSender, setDictationStateListener } from './dictation/session'
 import { setCurrentLocale } from './locale'
 import { applyTheme } from './theme'
 import { registerIpcHandlers } from './ipc/handlers'
@@ -34,7 +36,11 @@ import { checkForUpdates } from './updater'
 import { createMainWindow, showMainWindow } from './windows/main'
 import { registerGlobalShortcuts, unregisterGlobalShortcuts } from './windows/shortcuts'
 import { createTray, destroyTray, refreshTray } from './windows/tray'
-import { createWidgetWindow } from './windows/widget'
+import {
+  createWidgetWindow,
+  requestDictationCommand,
+  setWidgetShownForDictation
+} from './windows/widget'
 
 /**
  * 로컬 앱이라 마이크 외의 권한 요청은 받지 않는다.
@@ -68,6 +74,16 @@ const broadcastRefineProgress = (event: RefineProgressEvent) =>
 /** 녹음 상태는 위젯·메인 창·메뉴바가 같은 값을 봐야 한다 (references/architecture.md) */
 const broadcastRecordingState = (event: RecordingStateEvent) => {
   broadcast({ channel: IPC.events.recordingState, event })
+  refreshTray()
+}
+
+/**
+ * 받아쓰기 상태도 두 창과 메뉴바가 같은 값을 본다. 숨겨진 패널은 세션 동안만 띄운다
+ * (references/architecture.md "받아쓰기" > "패널·메뉴바·단축키·설정")
+ */
+const broadcastDictationState = (event: DictationStateEvent) => {
+  setWidgetShownForDictation({ isActive: event.phase !== 'idle' })
+  broadcast({ channel: IPC.events.dictationState, event })
   refreshTray()
 }
 
@@ -123,6 +139,8 @@ app.whenReady().then(async () => {
   setSummaryProgressListener(broadcastSummaryProgress)
   setRefineProgressListener(broadcastRefineProgress)
   setRecordingStateListener(broadcastRecordingState)
+  setDictationStateListener(broadcastDictationState)
+  setDictationCommandSender(requestDictationCommand)
   setMeetingsChangedListener(() => broadcast({ channel: IPC.events.meetingsChanged, event: null }))
   // 온보딩에서 고른 모델을 런타임 선택값으로 넣는다. 이후 파일명은 models/paths.ts만 정한다
   setSelectedWhisperModelId(getWhisperModelId())

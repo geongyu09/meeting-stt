@@ -9,6 +9,16 @@ import type {
   StartRecordingRequest,
   StopRecordingRequest
 } from '@shared/ipc'
+import { remoteErrorMessageOf } from '@renderer/shared/utils/remoteError'
+
+/** main의 거절 사유(받아쓰기 중·샘플레이트)는 그대로 패널에 보이므로 Electron 접두어를 뗀다 */
+const invokeRecording = async <T>(call: () => Promise<T>) => {
+  try {
+    return await call()
+  } catch (caught) {
+    throw new Error(remoteErrorMessageOf(caught))
+  }
+}
 
 /**
  * @description 마이크 사용 권한을 요청합니다. macOS는 시스템 권한 창을 띄우고, 그 외 플랫폼은 항상 허용으로 응답합니다.
@@ -30,7 +40,7 @@ export const requestMicrophonePermissionApi = async () => {
  * const meetingId = await startRecordingApi({ sampleRate: context.sampleRate })
  */
 export const startRecordingApi = async ({ sampleRate }: StartRecordingRequest) => {
-  const { meetingId } = await window.api.recording.start({ sampleRate })
+  const { meetingId } = await invokeRecording(() => window.api.recording.start({ sampleRate }))
 
   return meetingId
 }
@@ -56,7 +66,7 @@ export const sendRecordingChunkApi = async ({ meetingId, pcm }: SendRecordingChu
  * const meeting = await stopRecordingApi({ meetingId })
  */
 export const stopRecordingApi = async ({ meetingId }: StopRecordingRequest) =>
-  window.api.recording.stop({ meetingId })
+  invokeRecording(() => window.api.recording.stop({ meetingId }))
 
 /**
  * @description 지금 녹음 중인지 조회합니다. 창이 늦게 열려 상태 이벤트를 놓쳤을 때 씁니다.
