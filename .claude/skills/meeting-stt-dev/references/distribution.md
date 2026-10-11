@@ -180,13 +180,21 @@ CLI가 쓰는 `resources/bin/darwin-arm64/libonnxruntime.dylib`과 별개 복사
 ### 로컬 릴리스 절차
 
 릴리스는 CI가 아니라 **서명 인증서가 있는 개발 장비에서** 만든다 (8절). 저장소는 `github.com/geongyu09/meeting-stt`(공개)이고
-`electron-builder.yml`의 `publish`가 여기를 가리킨다.
+`electron-builder.yml`의 `publish`가 여기를 가리킨다. **로컬 `origin` 리모트는 옛 저장소 `geongyu09/knot-proto`를 가리키고 있다**
+(2026-10-11 확인, v0.2.6까지만 올라가 있다). 그래서 릴리스 커밋·태그는 `origin`이 아니라 배포 저장소 URL에 직접 푸시하고,
+`gh release`·`gh api`에는 `-R geongyu09/meeting-stt`를 붙인다 (cwd로 추론하면 `knot-proto`를 본다).
 
 1. **커밋된 상태에서 빌드한다.** 이 워킹 트리는 여러 세션이 동시에 편집하므로, 커밋 안 된 변경이 섞이지 않게
    릴리스할 커밋으로 별도 `git worktree`를 만들고 그 안에서 `pnpm install --frozen-lockfile`을 한다.
    `resources/bin/`은 git 제외라 원본 트리의 `resources/bin/darwin-arm64/`를 복사해 넣는다 (whisper는 `--from-source` 정적 빌드여야 한다).
+   **동봉 Swift 도구(`systemAudioTap`·`textInsert`)는 복사한 바이너리가 커밋된 소스보다 오래되지 않았는지 mtime을 본다** —
+   `setupBin`은 소스가 바뀐 뒤 다시 돌려야만 재빌드하므로, 소스를 고친 뒤 빌드하지 않은 바이너리가 원본 트리에 남아 있을 수 있다.
+   오래됐으면 릴리스 워크트리에서 `swiftc -O -target <setupBin의 target> -o resources/bin/darwin-arm64/<이름> native/<이름>/main.swift`로 다시 만든다
+   (`setupBin`을 통째로 돌리면 `--from-source` 없이 Homebrew `whisper-cli` 링크로 바꿔 버린다).
 2. `apps/desktop/package.json`의 `version`을 올리고 커밋한다 (루트 `package.json`의 버전은 쓰지 않는다).
-   릴리스 태그는 `v<version>`이다.
+   릴리스 태그는 `v<version>`(가벼운 태그)이다. 릴리스 커밋까지의 `main`과 태그를 배포 저장소에 푸시한다:
+   `git push https://github.com/geongyu09/meeting-stt.git <커밋>:refs/heads/main refs/tags/v<version>`.
+   `gh release create`는 대상 커밋이 GitHub에 있어야 하므로 푸시가 먼저다.
 3. **빌드와 업로드를 분리한다.** `APPLE_KEYCHAIN_PROFILE=meeting-stt-notary pnpm run build:mac:release`
    → 서명·공증·스테이플까지만 하고 `apps/desktop/dist/`에 `dmg`·`zip`·`*.blockmap`·`latest-mac.yml`을 남긴다.
    `publish` 설정이 있으므로 업로드를 하지 않아도 `latest-mac.yml`은 만들어진다.
@@ -234,6 +242,17 @@ electron-builder가 두 파일을 동시에 올리면서 드래프트를 둘로 
 재실행 전에 `dist/`를 지운다 (반쯤 서명된 앱 번들이 남아 있다). 백그라운드로 돌릴 때 셸 마지막 명령이 `echo`면
 종료 코드가 0으로 보이므로 로그의 `notarization successful`·`EXIT=`를 직접 확인한다.
 업로드는 zip 150MB·dmg 150MB가 각 11초(13~14MB/s)에 `201`로 끝났다. 재시도 0회.
+
+#### v0.2.8 실측 (2026-10-11) — 복사한 `textInsert`가 소스보다 오래됐고, 드래프트 id가 바로 조회되지 않았다
+
+- 원본 트리의 `textInsert` 바이너리(17:31)가 커밋된 `main.swift`(17:59)보다 오래됐다. 받아쓰기 기능을 붙인 세션이 소스를 고친 뒤
+  `setupBin`을 다시 돌리지 않은 것이다. 릴리스 워크트리에서 `swiftc`로 다시 빌드해 넣었다 (절차 1). `systemAudioTap`도 바이너리(9-26 17:04)가
+  소스 저장(17:06)보다 2분 앞서지만 v0.2.3부터 그대로 배포돼 온 것이라 이번에는 손대지 않았다 — 다음 릴리스에서 소스로 다시 빌드해 맞춘다.
+- `gh release create --draft` 직후 `gh api repos/.../releases`로 드래프트 id를 찾으면 빈 값이 나왔다. 몇 초 뒤 `--paginate`로 다시 부르니
+  보였다. id를 빈 값으로 두고 `curl`을 돌리면 `uploads.github.com`이 `301`만 돌려주고 아무것도 올리지 않으므로, id를 확인한 뒤 올린다.
+- 동봉 바이너리 19개(dylib 14 + `whisper-cli`·`llama-cli`·`sherpa-onnx-offline-speaker-diarization`·`systemAudioTap`·`textInsert`)
+  전부 Developer ID로 서명·하드닝 런타임 플래그 확인. 공증 포함 빌드 약 10분. 업로드는 zip 160MB 125초·dmg 160MB 128초(1.3MB/s), 재시도 0회.
+  내려받아 sha512 대조 후 게시했다.
 
 ## 7. 자동 업데이트 — 기본은 꺼 둔다
 
@@ -328,7 +347,9 @@ macOS 배포용 whisper 정적 빌드(v1.8.4, Metal 내장), 저사양 권장 �
 
 ### 10.1 사용자만 할 수 있는 것
 
-- ~~원격 저장소~~: 2026-09-18 확인 — `origin`이 `github.com/geongyu09/meeting-stt`(공개)이고 `publish.owner`를 `geongyu09`로 바꿨다.
+- ~~원격 저장소~~: 2026-09-18 확인 — 배포 저장소는 `github.com/geongyu09/meeting-stt`(공개)이고 `publish.owner`를 `geongyu09`로 바꿨다.
+  **2026-10-11 확인 — 로컬 `origin`은 여전히 `geongyu09/knot-proto`(v0.2.6까지)를 가리킨다.** 릴리스는 배포 저장소 URL에 직접 푸시해 왔다(6절).
+  `origin`을 `meeting-stt`로 바꿀지, `knot-proto`를 지울지는 사용자가 정한다.
 - **공증 자격 증명**: Developer ID 인증서는 로그인 키체인에 있다(2026-09-18 확인, 2026-08-26 빌드가 이 인증서로 서명됐지만 공증은 안 됐다).
   `notarytool` 키체인 프로필 `meeting-stt-notary`도 등록했고, 2026-09-18에 첫 릴리스 `v0.1.0`을 게시했다 (6절).
 - **온보딩·설정 화면 실기 확인**: `userData/models/`를 비운 상태로 `pnpm dev`를 띄워 `/onboarding`으로 가는지,
