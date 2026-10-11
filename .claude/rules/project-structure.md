@@ -175,6 +175,7 @@ src/
 | `refine` | 회의록 자동 교정 — 진행률 구독·수동 재실행·고친 쌍 목록 (api 래퍼·`useRefine` 훅·`features/refine/RefinePanel`·외부 공급자 자동 교정 스위치 `features/refine/AutoRefineToggle`. 결과 자체는 회의 상세의 일부라 `useMeeting`이 든다) |
 | `feedback` | GitHub 이슈 작성 화면을 브라우저로 열기 (api 래퍼·`features/feedback/FeedbackButton`. 설정 "피드백" 카테고리) |
 | `summaryTemplate` | 요약 템플릿 목록·저장·삭제 (api 래퍼·`useSummaryTemplates` 훅. 편집 화면은 `summaryTemplate/SummaryTemplateEditorSection`(페이지 `/summary-templates`), 설정의 이동 행은 `setting/SummaryTemplateSection`, 요약할 때 고르는 칸은 `meeting/SummarySection`) |
+| `dictation` | 받아쓰기(음성 입력) 시작·정지·상태 구독·마지막 결과 복사 (api 래퍼·`useDictation` 훅. 패널의 받아쓰기 보기는 그래프 소유자인 `recording/WidgetPanelSection`의 `ui/DictationView`, 설정 카테고리는 `setting/DictationSection`) |
 
 ## 레이어별 역할 (renderer)
 

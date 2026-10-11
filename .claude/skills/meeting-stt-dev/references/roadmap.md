@@ -545,3 +545,47 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 - 블루투스 통화 모드 마이크 안내(+4.8%p) — 소리 지표에 드러나지 않고 Chromium이 연결 방식을 주지 않는다. 트랙의 표본화율로 가릴 수 있는지 실제 장치로 확인 필요
 - 이어폰을 낀 온라인 회의에서 시스템 오디오가 꺼져 있을 때의 안내 — 출력 장치 종류를 알아야 한다
 - 마이크에서 먼 참석자의 말이 더 틀리는 문제(같은 회의 안 1.5배) — 녹음 전체에 게인 하나를 곱하는 정규화로는 못 푼다. 구간별 정규화(ffmpeg `dynaudnorm`)는 Phase 1에서 오인식이 더 많았다(`docs/phase1-results.md`)
+
+## 받아쓰기 (2026-10-11, Phase 번호 밖)
+
+"이 정도 속도면 타자 대신 말로 입력할 수 있겠다"는 사용자 기획에서 시작했다. 어느 앱에서든 전역 단축키로 켜고 말하면 말이 끊길 때마다 인식한 조각을 커서 자리에 넣는다.
+네 갈림길은 2026-10-11 사용자가 정했다 — 전역 적용 · 토글 · 규칙 기반 다듬기 · 조각 삽입. 설계는 `architecture.md` "받아쓰기", 결정 표는 `SKILL.md` 1절, 수치는 `docs/dictation-results.md`(측정 뒤 생성).
+측정 → 계약 → 삽입 도구 → 인식·다듬기 → 패널·단축키·설정 순서로 진행한다. "실시간 스트리밍 STT 금지"(4절 범위 절제)의 두 번째 사용자 결정 예외이고, 문서를 먼저 고쳤다. 스키마 변경·새 모델은 없다.
+
+### 측정 (먼저)
+
+- [x] 지연: `scripts/dictationLatencyBench.ts` — Zeroth 낭독 문장을 3·8·15·20·30초로 이어 붙여 spawn → 텍스트 시간(turbo, 성능 코어 스레드, 용어 프롬프트 유무). 구간 길이와 무관하게 1.1~1.6초, 30초는 whisper 창 경계에서 잘림 → `DICTATION_MAX_WINDOW_SEC = 20` 확정 (2026-10-11)
+- [x] 다듬기: 규칙 적용 전후 CER — `zeroth100`에서 비음성·간투사·공백 규칙은 변화 없음(8.49%), 내장 읽기 사전 치환은 `이슈` → `Issue`로 +0.12pt라 **뺌**(전역 용어 사전만 치환) (2026-10-11). 간투사가 섞인 자체 녹음 20문장은 실제 세션에서 모아 뒤에 잰다
+- [x] 삽입: TextEdit(메모 대용)·Electron 창(Slack·Notion·VS Code 대용)에서 연속 삽입·클립보드 원복(텍스트)·`PASTE_SETTLE_MS`(20ms부터 정상, 200ms 유지)·개발 모드 접근성 권한 귀속(물려받음)을 확인했고, **두 번째 ⌘V부터 들어가지 않던 결함을 고쳤다**(Command 키 이벤트 동봉) (2026-10-11, `docs/dictation-results.md` 3절)
+  - [ ] 사용자 확인: Slack·Notion·Chrome·VS Code·터미널 실제 앱, 파일 참조 클립보드 원복, 한글 조합 중 입력란, 보안 입력, 패키징 빌드의 권한 귀속 (이미지 PNG 원복은 2026-10-11 도구 수준에서 확인)
+- [x] 결과를 `docs/dictation-results.md`에 기록하고 `architecture.md` "받아쓰기"의 최대 구간 길이·settle 시간을 확정값으로 고쳤다
+
+### 계약 (측정 뒤, 코드 전)
+
+- [x] `src/shared/ipc.ts` — `dictation.*` 채널 7개(`openAccessibilitySettings` 포함), `events.dictationState` / `events.dictationCommand`, `DictationStateEvent` · `DictationCommandEvent`
+- [x] `src/shared/types.ts` `AppSettings.dictationShortcut`, `src/shared/shortcut.ts` `DEFAULT_DICTATION_SHORTCUT`, `db/settings.ts` 읽기·쓰기
+- [x] `data-model.md` `shortcut.dictation`, `distribution.md` 5절 바이너리 표, `.claude/rules/project-structure.md` 도메인 표 `dictation`, `pitfalls.md` "받아쓰기" (2026-10-11 문서 선행)
+
+### 삽입 도구
+
+- [x] `native/textInsert/main.swift` — 규약(stdin 텍스트, 종료 코드 0/1/2/3/4, NSPasteboard 전체 저장·원복, ⌘V CGEvent, 자기 앱 최전면 확인, `--settle-ms=` 측정 인자) + `scripts/setupBin.ts` 빌드 단계(`SWIFT_TOOLS`) + `bin/paths.ts`
+- [x] `src/main/dictation/insert.ts` — 접근성 확인(`isTrustedAccessibilityClient`, 첫 시작에 prompt), 도구 spawn(5초 타임아웃), 직렬화(한 번에 하나), 실패 시 `electron.clipboard` 폴백 + 안내
+- [x] 서명·공증 대상 확인 — `resources/bin/darwin-arm64/`에 두므로 `systemAudioTap`과 같이 `asarUnpack`·서명 대상이다 (`distribution.md` 5절 표)
+
+### 인식·다듬기
+
+- [x] `src/main/audio/whisperOnce.ts` — `liveTranscript.ts`의 실행부를 공용 함수로 뽑았고 라이브가 그대로 쓴다. 프롬프트 옵션(용어 사전, `-mc` 토큰 수 + 1은 `whisperPrompt.ts`의 `resolveTermPrompt`를 파이프라인과 공유)
+- [x] `packages/core/src/dictation.ts` — 비음성 표기 제거 · 간투사 제거(어절 전체 일치) · 용어 표기 치환(전역 용어 사전만, 측정 뒤 `TERM_READINGS` 제외) · 공백 정리 · 조각 연결(첫 조각 공백 없음) + vitest 19개
+- [x] `src/main/dictation/session.ts` — 시작/정지/청크, `liveWindow.ts`의 `planCommit`으로 확정, 중간 인식 없음, `DICTATION_MAX_SEC` 300초 자동 종료(위젯에 정지 지시), `lastResult`, 녹음과 상호 배제(`assertNotDictating`을 녹음 시작 핸들러가, `isRecording`을 받아쓰기 시작이 본다), 상태 push. 순수 부분(`planCommit`)은 `liveWindow.test.ts`
+
+### 패널·메뉴바·단축키·설정
+
+- [x] 위젯 패널 받아쓰기 보기 `recording/WidgetPanelSection/ui/DictationView` — 상태·경과·레벨·마지막 조각·중지·⌘V 안내. 숨긴 패널은 세션 동안만 `showInactive`(`windows/widget.ts` `setWidgetShownForDictation`), 끝나면 이전 상태로
+- [x] 위젯 renderer 마이크 그래프의 청크 목적지 분기 — 그래프 생성을 `shared/utils/microphoneGraph`로 뽑아 `useRecorder`와 `useDictationRecorder`(`dictation:chunk`, `dictation:command` 구독)가 같이 쓴다
+- [x] Tray: `✎ 0:12` 제목, "받아쓰기 시작/정지"(녹음 중 비활성), "마지막 받아쓰기 복사"(결과 있을 때만 활성)
+- [x] 전역 단축키 `shortcut.dictation`(기본 `⌥⌘D`), 세 단축키 상호 배제, 설정 "단축키" 카테고리에 행 추가
+- [x] 설정 "받아쓰기" 카테고리 `setting/DictationSection` — 사용법 한 줄(현재 단축키), 접근성 권한 상태·시스템 설정 열기(창 포커스 때 다시 읽음) + `test.tsx`
+- [x] 사전 `dictation.*` (`ko`·`en`), preload `window.api.dictation`, renderer `shared/api/dictation`, `useDictation`(상태·제어) · `useDictationRecorder`(그래프) 훅, `WidgetPanelSection/test.tsx`에 받아쓰기 흐름 5개
+- [x] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과 (2026-10-11)
+- [x] 완료 기준: `pnpm dev`에서 메모 앱에 커서를 두고 `⌥⌘D` → 두 문장을 말하고 1초 쉬면 첫 문장이 2초 안에 들어가고, 다시 `⌥⌘D`로 끝내면 나머지가 들어간다. 클립보드에 있던 이미지가 원복된다. 접근성 권한을 끄면 같은 흐름이 "복사됐습니다. ⌘V로 붙여 넣으세요"로 동작한다. 녹음 중 `⌥⌘D`는 안내만 뜬다
+  — 2026-10-11 빌드된 앱을 별도 userData로 띄워 확인: toggle 경로로 마이크 그래프가 뜨고, Zeroth 낭독 두 문장을 청크 경로로 흘리면 첫 문장이 1초 침묵 뒤 **1.2~1.3초**에 TextEdit에 들어가고 정지하면 나머지가 들어간다(CER 0%). 텍스트 클립보드 원복, 녹음 중 안내, 받아쓰기 중 녹음 거절 확인. **사람 목소리·이미지 클립보드·접근성 권한 끈 흐름은 사용자 확인** (`docs/dictation-results.md` 3절)

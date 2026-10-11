@@ -143,6 +143,9 @@ export const IPC = {
   //   feedback.open
   // 요약 템플릿 (아래 같은 이름의 절)
   //   summaryTemplates.list / summaryTemplates.save / summaryTemplates.delete (summary.create에 templateId 추가)
+  // 받아쓰기 (아래 같은 이름의 절, 2026-10-11)
+  //   dictation.state / dictation.control / dictation.start / dictation.chunk / dictation.stop / dictation.reportError
+  //   dictation.openAccessibilitySettings / events.dictationState / events.dictationCommand
 } as const
 ```
 
@@ -162,6 +165,13 @@ export const IPC = {
 | `recording.setLiveTranscript` | `recording:setLiveTranscript` | invoke | 녹음 화면의 파형 ↔ 라이브 받아쓰기 보기 전환 (2026-09-26, 아래 "라이브 받아쓰기" 절) |
 | `recording.setSystemAudio` | `recording:setSystemAudio` | invoke | 온라인 회의 소리(스피커 출력) 함께 녹음 켜기/끄기. 켜면 도구를 1초 돌려 권한 창을 띄운다 (Phase 5-2, 아래 "시스템 오디오 캡처" 절) |
 | `recording.setPaused` | `recording:setPaused` | invoke | 녹음 일시정지·재개 (2026-09-26, 아래 "일시정지·재개" 절) |
+| `dictation.state` | `dictation:state` | invoke | 받아쓰기 상태 조회. 늦게 열린 창이 현재 상태를 안다 (2026-10-11, 아래 "받아쓰기" 절) |
+| `dictation.control` | `dictation:control` | invoke | 패널의 중지 버튼·메인 창이 보내는 시작/정지 요청. main이 위젯에 `dictation:command`로 넘긴다 |
+| `dictation.start` / `dictation.chunk` / `dictation.stop` | `dictation:start` / `dictation:chunk` / `dictation:stop` | invoke | 위젯(그래프 소유자)이 그래프를 만든 뒤 시작을 알리고 청크를 보내고 끝낸다. `recording:*`와 같은 모양이지만 WAV·회의 행을 만들지 않는다 |
+| `dictation.reportError` | `dictation:reportError` | invoke | 위젯에서만 알 수 있는 실패(마이크 권한·그래프 생성)를 받아쓰기 상태에 기록 |
+| `dictation.openAccessibilitySettings` | `dictation:openAccessibilitySettings` | invoke | 설정 "받아쓰기" 카테고리의 "시스템 설정 열기" — 개인정보 보호 및 보안 → 손쉬운 사용 화면을 연다 |
+| `events.dictationState` | `dictation:stateChanged` | push | 받아쓰기 상태 브로드캐스트 (`DictationStateEvent`) |
+| `events.dictationCommand` | `dictation:command` | push | main → 위젯 지시 (`{ kind: 'start' \| 'stop' }`, 전역 단축키·Tray·패널 버튼) |
 
 ### 편집 채널의 응답 규약 (Phase 3)
 
@@ -638,19 +648,19 @@ export interface RecordingStateEvent {
   PNG·icns는 손으로 고치지 않고 SVG에서 다시 렌더링한다 (`rsvg-convert` + `iconutil`).
 - 녹음 중에는 `tray.setTitle('● 12:34')`로 경과 시간을 1초마다 갱신하고, 녹음 중이 아니면 제목을 비워 아이콘만 남긴다.
   타이머는 **녹음 중에만** 돌리고 정지 시 `clearInterval`한다.
-- 트레이 메뉴: 녹음 시작/정지 · 위젯 표시/숨김 · 메인 창 열기 · 종료.
+- 트레이 메뉴: 녹음 시작/정지 · 받아쓰기 시작/정지 · 마지막 받아쓰기 복사(결과가 있을 때만 활성, 2026-10-11 아래 "받아쓰기" 절) · 위젯 표시/숨김 · 메인 창 열기 · 종료.
 
 ### 전역 단축키
 
-- 기본값은 `⌥⌘R` 녹음 토글, `⌥⌘W` 위젯 표시/숨김. `app.whenReady` 이후 등록하고 `will-quit`에서 `unregisterAll`한다.
+- 기본값은 `⌥⌘R` 녹음 토글, `⌥⌘W` 위젯 표시/숨김, `⌥⌘D` 받아쓰기 토글(2026-10-11, 아래 "받아쓰기" 절). `app.whenReady` 이후 등록하고 `will-quit`에서 `unregisterAll`한다.
 - **앱 시작 시 등록 실패(다른 앱이 선점)는 앱을 멈추지 않는다.** `globalShortcut.register`의 반환값이 거짓이면 경고 로그만 남기고 진행한다.
   단축키가 없어도 패널과 트레이로 모든 동작을 할 수 있다.
 - **설정 화면에서 바꿀 수 있다** (2026-09-24 사용자 요청으로 "고정값" 결정을 뒤집음). 값은 Electron accelerator 문자열로
-  `shortcut.recording` / `shortcut.widget`에 저장한다.
+  `shortcut.recording` / `shortcut.widget` / `shortcut.dictation`에 저장한다.
   - 허용 형식은 `src/shared/shortcut.ts`의 `isValidAccelerator` 하나가 정한다: 수식키 `Control`·`Alt`·`Shift`·`Command` 중
     `Control`·`Alt`·`Command`가 **하나 이상**(Shift만으로는 일반 타이핑과 겹친다) + 키 하나(`A`~`Z`, `0`~`9`, `F1`~`F12`, `Space`, 방향키).
     renderer의 키 입력 변환(`KeyboardEvent.code` 기준 — `key`는 ⌥ 조합에서 특수문자가 된다)과 main의 검증이 같은 함수를 쓴다.
-  - 저장 순서: 검증 → 두 단축키가 같으면 거절 → **등록을 먼저 시도하고 실패하면 이전 단축키로 되돌린 뒤 한국어 오류를 throw** → 성공했을 때만 DB에 쓴다.
+  - 저장 순서: 검증 → 세 단축키 중 둘이 같으면 거절 → **등록을 먼저 시도하고 실패하면 이전 단축키로 되돌린 뒤 한국어 오류를 throw** → 성공했을 때만 DB에 쓴다.
     앱 시작과 달리 설정 변경에서는 실패를 삼키지 않는다 — 사용자가 방금 고른 키가 동작하지 않는 걸 모르면 안 된다.
   - **입력받는 동안은 전역 단축키를 해제한다** (`shortcuts:setSuspended`). 해제하지 않으면 현재 단축키를 누르는 순간 녹음이 시작된다.
     입력이 끝나거나(확정·Esc·포커스 이탈) 설정 화면이 언마운트되면 복구한다.
@@ -674,16 +684,17 @@ export interface RecordingStateEvent {
 | 2 | 마이크 | 입력 장치(`inputDevice`), 마이크 테스트 (2026-09-25, 위 "마이크 입력 장치와 테스트" 절) | `SettingsSection` |
 | 3 | 녹음·처리 | 원본 녹음 파일 보관(`isAudioKept`), 조용히 처리(`isQuietProcessing`) | `SettingsSection` |
 | 4 | 녹음 위젯 | 위젯 패널(`isWidgetEnabled`), 위젯 반투명(`isWidgetFadeEnabled`), 비활성 불투명도(`widgetFadeOpacity`) | `SettingsSection` |
-| 5 | 단축키 | 녹음 시작·정지(`recordingShortcut`), 위젯 표시·숨김(`widgetShortcut`) | `SettingsSection` |
-| 6 | 음성 인식 모델 | 음성 인식 모델 변경 | `ModelDownloadSection` (온보딩과 공유) |
-| 7 | 요약 · 용어 초안 | 실행 방식(로컬 / Claude API 키 / Claude Code / OpenAI API 키), 로컬을 골랐을 때만 **로컬 요약 모델 파일** 다운로드, API 키(공급자별), GPT 모델 선택, CLI 상태, 연결 확인 | `setting/LlmSection` — 파일 다운로드 행 `model/SummaryModelSection`은 페이지가 `localModelSlot`으로 끼운다 (아래 "LLM 공급자" 절). 2026-09-24까지는 "모델" 카테고리에 음성 인식 모델과 나란히 있었는데, 로컬 실행 방식의 부속품이 별개 설정처럼 보여 옮겼다 |
-| 8 | 요약 템플릿 | 만든 템플릿 수 + "템플릿 관리" 버튼 → 전용 페이지 `/summary-templates`로 이동 (2026-09-29, 아래 "요약 템플릿 > 화면" 절) | `setting/SummaryTemplateSection` (자기 채널로 목록만 읽는다. 용어 사전과 같이 `children`으로 끼운다) |
-| 9 | 용어 사전 | 팀 소개, 초안 만들기, 용어 목록 (Phase 5-4) | `setting/GlossarySection` (자기 채널로 따로 읽고 쓰므로 `SettingsSection`의 한 번 로드와 무관하다. 모델 위젯과 같이 `children`으로 끼운다) |
-| 10 | 업데이트 | 업데이트 확인(`isUpdateCheckEnabled`), 지금 확인(`UpdateCheck`) | `SettingsSection` |
-| 11 | 언어 | UI 언어(`locale`, 한국어 / 영어, 2026-09-25, 위 "UI 언어" 절) | `SettingsSection` |
+| 5 | 단축키 | 녹음 시작·정지(`recordingShortcut`), 위젯 표시·숨김(`widgetShortcut`), 받아쓰기 시작·정지(`dictationShortcut`, 2026-10-11) | `SettingsSection` |
+| 6 | 받아쓰기 | 사용법 한 줄(현재 단축키 표기), 접근성 권한 상태와 시스템 설정 열기 (2026-10-11, 아래 "받아쓰기" 절) | `setting/DictationSection` (자기 채널 `dictation:state`로 읽는다. 용어 사전처럼 `children`으로 끼운다) |
+| 7 | 음성 인식 모델 | 음성 인식 모델 변경 | `ModelDownloadSection` (온보딩과 공유) |
+| 8 | 요약 · 용어 초안 | 실행 방식(로컬 / Claude API 키 / Claude Code / OpenAI API 키), 로컬을 골랐을 때만 **로컬 요약 모델 파일** 다운로드, API 키(공급자별), GPT 모델 선택, CLI 상태, 연결 확인 | `setting/LlmSection` — 파일 다운로드 행 `model/SummaryModelSection`은 페이지가 `localModelSlot`으로 끼운다 (아래 "LLM 공급자" 절). 2026-09-24까지는 "모델" 카테고리에 음성 인식 모델과 나란히 있었는데, 로컬 실행 방식의 부속품이 별개 설정처럼 보여 옮겼다 |
+| 9 | 요약 템플릿 | 만든 템플릿 수 + "템플릿 관리" 버튼 → 전용 페이지 `/summary-templates`로 이동 (2026-09-29, 아래 "요약 템플릿 > 화면" 절) | `setting/SummaryTemplateSection` (자기 채널로 목록만 읽는다. 용어 사전과 같이 `children`으로 끼운다) |
+| 10 | 용어 사전 | 팀 소개, 초안 만들기, 용어 목록 (Phase 5-4) | `setting/GlossarySection` (자기 채널로 따로 읽고 쓰므로 `SettingsSection`의 한 번 로드와 무관하다. 모델 위젯과 같이 `children`으로 끼운다) |
+| 11 | 업데이트 | 업데이트 확인(`isUpdateCheckEnabled`), 지금 확인(`UpdateCheck`) | `SettingsSection` |
+| 12 | 언어 | UI 언어(`locale`, 한국어 / 영어, 2026-09-25, 위 "UI 언어" 절) | `SettingsSection` |
 
-- 설정값 로드는 한 번만 한다. 그래서 `SettingsSection`이 1~5와 10·11을 모두 그리고, 6~9는 `children`으로 받아 5와 10 사이에 끼운다.
-  페이지는 `<SettingsSection><SettingGroup title="음성 인식 모델"><ModelDownloadSection /></SettingGroup><LlmSection localModelSlot={<SummaryModelSection />} /><SummaryTemplateSection /><GlossarySection /></SettingsSection>` 형태로 배치만 한다.
+- 설정값 로드는 한 번만 한다. 그래서 `SettingsSection`이 1~5와 11·12를 모두 그리고, 6~10은 `children`으로 받아 5와 11 사이에 끼운다.
+  페이지는 `<SettingsSection><DictationSection /><SettingGroup title="음성 인식 모델"><ModelDownloadSection /></SettingGroup><LlmSection localModelSlot={<SummaryModelSection />} /><SummaryTemplateSection /><GlossarySection /></SettingsSection>` 형태로 배치만 한다.
   widgets는 widgets를 import하지 않으므로(`.claude/rules/component-abstract-pattern.md`) `SummaryModelSection`은 페이지가 슬롯으로 넘긴다.
 - **오른쪽에 목차(TOC)를 둔다** (2026-09-24 사용자 요청). 카테고리가 7개(지금은 8개)로 늘어 스크롤로 찾기 어려워졌기 때문이다.
   목차는 composite `PageToc`가 스크롤 영역 안의 `h2`를 **DOM에서 읽어** 만든다 — 카테고리가 여러 위젯에 흩어져 있고
@@ -767,6 +778,157 @@ export interface LiveTranscriptState {
 - 그 아래에 **자원 사용 안내**를 한 줄 더 둔다 (2026-09-26 사용자 요청): "말하는 동안 GPU를 계속 써서 발열과 배터리 소모가 늘 수 있습니다. 필요 없을 때는 파형으로 바꿔 두세요".
   말하는 동안 인식이 쉬지 않고 이어져 GPU를 70~100% 쓰고, 한 번에 메모리 약 0.9GB를 잡기 때문이다. 인식 실패 안내가 떠 있어도 이 줄은 남긴다.
 - 위젯 패널은 바꾸지 않는다 (좁은 창이고 파형도 없다).
+
+## 받아쓰기 (2026-10-11)
+
+사용자 기획으로 **어느 앱에서든 말로 글을 입력**할 수 있게 한다. 전역 단축키로 켜고 말하면, 말이 끊길 때마다 인식한 조각이 지금 커서가 있는 입력란에 들어간다.
+"타자 대신 말"이 목적이라 회의록 밖의 기능이지만, 엔진(whisper turbo·VAD·정규화)·전역 용어 사전·단축키·패널·구간 나누기를 전부 공유하므로 **같은 앱의 모드**로 둔다(별도 앱으로 쪼개면 모델 1GB·설정·권한을 두 번 받는다).
+SKILL.md 4절 "범위 절제"의 두 번째 사용자 결정 예외다.
+
+### 문제와 목표
+
+- 긴 글(메시지·메모·문서 초안·AI 프롬프트)을 칠 때 병목은 생각이 아니라 손이다. macOS 기본 받아쓰기는 한국어 정확도가 낮고 문장을 자주 끊으며, 서버형 제품(Wispr Flow 등)은 음성을 보낸다. 로컬 추론 약속을 지키면서 이 틈을 메운다.
+- 받아쓰기는 회의록보다 쉬운 조건이다 — 한 사람, 가까운 마이크, 짧은 발화. 정확도는 낭독 CER 8.49%(`docs/stt-tuning-results.md`, Zeroth 100문장)에 가깝고 용어 사전 프롬프트로 더 내린다. 회의 CER 18~19%는 원거리·다화자 조건의 값이다.
+- 목표(측정으로 확인, `docs/dictation-results.md`):
+
+| 항목 | 목표 |
+| --- | --- |
+| 말이 끊긴 뒤 글자가 들어가기까지 | 2초 이내 (8초 구간 turbo 1.6초 실측 기준) |
+| 업무 문장 CER | 8% 이하, 용어 사전 적용 시 5% 이하 |
+| 삽입 | 대상 앱 6종(Slack·Notion·브라우저 입력란·VS Code·메모·터미널)에서 성공, 클립보드 원복 |
+| 쓰지 않을 때 | GPU·마이크 사용 0 |
+
+- 범위 밖(1차): 음성으로 앱 조작, 말하는 중에 글자가 한 자씩 나타나는 스트리밍, 받아쓰기 기록 저장, LLM 다듬기(후속 옵션 후보), 침묵 자동 종료(후속 설정 후보), 누르고 있는 동안만 듣기(후속 후보).
+
+### 네 가지 결정 (2026-10-11 사용자)
+
+| 갈림길 | 결정 | 버린 선택과 이유 |
+| --- | --- | --- |
+| 적용 범위 | 어느 앱에서든 커서 자리에 | 앱 안 입력란만 — "타자 대신"의 가치가 작다. 클립보드만 — 한 손이 더 든다(폴백으로만 남긴다) |
+| 트리거 | 토글: 한 번 눌러 시작, 다시 눌러 끝 | 누르고 있는 동안만 — 긴 말에 키를 계속 눌러야 한다. 둘 다 — 1차 범위 초과 |
+| 다듬기 | 규칙 기반 + 용어 사전 | LLM 다듬기 기본 — 로컬 4B는 조각마다 모델 로드 1~2초가 더 들고, 외부 공급자는 음성 내용이 전송된다. 인식 결과 그대로 — 간투사·용어 오인식이 그대로 들어간다 |
+| 삽입 시점 | 말이 끊길 때마다 조각씩 | 끝낼 때 한 번 — 긴 말은 끝난 뒤 몇 초를 기다린다. 조각 방식은 앞 조각을 되돌려 고칠 수 없지만, 조각마다 독립 인식이라 되돌릴 일도 없다 |
+
+### 흐름
+
+```
+[전역 단축키 ⌥⌘D / Tray / 패널 버튼]
+  → main `dictation/session.ts` 시작 (녹음 중이면 거절)
+  → 위젯 창에 `dictation:command { start }` → 위젯이 마이크 그래프를 만들고 `dictation:start` → 청크를 `dictation:chunk`로
+  → main: 구간 판정(`liveWindow.ts` 재사용) → 말이 1초 끊기거나 최대 길이에 닿으면 구간 확정
+  → 인식 한 번 (whisper-cli turbo, VAD, RMS 정규화, 용어 사전 프롬프트)
+  → 다듬기 (`@meeting-stt/core/dictation`, 순수)
+  → 끼워 넣기 (`textInsert`: 클립보드 저장 → 쓰기 → ⌘V → 원복), 실패하면 클립보드에 남기고 안내
+  → 다시 누르면 끝. 남은 구간이 있으면 마지막으로 한 번 인식·삽입하고 그래프를 해제
+```
+
+### 세션과 상태 (`src/main/dictation/session.ts`)
+
+- 녹음 세션(`audio/session.ts`)과 **별개의 세션**이다. WAV·회의 행·파이프라인 잡을 만들지 않는다.
+- 둘은 **동시에 돌지 않는다** — 마이크 그래프와 GPU를 같이 쓴다. 녹음 중 받아쓰기 시작과 받아쓰기 중 녹음 시작은 모두 거절하고 안내한다(`errorMessage`).
+- 상태의 단일 출처는 main이고 `dictation:stateChanged`로 두 창에 push한다. 조회는 `dictation:state`. 경과 시간은 녹음처럼 `startedAt`만 주고 받는 쪽이 계산한다.
+
+```ts
+export type DictationPhase = 'idle' | 'listening' | 'recognizing'
+export type DictationInsertMode = 'paste' | 'clipboard'
+
+export interface DictationStateEvent {
+  phase: DictationPhase
+  /** 시작 시각(epoch ms). idle이면 null */
+  startedAt: number | null
+  /** 직전 청크의 RMS (0~1). 청크 주기(약 0.5초)로만 갱신된다 */
+  level: number
+  /** 접근성 권한이 있으면 'paste', 없으면 'clipboard' (아래 "끼워 넣기") */
+  insertMode: DictationInsertMode
+  /** 이번 세션에서 마지막으로 넣은 조각. 패널이 "들어갔다"는 확인용으로 한 줄 보여 준다 */
+  lastInsertedText: string
+  /** 마지막 세션의 전체 텍스트가 메모리에 있는지 (Tray "마지막 받아쓰기 복사") */
+  hasLastResult: boolean
+  errorMessage?: string
+}
+
+export interface DictationCommandEvent {
+  kind: 'start' | 'stop'
+}
+```
+
+- 시작·정지 경로는 녹음과 같다. main이 시작하려면(단축키·Tray) 위젯에 `dictation:command`를 push하고, 위젯이 그래프를 만든 뒤 `dictation:start`를 invoke한다. 패널의 중지 버튼·메인 창은 `dictation:control`로 main에 요청한다. 마이크 접근이 renderer 전용이라 main → 위젯 → main 한 바퀴는 피할 수 없다.
+- 위젯의 마이크 그래프 코드는 녹음과 같은 것을 쓰되 **청크 목적지만 다르다**(`dictation:chunk`). 입력 장치 설정(`audio.inputDevice`)도 그대로 따른다. 시스템 오디오는 섞지 않는다.
+- **최대 길이 `DICTATION_MAX_SEC`(300초)** 를 넘으면 스스로 끝낸다 — 끄는 걸 잊은 마이크를 계속 켜 두지 않는다. 끝낼 때(사용자 정지·최대 길이) 남은 구간에 말소리가 있으면 마지막으로 한 번 인식·삽입한다.
+- **결과는 저장하지 않는다.** 세션이 끝나면 그 세션의 조각을 이어 붙인 전체 텍스트만 main 메모리에 하나 남긴다(`lastResult`). 삽입이 실패했거나 다른 곳에 들어갔을 때 Tray 메뉴 "마지막 받아쓰기 복사"로 클립보드에 되살린다. 앱을 다시 켜면 사라진다.
+
+### 구간 나누기와 인식
+
+- `src/main/audio/liveWindow.ts`의 판정(말소리 청크 = 최근 소음 바닥의 3배, 끝이 `LIVE_COMMIT_SILENCE_SEC` 1초 조용하면 확정, 최대 길이에 닿으면 확정)을 **그대로 쓴다.** 다른 점은 둘이다.
+  - **중간 인식을 하지 않는다.** 라이브 보기는 `LIVE_STEP_SEC`마다 미리보기를 갱신하지만, 받아쓰기는 확정 시점에만 whisper를 부른다. 미리보기가 없으니 GPU 사용이 절반 이하이고, 조각이 바뀌는 일이 없어 넣은 글을 되돌릴 필요도 없다.
+  - **최대 구간 길이 `DICTATION_MAX_WINDOW_SEC`** 는 라이브(12초)보다 길게 둔다. 말이 끊기지 않는 사람의 문장이 중간에서 잘리면 조각 경계가 문장 경계와 어긋난다. **측정으로 20초를 확정했다** (`docs/dictation-results.md` 1절) — 28초까지 인식 시간은 1.1~1.6초로 같았지만, 30초 구간은 whisper의 30초 창 경계에 걸려 뒷부분이 잘렸고, 길수록 쉬지 않고 말하는 사람의 글이 늦게 들어간다.
+- 인식 한 번은 `liveTranscript.ts`의 실행부(Int16 변환 → RMS 게인 정규화 → 임시 WAV → `whisper-cli … -otxt` → UTF-8 파일 읽기)를 **공용 함수로 뽑아 같이 쓴다**(`src/main/audio/whisperOnce.ts`). 라이브와 받아쓰기가 같은 인자·같은 모델 규칙(`liveWhisperModelPath()`, 속도 우선 turbo)을 쓴다.
+- 라이브와 달리 **전역 용어 사전을 `--prompt`로 붙인다.** 구간이 하나라 `--carry-initial-prompt`는 필요 없고, `-mc`는 `runStt`처럼 프롬프트 토큰 수 + 1로 준다(`whisperPrompt.ts` 재사용). `-mc 0`이면 프롬프트가 통째로 꺼진다(`pitfalls.md`). 용어가 없으면 `-mc 0`.
+- 언어는 `-l ko` 고정이다. UI 언어 설정과 무관하다("UI 언어" 절).
+- 임시 WAV는 `app.getPath('temp')/meeting-stt-dictation/`에 쓰고 인식이 끝나면 지운다.
+
+### 다듬기 (`packages/core/src/dictation.ts`, 순수 함수 + vitest)
+
+LLM 없이 규칙만 적용한다. 지연이 없고 로컬이며, 틀려도 예측 가능한 방식으로만 틀린다. 두 앱이 같은 규칙을 쓸 수 있도록 `packages/core`에 둔다.
+
+| 규칙 | 내용 | 안 하는 것 |
+| --- | --- | --- |
+| 비음성 표기 제거 | whisper가 붙이는 `[음악]`·`(웃음)`·`♪` 같은 괄호·기호 표기를 지운다 | — |
+| 간투사 제거 | **어절 전체**가 간투사 목록(`음`, `어`, `아`, `에`, `그`, `음…`, `어…`)과 같을 때만 지운다. 보수적으로 둔다 — `그 사람`의 `그`는 뒤에 다른 어절이 이어지므로 남는다 | 반복(`그니까 그니까`)·자기 수정(`아니 그게 아니고`) 정리. LLM 없이는 오탐이 많다 |
+| 용어 표기 치환 | **전역 용어 사전**의 `표기 = 읽기1, 읽기2` 줄에서 **읽기가 어절 경계에서 그대로 나오면 표기로 바꾼다**(`깃허브` → `GitHub`). 뒤에 붙은 조사는 남기고, 한 음절 읽기(`번`=Bun)는 일상어와 겹쳐 바꾸지 않는다 | ~~`TERM_READINGS`(`termReadings.ts`)도 같은 방식으로 적용~~ → **내장 읽기 사전은 적용하지 않는다** (2026-10-11 측정 결정, `docs/dictation-results.md` 2절). 교정용 발음 사전이라 `이슈`·`슬랙`처럼 한글로 쓰는 게 자연스러운 외래어까지 영어 표기로 바꿔 CER을 올렸다. 영어 표기를 원하면 사용자가 용어 사전에 적는다. 발음 유사도 후보·LLM O/X 판정(회의록 교정)도 쓰지 않는다 — 받아쓰기는 매 조각 즉시 넣어야 하므로 교정 파이프라인을 부르지 않는다 |
+| 공백 정리 | 앞뒤 공백·연속 공백·줄바꿈을 공백 하나로 | — |
+| 조각 연결 | 세션의 **첫 조각은 앞에 공백을 붙이지 않는다**(커서 앞 글자는 사용자 몫). 둘째 조각부터는 앞에 공백 하나를 붙인다 | 문장부호 자동 보완. whisper 한국어는 문장부호를 자주 빠뜨리고(`pitfalls.md`), 침묵이 꼭 문장 끝은 아니라 마침표를 보태면 틀린 자리에 찍힌다. 후속 과제로 둔다 |
+
+- 다듬은 결과가 빈 문자열이면(간투사만 말함) 넣지 않는다.
+- 규칙이 CER을 올리지 않는지 측정으로 확인한다(아래 "측정"). 올리는 규칙은 뺀다.
+
+### 끼워 넣기 (`src/main/dictation/insert.ts` + `native/textInsert/main.swift`)
+
+macOS에서 다른 앱의 커서 자리에 글을 넣는 방법 네 가지를 비교해 **클립보드 + ⌘V 키 이벤트**를 골랐다.
+
+| 방식 | 결론 |
+| --- | --- |
+| 클립보드에 넣고 ⌘V 키 이벤트 | **채택.** 거의 모든 앱에서 동작하고 구현이 단순하다. 접근성 권한이 필요하고 클립보드를 잠깐 덮어쓰므로 원복한다 |
+| 접근성 API(`AXUIElement`)로 입력란 값 설정 | Electron·웹 입력란에서 지원이 들쭉날쭉하다(`AXValue` 쓰기를 거부하거나 커서 위치를 무시한다) |
+| 유니코드 키 이벤트로 한 글자씩 타이핑 | 긴 글에서 느리고 일부 앱이 글자를 빠뜨린다. 접근성 권한도 똑같이 필요하다 |
+| 클립보드만 채우고 ⌘V 안내 | **폴백.** 권한이 없거나 삽입이 실패했을 때 |
+
+- 도구는 시스템 오디오 캡처와 같은 방식의 **동봉 Swift 도구 `textInsert`** 다 — `apps/desktop/native/textInsert/main.swift` 한 파일, `scripts/setupBin.ts`가 `swiftc -O -target arm64-apple-macos14.0`으로 `resources/bin/darwin-arm64/textInsert`를 만들고, `asarUnpack`·서명·공증 대상이다(`references/distribution.md` 5절). Electron은 다른 앱에 키 이벤트를 보낼 수 없고(`webContents.sendInputEvent`는 자기 창 전용), `osascript`(System Events)는 자동화 권한이 하나 더 들고 호출마다 200ms쯤 느리다.
+
+| 항목 | 값 |
+| --- | --- |
+| 인자 | 없음 |
+| stdin | 넣을 텍스트(UTF-8) 전체. EOF가 시작 신호다 |
+| 동작 | ① `AXIsProcessTrusted()` 확인 ② `IsSecureEventInputEnabled()` 확인 ③ 최전면 앱 bundle id가 자기 앱(`com.meetingstt.app`)이면 중단 ④ `NSPasteboard.general`의 **모든 항목·타입을 저장** ⑤ 텍스트를 쓴다 ⑥ `CGEvent`로 **Command keyDown → V keyDown → V keyUp → Command keyUp**을 `cghidEventTap`에 post (V에 플래그만 얹으면 첫 번째만 들어간다, `pitfalls.md`) ⑦ `PASTE_SETTLE_MS`(200ms — 측정에서 20ms면 충분했고 10배 여유, `docs/dictation-results.md` 3절) 기다린 뒤 ⑧ 저장한 항목을 되돌린다 |
+| stdout | `ok` 한 줄 |
+| stderr | `error: accessibility` / `error: secure-input` / `error: self-frontmost` / `error: …` 한 줄 |
+| 종료 코드 | 0 성공 · 2 접근성 권한 없음 · 3 보안 입력 활성 · 4 자기 앱이 최전면 · 1 그 밖의 실패 |
+
+- 클립보드 저장·원복은 **도구 안에서 NSPasteboard로** 한다. Electron `clipboard`는 텍스트·이미지·HTML 몇 종류만 다뤄 파일 참조·사용자 정의 타입이 사라진다.
+- **접근성 권한**은 main이 Electron `systemPreferences.isTrustedAccessibilityClient(prompt)`로 다룬다. 받아쓰기를 **처음 시작할 때 `prompt: true`로 시스템 안내 창을 한 번 띄운다**(시스템 오디오 캡처의 프로브와 같은 패턴). 권한이 없으면 세션은 `insertMode: 'clipboard'`로 그대로 진행하고 패널에 "복사됐습니다. ⌘V로 붙여 넣으세요"를 보인다 — 권한을 거절해도 기능이 막히지 않는다. 설정의 "받아쓰기" 카테고리에서 권한 상태를 보고 시스템 설정(개인정보 보호 및 보안 → 손쉬운 사용)을 열 수 있다. `Info.plist` 키는 필요 없다.
+- 도구가 종료 코드 2·3·4나 비정상 종료로 끝나면 main이 **텍스트를 `electron.clipboard`에 남기고**(원복하지 않는다) `errorMessage`로 안내한다. 세션은 계속된다.
+- 조각이 연달아 확정돼도 **삽입은 한 번에 하나만** 돈다(이전 도구 프로세스가 끝난 뒤 다음). 두 개가 겹치면 클립보드 원복 순서가 꼬인다.
+- 도구가 없으면(`swiftc` 없는 개발 환경) 클립보드 모드로만 동작한다. 시스템 오디오 캡처와 같은 완화다.
+
+### 패널·메뉴바·단축키·설정
+
+- **새 창을 만들지 않는다.** 녹음 위젯 패널(`#/widget`, 그래프 소유자, `type: 'panel'`, `showInactive`)이 받아쓰기 중에는 **받아쓰기 보기**(`recording/WidgetPanelSection`의 `ui/DictationView`)로 바뀐다: 상태(듣는 중 / 인식 중), 경과 시간, 레벨 미터, 마지막으로 넣은 조각 한 줄(옅은 색), 중지 버튼, 클립보드 모드일 때 ⌘V 안내. 그래프 소유자가 하나여야 하므로 받아쓰기 보기도 같은 위젯 안에 둔다.
+- 패널이 숨겨져 있었으면(`widget.enabled` 꺼짐 또는 사용자가 숨김) 받아쓰기 동안만 `showInactive`로 띄우고 끝나면 이전 상태로 되돌린다. 포커스를 뺏지 않는 창이라 ⌘V가 패널로 들어가지 않는다.
+- 메뉴바 제목은 받아쓰기 중 `✎ 0:12`로 경과 시간을 보인다(녹음 `●`·일시정지 `‖`와 구분). 트레이 메뉴에 "받아쓰기 시작/정지"와 "마지막 받아쓰기 복사"(결과가 있을 때만 활성)를 더한다.
+- 전역 단축키 **`shortcut.dictation`(기본 `⌥⌘D`, `AppSettings.dictationShortcut`)** 을 추가한다. 등록·검증·설정 화면 입력은 "전역 단축키" 절의 규칙을 그대로 따르고, **세 단축키 중 둘이 같으면 거절**한다.
+- 메인 창에는 전용 화면을 두지 않는다. 설정 "받아쓰기" 카테고리(`setting/DictationSection`)에 사용법 한 줄(현재 단축키 표기)과 접근성 권한 상태·시스템 설정 열기만 둔다. 설정 "단축키" 카테고리에 "받아쓰기 시작·정지" 행을 더한다.
+
+### 자원
+
+- 쓰지 않을 때는 마이크 그래프도 whisper 프로세스도 없다. 세션 중에도 조용하면(말소리 청크 없음) whisper를 부르지 않는다(라이브와 같다).
+- 인식은 조각마다 모델을 새로 올린다(turbo 로드 0.4초 포함 8초 구간 1.6초). 상주 프로세스(`whisper-server`)는 두지 않는다 — "라이브 받아쓰기" 절의 이유와 같고, 받아쓰기는 간헐적이라 상주의 이득이 더 작다. 지연 목표를 측정에서 못 맞추면 그때 다시 본다.
+- 켜 둔 채 잊는 경우는 자원 안내 문구가 아니라 최대 길이(300초)로 막는다.
+
+### 측정 (`docs/dictation-results.md`)
+
+1. **지연** (2026-10-11 측정 완료): Zeroth 낭독 문장을 3·8·15·20·30초로 이어 붙인 WAV로 spawn → 텍스트까지 시간(turbo, 성능 코어 스레드, 용어 프롬프트 있음/없음). **구간 길이와 무관하게 1.1~1.6초**로 2초 목표 안이고, 용어 프롬프트는 지연을 늘리지 않았다. 30초 구간은 whisper 30초 창 경계에서 잘려 `DICTATION_MAX_WINDOW_SEC = 20`을 확정했다.
+2. **다듬기** (2026-10-11 Zeroth 100문장 측정 완료): 비음성·간투사·공백 규칙은 낭독문을 바꾸지 않았고(8.49% 그대로), 내장 읽기 사전 치환은 `이슈` → `Issue`로 0.12pt 올려 **뺐다**. 간투사가 섞인 자체 녹음 20문장은 실제 세션에서 모아 뒤에 더한다.
+3. **삽입** (2026-10-11 TextEdit·Electron 창에서 측정, 실제 Slack·Notion 등은 사용자 확인): 두 번째 ⌘V부터 들어가지 않던 결함을 찾아 고쳤고(Command 키 이벤트 동봉), `PASTE_SETTLE_MS`는 20ms면 충분해 200ms를 유지한다. 앱 전체 흐름(toggle → 마이크 그래프 → 두 문장 → 1.2~1.3초 뒤 삽입 → 정지 시 나머지 삽입, CER 0%)과 녹음·받아쓰기 상호 배제를 빌드된 앱으로 확인했다. 원래 계획은 아래다. `textInsert` 프로토타입으로 대상 앱 6종에서 성공률, 클립보드 원복(텍스트·이미지·파일), 보안 입력 상태(터미널 "보안 키보드 입력", 암호 입력란), 한글 조합 중인 입력란에 넣었을 때의 결과, `PASTE_SETTLE_MS` 값. **자식 프로세스인 도구가 앱 번들의 접근성 권한을 물려받는지**(TCC 책임 프로세스 귀속)를 개발 모드(`Electron.app`)와 패키징 빌드 양쪽에서 확인한다 — 물려받지 못하면 도구에 별도 권한 항목이 생겨 안내 흐름을 다시 설계해야 한다.
 
 ## 시스템 오디오 캡처 (Phase 5-2, 2026-09-26)
 

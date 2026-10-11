@@ -88,6 +88,18 @@
 - `kAudioAggregateDeviceIsPrivateKey`를 빼면 집계 장치가 시스템 설정 오디오 장치 목록에 나타나고 프로세스가 죽어도 남는다.
 - 도구는 부모가 stdin을 닫을 때 끝난다. `spawn` 뒤 `stdin`을 `end()`하지 않고 두었다가 정지 시 닫는다. `detached`로 띄우지 않는다.
 
+## 받아쓰기 (2026-10-11)
+- **⌘V 키 이벤트에 Command 플래그만 얹으면 프로세스를 새로 띄울 때마다 첫 번째만 들어간다.** `CGEvent`로 V keyDown/keyUp에 `.maskCommand`를 얹어 `cghidEventTap`에 post하면 첫 조각은 붙고 둘째 조각부터 대상 앱이 받지 않는다(종료 코드는 0). Command 키 자체의 keyDown/keyUp을 앞뒤에 함께 보내면(실제 키 입력 순서) 연속으로 들어간다. `cgSessionEventTap`에 post해도 되지만 HID 탭을 유지했다 (`docs/dictation-results.md` 3절).
+- **settle 0ms면 붙여넣기가 옛 클립보드를 받는다.** TextEdit·Electron 창 모두 20ms부터 정상이었고 200ms를 쓴다.
+- **최전면 창이 자기 앱이면 ⌘V가 자기 창에 들어간다.** 패널은 `type: 'panel'` + `showInactive`라 포커스를 뺏지 않지만, 메인 창이 최전면이면 `textInsert`가 `self-frontmost`(종료 4)로 중단하고 클립보드에만 남긴다.
+- **보안 입력(Secure Event Input)이 켜져 있으면 합성 키 이벤트가 차단된다.** 암호 입력란, 터미널의 "보안 키보드 입력", 일부 비밀번호 관리자 창. 도구가 `IsSecureEventInputEnabled()`로 미리 확인해 종료 3으로 폴백한다.
+- **접근성 권한은 실행 파일(책임 프로세스) 단위다.** 개발 모드의 `Electron.app`과 패키징된 앱은 다른 항목이고, 서명이 바뀌면 권한이 풀릴 수 있다. 세션을 시작할 때마다 `isTrustedAccessibilityClient(false)`로 다시 읽는다. 자식 프로세스 `textInsert`가 앱의 권한을 물려받는지는 측정 3에서 확인한다 (`architecture.md` "받아쓰기" > "측정").
+- **클립보드 원복을 너무 빨리 하면 붙여넣기가 옛 내용을 받는다.** ⌘V 이벤트가 대상 앱에서 처리되기 전에 원복하면 이전 클립보드 내용이 붙는다. `PASTE_SETTLE_MS` 뒤에 원복하고, 값은 느린 앱(Electron 기반)에서 측정해 정한다.
+- **Electron `clipboard`로 원복하면 파일 참조·사용자 정의 타입이 사라진다.** 원복은 도구 안에서 NSPasteboard 항목 전체로 한다.
+- **한글 조합 중인 입력란에 붙여 넣으면 조합 중 글자가 확정되거나 사라질 수 있다.** 받아쓰기는 치는 중에 쓰는 기능이 아니므로 막지 않고, 측정 3에서 실제 동작만 확인한다.
+- **`-mc 0`이면 용어 프롬프트가 꺼진다** (위 "STT" 절). 받아쓰기도 `runStt`처럼 `-mc`를 프롬프트 토큰 수 + 1로 준다.
+- **삽입 두 개가 겹치면 클립보드 원복 순서가 꼬인다.** 조각이 연달아 확정돼도 도구 실행은 직렬화한다.
+
 ## 프로세스 / 성능
 - main 프로세스에서 동기 IO·동기 spawn(`spawnSync`, `execSync`)은 UI를 멈춘다. 비동기 `spawn`만 사용.
 - STT와 화자 분리를 무조건 병렬로 돌리지 않는다. `os.cpus().length`가 8 미만이면 순차 실행.

@@ -165,7 +165,8 @@ CREATE TABLE IF NOT EXISTS summary_templates (  -- 마이그레이션 6 (2026-09
 | `widget.fade` | boolean | `true` | 위젯 패널이 포커스를 잃으면 반투명하게 할지 |
 | `widget.fadeOpacity` | number | `0.55` | 포커스가 없을 때의 불투명도. `0.2`~`0.95`, 0.05 단위. 범위를 벗어나면 기본값으로 읽고, 저장 요청은 거절한다 |
 | `shortcut.recording` | string | `'Alt+Command+R'` | 녹음 토글 전역 단축키 (Electron accelerator). 형식이 틀리면 기본값으로 읽는다 |
-| `shortcut.widget` | string | `'Alt+Command+W'` | 위젯 표시/숨김 전역 단축키. 녹음 단축키와 같을 수 없다 |
+| `shortcut.widget` | string | `'Alt+Command+W'` | 위젯 표시/숨김 전역 단축키. 다른 단축키와 같을 수 없다 |
+| `shortcut.dictation` | string | `'Alt+Command+D'` | 받아쓰기(음성 입력) 토글 전역 단축키 (2026-10-11). 다른 두 단축키와 같을 수 없다. 받아쓰기 결과는 DB에 저장하지 않는다 (`references/architecture.md` "받아쓰기") |
 | `pipeline.quiet` | boolean | `false` | 조용히 처리. 켜면 화자 분리 스레드를 줄이고 STT와 화자 분리를 순차로 돌린다. 느려지는 대신 발열·팬 소음이 준다. 잡이 **시작할 때** 읽으므로 진행 중인 잡에는 적용되지 않는다 (`references/architecture.md` 가속·스레드 정책) |
 | `ui.theme` | `'system' \| 'light' \| 'dark'` | `'system'` | 화면 테마 (2026-09-28). main이 `nativeTheme.themeSource`에 넣는다. 모르는 값이면 `'system'`으로 읽고, 저장 요청은 거절한다 (`references/architecture.md` "다크 모드") |
 | `refine.autoExternal` | boolean | `false` | 외부 LLM 공급자일 때 회의록이 만들어지면 자동으로 문장 교정할지 (2026-09-28). 켜면 회의가 끝날 때마다 회의록이 그 회사 서버로 전송된다. 로컬 공급자의 자동 용어 교정과는 무관하다 (`references/architecture.md` "회의록 교정") |
