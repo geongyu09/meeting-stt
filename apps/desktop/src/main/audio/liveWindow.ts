@@ -78,6 +78,34 @@ const trailingSilenceSecOf = (chunks: LiveChunk[]) => {
   return chunksSecOf(chunks.slice(lastSpeechIndex + 1))
 }
 
+export interface CommitPlan {
+  /** 구간에 말소리 청크가 하나라도 있는지. 없으면 whisper를 부르지 않는다 */
+  hasSpeech: boolean
+  /** 끝이 조용하거나 최대 길이에 닿아 구간을 확정할 때 */
+  isFinal: boolean
+  /** 인식에 넣을 앞쪽 청크 수. 확정하면 이만큼만 구간에서 뺀다 */
+  chunkCount: number
+}
+
+interface PlanCommitParams {
+  window: LiveWindow
+  /** 구간이 이 길이에 닿으면 말이 이어져도 확정한다. 라이브와 받아쓰기가 이 값만 달리 쓴다 */
+  maxWindowSec: number
+}
+
+/** 구간을 확정할지 정한다. 라이브(미리보기 갱신 포함)와 받아쓰기(확정 시점에만 인식)가 같은 판정을 쓴다 */
+export const planCommit = ({ window, maxWindowSec }: PlanCommitParams): CommitPlan => {
+  const { chunks } = window
+
+  return {
+    hasSpeech: chunks.some((chunk) => chunk.isSpeech),
+    isFinal:
+      chunksSecOf(chunks) >= maxWindowSec ||
+      trailingSilenceSecOf(chunks) >= LIVE_COMMIT_SILENCE_SEC,
+    chunkCount: chunks.length
+  }
+}
+
 export interface LiveRunPlan {
   shouldRun: boolean
   /** 인식에 넣을 앞쪽 청크 수. 확정하면 이만큼만 구간에서 뺀다 */
@@ -88,15 +116,14 @@ export interface LiveRunPlan {
 
 /** 지금 구간으로 인식을 돌릴지, 돌린다면 결과를 확정할지 정한다 */
 export const planLiveRun = (window: LiveWindow): LiveRunPlan => {
-  const { chunks } = window
-  const hasSpeech = chunks.some((chunk) => chunk.isSpeech)
-  const isFinal =
-    chunksSecOf(chunks) >= LIVE_MAX_WINDOW_SEC ||
-    trailingSilenceSecOf(chunks) >= LIVE_COMMIT_SILENCE_SEC
+  const { hasSpeech, isFinal, chunkCount } = planCommit({
+    window,
+    maxWindowSec: LIVE_MAX_WINDOW_SEC
+  })
 
   return {
     shouldRun: hasSpeech && (isFinal || window.sinceRunSec >= LIVE_STEP_SEC),
-    chunkCount: chunks.length,
+    chunkCount,
     isFinal
   }
 }

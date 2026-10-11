@@ -1,8 +1,4 @@
-// Electron은 main에서 던진 에러를 "Error invoking remote method '<채널>': Error: <원문>"으로 감싼다
-const REMOTE_ERROR_PREFIX = /^Error invoking remote method '[^']+': (?:Error: )?/
-
-const stripRemotePrefix = (caught: unknown) =>
-  caught instanceof Error ? caught.message.replace(REMOTE_ERROR_PREFIX, '') : String(caught)
+import { remoteErrorMessageOf } from '@renderer/shared/utils/remoteError'
 
 /**
  * @description 설정 여부와 무관하게 지금 새 버전이 있는지 확인합니다. 실패하면 안내 문구로 reject됩니다.
@@ -14,7 +10,7 @@ export const checkUpdateApi = async () => {
   try {
     return await window.api.update.check()
   } catch (caught) {
-    throw new Error(stripRemotePrefix(caught))
+    throw new Error(remoteErrorMessageOf(caught))
   }
 }
 

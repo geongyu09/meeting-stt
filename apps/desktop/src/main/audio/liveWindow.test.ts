@@ -6,6 +6,7 @@ import {
   liveSamplesOf,
   liveTextOf,
   markLiveRunStarted,
+  planCommit,
   planLiveRun,
   pushLiveChunk,
   type LiveWindow
@@ -112,5 +113,32 @@ describe('liveTextOf', () => {
     expect(liveTextOf(' 안녕하세요\n 회의를 시작하겠습니다\n\n')).toBe(
       '안녕하세요 회의를 시작하겠습니다'
     )
+  })
+})
+
+describe('planCommit', () => {
+  it('말소리가 없는 구간은 확정 대상이 아니다', () => {
+    const window = pushAll({ rmsList: repeat({ rms: QUIET_RMS, count: 4 }) })
+
+    expect(planCommit({ window, maxWindowSec: 20 }).hasSpeech).toBe(false)
+  })
+
+  it('끝이 1초 조용하면 최대 길이와 무관하게 확정한다', () => {
+    // 소음 바닥이 잡히기 전이라 큰 소리(LOUD_RMS)로 말소리를 만든다
+    const window = pushAll({
+      rmsList: [...repeat({ rms: LOUD_RMS, count: 4 }), QUIET_RMS, QUIET_RMS]
+    })
+
+    const plan = planCommit({ window, maxWindowSec: 20 })
+
+    expect(plan).toMatchObject({ hasSpeech: true, isFinal: true, chunkCount: 6 })
+  })
+
+  it('말이 이어져도 넘긴 최대 길이에 닿으면 확정한다', () => {
+    // 청크 0.5초 × 10 = 5초. 최대 길이 5초면 확정, 20초면 아직이다
+    const window = pushAll({ rmsList: repeat({ rms: LOUD_RMS, count: 10 }) })
+
+    expect(planCommit({ window, maxWindowSec: 5 }).isFinal).toBe(true)
+    expect(planCommit({ window, maxWindowSec: 20 }).isFinal).toBe(false)
   })
 })

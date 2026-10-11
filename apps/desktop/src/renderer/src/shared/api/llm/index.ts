@@ -5,9 +5,7 @@ import type {
   SetOpenaiModelRequest
 } from '@shared/ipc'
 import { llmKo } from '@shared/locales/llm'
-
-// Electron은 main에서 던진 에러를 "Error invoking remote method '<채널>': Error: <원문>"으로 감싼다
-const REMOTE_ERROR_PREFIX = /^Error invoking remote method '[^']+': (?:Error: )?/
+import { isRemoteError, remoteErrorMessageOf } from '@renderer/shared/utils/remoteError'
 
 // 요청 함수는 훅 밖의 순수 함수라 컨텍스트의 언어를 모른다. 브리지 예외는 한국어 기본 문구로 바꾸고,
 // 부르는 훅(`useLlmSettings`)이 자기 언어의 안내로 다시 감싼다
@@ -26,11 +24,9 @@ interface ToUserErrorParams {
 // main이 던진 에러만 원문(한국어 안내)을 그대로 쓴다. 브리지가 없어서 나는 TypeError 같은
 // renderer 쪽 예외는 사용자에게 의미가 없으므로 안내 문구로 바꾼다
 const toUserError = ({ caught, fallback }: ToUserErrorParams) => {
-  if (!(caught instanceof Error) || !REMOTE_ERROR_PREFIX.test(caught.message)) {
-    return new Error(fallback)
-  }
+  if (!isRemoteError(caught)) return new Error(fallback)
 
-  return new Error(caught.message.replace(REMOTE_ERROR_PREFIX, ''))
+  return new Error(remoteErrorMessageOf(caught))
 }
 
 interface InvokeLlmParams<T> {

@@ -1,4 +1,6 @@
 import { open } from 'node:fs/promises'
+import { info, messageOf, warn } from '../log'
+import type { TermPrompt } from './whisper'
 
 const GGML_MAGIC = 0x67676d6c
 const INT32_BYTES = 4
@@ -131,4 +133,32 @@ export const readWhisperVocab = (modelPath: string) => {
   vocabCache.set(modelPath, loading)
   loading.catch(() => vocabCache.delete(modelPath))
   return loading
+}
+
+interface ResolveTermPromptParams {
+  /** 용어 표기 목록 (`termNameOf`로 읽기를 뗀 것) */
+  terms: string[]
+  whisperModelPath: string
+}
+
+/**
+ * 용어 목록을 모델 어휘로 세어 `--prompt`에 넣을 값으로 만든다. 어휘를 못 읽으면 undefined —
+ * 용어 프롬프트는 품질 보탬이라 인식 자체를 막지 않는다. 파이프라인과 받아쓰기가 같이 쓴다
+ */
+export const resolveTermPrompt = async ({
+  terms,
+  whisperModelPath
+}: ResolveTermPromptParams): Promise<TermPrompt | undefined> => {
+  if (!terms.length) return undefined
+
+  try {
+    const vocab = await readWhisperVocab(whisperModelPath)
+    const { prompt, tokenCount, droppedCount } = buildTermPrompt({ terms, vocab })
+    info(`용어 프롬프트: ${terms.length - droppedCount}개 · ${tokenCount}토큰`)
+    if (droppedCount) warn(`용어 프롬프트: 토큰 한도를 넘어 뒤쪽 ${droppedCount}개를 뺌`)
+    return prompt ? { text: prompt, tokenCount } : undefined
+  } catch (caught) {
+    warn(`용어 프롬프트 없이 인식: 어휘를 읽지 못함 (${messageOf(caught)})`)
+    return undefined
+  }
 }

@@ -166,6 +166,19 @@ export const parseWhisperProgress = (line: string) => {
   return matched ? Number(matched[1]) : null
 }
 
+/** `--prompt`로 넘길 용어 프롬프트. 토큰 수는 `whisperPrompt.ts`가 모델 어휘로 센 값이다 */
+export interface TermPrompt {
+  text: string
+  tokenCount: number
+}
+
+/**
+ * `-mc` 값. 용어 프롬프트가 있으면 토큰 수 + 1로 맞춰 직전 출력 문맥은 0으로 둔다 —
+ * -mc 0이면 whisper.cpp가 프롬프트까지 끈다 (references/architecture.md "인식 단계 용어 프롬프트").
+ */
+export const maxContextTokensOf = (termPrompt?: TermPrompt) =>
+  termPrompt ? termPrompt.tokenCount + PREV_MARKER_TOKENS : MAX_CONTEXT_TOKENS
+
 interface BuildWhisperArgsParams {
   modelPath: string
   audioPath: string
@@ -179,11 +192,8 @@ interface BuildWhisperArgsParams {
    * (안 그러면 whisper-cli가 조용히 DTW를 끈다).
    */
   dtwPreset?: string
-  /**
-   * 매 창 앞에 붙일 용어 프롬프트. -mc를 토큰 수 + 1로 맞춰 직전 출력 문맥은 0으로 둔다
-   * (-mc 0이면 whisper.cpp가 프롬프트까지 끈다, references/architecture.md "인식 단계 용어 프롬프트").
-   */
-  termPrompt?: { text: string; tokenCount: number }
+  /** 매 창 앞에 붙일 용어 프롬프트 (`maxContextTokensOf`) */
+  termPrompt?: TermPrompt
 }
 
 export const buildWhisperArgs = ({
@@ -205,7 +215,7 @@ export const buildWhisperArgs = ({
   '-t',
   String(threads),
   '-mc',
-  String(termPrompt ? termPrompt.tokenCount + PREV_MARKER_TOKENS : MAX_CONTEXT_TOKENS),
+  String(maxContextTokensOf(termPrompt)),
   ...(termPrompt ? ['--prompt', termPrompt.text, '--carry-initial-prompt'] : []),
   '--output-json-full',
   '-of',
