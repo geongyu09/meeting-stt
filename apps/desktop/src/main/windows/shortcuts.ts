@@ -1,5 +1,5 @@
 import { globalShortcut } from 'electron'
-import { formatAccelerator } from '@shared/shortcut'
+import { SHORTCUT_OFF, formatAccelerator } from '@shared/shortcut'
 import { getAppSettings } from '../db/settings'
 import { warn } from '../log'
 import { controlDictation } from '../dictation/session'
@@ -31,6 +31,7 @@ const registerAll = (accelerators: ShortcutAccelerators) => {
   globalShortcut.unregisterAll()
 
   return bindings(accelerators)
+    .filter(({ accelerator }) => accelerator !== SHORTCUT_OFF)
     .filter(({ accelerator, action }) => {
       try {
         return !globalShortcut.register(accelerator, action)
@@ -64,7 +65,9 @@ export const replaceGlobalShortcuts = ({
   next: ShortcutAccelerators
   previous: ShortcutAccelerators
 }) => {
-  const accelerators = [next.recordingShortcut, next.widgetShortcut, next.dictationShortcut]
+  const accelerators = [next.recordingShortcut, next.widgetShortcut, next.dictationShortcut].filter(
+    (accelerator) => accelerator !== SHORTCUT_OFF
+  )
   if (new Set(accelerators).size !== accelerators.length) {
     throw new Error(t().main.errors.shortcutsMustDiffer)
   }

@@ -24,7 +24,8 @@ export const mainKo = {
       `참석자 수는 ${min}~${max} 사이의 정수여야 합니다`,
     fadeOpacityRange: ({ min, max }: { min: number; max: number }) =>
       `위젯 불투명도는 ${min}~${max} 사이여야 합니다`,
-    shortcutInvalid: '단축키는 ⌘·⌥·⌃ 중 하나 이상과 문자·숫자·기능키를 함께 눌러 지정해 주세요',
+    shortcutInvalid:
+      '단축키는 ⌘·⌥·⌃ 중 하나 이상과 문자·숫자·기호 키를 함께 누르거나 기능키(F1~F24)로 지정해 주세요',
     shortcutsMustDiffer: '녹음·위젯·받아쓰기 단축키를 서로 다르게 지정해 주세요',
     shortcutRegisterFailed: ({ shortcuts }: { shortcuts: string }) =>
       `단축키 ${shortcuts}를 등록하지 못했습니다. 다른 앱이 쓰는 중일 수 있습니다`,
@@ -195,7 +196,7 @@ export const mainEn: typeof mainKo = {
       `The number of participants must be a whole number between ${min} and ${max}`,
     fadeOpacityRange: ({ min, max }) => `Widget opacity must be between ${min} and ${max}`,
     shortcutInvalid:
-      'A shortcut needs at least one of ⌘, ⌥ or ⌃ together with a letter, number or function key',
+      'A shortcut needs at least one of ⌘, ⌥ or ⌃ together with a letter, number or symbol key, or a function key (F1–F24)',
     shortcutsMustDiffer: 'The recording, widget and dictation shortcuts must all be different',
     shortcutRegisterFailed: ({ shortcuts }) =>
       `Could not register the shortcut ${shortcuts}. Another app may be using it`,

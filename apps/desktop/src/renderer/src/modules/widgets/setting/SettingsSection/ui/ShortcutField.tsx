@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { formatAccelerator } from '@shared/shortcut'
+import { SHORTCUT_OFF, formatAccelerator } from '@shared/shortcut'
 import SettingRow from '@renderer/shared/components/primitives/layout/SettingRow'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
@@ -25,6 +25,8 @@ export default function ShortcutField({
   const { isCapturing, error, startCapture, stopCapture, handleKeyDown } = useShortcutCapture({
     onCapture: onChange
   })
+  const isOff = accelerator === SHORTCUT_OFF
+  const label = isOff ? t.settings.shortcutField.off : formatAccelerator(accelerator)
 
   return (
     <SettingRow
@@ -50,8 +52,13 @@ export default function ShortcutField({
             onKeyDown={handleKeyDown}
             onBlur={stopCapture}
           >
-            {isCapturing ? t.settings.shortcutField.pressKeys : formatAccelerator(accelerator)}
+            {isCapturing ? t.settings.shortcutField.pressKeys : label}
           </button>
+          {isOff ? null : (
+            <button type="button" className={styles.reset} onClick={() => onChange(SHORTCUT_OFF)}>
+              {t.settings.shortcutField.turnOff}
+            </button>
+          )}
           {accelerator === defaultAccelerator ? null : (
             <button
               type="button"

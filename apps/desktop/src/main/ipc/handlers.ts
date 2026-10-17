@@ -42,7 +42,7 @@ import {
   readApiKeyPayload,
   readCodexModelPayload
 } from '@shared/llm'
-import { isValidAccelerator } from '@shared/shortcut'
+import { isValidShortcut } from '@shared/shortcut'
 import { readSummaryTemplateDraft } from '@shared/summaryTemplate'
 import { isLocale } from '@shared/i18n'
 import { isThemePreference } from '@shared/theme'
@@ -240,7 +240,7 @@ const readFadeOpacity = (payload: unknown) => {
 
 const readShortcut = ({ payload, key }: { payload: unknown; key: string }) => {
   const value = isRecord(payload) ? payload[key] : undefined
-  if (typeof value !== 'string' || !isValidAccelerator(value)) {
+  if (typeof value !== 'string' || !isValidShortcut(value)) {
     throw new Error(t().main.errors.shortcutInvalid)
   }
 

@@ -4,8 +4,7 @@ import UpdateCheck from '@renderer/modules/features/update/UpdateCheck'
 import {
   DEFAULT_DICTATION_SHORTCUT,
   DEFAULT_RECORDING_SHORTCUT,
-  DEFAULT_WIDGET_SHORTCUT,
-  formatAccelerator
+  DEFAULT_WIDGET_SHORTCUT
 } from '@shared/shortcut'
 import {
   MAX_WIDGET_FADE_OPACITY,
@@ -100,10 +99,7 @@ export default function SettingsSection({ children }: SettingsSectionProps) {
           isChecked={settings.isWidgetEnabled}
           onChange={(isWidgetEnabled) => updateSettings({ isWidgetEnabled })}
         >
-          {t.settings.widgetPanel.description({
-            recordingShortcut: formatAccelerator(settings.recordingShortcut),
-            widgetShortcut: formatAccelerator(settings.widgetShortcut)
-          })}
+          {t.settings.widgetPanel.description}
         </SettingToggle>
         <SettingToggle
           title={t.settings.widgetFade.title}

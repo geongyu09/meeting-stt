@@ -164,7 +164,7 @@ CREATE TABLE IF NOT EXISTS summary_templates (  -- 마이그레이션 6 (2026-09
 | `widget.bounds` | `{ x, y }` | 없음 | 사용자가 옮긴 패널 위치 (Phase 5-3). 현재 디스플레이의 `workArea` 밖이면 버리고 기본 위치(우측 중앙)로 되돌린다 |
 | `widget.fade` | boolean | `true` | 위젯 패널이 포커스를 잃으면 반투명하게 할지 |
 | `widget.fadeOpacity` | number | `0.55` | 포커스가 없을 때의 불투명도. `0.2`~`0.95`, 0.05 단위. 범위를 벗어나면 기본값으로 읽고, 저장 요청은 거절한다 |
-| `shortcut.recording` | string | `'Alt+Command+R'` | 녹음 토글 전역 단축키 (Electron accelerator). 형식이 틀리면 기본값으로 읽는다 |
+| `shortcut.recording` | string | `'Alt+Command+R'` | 녹음 토글 전역 단축키 (Electron accelerator). 빈 문자열 `''`은 꺼짐(등록 안 함, 2026-10-17). 형식이 틀리면 기본값으로 읽는다. 세 `shortcut.*` 모두 같은 규칙 |
 | `shortcut.widget` | string | `'Alt+Command+W'` | 위젯 표시/숨김 전역 단축키. 다른 단축키와 같을 수 없다 |
 | `shortcut.dictation` | string | `'Alt+Command+D'` | 받아쓰기(음성 입력) 토글 전역 단축키 (2026-10-11). 다른 두 단축키와 같을 수 없다. 받아쓰기 결과는 DB에 저장하지 않는다 (`references/architecture.md` "받아쓰기") |
 | `pipeline.quiet` | boolean | `false` | 조용히 처리. 켜면 화자 분리 스레드를 줄이고 STT와 화자 분리를 순차로 돌린다. 느려지는 대신 발열·팬 소음이 준다. 잡이 **시작할 때** 읽으므로 진행 중인 잡에는 적용되지 않는다 (`references/architecture.md` 가속·스레드 정책) |

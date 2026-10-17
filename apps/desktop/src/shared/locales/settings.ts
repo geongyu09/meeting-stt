@@ -52,14 +52,8 @@ export const settingsKo = {
   },
   widgetPanel: {
     title: '녹음 위젯 패널',
-    description: ({
-      recordingShortcut,
-      widgetShortcut
-    }: {
-      recordingShortcut: string
-      widgetShortcut: string
-    }) =>
-      `화면 오른쪽에 떠 있는 작은 패널에서 회의 중에도 녹음을 시작하고 정지합니다. 꺼도 메뉴바 아이콘과 ${recordingShortcut} 단축키로 녹음할 수 있고, ${widgetShortcut}로 패널을 다시 부를 수 있습니다.`
+    description:
+      '화면 오른쪽에 떠 있는 작은 패널에서 회의 중에도 녹음을 시작하고 정지합니다. 꺼도 메뉴바 아이콘과 아래 단축키로 녹음하고 패널을 다시 부를 수 있습니다.'
   },
   widgetFade: {
     title: '위젯 반투명',
@@ -75,7 +69,8 @@ export const settingsKo = {
   },
   widgetShortcut: {
     title: '위젯 표시·숨김',
-    description: '⌘·⌥·⌃ 중 하나 이상과 문자·숫자·기능키를 함께 누르세요. Esc를 누르면 취소합니다.'
+    description:
+      '⌘·⌥·⌃ 중 하나 이상과 문자·숫자·기호 키를 함께 누르거나, 기능키(F1~F24)를 누르세요. Esc를 누르면 취소합니다.'
   },
   dictationShortcut: {
     title: '받아쓰기 시작·정지',
@@ -86,6 +81,8 @@ export const settingsKo = {
     changeLabel: ({ title }: { title: string }) => `${title} 변경`,
     pressKeys: '키를 누르세요…',
     resetTo: ({ accelerator }: { accelerator: string }) => `기본값 ${accelerator}로`,
+    off: '꺼짐',
+    turnOff: '끄기',
     suspendError: '단축키 입력 상태를 바꾸지 못했습니다'
   },
   updateCheck: {
@@ -168,14 +165,8 @@ export const settingsEn: typeof settingsKo = {
   },
   widgetPanel: {
     title: 'Recording widget panel',
-    description: ({
-      recordingShortcut,
-      widgetShortcut
-    }: {
-      recordingShortcut: string
-      widgetShortcut: string
-    }) =>
-      `A small panel floating on the right side of the screen lets you start and stop recording during a meeting. Even when off, you can record from the menu bar icon or with ${recordingShortcut}, and bring the panel back with ${widgetShortcut}.`
+    description:
+      'A small panel floating on the right side of the screen lets you start and stop recording during a meeting. Even when off, you can record and bring the panel back from the menu bar icon or with the shortcuts below.'
   },
   widgetFade: {
     title: 'Translucent widget',
@@ -192,7 +183,7 @@ export const settingsEn: typeof settingsKo = {
   widgetShortcut: {
     title: 'Show/hide widget',
     description:
-      'Press at least one of ⌘, ⌥ or ⌃ together with a letter, number or function key. Press Esc to cancel.'
+      'Press at least one of ⌘, ⌥ or ⌃ together with a letter, number or symbol key, or press a function key (F1–F24). Press Esc to cancel.'
   },
   dictationShortcut: {
     title: 'Start/stop dictation',
@@ -203,6 +194,8 @@ export const settingsEn: typeof settingsKo = {
     changeLabel: ({ title }: { title: string }) => `Change ${title}`,
     pressKeys: 'Press keys…',
     resetTo: ({ accelerator }: { accelerator: string }) => `Reset to ${accelerator}`,
+    off: 'Off',
+    turnOff: 'Turn off',
     suspendError: 'Could not change shortcut capture state'
   },
   updateCheck: {

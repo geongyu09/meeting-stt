@@ -254,6 +254,23 @@ describe('SettingsSection', () => {
     expect(setShortcutsSuspendedApi).toHaveBeenLastCalledWith({ isSuspended: false })
   })
 
+  it('끄기를 누르면 빈 단축키를 저장하고 꺼짐으로 보여준다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
+    vi.mocked(updateSettingsApi).mockResolvedValue({ ...DEFAULT_SETTINGS, recordingShortcut: '' })
+    render(<SettingsSection />)
+
+    const [turnOffRecording] = await screen.findAllByRole('button', { name: '끄기' })
+    await user.click(turnOffRecording)
+
+    await waitFor(() =>
+      expect(updateSettingsApi).toHaveBeenCalledWith({ ...DEFAULT_SETTINGS, recordingShortcut: '' })
+    )
+    const button = await screen.findByRole('button', { name: RECORDING_SHORTCUT_BUTTON })
+    await waitFor(() => expect(button.textContent).toBe('꺼짐'))
+    expect(screen.getByRole('button', { name: '기본값 ⌥⌘R로' })).toBeTruthy()
+  })
+
   it('수식키 없는 입력은 무시하고 Esc로 취소한다', async () => {
     const user = userEvent.setup()
     vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)

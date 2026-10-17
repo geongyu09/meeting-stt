@@ -18,7 +18,9 @@ export const dictationKo = {
     usage: {
       title: '사용법',
       description: ({ shortcut }: { shortcut: string }) =>
-        `어느 앱에서든 글을 쓸 자리에 커서를 두고 ${shortcut}를 누른 뒤 말하세요. 말이 끊길 때마다 인식한 글이 들어가고, 다시 ${shortcut}를 누르면 끝납니다. 음성은 이 컴퓨터 안에서만 처리되고 저장하지 않습니다.`
+        `어느 앱에서든 글을 쓸 자리에 커서를 두고 ${shortcut}를 누른 뒤 말하세요. 말이 끊길 때마다 인식한 글이 들어가고, 다시 ${shortcut}를 누르면 끝납니다. 음성은 이 컴퓨터 안에서만 처리되고 저장하지 않습니다.`,
+      descriptionOff:
+        '단축키가 꺼져 있습니다. 글을 쓸 자리에 커서를 두고 메뉴바 아이콘의 받아쓰기 시작을 누른 뒤 말하세요. 단축키는 설정 → 단축키에서 켤 수 있습니다. 음성은 이 컴퓨터 안에서만 처리되고 저장하지 않습니다.'
     },
     accessibility: {
       title: '접근성 권한',
@@ -57,7 +59,9 @@ export const dictationEn: typeof dictationKo = {
     usage: {
       title: 'How to use',
       description: ({ shortcut }) =>
-        `In any app, place the cursor where you want to write, press ${shortcut} and start speaking. Each time you pause, the recognized text is inserted. Press ${shortcut} again to finish. Audio is processed on this computer only and is not stored.`
+        `In any app, place the cursor where you want to write, press ${shortcut} and start speaking. Each time you pause, the recognized text is inserted. Press ${shortcut} again to finish. Audio is processed on this computer only and is not stored.`,
+      descriptionOff:
+        'The shortcut is off. Place the cursor where you want to write, choose Start dictation from the menu bar icon and start speaking. You can turn the shortcut on under Settings → Shortcuts. Audio is processed on this computer only and is not stored.'
     },
     accessibility: {
       title: 'Accessibility permission',

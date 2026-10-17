@@ -5,7 +5,8 @@ import {
   DEFAULT_WIDGET_SHORTCUT,
   acceleratorFromKeyInput,
   formatAccelerator,
-  isValidAccelerator
+  isValidAccelerator,
+  isValidShortcut
 } from './shortcut'
 
 const NO_MODIFIERS = { ctrlKey: false, altKey: false, shiftKey: false, metaKey: false }
@@ -29,11 +30,28 @@ describe('isValidAccelerator', () => {
     expect(isValidAccelerator('')).toBe(false)
   })
 
-  it('기능키·방향키·스페이스를 허용한다', () => {
+  it('기능키·방향키·스페이스·기호 키를 허용한다', () => {
     expect(isValidAccelerator('Control+F12')).toBe(true)
     expect(isValidAccelerator('Alt+Shift+Up')).toBe(true)
     expect(isValidAccelerator('Command+Space')).toBe(true)
-    expect(isValidAccelerator('Command+F13')).toBe(false)
+    expect(isValidAccelerator('Command+F24')).toBe(true)
+    expect(isValidAccelerator('Command+F25')).toBe(false)
+    expect(isValidAccelerator('Alt+Command+,')).toBe(true)
+    expect(isValidAccelerator('Control+\\')).toBe(true)
+  })
+
+  it('기능키는 수식키 없이 혼자서나 Shift와만 써도 된다', () => {
+    expect(isValidAccelerator('F5')).toBe(true)
+    expect(isValidAccelerator('Shift+F13')).toBe(true)
+    expect(isValidAccelerator(',')).toBe(false)
+  })
+})
+
+describe('isValidShortcut', () => {
+  it('빈 문자열(꺼짐)과 허용하는 accelerator만 받는다', () => {
+    expect(isValidShortcut('')).toBe(true)
+    expect(isValidShortcut(DEFAULT_RECORDING_SHORTCUT)).toBe(true)
+    expect(isValidShortcut('R')).toBe(false)
   })
 })
 
@@ -60,6 +78,13 @@ describe('acceleratorFromKeyInput', () => {
     expect(acceleratorFromKeyInput({ ...NO_MODIFIERS, code: 'ArrowLeft', ctrlKey: true })).toBe(
       'Control+Left'
     )
+  })
+
+  it('기호 키를 한 글자 이름으로, 기능키는 혼자서도 읽는다', () => {
+    expect(
+      acceleratorFromKeyInput({ ...NO_MODIFIERS, code: 'Comma', altKey: true, metaKey: true })
+    ).toBe('Alt+Command+,')
+    expect(acceleratorFromKeyInput({ ...NO_MODIFIERS, code: 'F5' })).toBe('F5')
   })
 
   it('수식키만 누르거나 Shift만 쓰면 undefined', () => {

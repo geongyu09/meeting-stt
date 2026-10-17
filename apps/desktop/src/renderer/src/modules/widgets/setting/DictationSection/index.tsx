@@ -46,11 +46,13 @@ export default function DictationSection() {
       <SettingRow
         title={labels.usage.title}
         description={
-          settings
-            ? labels.usage.description({
-                shortcut: formatAccelerator(settings.dictationShortcut)
-              })
-            : labels.loading
+          !settings
+            ? labels.loading
+            : settings.dictationShortcut
+              ? labels.usage.description({
+                  shortcut: formatAccelerator(settings.dictationShortcut)
+                })
+              : labels.usage.descriptionOff
         }
       />
       <SettingRow

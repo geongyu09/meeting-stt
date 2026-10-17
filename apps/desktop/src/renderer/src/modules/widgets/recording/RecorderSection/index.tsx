@@ -138,7 +138,7 @@ export default function RecorderSection() {
       <p className={styles.hint}>
         {t.recorder.keepsRunning}
         <br />
-        {settings ? (
+        {settings?.recordingShortcut ? (
           <>
             {t.recorder.widgetHintPrefix}
             <kbd className={styles.key}>{formatAccelerator(settings.recordingShortcut)}</kbd>

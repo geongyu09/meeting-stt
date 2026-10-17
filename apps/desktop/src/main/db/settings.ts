@@ -19,7 +19,7 @@ import {
   DEFAULT_DICTATION_SHORTCUT,
   DEFAULT_RECORDING_SHORTCUT,
   DEFAULT_WIDGET_SHORTCUT,
-  isValidAccelerator
+  isValidShortcut
 } from '@shared/shortcut'
 import { DEFAULT_WIDGET_FADE_OPACITY, isWidgetFadeOpacity } from '@shared/widget'
 import { DEFAULT_LOCALE, isLocale } from '@shared/i18n'
@@ -111,7 +111,7 @@ const readOpacity = ({ key, fallback }: { key: string; fallback: number }) => {
 const readShortcut = ({ key, fallback }: { key: string; fallback: string }) => {
   const value = readValue(key)
 
-  return typeof value === 'string' && isValidAccelerator(value) ? value : fallback
+  return typeof value === 'string' && isValidShortcut(value) ? value : fallback
 }
 
 /** 모르는 언어 값은 기본 언어로 읽는다 */
