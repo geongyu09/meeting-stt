@@ -31,7 +31,7 @@ import { cosineMatrix, dot, symmetricEigen } from './diarExpLinalg'
 import { fail, info } from './log'
 
 const KMEANS_SEED = 20260925
-const NOISE_SEEDS = [KMEANS_SEED, 1, 2, 3, 4]
+export const NOISE_SEEDS = [KMEANS_SEED, 1, 2, 3, 4]
 /** 사후 추가: 재시작을 늘리면 참석자 수 없음 경로의 시드 편차가 줄어드는지 본다 (앱은 10회) */
 const STABLE_RESTARTS = 50
 
