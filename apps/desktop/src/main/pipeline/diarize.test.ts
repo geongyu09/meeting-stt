@@ -93,4 +93,18 @@ describe('buildDiarizeArgs', () => {
 
     expect(args.at(-1)).toBe('/audio/a.wav')
   })
+
+  it('분할 창 간격은 기본 0.25이고 실험에서 바꿀 수 있다', () => {
+    const base = {
+      segmentationModelPath: '/models/seg.onnx',
+      embeddingModelPath: '/models/emb.onnx',
+      audioPath: '/audio/a.wav',
+      threads: 4
+    }
+
+    expect(buildDiarizeArgs(base)).toContain('--segmentation.pyannote-window-shift-ratio=0.25')
+    expect(buildDiarizeArgs({ ...base, windowShiftRatio: 0.1 })).toContain(
+      '--segmentation.pyannote-window-shift-ratio=0.1'
+    )
+  })
 })

@@ -23,10 +23,10 @@ const WHISPER_OUTPUT_SUFFIX = '.whisper'
 const NORMALIZED_SUFFIX = '.norm.wav'
 const FULL_PERCENT = 100
 /**
- * 화자 분리 단계 안에서 CLI가 차지하는 몫. 나머지는 재임베딩(CLI 임베딩의 약 10분의 1 시간)이다.
+ * 화자 분리 단계 안에서 CLI가 차지하는 몫. 나머지는 재임베딩이다 (창 간격 0.25에서 시간이 약 8 : 2).
  * 별도 단계를 두면 IPC 계약·진행률 UI가 함께 바뀐다 (references/architecture.md "화자 재군집")
  */
-const DIARIZE_CLI_PERCENT = 90
+const DIARIZE_CLI_PERCENT = 80
 
 interface ProgressParams {
   stage: PipelineStage

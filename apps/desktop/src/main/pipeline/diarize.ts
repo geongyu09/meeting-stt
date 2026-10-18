@@ -4,6 +4,11 @@ import type { SpeakerSegment } from '@shared/types'
 /** `0.959 -- 5.178 speaker_01` 형태의 결과 줄 */
 const SEGMENT_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*--\s*(\d+(?:\.\d+)?)\s+(\S+)\s*$/
 const PROGRESS_PATTERN = /^\s*progress\s+(\d+(?:\.\d+)?)%\s*$/
+/**
+ * 분할 창(10초) 이동 간격 / 창 길이. CLI 기본 0.1은 창을 열 겹으로 겹쳐 임베딩을 뽑는데 그 라벨은 재군집이 버린다.
+ * 0.25면 CLI 시간이 약 60% 줄고 한국어 녹음 정확도는 같다 (docs/diarization-experiments.md E10)
+ */
+export const DIARIZE_WINDOW_SHIFT_RATIO = 0.25
 
 /**
  * 화자 분리 stdout을 화자 구간으로 바꾼다.
@@ -39,6 +44,8 @@ interface BuildDiarizeArgsParams {
    * (docs/phase1-results.md 6절)
    */
   clusterThreshold?: number
+  /** 창 간격 비율. 스크립트 실험(E10)만 바꾼다 */
+  windowShiftRatio?: number
 }
 
 /**
@@ -51,8 +58,11 @@ export const buildDiarizeArgs = ({
   audioPath,
   threads,
   speakerCount,
-  clusterThreshold
+  clusterThreshold,
+  windowShiftRatio = DIARIZE_WINDOW_SHIFT_RATIO
 }: BuildDiarizeArgsParams) => [
+  // CLI는 위치 인자(오디오 경로) 뒤의 옵션을 거부한다. 옵션은 전부 audioPath 앞에 둔다
+  `--segmentation.pyannote-window-shift-ratio=${windowShiftRatio}`,
   clusterThreshold !== undefined
     ? `--clustering.cluster-threshold=${clusterThreshold}`
     : `--clustering.num-clusters=${speakerCount ?? OVERSPLIT_CLUSTER_COUNT}`,
