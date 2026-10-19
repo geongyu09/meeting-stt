@@ -19,7 +19,7 @@ export const glossaryKo = {
     draftHint: '10~20초 걸립니다. 회의록을 처리 중이면 그 작업이 끝난 뒤 만듭니다',
     termsLabel: ({ count, max }: { count: number; max: number }) => `용어 목록 (${count}/${max})`,
     termsHint:
-      '한 칸에 용어 하나를 적습니다. 한글 읽기는 선택입니다 — 영어 용어의 읽기를 적어 두면 비워 둘 때보다 잘못 받아 적힌 말을 정확하게 찾습니다. 읽기가 여러 개면 쉼표로 잇습니다. 목록 복사로 복사한 목록을 아무 칸에나 붙여 넣으면 줄마다 행으로 나눠 넣습니다. 음성 인식에는 길이 한도 안에서 위쪽 용어부터 쓰이므로 자주 나오는 용어를 위에 둡니다.',
+      '한 칸에 용어 하나를 적습니다. 한글 읽기는 선택입니다 — 영어 용어의 읽기를 적어 두면 비워 둘 때보다 잘못 받아 적힌 말을 정확하게 찾습니다. 읽기가 여러 개면 쉼표로 잇습니다. 목록 복사로 복사한 목록을 아무 칸에나 붙여 넣으면 줄마다 행으로 나눠 넣습니다. 음성 인식에는 길이 한도 안에서 위쪽 용어부터 쓰이므로 자주 나오는 용어를 위에 둡니다. 회의록에서 같은 단어로 3번 이상 고친 어절은 목록 끝에 자동으로 추가됩니다.',
     termColumn: '용어',
     readingColumn: '한글 읽기 (선택)',
     termList: '용어 목록',
@@ -78,7 +78,7 @@ export const glossaryEn: typeof glossaryKo = {
       'Takes 10 to 20 seconds. If a transcript is being processed, the draft starts after it',
     termsLabel: ({ count, max }: { count: number; max: number }) => `Terms (${count}/${max})`,
     termsHint:
-      'One term per row. The Korean reading is optional. Adding a reading for an English term finds misrecognized words more precisely than leaving it empty. Separate multiple readings with commas. Paste a list made with Copy list into any field to split it into rows. Speech recognition uses terms from the top within a length limit, so keep frequent terms near the top.',
+      'One term per row. The Korean reading is optional. Adding a reading for an English term finds misrecognized words more precisely than leaving it empty. Separate multiple readings with commas. Paste a list made with Copy list into any field to split it into rows. Speech recognition uses terms from the top within a length limit, so keep frequent terms near the top. A word you correct to the same spelling three or more times in transcripts is added to the end of the list automatically.',
     termColumn: 'Term',
     readingColumn: 'Korean reading (optional)',
     termList: 'Term list',

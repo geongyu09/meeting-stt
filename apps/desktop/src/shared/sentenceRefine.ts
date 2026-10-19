@@ -119,7 +119,8 @@ export const parseSentenceOutput = ({ output, chunk }: { output: string; chunk: 
     return [{ id: source.id, proposed: match[2] }]
   })
 
-type DiffOp = { isSame: true; word: string } | { isSame: false; from: string[]; to: string[] }
+export type DiffOp =
+  { isSame: true; word: string } | { isSame: false; from: string[]; to: string[] }
 
 /** 어절 LCS 길이표. table[i][j]는 a[i:]와 b[j:]의 LCS 길이다 */
 const lcsTable = ({ a, b }: { a: string[]; b: string[] }) =>
@@ -150,7 +151,7 @@ const appendChange = ({ ops, from, to }: { ops: DiffOp[]; from: string[]; to: st
 }
 
 /** 원문 어절(a)과 수정문 어절(b)을 같은 어절과 바뀐 덩어리의 나열로 맞춘다 */
-const diffWords = ({ a, b }: { a: string[]; b: string[] }) => {
+export const diffWords = ({ a, b }: { a: string[]; b: string[] }) => {
   const table = lcsTable({ a, b })
   const walk = ({ i, j, ops }: { i: number; j: number; ops: DiffOp[] }): DiffOp[] => {
     if (i === a.length && j === b.length) return ops

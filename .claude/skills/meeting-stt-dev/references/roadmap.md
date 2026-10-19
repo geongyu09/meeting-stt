@@ -262,6 +262,15 @@
 - [ ] 설정 용어 목록 안내 문구에 "위쪽 용어부터 인식에 쓰인다" (ko·en)
 - [ ] `pnpm dev`로 실제 회의 처리 확인
 
+### 교정 횟수로 용어 자동 등록 (2026-10-19)
+
+사용자 요청. 설계는 `architecture.md` "교정 횟수로 용어 자동 등록", 설정 키는 `data-model.md` `glossary.corrections`.
+
+- [x] `src/shared/correction.ts` — 어절 diff로 바뀐 단어 추출(조사·문장 부호 제거), 횟수 누적과 3회 승격 + vitest (2026-10-19)
+- [x] `src/main/glossary/corrections.ts` — `glossary.corrections` 읽고 쓰기, 승격 단어를 `glossary.terms` 끝에 병합, `handleUpdateUtteranceText`에서 호출 (2026-10-19)
+- [x] 설정 용어 목록 안내 문구에 자동 등록 한 줄 (ko·en) (2026-10-19)
+- [ ] `pnpm dev`로 확인 — 같은 어절을 세 번 고친 뒤 설정 용어 목록에 나타나는지, 다음 회의 처리 로그의 용어 프롬프트에 들어가는지
+
 ## UI 리디자인 (2026-09-24, Phase 번호 밖)
 
 사용자 요청으로 Design 캔버스에서 시안("여백")을 확정하고 문서를 먼저 고쳤다 (`architecture.md` "화면 디자인", `data-model.md` "회의록 검색").

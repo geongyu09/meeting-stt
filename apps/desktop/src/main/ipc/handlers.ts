@@ -101,7 +101,12 @@ import {
   listSummaryTemplates,
   saveSummaryTemplate
 } from '../db/summaryTemplates'
-import { listUtterances, updateUtteranceSpeaker, updateUtteranceText } from '../db/utterances'
+import {
+  getUtteranceText,
+  listUtterances,
+  updateUtteranceSpeaker,
+  updateUtteranceText
+} from '../db/utterances'
 import type { ModelDownloadProgress } from '../models/download'
 import { isWhisperModelId } from '@meeting-stt/models/desktop'
 import { notifyMeetingsChanged } from '../meetingsChanged'
@@ -110,6 +115,7 @@ import { buildFeedbackIssueUrl } from '../feedbackUrl'
 import { openExternalUrl } from '../windows/externalUrl'
 import { applyTheme } from '../theme'
 import { downloadModels, downloadSummaryModel, modelStatus } from '../models/service'
+import { recordCorrection } from '../glossary/corrections'
 import { enqueueGlossaryDraft, enqueueRefineJob, enqueueSummaryJob } from '../pipeline/queue'
 import { reprocessMeeting } from '../pipeline/reprocess'
 import { checkForUpdatesNow, downloadUpdate, installUpdate } from '../updater'
@@ -419,17 +425,18 @@ const handleSearchMeetings = (payload: unknown): SearchMeetingsResponse => {
 
 const handleUpdateUtteranceText = (payload: unknown) => {
   const meetingId = readMeetingId(payload)
-  const changed = updateUtteranceText({
-    meetingId,
-    utteranceId: readUtteranceId(payload),
-    text: readText({
-      payload,
-      key: 'text',
-      maxLength: UTTERANCE_TEXT_MAX_LENGTH,
-      label: t().main.fields.utteranceText
-    })
+  const utteranceId = readUtteranceId(payload)
+  const text = readText({
+    payload,
+    key: 'text',
+    maxLength: UTTERANCE_TEXT_MAX_LENGTH,
+    label: t().main.fields.utteranceText
   })
-  if (!changed) throw new Error(t().main.errors.utteranceNotFound)
+  const before = getUtteranceText({ meetingId, utteranceId })
+  const changed = updateUtteranceText({ meetingId, utteranceId, text })
+  if (!changed || before === undefined) throw new Error(t().main.errors.utteranceNotFound)
+
+  recordCorrection({ before, after: text })
 
   return requireMeetingDetail({ meetingId })
 }

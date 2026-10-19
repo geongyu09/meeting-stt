@@ -30,6 +30,19 @@ export const listUtterances = ({ meetingId }: { meetingId: string }) =>
     .all(meetingId)
     .map((row) => toUtterance(row as UtteranceRow))
 
+export const getUtteranceText = ({
+  meetingId,
+  utteranceId
+}: {
+  meetingId: string
+  utteranceId: string
+}) =>
+  (
+    getDb()
+      .prepare('SELECT text FROM utterances WHERE id = ? AND meeting_id = ?')
+      .get(utteranceId, meetingId) as { text: string } | undefined
+  )?.text
+
 interface UpdateUtteranceTextParams {
   meetingId: string
   utteranceId: string

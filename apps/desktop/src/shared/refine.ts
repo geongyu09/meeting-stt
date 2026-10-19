@@ -59,7 +59,7 @@ const CONTEXT_CHARS = 40
  * 치환 결과가 "오토파일럿럼"이 됐고, "여기에서부" 같은 조각이 후보가 됐다 (docs/phase5-refine-results.md).
  * 긴 것부터 둬야 "이라고"가 "고"보다 먼저 맞는다.
  */
-const PARTICLES = [
+export const PARTICLES = [
   '이라고',
   '이라는',
   '으로는',

@@ -44,6 +44,7 @@ const WIDGET_SHORTCUT_KEY = 'shortcut.widget'
 const DICTATION_SHORTCUT_KEY = 'shortcut.dictation'
 const GLOSSARY_TEAM_KEY = 'glossary.team'
 const GLOSSARY_TERMS_KEY = 'glossary.terms'
+const GLOSSARY_CORRECTIONS_KEY = 'glossary.corrections'
 const REFINE_AUTO_EXTERNAL_KEY = 'refine.autoExternal'
 const LLM_PROVIDER_KEY = 'llm.provider'
 const LLM_OPENAI_MODEL_KEY = 'llm.openaiModel'
@@ -274,6 +275,19 @@ export const updateGlossarySettings = ({ teamDescription, terms }: GlossarySetti
 
   return getGlossarySettings()
 }
+
+/** 발화 편집에서 바뀐 단어별 누적 횟수 (references/data-model.md `glossary.corrections`). 깨진 값은 빈 객체로 읽는다 */
+export const getCorrectionCounts = (): Record<string, number> => {
+  const value = readValue(GLOSSARY_CORRECTIONS_KEY)
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
+
+  return Object.fromEntries(
+    Object.entries(value).filter((entry): entry is [string, number] => typeof entry[1] === 'number')
+  )
+}
+
+export const setCorrectionCounts = (counts: Record<string, number>) =>
+  writeValue({ key: GLOSSARY_CORRECTIONS_KEY, value: counts })
 
 /**
  * 요약·용어 초안이 쓰는 LLM 공급자. `AppSettings`에 넣지 않는다 — 키 저장·CLI 탐색이 붙은

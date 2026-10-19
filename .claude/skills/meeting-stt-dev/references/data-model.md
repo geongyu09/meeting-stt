@@ -208,6 +208,7 @@ export interface AppSettings {
   | --- | --- | --- | --- |
   | `glossary.team` | string | `''` | 팀 소개. 초안 생성의 입력이다. 최대 500자 |
   | `glossary.terms` | string[] | `[]` | 전역 용어 사전. 한 줄에 용어 하나, 형식은 `용어` 또는 `영어 표기 = 읽기1, 읽기2` (`scripts/refine.ts`의 용어 파일과 같다). 최대 200줄, 줄당 80자 |
+  | `glossary.corrections` | `Record<string, number>` | `{}` | 발화 인라인 편집에서 바뀐 단어별 누적 횟수. 3회에 닿으면 `glossary.terms`에 붙이고 항목을 지운다 (2026-10-19, `architecture.md` "교정 횟수로 용어 자동 등록") |
 
   ```ts
   export interface GlossarySettings {
