@@ -1,4 +1,5 @@
 import AutoRefineToggle from '@renderer/modules/features/refine/AutoRefineToggle'
+import AssistantSettingSection from '@renderer/modules/widgets/setting/AssistantSettingSection'
 import ModelDownloadSection from '@renderer/modules/widgets/model/ModelDownloadSection'
 import SummaryModelSection from '@renderer/modules/widgets/model/SummaryModelSection'
 import DictationSection from '@renderer/modules/widgets/setting/DictationSection'
@@ -34,6 +35,7 @@ export default function Settings() {
             />
             <SummaryTemplateSection />
             <GlossarySection />
+            <AssistantSettingSection />
           </SettingsSection>
         </div>
       </PageToc>

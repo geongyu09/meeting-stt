@@ -1,3 +1,4 @@
+import type { AssistantChatState } from '@shared/types'
 import type {
   DictationCommandEvent,
   DictationStateEvent,
@@ -8,7 +9,8 @@ import type {
   RefineProgressEvent,
   SettingsChangedEvent,
   SummaryProgressEvent,
-  UpdateAvailableEvent
+  UpdateAvailableEvent,
+  WorkspaceFilesChangedEvent
 } from '@shared/ipc'
 
 /**
@@ -129,3 +131,23 @@ export const onMeetingsChanged = (listener: () => void) =>
  */
 export const onSettingsChanged = (listener: (event: SettingsChangedEvent) => void) =>
   window.api.events.onSettingsChanged(listener)
+
+/**
+ * @description 개인 비서 대화 상태(턴·세션·실행 중 여부) 변화를 구독합니다. 글 조각은 main이 50ms마다 모아 보냅니다.
+ * @param listener - 대화 상태 콜백
+ * @returns 구독 해제 함수
+ * @example
+ * useEffect(() => onAssistantState(setState), [])
+ */
+export const onAssistantState = (listener: (event: AssistantChatState) => void) =>
+  window.api.events.onAssistantState(listener)
+
+/**
+ * @description 작업 폴더의 마크다운 문서가 바뀐 것을 구독합니다. 에이전트가 고친 파일을 에디터가 다시 읽을 때 씁니다.
+ * @param listener - 바뀐 상대 경로 목록 콜백
+ * @returns 구독 해제 함수
+ * @example
+ * useEffect(() => onWorkspaceFilesChanged(({ paths }) => reloadIfOpen(paths)), [reloadIfOpen])
+ */
+export const onWorkspaceFilesChanged = (listener: (event: WorkspaceFilesChangedEvent) => void) =>
+  window.api.events.onWorkspaceFilesChanged(listener)

@@ -1,0 +1,107 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.user,
+.agent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+}
+
+.user {
+  align-self: flex-end;
+  max-width: 85%;
+  background: var(--color-accent-soft);
+}
+
+.agent {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.role {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  font-weight: 600;
+}
+
+.text {
+  margin: 0;
+  font-size: var(--font-base);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.working {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.tools {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  overflow-wrap: anywhere;
+}
+
+.toolName {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.files {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.filesTitle {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+}
+
+.fileButton,
+.file {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+}
+
+.fileButton {
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+.fileButton:hover {
+  background: var(--color-surface-hover);
+}
+
+.file {
+  color: var(--color-text-muted);
+}
+
+.error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--font-sm);
+}

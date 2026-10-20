@@ -1,0 +1,17 @@
+.path {
+  display: block;
+  color: var(--color-text);
+  word-break: break-all;
+}
+
+/* 빨강은 오류 전용이라 경고는 굵은 본문색으로 둔다 */
+.warning {
+  display: block;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.error {
+  display: block;
+  color: var(--color-danger);
+}

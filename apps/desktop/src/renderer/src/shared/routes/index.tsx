@@ -1,4 +1,5 @@
 import { createHashRouter } from 'react-router'
+import Assistant from '@renderer/pages/Assistant'
 import Home from '@renderer/pages/Home'
 import MeetingDetail from '@renderer/pages/MeetingDetail'
 import Onboarding from '@renderer/pages/Onboarding'
@@ -30,7 +31,8 @@ export const router = createHashRouter([
               { path: PATHS.record, element: <Record /> },
               { path: PATHS.meetingDetail, element: <MeetingDetail /> },
               { path: PATHS.settings, element: <Settings /> },
-              { path: PATHS.summaryTemplates, element: <SummaryTemplates /> }
+              { path: PATHS.summaryTemplates, element: <SummaryTemplates /> },
+              { path: PATHS.assistant, element: <Assistant /> }
             ]
           }
         ]

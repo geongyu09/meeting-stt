@@ -13,6 +13,7 @@ export type IconName =
   | 'play'
   | 'pause'
   | 'download'
+  | 'chat'
 
 interface IconProps {
   name: IconName
@@ -48,6 +49,7 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" />
     </>
   ),
+  chat: <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />,
   markdown: (
     <>
       <rect x="2" y="5" width="20" height="14" rx="2" />

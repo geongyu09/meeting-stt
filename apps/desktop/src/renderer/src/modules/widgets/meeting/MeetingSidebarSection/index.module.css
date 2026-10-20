@@ -33,6 +33,11 @@
   border-top: 1px solid var(--color-border);
 }
 
+/* 비서·설정 두 링크가 푸터를 반씩 나눠 쓴다 */
+.footer > a + a {
+  border-left: 1px solid var(--color-border);
+}
+
 /* 푸터 전체가 눌리는 영역이다. 여백은 링크 안쪽에 둬 글자 위치는 헤더와 맞춘다 */
 .settingsLink {
   display: flex;

@@ -49,6 +49,15 @@ export default function MeetingSidebarSection() {
       </nav>
       <div className={styles.footer}>
         <NavLink
+          to={PATHS.assistant}
+          className={({ isActive }) =>
+            [styles.settingsLink, isActive ? styles.active : ''].join(' ')
+          }
+        >
+          <Icon name="chat" />
+          {t.assistant.nav}
+        </NavLink>
+        <NavLink
           to={PATHS.settings}
           className={({ isActive }) =>
             [styles.settingsLink, isActive || isSummaryTemplates ? styles.active : ''].join(' ')
