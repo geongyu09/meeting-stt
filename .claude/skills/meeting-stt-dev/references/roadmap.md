@@ -598,3 +598,43 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 - [x] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과 (2026-10-11)
 - [x] 완료 기준: `pnpm dev`에서 메모 앱에 커서를 두고 `⌥⌘D` → 두 문장을 말하고 1초 쉬면 첫 문장이 2초 안에 들어가고, 다시 `⌥⌘D`로 끝내면 나머지가 들어간다. 클립보드에 있던 이미지가 원복된다. 접근성 권한을 끄면 같은 흐름이 "복사됐습니다. ⌘V로 붙여 넣으세요"로 동작한다. 녹음 중 `⌥⌘D`는 안내만 뜬다
   — 2026-10-11 빌드된 앱을 별도 userData로 띄워 확인: toggle 경로로 마이크 그래프가 뜨고, Zeroth 낭독 두 문장을 청크 경로로 흘리면 첫 문장이 1초 침묵 뒤 **1.2~1.3초**에 TextEdit에 들어가고 정지하면 나머지가 들어간다(CER 0%). 텍스트 클립보드 원복, 녹음 중 안내, 받아쓰기 중 녹음 거절 확인. **사람 목소리·이미지 클립보드·접근성 권한 끈 흐름은 사용자 확인** (`docs/dictation-results.md` 3절)
+
+## Phase 6: 개인 비서 모드 (2026-10-20 착수)
+
+회의록 앱을 개인 비서로 넓힌다 — 사용자가 고른 작업 폴더를 대상으로 앱 안에서 에이전트(Claude Code·Codex CLI)에게 질문하고 마크다운 문서를 만들거나 고친다.
+출처는 GitHub 이슈 geongyu09/meeting-stt#1 (2026-10-20 사용자 작성). 설계는 `architecture.md` "개인 비서 모드", 결정 표는 `SKILL.md` 1절.
+이슈의 "정할 것" 세 가지(화면 나누기·대화 기록 저장·기본 권한 모드)는 착수하며 1차로 정했고 사용자 확인을 기다린다 (`architecture.md` 같은 절의 표).
+피처 브랜치 `feat/assistant-mode`(main 기준)에서 진행한다.
+
+### 문서 (먼저)
+
+- [x] `SKILL.md` 1절 결정 표·3절 현재 위치·4절 범위 절제, `architecture.md` "개인 비서 모드"(에이전트 실행 경로·대화 상태·문서 에디터·IPC·화면), `data-model.md` `assistant.*` 키, `pitfalls.md` "개인 비서 모드", `.claude/rules/project-structure.md` 도메인 `assistant` (2026-10-20)
+
+### 작업 폴더 설정
+
+- [x] `db/settings.ts` `assistant.folder`·`assistant.permissionMode`, `assistant/folder.ts`(대화상자·상태 확인·git 여부), IPC `assistant.status`·`chooseFolder`·`setPermissionMode` (2026-10-20)
+- [x] 설정 "개인 비서" 카테고리 `setting/AssistantSettingSection` + `test.tsx` (2026-10-20)
+
+### Claude CLI 에이전트 실행과 채팅 화면
+
+- [x] `bin/spawn.ts` `runBinary`에 취소용 `signal` — abort 뒤 실제 종료까지 기다리고 3초 뒤 SIGKILL + `spawn.test.ts` (2026-10-20)
+- [x] `assistant/claudeStream.ts` — 인자 조립·stream-json 줄 해석(세션 id·글 조각·도구·결과) + vitest(실측 출력 픽스처 `fixtures/claudeStreamV2_1_304.jsonl`) (2026-10-20)
+- [x] `assistant/claudeAgent.ts`·`assistant/session.ts` — spawn·취소·`--resume`, 대화 상태 push(50ms 모음), IPC `assistant.state`·`send`·`cancel`·`reset`, `events.assistantState` (2026-10-20)
+- [x] 사이드바 "비서" 링크, `/assistant` 페이지, `assistant/AssistantChatSection` + `test.tsx` (2026-10-20)
+
+### 문서 에디터
+
+- [x] `assistant/workspacePath.ts`(경로 검증, vitest)·`assistant/files.ts`(목록·읽기·쓰기·`fs.watch`), IPC `assistant.listFiles`·`readFile`·`writeFile`, `events.assistantFilesChanged` (2026-10-20)
+- [x] `assistant/DocumentEditorSection` — 파일 목록·textarea·저장(⌘S)·외부 변경 안내·문서를 바꾸거나 떠날 때 저장, 채팅의 바뀐 파일 열기 + `test.tsx`·`utils/mergeExternalChange.test.ts` (2026-10-20)
+
+### 마무리
+
+- [x] 사전 `assistant.*`(`ko`·`en`), `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과 (2026-10-20)
+- [ ] 완료 기준: `pnpm dev`에서 git 저장소인 작업 폴더를 고르고 "회의 메모 템플릿을 notes/template.md로 만들어 줘"를 보내면 답이 흘러나오며 `Write notes/template.md`가 표시되고, 바뀐 파일을 누르면 에디터에 열린다. 에디터에서 고쳐 ⌘S로 저장하고 "방금 파일에 내가 뭘 바꿨는지 말해 줘"로 대화가 이어진다. 실행 중 "중지"가 프로세스를 끝낸다
+  — 2026-10-20 빌드된 앱을 별도 userData로 띄워(playwright-core, 폴더 대화상자만 대체) git 저장소 임시 폴더로 확인: 질문 → 15초 안에 `Write notes/template.md`와 바뀐 파일 버튼, 누르면 에디터에 열림, 편집 후 ⌘S 저장이 디스크에 반영, 편집 중이 아닐 때 밖에서 바꾼 내용이 에디터에 반영, 이어 물은 "내가 추가한 섹션"에 `## 다음 할 일`로 정답(`--resume`), 긴 작업 6초 뒤 "중지" → "중지했습니다"와 `claude -p` 프로세스 없음, "새 대화"로 비움. **`pnpm dev`에서 사람이 실제 작업 폴더로 확인하는 것이 남았다**
+
+### 다음 단계
+
+- [x] Codex CLI 에이전트 실행 — `codex exec --help`(0.163.0)로 `exec resume`·`--json`을 확인해 `architecture.md`에 인자·이벤트를 적고, `assistant/codexStream.ts`(+ 실측 픽스처 `fixtures/codexStreamV0_163_0.jsonl` vitest)·`assistant/codexAgent.ts`, 세션의 공급자 분기, 채팅의 에이전트 선택(설치된 첫 CLI 기본)을 붙였다 (2026-10-20)
+  — 빌드된 앱에서 Codex로 파일 생성(`Add notes/codex.md`, workspace-write 샌드박스) → 바뀐 파일을 에디터로 열기 → `exec resume`으로 이어 묻기를 확인. 이 기기에는 codex가 설치돼 있지 않아 npx 캐시의 0.163.0을 로그인 셸 조회 대신 넘겨 확인했다. **실제 설치(Homebrew·npm 전역·ChatGPT 앱 동봉) 경로에서의 사용자 확인이 남았다**
+- [ ] 빠른 질문 모드 (로컬 모델 포함) — 키워드로 문서를 먼저 찾아 한 턴 호출

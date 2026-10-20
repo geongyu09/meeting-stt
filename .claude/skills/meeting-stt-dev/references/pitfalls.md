@@ -213,3 +213,17 @@
 - **`codex exec`는 사용자 config의 MCP 서버·알림 훅을 그대로 띄운다.** `--ignore-user-config`로 끈다 — 로그인은 `CODEX_HOME`의 인증 파일이라 유지된다. 대신 config의 `model`도 무시된다.
 - **`codex exec` stdout은 사람용 출력이다.** 머리말(`workdir:`·`model:`)·`tokens used`가 섞이므로 답은 `-o` 파일로 받는다. 실패 사유는 stderr의 `ERROR: {json}` 줄에 있다.
 - **API 키를 공급자가 아니라 회사 단위로 저장한다.** 공급자 라디오를 오갈 때마다 키를 다시 붙여 넣게 하지 않기 위해서다. 새 공급자를 붙일 때 `apiVendorOf`에 대응만 추가하면 키 저장·상태·화면이 따라온다.
+
+## 개인 비서 모드 (Phase 6)
+
+- **`claude -p`는 권한 확인 창에 답할 수 없다.** 허용되지 않은 도구는 묻지 않고 거절된다. `--permission-mode acceptEdits`는 작업 폴더 안 파일 편집만 자동 허용하고, 명령은 `--allowedTools`나 작업 폴더의 `.claude/settings.json` `permissions.allow`에 있어야 돈다. "에이전트가 아무것도 안 했다"는 대개 이 거절이다.
+- **`AskUserQuestion`도 `-p`에서는 답할 사람이 없다.** 켜 두면 질문이 사라진 채 턴이 끝난다. `--disallowedTools AskUserQuestion`으로 끄고 질문은 답변 글로 하게 한다.
+- **`--resume <session_id>`는 같은 cwd에서만 이어진다.** Claude Code는 세션을 cwd별 프로젝트 폴더에 저장한다. 작업 폴더를 바꾸면 대화를 비운다.
+- **에이전트 경로에서 `--setting-sources ""`를 따라 쓰지 않는다.** 요약 경로의 최소 모드 인자를 복사하면 작업 폴더의 `CLAUDE.md`·스킬·훅을 못 읽어 기능의 목적이 사라진다. 두 경로의 인자 조립은 파일을 나눠 둔다 (`src/shared/llm.ts` ↔ `src/main/assistant/claudeStream.ts`).
+- **stream-json은 줄마다 JSON이지만 모르는 `type`이 계속 늘어난다** (훅 시작·응답, `rate_limit_event`, `thinking` 조각). 아는 줄만 골라 쓰고 나머지는 버린다. 모르는 줄을 오류로 다루면 CLI 업데이트마다 깨진다.
+- **글 조각마다 대화 전체를 IPC로 보내지 않는다.** 답 하나가 조각 수백 개라 긴 대화에서는 직렬화가 수십 MB가 된다. 50ms마다 모아 보낸다.
+- **renderer가 보낸 파일 경로는 작업 폴더 밖을 가리킬 수 있다** (`../`, 절대 경로, 폴더 안의 심볼릭 링크). `path.resolve` 결과와 `realpath` 결과를 둘 다 폴더 안인지 확인한다.
+- **입력란의 Enter 전송은 한글 조합 중(`isComposing`)이면 막는다.** 막지 않으면 마지막 글자가 조합 중인 채로 전송되고 그 글자가 다음 입력란에 남는다.
+- **`fs.watch(recursive)`는 같은 저장에 이벤트를 여러 번 낸다.** 200ms 모아 한 번 알린다.
+- **`codex exec resume`은 `exec`의 옵션을 다 받지 않는다** (`--sandbox`·`--color` 없음, 주면 종료 코드 2의 사용법 오류). 샌드박스는 `-c sandbox_mode="workspace-write"`로 넘긴다 (0.163.0).
+- **Codex의 답은 조각이 아니라 `agent_message` 한 덩어리씩 온다.** Claude의 `text_delta`처럼 그대로 이어 붙이면 메시지 사이 줄바꿈이 사라진다.

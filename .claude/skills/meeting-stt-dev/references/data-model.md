@@ -252,6 +252,30 @@ export interface AppSettings {
   }
   ```
 
+- **개인 비서(`assistant.folder`, `assistant.permissionMode`)도 `AppSettings`에 넣지 않는다** (Phase 6, 2026-10-20). 폴더 고르기는 main의 대화상자를 거치고,
+  바꾸면 진행 중 대화를 비우는 동작이 붙어 자기 채널(`assistant:status`/`assistant:chooseFolder`/`assistant:setPermissionMode`)로 읽고 쓴다 (`references/architecture.md` "개인 비서 모드").
+  **대화 기록은 DB에 저장하지 않는다** — main 메모리의 현재 대화 하나뿐이다. 개인 문서도 DB에 넣지 않고 폴더 경로만 저장한다.
+
+  | 키 | 타입 | 기본값 | 뜻 |
+  | --- | --- | --- | --- |
+  | `assistant.folder` | string \| 없음 | 없음 | 작업 폴더의 절대 경로. 문자열이 아니면 없음으로 읽는다. 폴더가 사라져도 값은 지우지 않고 화면이 안내한다 |
+  | `assistant.permissionMode` | `'acceptEdits' \| 'bypassPermissions'` | `'acceptEdits'` | 에이전트 권한 모드. 모르는 값은 `'acceptEdits'`로 읽는다. Codex는 `acceptEdits`를 `workspace-write` 샌드박스로, `bypassPermissions`를 샌드박스·승인 끄기로 옮긴다. Codex 에이전트의 모델은 새 키 없이 `llm.codexModel`을 쓴다 |
+
+  ```ts
+  export type AssistantPermissionMode = 'acceptEdits' | 'bypassPermissions'
+  export type AssistantFolderProblem = 'missing' | 'notDirectory' | 'unreadable'
+
+  /** assistant:status 응답 */
+  export interface AssistantStatus {
+    folder: string | null
+    /** 폴더가 정해져 있는데 쓸 수 없는 이유. 정상이거나 폴더가 없으면 null */
+    folderProblem: AssistantFolderProblem | null
+    /** 폴더나 상위 폴더에 .git이 있는지 */
+    isGitRepo: boolean
+    permissionMode: AssistantPermissionMode
+  }
+  ```
+
 ## 공유 타입 (`src/shared/types.ts`)
 
 ```ts
