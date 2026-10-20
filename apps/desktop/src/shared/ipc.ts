@@ -1,6 +1,10 @@
 import type { AudioQualityIssue } from './audioQuality'
 import type {
   AppSettings,
+  AssistantChatState,
+  AssistantPermissionMode,
+  AssistantProvider,
+  AssistantStatus,
   GlossarySettings,
   LlmApiVendor,
   LlmProvider,
@@ -88,6 +92,19 @@ export const IPC = {
   },
   update: { check: 'update:check', download: 'update:download', install: 'update:install' },
   feedback: { open: 'feedback:open' },
+  // 개인 비서 모드 (references/architecture.md "개인 비서 모드")
+  assistant: {
+    status: 'assistant:status',
+    chooseFolder: 'assistant:chooseFolder',
+    setPermissionMode: 'assistant:setPermissionMode',
+    state: 'assistant:state',
+    send: 'assistant:send',
+    cancel: 'assistant:cancel',
+    reset: 'assistant:reset',
+    listFiles: 'assistant:listFiles',
+    readFile: 'assistant:readFile',
+    writeFile: 'assistant:writeFile'
+  },
   events: {
     progress: 'pipeline:progress',
     summary: 'summary:progress',
@@ -103,7 +120,9 @@ export const IPC = {
     // 설정 화면이 바꾼 값을 위젯 창도 알아야 한다 (UI 언어). payload는 저장된 설정 전체다
     settingsChanged: 'settings:changed',
     dictationState: 'dictation:stateChanged',
-    dictationCommand: 'dictation:command'
+    dictationCommand: 'dictation:command',
+    assistantState: 'assistant:stateChanged',
+    assistantFilesChanged: 'assistant:filesChanged'
   }
 } as const
 
@@ -551,4 +570,39 @@ export interface CheckUpdateResponse {
 /** 새 버전을 발견했을 때 한 번 보낸다. 내려받기는 사용자가 `update:download`로 요청한다 */
 export interface UpdateAvailableEvent {
   version: string
+}
+
+export type GetAssistantStatusResponse = AssistantStatus
+
+export interface SetAssistantPermissionModeRequest {
+  permissionMode: AssistantPermissionMode
+}
+
+export type GetAssistantStateResponse = AssistantChatState
+
+export interface SendAssistantMessageRequest {
+  provider: AssistantProvider
+  text: string
+}
+
+export type ListWorkspaceFilesResponse = string[]
+
+export interface ReadWorkspaceFileRequest {
+  /** 작업 폴더 기준 상대 경로 (.md) */
+  path: string
+}
+
+export interface ReadWorkspaceFileResponse {
+  path: string
+  content: string
+}
+
+export interface WriteWorkspaceFileRequest {
+  path: string
+  content: string
+}
+
+/** fs.watch로 감지한 .md 변경. 200ms 모아 보낸다 */
+export interface WorkspaceFilesChangedEvent {
+  paths: string[]
 }

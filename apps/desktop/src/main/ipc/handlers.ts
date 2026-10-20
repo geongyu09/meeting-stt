@@ -57,6 +57,7 @@ import {
   MIN_SPEAKER_COUNT
 } from '@meeting-stt/core/speakerCount'
 import { exportRecording } from '../audio/exportRecording'
+import { registerAssistantHandlers } from './assistant'
 import { importRecording } from '../audio/importRecording'
 import { deleteMeetingWithRecording } from '../audio/recordings'
 import {
@@ -819,4 +820,6 @@ export const registerIpcHandlers = () => {
 
   // 짧은 프롬프트 한 번이라 큐를 거치지 않는다 (references/architecture.md "LLM 공급자")
   ipcMain.handle(IPC.llm.check, (): Promise<CheckLlmResponse> => checkLlm())
+
+  registerAssistantHandlers()
 }

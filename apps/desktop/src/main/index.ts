@@ -1,12 +1,14 @@
 import { app, BrowserWindow, session } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
+import type { AssistantChatState } from '@shared/types'
 import type {
   DictationStateEvent,
   PipelineProgressEvent,
   RecordingStateEvent,
   RefineProgressEvent,
   SummaryProgressEvent,
-  UpdateAvailableEvent
+  UpdateAvailableEvent,
+  WorkspaceFilesChangedEvent
 } from '@shared/ipc'
 import { IPC } from '@shared/ipc'
 import {
@@ -16,6 +18,8 @@ import {
   setRecordingStateListener
 } from './audio/session'
 import { handleMeetingAudioProtocol, registerMeetingAudioScheme } from './audio/playback'
+import { setWorkspaceFilesListener, stopWatchingWorkspace } from './assistant/files'
+import { cancelAssistant, setAssistantStateListener } from './assistant/session'
 import { closeDb } from './db/connection'
 import { failStaleMeetings } from './db/meetings'
 import { getAppSettings, getWhisperModelId } from './db/settings'
@@ -141,6 +145,12 @@ app.whenReady().then(async () => {
   setRecordingStateListener(broadcastRecordingState)
   setDictationStateListener(broadcastDictationState)
   setDictationCommandSender(requestDictationCommand)
+  setAssistantStateListener((event: AssistantChatState) =>
+    broadcast({ channel: IPC.events.assistantState, event })
+  )
+  setWorkspaceFilesListener((event: WorkspaceFilesChangedEvent) =>
+    broadcast({ channel: IPC.events.assistantFilesChanged, event })
+  )
   setMeetingsChangedListener(() => broadcast({ channel: IPC.events.meetingsChanged, event: null }))
   // 온보딩에서 고른 모델을 런타임 선택값으로 넣는다. 이후 파일명은 models/paths.ts만 정한다
   setSelectedWhisperModelId(getWhisperModelId())
@@ -185,6 +195,9 @@ app.on('before-quit', (event) => {
 })
 
 app.on('will-quit', () => {
+  // spawn한 에이전트는 앱이 끝나도 혼자 남아 파일을 고칠 수 있다
+  cancelAssistant()
+  stopWatchingWorkspace()
   unregisterGlobalShortcuts()
   destroyTray()
   closeDb()

@@ -1,3 +1,4 @@
+import { assistantEn, assistantKo } from './locales/assistant'
 import { commonEn, commonKo } from './locales/common'
 import { dictationEn, dictationKo } from './locales/dictation'
 import { glossaryEn, glossaryKo } from './locales/glossary'
@@ -47,6 +48,7 @@ const ko = {
   llm: llmKo,
   glossary: glossaryKo,
   update: updateKo,
+  assistant: assistantKo,
   main: mainKo
 }
 
@@ -68,6 +70,7 @@ const en: Messages = {
   llm: llmEn,
   glossary: glossaryEn,
   update: updateEn,
+  assistant: assistantEn,
   main: mainEn
 }
 

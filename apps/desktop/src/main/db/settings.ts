@@ -1,5 +1,6 @@
 import type {
   AppSettings,
+  AssistantPermissionMode,
   GlossarySettings,
   LlmApiVendor,
   LlmProvider,
@@ -8,6 +9,7 @@ import type {
 } from '@shared/types'
 import { DEFAULT_WHISPER_MODEL_ID, isWhisperModelId } from '@meeting-stt/models/desktop'
 import { isAudioInputDevice } from '@shared/audio'
+import { DEFAULT_ASSISTANT_PERMISSION_MODE, isAssistantPermissionMode } from '@shared/assistant'
 import {
   DEFAULT_LLM_PROVIDER,
   DEFAULT_OPENAI_MODEL_ID,
@@ -49,6 +51,8 @@ const REFINE_AUTO_EXTERNAL_KEY = 'refine.autoExternal'
 const LLM_PROVIDER_KEY = 'llm.provider'
 const LLM_OPENAI_MODEL_KEY = 'llm.openaiModel'
 const LLM_CODEX_MODEL_KEY = 'llm.codexModel'
+const ASSISTANT_FOLDER_KEY = 'assistant.folder'
+const ASSISTANT_PERMISSION_MODE_KEY = 'assistant.permissionMode'
 /** 회사별 암호화 키의 settings 키. Anthropic은 OpenAI 추가 전 이름을 그대로 둬 저장된 키를 잃지 않는다 */
 const LLM_API_KEY_KEYS: Record<LlmApiVendor, string> = {
   anthropic: 'llm.claudeApiKey',
@@ -345,3 +349,29 @@ export const setEncryptedApiKey = ({ vendor, encrypted }: SetEncryptedApiKeyPara
 
   writeValue({ key: LLM_API_KEY_KEYS[vendor], value: encrypted })
 }
+
+/**
+ * 개인 비서의 작업 폴더. `AppSettings`에 넣지 않는다 — 고르는 행위가 main의 대화상자를 거치고
+ * 바꾸면 진행 중 대화를 비운다 (references/data-model.md `assistant.*`). 폴더가 사라져도 값은 지우지 않는다.
+ */
+export const getAssistantFolder = () => {
+  const value = readValue(ASSISTANT_FOLDER_KEY)
+
+  return typeof value === 'string' && value ? value : null
+}
+
+export const setAssistantFolder = ({ folder }: { folder: string }) =>
+  writeValue({ key: ASSISTANT_FOLDER_KEY, value: folder })
+
+/** 모르는 값은 기본(`acceptEdits`)으로 읽는다 — 권한을 넓히는 쪽으로 잘못 읽으면 안 된다 */
+export const getAssistantPermissionMode = (): AssistantPermissionMode => {
+  const value = readValue(ASSISTANT_PERMISSION_MODE_KEY)
+
+  return isAssistantPermissionMode(value) ? value : DEFAULT_ASSISTANT_PERMISSION_MODE
+}
+
+export const setAssistantPermissionMode = ({
+  permissionMode
+}: {
+  permissionMode: AssistantPermissionMode
+}) => writeValue({ key: ASSISTANT_PERMISSION_MODE_KEY, value: permissionMode })

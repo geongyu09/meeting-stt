@@ -1,6 +1,15 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+import type { AssistantChatState } from '@shared/types'
 import {
   IPC,
+  type GetAssistantStatusResponse,
+  type ListWorkspaceFilesResponse,
+  type ReadWorkspaceFileRequest,
+  type ReadWorkspaceFileResponse,
+  type SendAssistantMessageRequest,
+  type SetAssistantPermissionModeRequest,
+  type WorkspaceFilesChangedEvent,
+  type WriteWorkspaceFileRequest,
   type CheckLlmResponse,
   type CheckUpdateResponse,
   type DeleteMeetingRequest,
@@ -167,6 +176,26 @@ const api = {
   feedback: {
     open: (): Promise<void> => ipcRenderer.invoke(IPC.feedback.open)
   },
+  assistant: {
+    status: (): Promise<GetAssistantStatusResponse> => ipcRenderer.invoke(IPC.assistant.status),
+    chooseFolder: (): Promise<GetAssistantStatusResponse> =>
+      ipcRenderer.invoke(IPC.assistant.chooseFolder),
+    setPermissionMode: (
+      payload: SetAssistantPermissionModeRequest
+    ): Promise<GetAssistantStatusResponse> =>
+      ipcRenderer.invoke(IPC.assistant.setPermissionMode, payload),
+    state: (): Promise<AssistantChatState> => ipcRenderer.invoke(IPC.assistant.state),
+    send: (payload: SendAssistantMessageRequest): Promise<void> =>
+      ipcRenderer.invoke(IPC.assistant.send, payload),
+    cancel: (): Promise<void> => ipcRenderer.invoke(IPC.assistant.cancel),
+    reset: (): Promise<AssistantChatState> => ipcRenderer.invoke(IPC.assistant.reset),
+    listFiles: (): Promise<ListWorkspaceFilesResponse> =>
+      ipcRenderer.invoke(IPC.assistant.listFiles),
+    readFile: (payload: ReadWorkspaceFileRequest): Promise<ReadWorkspaceFileResponse> =>
+      ipcRenderer.invoke(IPC.assistant.readFile, payload),
+    writeFile: (payload: WriteWorkspaceFileRequest): Promise<void> =>
+      ipcRenderer.invoke(IPC.assistant.writeFile, payload)
+  },
   clipboard: {
     writeText: (payload: WriteClipboardTextRequest): Promise<void> =>
       ipcRenderer.invoke(IPC.clipboard.writeText, payload)
@@ -313,6 +342,23 @@ const api = {
 
       return () => {
         ipcRenderer.removeListener(IPC.events.settingsChanged, handler)
+      }
+    },
+    onAssistantState: (listener: (event: AssistantChatState) => void) => {
+      const handler = (_: IpcRendererEvent, payload: AssistantChatState) => listener(payload)
+      ipcRenderer.on(IPC.events.assistantState, handler)
+
+      return () => {
+        ipcRenderer.removeListener(IPC.events.assistantState, handler)
+      }
+    },
+    onWorkspaceFilesChanged: (listener: (event: WorkspaceFilesChangedEvent) => void) => {
+      const handler = (_: IpcRendererEvent, payload: WorkspaceFilesChangedEvent) =>
+        listener(payload)
+      ipcRenderer.on(IPC.events.assistantFilesChanged, handler)
+
+      return () => {
+        ipcRenderer.removeListener(IPC.events.assistantFilesChanged, handler)
       }
     }
   }

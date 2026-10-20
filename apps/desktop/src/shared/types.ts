@@ -258,3 +258,51 @@ export interface RefineSuggestion {
   after: string
   pairs: Pick<RefinePair, 'from' | 'to'>[]
 }
+
+/** 에이전트 권한 모드. 기본 `acceptEdits`, `bypassPermissions`는 사용자가 경고를 보고 켠다 (references/architecture.md "개인 비서 모드") */
+export type AssistantPermissionMode = 'acceptEdits' | 'bypassPermissions'
+
+/** 작업 폴더가 정해져 있는데 쓸 수 없는 이유 */
+export type AssistantFolderProblem = 'missing' | 'notDirectory' | 'unreadable'
+
+/** `assistant:status` 응답 (references/data-model.md `assistant.*`) */
+export interface AssistantStatus {
+  folder: string | null
+  /** 정상이거나 폴더가 없으면 null */
+  folderProblem: AssistantFolderProblem | null
+  /** 폴더나 상위 폴더에 .git이 있는지. 아니면 화면이 "되돌리기 어렵다"고 알린다 */
+  isGitRepo: boolean
+  permissionMode: AssistantPermissionMode
+}
+
+/** 에이전트를 돌리는 CLI. 로컬 모델은 도구 호출을 못 해 빠진다 (references/architecture.md "개인 비서 모드") */
+export type AssistantProvider = 'claude-cli' | 'codex-cli'
+
+export interface AssistantToolUse {
+  /** CLI가 붙인 tool_use id. 화면 목록의 key다 */
+  id: string
+  name: string
+  /** 파일 경로·명령·검색어 중 있는 것 한 줄. 없으면 null */
+  target: string | null
+}
+
+export interface AssistantTurn {
+  id: string
+  role: 'user' | 'assistant'
+  text: string
+  /** assistant 턴만 쓴다 */
+  tools: AssistantToolUse[]
+  /** 에이전트가 쓰거나 고친 파일. 작업 폴더 기준 상대 경로(폴더 밖이면 절대 경로) */
+  changedFiles: string[]
+  /** 실패·취소 문장. 성공이면 null */
+  error: string | null
+}
+
+/** 진행 중 대화의 단일 출처는 main이다. 조회 `assistant:state`, push `assistant:stateChanged` */
+export interface AssistantChatState {
+  /** 이 대화를 연 공급자. 비어 있으면 null — 세션 id는 공급자 사이에서 이어지지 않는다 */
+  provider: AssistantProvider | null
+  sessionId: string | null
+  turns: AssistantTurn[]
+  isRunning: boolean
+}
