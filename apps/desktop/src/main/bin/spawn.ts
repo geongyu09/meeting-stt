@@ -4,6 +4,9 @@ import { t } from '../locale'
 /** 실패 안내에 붙일 stderr 꼬리 길이 */
 const STDERR_TAIL_CHARS = 800
 
+/** abort(SIGTERM) 뒤 이만큼 지나도 안 끝나면 SIGKILL. claude는 SIGTERM 뒤 0.7초 안팎에 끝난다 (2.1.304 실측) */
+const ABORT_KILL_GRACE_MS = 3000
+
 interface RunBinaryParams {
   command: string
   args: string[]
@@ -16,6 +19,8 @@ interface RunBinaryParams {
   /** 진행률 파싱용. 라인 단위로 잘라 넘긴다 */
   onStdoutLine?: (line: string) => void
   onStderrLine?: (line: string) => void
+  /** abort하면 자식 프로세스에 SIGTERM을 보낸다 (에이전트 "중지"). 호출한 쪽이 `signal.aborted`로 취소를 구분한다 */
+  signal?: AbortSignal
 }
 
 interface LineSplitter {
@@ -47,10 +52,11 @@ export const runBinary = ({
   cwd,
   env,
   onStdoutLine,
-  onStderrLine
+  onStderrLine,
+  signal
 }: RunBinaryParams) =>
   new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
-    const child = spawn(command, args, { windowsHide: true, cwd, env })
+    const child = spawn(command, args, { windowsHide: true, cwd, env, signal })
     const stdoutSplitter = createLineSplitter(onStdoutLine)
     const stderrSplitter = createLineSplitter(onStderrLine)
     let stdout = ''
@@ -74,11 +80,23 @@ export const runBinary = ({
       stderrSplitter.push(text)
     })
 
+    // abort는 SIGTERM을 보냈을 뿐이다. 실제로 끝날 때(close)까지 기다려야 "중지됨" 뒤에 파일이 바뀌지 않는다
+    let killTimer: NodeJS.Timeout | undefined
+    signal?.addEventListener(
+      'abort',
+      () => {
+        killTimer = setTimeout(() => child.kill('SIGKILL'), ABORT_KILL_GRACE_MS)
+      },
+      { once: true }
+    )
+
     child.on('error', () => {
+      if (signal?.aborted) return
       reject(new Error(t().main.pipeline.spawnFailed({ command })))
     })
 
     child.on('close', (code) => {
+      clearTimeout(killTimer)
       if (code === 0) {
         resolve({ stdout, stderr })
         return
