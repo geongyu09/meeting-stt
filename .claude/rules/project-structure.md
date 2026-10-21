@@ -160,10 +160,10 @@ src/
 
 | 도메인 | 다루는 것 |
 | --- | --- |
-| `meeting` | 회의 목록·상세·제목·삭제·복사 |
+| `meeting` | 회의 목록·상세·제목·삭제·복사, 대화 속 기록 카드(`features/meeting/RecordCard`, 2026-10-22), 녹음 파일 가져오기(`useAudioImport` 훅) |
 | `utterance` | 발화 텍스트 편집·화자 재배정 |
 | `speaker` | 화자 이름 지정·병합 |
-| `recording` | 마이크 녹음 시작/정지·레벨, 보관 중인 녹음 파일 관리(`recording/RecordingFileSection`, 페이지 `/recordings`) |
+| `recording` | 마이크 녹음 시작/정지·레벨 — 채팅 입력창 위의 녹음 카드 `recording/RecorderSection`(2026-10-22, 녹음 화면 `/record`는 없앴다)·위젯 패널 `recording/WidgetPanelSection`·일시정지 `features/recording/PauseRecordingButton`, 보관 중인 녹음 파일 관리(`recording/RecordingFileSection`, 페이지 `/recordings`) |
 | `pipeline` | 처리 진행률·상태·오류 |
 | `model` | 모델 존재 확인·다운로드(온보딩) |
 | `setting` | 앱 설정 조회·변경 (원본 WAV 보관, 업데이트 확인 등) |
@@ -175,8 +175,9 @@ src/
 | `refine` | 회의록 자동 교정 — 진행률 구독·수동 재실행·고친 쌍 목록 (api 래퍼·`useRefine` 훅·`features/refine/RefinePanel`·외부 공급자 자동 교정 스위치 `features/refine/AutoRefineToggle`. 결과 자체는 회의 상세의 일부라 `useMeeting`이 든다) |
 | `feedback` | GitHub 이슈 작성 화면을 브라우저로 열기 (api 래퍼·`features/feedback/FeedbackButton`. 설정 "피드백" 카테고리) |
 | `summaryTemplate` | 요약 템플릿 목록·저장·삭제 (api 래퍼·`useSummaryTemplates` 훅. 편집 화면은 `summaryTemplate/SummaryTemplateEditorSection`(페이지 `/summary-templates`), 설정의 이동 행은 `setting/SummaryTemplateSection`, 요약할 때 고르는 칸은 `meeting/SummarySection`) |
-| `assistant` | 개인 비서 — 작업 폴더 상태·에이전트 채팅·작업 폴더 문서 읽기/쓰기 (api 래퍼·`useAssistantStatus`·`useAssistantChat`·`useWorkspaceFiles` 훅. 화면은 `assistant/AssistantChatSection`·`assistant/DocumentEditorSection`(페이지 `/assistant`), 설정 카테고리는 `setting/AssistantSettingSection`) |
+| `assistant` | 개인 비서 — 작업 폴더 상태·에이전트 채팅·작업 폴더 문서 읽기/쓰기 (api 래퍼·`useAssistantStatus`·`useAssistantChat`·`useWorkspaceFiles` 훅. 화면은 `assistant/AssistantChatSection`·`assistant/DocumentEditorSection`(페이지 `/`, 2026-10-22 채팅창 리뉴얼), 설정 카테고리는 `setting/AssistantSettingSection`) |
 | `dictation` | 받아쓰기(음성 입력) 시작·정지·상태 구독·마지막 결과 복사 (api 래퍼·`useDictation` 훅. 패널의 받아쓰기 보기는 그래프 소유자인 `recording/WidgetPanelSection`의 `ui/DictationView`, 설정 카테고리는 `setting/DictationSection`) |
+| `routine` | 루틴 — 목록·저장·삭제·지금 실행·변경 구독 (api 래퍼 `api/routine`. 화면은 설정 카테고리 `setting/RoutineSection`, 2026-10-22) |
 
 ## 레이어별 역할 (renderer)
 

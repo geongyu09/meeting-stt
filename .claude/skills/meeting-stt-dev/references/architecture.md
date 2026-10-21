@@ -11,6 +11,7 @@
 | --- | --- | --- |
 | `features/assistant.md` | 개인 비서 모드 (Phase 6, 2026-10-20) | 이슈의 "정할 것" — 1차 결정 (2026-10-20, 사용자 확인 대기) · 작업 폴더 (`src/main/assistant/folder.ts`) · 에이전트 실행 경로 (요약 경로와 분리) · 대화 상태 (`src/main/assistant/session.ts`) · 문서 에디터 (`src/main/assistant/files.ts`) · IPC · 화면 · 빠른 질문 모드 (후순위, 미착수) |
 | `features/assistant.md` | 녹음 기록 자동 정리 (2026-10-21) | 흐름 · 녹음 종류 (회의 / 메모) · 원문 파일 (`src/main/assistant/recordNote.ts`) · 정리 에이전트 (`src/main/assistant/organize.ts`) · 알림 (`src/main/windows/notify.ts`) · IPC · 화면 |
+| `features/assistant.md` | 루틴 (2026-10-22) | 루틴과 저장 (`src/shared/routine.ts`, 순수 함수 + vitest) · 다음 실행 계산 · 스케줄러와 실행 (`src/main/assistant/routines.ts`) · 알림 (`src/main/windows/notify.ts`) · IPC · 화면 (`setting/RoutineSection`) |
 | `features/recording.md` | 녹음본 재생·내보내기·다시 인식 (2026-09-25) |  |
 | `features/recording.md` | 녹음 파일 관리 (2026-10-21) |  |
 | `features/recording.md` | 녹음 파일 가져오기 (2026-09-25) |  |
@@ -32,6 +33,7 @@
 | `features/ui.md` | UI 언어 (2026-09-25) | 사전과 타입 · renderer · main · 범위 밖 |
 | `features/ui.md` | 피드백 보내기 (2026-09-28) |  |
 | `features/ui.md` | 화면 디자인 (UI 리디자인, 2026-09-24) | 디자인 토큰 (`packages/design/src/base.css`) · 다크 모드 (2026-09-28) · 공통 컴포넌트 (`shared/components/primitives/ui`) · 글꼴 동봉 · 메인 창과 사이드바 레이아웃 · 화면별 구성 · 회의록 검색 (`meetings:search`) |
+| `features/ui.md` | 채팅창 리뉴얼 (2026-10-21 시안) | 토큰 · 라우트 · 홈 (빈 대화) · 입력 도크 (composer) · 대화 · 문서 패널 (대화 옆) · IPC |
 | `features/ui.md` | 화면 라우트 (Phase 2) |  |
 | `features/ui.md` | 편집 UI 규칙 (Phase 3) |  |
 
@@ -148,7 +150,7 @@ export const IPC = {
   //   settings.get / settings.update
   //   clipboard.writeText
   // Phase 4 (references/distribution.md 3·7절)
-  //   models.status / models.download / models.downloadSummary, events.modelDownload
+  //   models.status / models.download / models.downloadSummary / models.remove, events.modelDownload
   //   events.modelsChanged (다운로드가 끝나면 모든 창이 모델 상태를 다시 읽는다 — distribution.md 3절)
   //   update.check / update.download / update.install, events.updateAvailable
   // Phase 5
@@ -183,7 +185,7 @@ export const IPC = {
   //   dictation.state / dictation.control / dictation.start / dictation.chunk / dictation.stop / dictation.reportError
   //   dictation.openAccessibilitySettings / events.dictationState / events.dictationCommand
   // 개인 비서 모드 (Phase 6, 아래 같은 이름의 절)
-  //   assistant.status / assistant.chooseFolder / assistant.setPermissionMode
+  //   assistant.status / assistant.chooseFolder / assistant.setPermissionMode / assistant.setProvider
   //   assistant.state / assistant.send / assistant.cancel / assistant.reset
   //   assistant.listFiles / assistant.readFile / assistant.writeFile
   //   events.assistantState / events.assistantFilesChanged

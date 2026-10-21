@@ -14,7 +14,7 @@
 - 문구는 **`src/shared/locales/<domain>.ts`** 에 도메인별로 둔다. 한 파일이 `ko`와 `en`을 **나란히** export하고, `ko`가 타입을 정의하며 `en`은 `typeof ko`로 묶인다.
   한쪽 언어에만 키를 추가하면 타입 오류가 난다 — 번역 누락을 컴파일로 잡는다. 두 언어를 한 파일에 두는 이유는 문구를 고칠 때 대응하는 번역이 바로 옆에 보여야 하기 때문이다.
 - 값이 들어가는 문구는 문자열 템플릿이 아니라 **함수**다 (`deletedCount: ({ count }) => `${count}개 삭제됨``). 어순이 언어마다 달라 `{count}` 치환 규약을 따로 만들지 않는다.
-- 도메인 파일: `common`(버튼·공통 오류), `sidebar`(회의 목록·검색·날짜 묶음), `transcript`(회의록·화자·하단 녹음 바), `summary`, `refine`, `pipeline`(단계 라벨), `recording`(녹음 화면·위젯 패널), `models`(온보딩·모델 다운로드), `settings`(설정 카테고리·토글·단축키), `llm`, `glossary`, `update`, `main`(메뉴바·main 프로세스 오류).
+- 도메인 파일: `common`(버튼·공통 오류), `sidebar`(회의 목록·검색·날짜 묶음), `transcript`(회의록·화자·하단 녹음 바), `summary`, `refine`, `pipeline`(단계 라벨), `recording`(녹음 화면·위젯 패널), `models`(모델 다운로드), `setup`(처음 실행 설정 카드), `settings`(설정 카테고리·토글·단축키), `llm`, `glossary`, `update`, `main`(메뉴바·main 프로세스 오류).
   `src/shared/i18n.ts`가 이들을 `MESSAGES: Record<Locale, Messages>`로 모으고 `Locale`(`'ko' | 'en'`)·`DEFAULT_LOCALE`·`isLocale`을 정의한다.
 - 사전 파일은 데이터라 **400줄 제한의 예외**다. 대신 도메인이 커지면 파일을 나눈다.
 - i18n 라이브러리(i18next 등)는 도입하지 않는다 — 두 언어·수백 문구에 키 문자열 조회·복수형 규칙·지연 로드가 필요 없고, 타입으로 누락을 잡는 쪽이 낫다.
@@ -146,9 +146,9 @@
 
 | 컴포넌트 | 계약 |
 | --- | --- |
-| `Button` | `variant`: `accent`(강조 바탕 — 새 녹음·녹음 시작, 화면당 하나) · `primary`(잉크 바탕, **기본값** — 화면의 주 동작) · `secondary`(흰 바탕 + `--color-border-strong` 테두리) · `danger`(`--color-danger-soft` 바탕 + 빨간 글자 — 삭제 확인에만). `size`: `md`(기본) · `sm`(상단 바·행 안). 비활성은 `--color-disabled` 바탕. **녹음 정지에 `danger`를 쓰지 않는다** (빨강은 오류 전용) — 녹음 화면은 `primary`, 위젯은 `secondary` |
+| `Button` | `variant`: `accent`(강조 바탕 — 새 녹음·녹음 시작, 화면당 하나) · `primary`(잉크 바탕, **기본값** — 화면의 주 동작) · `secondary`(흰 바탕 + `--color-border-strong` 테두리) · `danger`(`--color-danger-soft` 바탕 + 빨간 글자 — 삭제 확인에만). `size`: `md`(기본, 34px) · `sm`(상단 바·행 안, 30px). 모양은 **알약형**(`--radius-full`, 2026-10-22 리뉴얼 시안 — 모든 보드의 버튼이 같다). 비활성은 `--color-disabled` 바탕. **녹음 정지에 `danger`를 쓰지 않는다** (빨강은 오류 전용) — 녹음 화면은 `primary`, 위젯은 `secondary` |
 | `Badge` | `tone`: `neutral`(회색 면) · `accent`(`--color-accent-soft` 바탕 + 강조 글자) · `success`(초록 글자) · `danger`(`--color-danger-soft` 바탕 + 빨간 글자). 바탕을 칠한 강한 배지는 두지 않는다 |
-| `Switch` | `<button role="switch" aria-checked>`. props `isChecked`, `onChange(next)`, `ariaLabel` 또는 `ariaLabelledBy`(설정 행 제목의 id), `disabled`. 켜짐은 잉크, 꺼짐은 `--color-disabled`. Space·Enter는 네이티브 버튼 동작으로 토글된다 |
+| `Switch` | `<button role="switch" aria-checked>`. props `isChecked`, `onChange(next)`, `ariaLabel` 또는 `ariaLabelledBy`(설정 행 제목의 id), `disabled`. 켜짐은 잉크, 꺼짐은 `--color-disabled`. 크기 40×24, 손잡이 20(2026-10-22 시안). Space·Enter는 네이티브 버튼 동작으로 토글된다 |
 | `Stepper` | 숫자 입력 + −/+ 버튼. **값은 문자열**(`value`, `onChange(text)`) — 입력 중 비어 있거나 잘못된 값을 부모가 그대로 들고 검증하기 때문이다 (`useSpeakerCount`). props `min`, `max`, `label`(입력 이름), `placeholder`, `isInvalid`. 동작: 빈 값(또는 정수가 아닌 값)에서 + 는 `min`, − 는 비활성. `min`에서 − 는 **값을 비운다**("모름"). `max`에서 + 는 비활성. 범위를 넘는 값에서 −/+ 는 범위 안으로 끌어온다 |
 | `LevelWaveform` | 이퀄라이저형 레벨 미터. `LevelMeter`(가로 막대)를 대체한다. props `level`(0~1, 현재 세기), `barCount`. **모든 막대가 현재 레벨에 함께 반응**한다 — 가운데가 높고 양끝이 낮은 종 모양 포락선에 막대별 고정 계수를 곱하고, 레벨에 비례한 진폭으로 막대마다 다른 주기의 CSS `transform` 흔들림을 준다(노래방 이퀄라이저 느낌, 2026-09-26 사용자 요청). 무음이면 점만 남는다. 처음 구현은 0.5초마다 오는 레벨을 왼쪽부터 칸에 쌓는 이력형이었는데 24초 동안 채워지는 모양이 진행 바로 읽혀 바꿨다. 이력·타이머·오디오 분석이 없고 새 레벨이 올 때만 리렌더하며 흔들림은 컴포지터 애니메이션이라 추가 비용이 없다. `prefers-reduced-motion`이면 흔들림을 끈다 |
 
@@ -157,8 +157,8 @@
 | 컴포넌트 | 계약 |
 | --- | --- |
 | `TopBar` | 본문 상단 52px 바. `title`(왼쪽 회색 글자) + `children`(오른쪽 동작). 바 전체가 창 끌기 영역이고 안의 컨트롤은 `no-drag` |
-| `SettingGroup` | 설정 카테고리 — 회색 소제목(`h2`) + 행 목록. `aria-labelledby`로 제목과 묶는다. 설정 화면(`SettingsSection`)에서는 카테고리 사이를 구분선 없이 144px 띄운다(2026-09-29 사용자 요청) |
-| `SettingRow` | 설정 한 행 — 왼쪽 제목·설명, 오른쪽 `control`, 아래 `children`(펼침 영역). 제목 id를 `titleId`로 받아 `Switch`의 `ariaLabelledBy`에 넘긴다. 행 사이는 `--color-divider` 선 |
+| `SettingGroup` | 설정 카테고리 — 제목(`h2`, 본문색 15px 600 — 2026-10-22 설정 모달의 카테고리 제목 자리. 그 전에는 회색 소제목) + 행 목록. `aria-labelledby`로 제목과 묶는다. 설정 모달은 카테고리를 한 번에 하나만 그리므로 카테고리 사이 간격(옛 144px)은 없다 |
+| `SettingRow` | 설정 한 행 — 왼쪽 제목(14px 500)·설명(13px, 줄 간격 1.45), 오른쪽 `control`(세로 가운데), 아래 `children`(펼침 영역). 제목 id를 `titleId`로 받아 `Switch`의 `ariaLabelledBy`에 넘긴다. 행 사이는 `--color-divider` 선 |
 
 ### 글꼴 동봉
 
@@ -222,7 +222,7 @@
   사이드바·위젯에는 단축키 안내를 넣지 않는다 — 두 곳 다 언마운트되지 않아 설정에서 단축키를 바꾸면 틀린 키를 보여준다 (설정 변경 push가 없다). 녹음 화면은 들어올 때마다 설정을 읽으므로 안내한다.
 - **설정**: 카테고리 제목 + 행(제목·설명 왼쪽, 컨트롤 오른쪽). 켜기/끄기는 `role="switch"` 버튼인 `primitives/ui/Switch`로 바꾼다. 용어 사전 카테고리도 같은 행 규칙을 따른다.
 - **온보딩**: 왼쪽 안내, 오른쪽 모델 선택 카드와 다운로드 목록("함께 받는 모델": 완료·퍼센트·대기)의 두 칸. 제목 문구는 "인터넷 사용, 비용, 시간 제한 없는 회의록"(시안).
-  설정의 음성 인식 모델은 같은 `ModelDownloadSection`을 `variant="setting"`으로 그려 한 행(현재 모델 · 설치됨 + "모델 바꾸기")으로 접어 두고, 누르면 선택 카드가 펼쳐진다.
+  설정의 음성 인식 모델은 같은 `ModelDownloadSection`을 `variant="setting"`으로 그려 한 행(현재 모델 · 설치됨 + "모델 바꾸기")으로 접어 두고, 누르면 선택 카드가 펼쳐진다. 펼친 목록의 설치된 항목과 "로컬 요약 모델 파일" 행에는 "제거"(2단계 인라인 확인)가 있어 모델 파일을 하나씩 지운다 (2026-10-22, `distribution.md` 3절 `models:remove`).
 - 제목은 굵은 산세리프(명조 없음). 아이콘은 인라인 stroke SVG이고 아이콘 전용 버튼에는 `aria-label`을 붙인다.
 
 ### 회의록 검색 (`meetings:search`)
@@ -244,6 +244,103 @@
 - renderer: 입력 200ms 디바운스(`SEARCH_DEBOUNCE_MS`), 검색 중에는 사이드바 목록이 결과로 바뀌고 발화 조각의 일치 부분을 `<mark>`로 강조한다.
   결과를 누르면 그 회의 상세로 간다. **해당 발화로 스크롤하는 것은 후속 과제**다. Esc·지우기 버튼으로 검색을 끝내면 원래 목록으로 돌아간다.
 
+## 채팅창 리뉴얼 (2026-10-21 시안)
+
+피벗(`SKILL.md` "제품 방향") 뒤 사용자가 Design 시안 "AI 비서 앱 리뉴얼 시안"(저장소 루트의 같은 이름 html, 14화면)으로 화면 구조를 정했다 —
+**사이드바·페이지 없이 모든 기능을 채팅 창 하나에 둔다.** 기능의 입구는 `/` 명령 메뉴, 결과는 대화 속 카드, 문서·기록·설정은 대화 옆 패널이나 모달이다.
+위 "메인 창과 사이드바 레이아웃"·"화면별 구성"은 이 절이 덮는 범위부터 옛 구조가 되고, 아직 옮기지 않은 화면(녹음·회의 상세·설정)만 그 구조로 남아 있다. **옛 구조로 되돌리지 않는다.**
+이 절은 **홈 화면부터 채팅 플로우**(2026-10-22 구현)와 **설정 모달**(2026-10-22, 아래 "설정 모달")과 **처음 실행 (설정도 대화로)**(2026-10-22, 아래 소절)을 적는다. 녹음 카드·전체 기록 패널·기록 찾기은 시안에 있지만 아직 옮기지 않았다 — 옮길 때 이 절에 이어 적는다.
+
+### 토큰 (시안 "색상 토큰")
+
+변수 이름은 그대로 두고 **값만** 시안으로 바꿨다 (`packages/design/src/base.css`). 차가운 회색 계열 + 파란 강조로, 컴포넌트 CSS는 손대지 않는다. 글꼴은 시안의 IBM Plex(CDN)가 아니라 동봉 글꼴 그대로다 ("글꼴 동봉"의 오프라인 원칙).
+
+| 변수 | 라이트 | 다크 |
+| --- | --- | --- |
+| `--color-bg` / `--color-surface` | `#FFFFFF` / `#FFFFFF` | `#111315` / `#1B1E22` |
+| `--color-sidebar` / `--color-surface-hover` | `#F6F7F8` / `#F1F2F4` | `#16181B` / `#23262B` |
+| `--color-border` / `--color-border-strong` / `--color-divider` | `#E2E4E8` / `#D3D6DB` / `#ECEEF1` | `#2A2E34` / `#3A3F47` / `#212429` |
+| `--color-disabled` | `#CDD0D6` | `#454A52` |
+| `--color-text` / `--color-text-muted` / `--color-text-inverse` | `#14161A` / `#6B717B` / `#FFFFFF` | `#ECEEF1` / `#9AA0AA` / `#14161A` |
+| `--color-accent` / `--color-accent-text` / `--color-accent-soft` | `#2F5BD3` / `#FFFFFF` / `#E6ECFB` | `#7FA0F5` / `#14161A` / `#1E2A47` |
+| 빨강·초록·화자 1~8 | 그대로 | 그대로 |
+
+### 라우트
+
+- **`/` = 채팅**(`pages/Assistant`, `PATHS.assistant`). `AppShellLayout`(사이드바) **밖**, `MainWindowLayout`·`RequireModels` 안이다. 창 상단 56px은 신호등 자리로 끌기 영역이다.
+- 옛 홈(빈 상태 + 사이드바)은 **`/meetings`**(`pages/Home`, `PATHS.meetings`)로 옮겼다. 아직 사이드바 구조인 녹음·상세·설정으로 가는 다리이고, 그 화면들을 채팅 창으로 옮기면 없앤다. 회의 삭제·잘못된 id·온보딩 완료는 각각 `/meetings`·`/meetings`·`/`로 간다.
+- `/assistant` 경로는 없다. 사이드바의 "비서" 링크는 `/`로 간다.
+
+### 홈 (빈 대화)
+
+- 위는 비어 있고 아래에 **도우미 6개**(2열 이상 그리드) + **입력 도크**(composer)가 붙는다. 도우미는 `/` 명령 메뉴의 내장 명령과 같은 목록이다 — 녹음 시작(`⌥⌘R`, 설정의 단축키를 읽어 표시) · 파일로 기록 만들기 · 기록 찾기 · 문서 열기 · 새 대화 · 설정.
+- 아직 채팅으로 옮기지 않은 기능의 도우미는 **옛 화면으로 보낸다** — 기록 찾기는 `/meetings`(사이드바 검색), 설정은 `/settings`. 기록 패널·설정 모달이 붙으면 그 자리에서 바꾼다.
+- 작업 폴더가 없거나 문제가 있으면 도크 위에 한 줄 안내 + 설정 링크(기존 `ChatNotice`). 처음 실행이면 그 위에 설정 카드가 선다(아래 "처음 실행").
+
+### 입력 도크 (composer)
+
+- 둥근 테두리(28px) 카드. 왼쪽 textarea(1줄에서 시작해 내용만큼 자람, 최대 200px), 오른쪽 **녹음 시작**(마이크, 녹음 토글. 녹음 중이면 `aria-pressed`) · **보내기**(잉크 원, 위 화살표). 실행 중이면 보내기 자리가 **중지**(네모)로 바뀐다. 입력은 실행 중에도 할 수 있고 보내기만 막는다.
+- placeholder: 빈 대화 "무엇을 도와드릴까요?" → 대화 중 "이어서 묻기, / 로 명령" → 문서 패널이 열려 있으면 "이 문서에 대해 묻기". **문서가 열려 있으면 보낼 글 앞에 `@<경로> `를 붙인다**(이미 그 경로가 글에 있으면 붙이지 않는다) — 에이전트가 어느 문서인지 알게 하고, 사용자 말풍선에도 그대로 보여 숨기지 않는다.
+- Enter 전송, Shift+Enter 줄바꿈, 한글 조합 중 Enter 무시는 그대로다. **에이전트 선택 `<select>`는 없앴다** — 대화의 에이전트는 설정의 값(`AssistantStatus.provider`, 저장값이 없으면 main이 설치된 첫 CLI로 채움)이고 고르는 자리는 설정 모달이다. 녹음 시작·파일로 기록 만들기 도우미와 마이크 버튼은 `controlRecordingApi`·`importMeetingAudioApi`를 바로 부른다(녹음 카드는 `recorderSlot`으로 입력 도크 위에 붙는다).
+- **`/` 명령 메뉴**: 글 맨 앞의 `/` 토큰이 커서 아래 있으면 도크가 위로 펼쳐져(반경 24px) 두 묶음을 보여 준다 — "명령"(내장 6개)과 "스킬 · 작업 폴더와 내 스킬"(`assistant:listSkills`). 토큰 뒤 글자로 이름·설명을 거른다. 내장 명령을 고르면 바로 실행하고 입력을 비우며, 스킬을 고르면 입력을 `/<이름> `으로 바꾼다(인자를 적고 보낸다 — `claude -p`는 프롬프트 맨 앞의 `/이름`을 스킬로 푼다).
+- **`@` 파일 선택**: 커서 아래 토큰이 `@`로 시작하면 같은 모양으로 "파일 · 작업 폴더"를 보여 준다 — 문서 목록(`useWorkspaceFiles`, 부제는 "<상위 폴더> 폴더")과 그 폴더들(`meetings/` · "폴더 전체를 붙여요"). 고르면 토큰을 `@<경로> `로 바꾼다. 각 묶음은 앞 8개까지만 보여 준다.
+- 메뉴는 `role="listbox"`/`option`, textarea에 `aria-controls`·`aria-expanded`. ↑/↓로 고르고 Enter로 확정(이때 전송하지 않는다), Esc로 닫는다(글을 바꾸면 다시 열린다). 토큰 찾기·거르기·바꾸기는 순수 함수(`utils/menuQuery.ts`, vitest).
+
+### 대화
+
+- 사용자 턴은 오른쪽 정렬 회색 말풍선(최대 80%). 에이전트 턴은 **도구 줄 → 답변 글 → 바뀐 파일 칩 → 오류** 순서이고 실행 중이면 마지막 턴 끝에 파란 점 + "작업하는 중".
+- 도구 줄은 아이콘 + 한국어 라벨 + 대상(mono): `Read`·`Glob`·`Grep`·`LS`·`NotebookRead` → "읽음", `Write`·`Edit`·`MultiEdit`·`NotebookEdit` → "고침", `Bash`·`Shell` → "실행", `WebFetch`·`WebSearch` → "열어봄", 그 밖은 도구 이름 그대로 (`utils/toolLabel.ts`, vitest).
+- 바뀐 파일 칩 "`<파일> 열기`"는 문서 패널을 그 파일로 열고, 열려 있으면 "`<파일> 열림`"(`aria-pressed`)이다. 작업 폴더 밖 파일은 칩이 아니라 글자다 (`isOpenableFile` 그대로).
+- 답변은 여전히 줄바꿈만 살린 평문이다. **마크다운 렌더러는 후속**이다 (`features/recording.md` "녹음 노트"가 같은 렌더러를 기다린다).
+- 답변 글의 최대 폭 680px, 가운데 정렬. 문서 패널이 열리면 채팅 칸이 좁아지고 패널은 오른쪽 **520px**이다.
+
+### 문서 패널 (대화 옆)
+
+- `DocumentEditorSection`을 오른쪽 카드(반경 20px, 그림자, 바깥 여백 12px)로 그린다. 헤더 56px: 문서 아이콘 · 열린 문서 `<select>`(테두리 없음) · "저장 ⌘S"(바뀐 것이 없으면 비활성) · 닫기(×). 그 아래 외부 변경 안내 줄, 본문은 mono textarea.
+- 페이지가 `openPath`와 `isDocumentOpen` 둘을 든다 — "문서 열기" 명령은 파일 없이 패널만 열어 고르게 하고, 칩은 파일과 함께 연다. 닫으면 패널을 언마운트하고 저장하지 않은 변경은 기존 규칙대로 저장한다.
+
+### IPC
+
+| 키 | 채널 | 방향 | 요청 → 응답 |
+| --- | --- | --- | --- |
+| `assistant.listSkills` | `assistant:listSkills` | invoke | 없음 → `AssistantSkill[]` (`{ name, description }`) |
+
+- main(`src/main/assistant/skills.ts`)이 `<작업 폴더>/.claude/skills/*/SKILL.md`와 `~/.claude/skills/*/SKILL.md`를 읽어 머리말의 `name`·`description`을 꺼낸다(없으면 폴더 이름·빈 문자열). 같은 이름은 작업 폴더 쪽이 이긴다. 머리말 해석은 순수 함수(`skillFrontmatter.ts`, vitest). 플러그인 스킬·`.claude/commands`는 보지 않는다.
+- renderer는 `useWorkspaceSkills({ folder })`로 화면을 열 때 한 번 읽는다. 폴더 감시(`assistant:filesChanged`)는 점 폴더를 거르므로 스킬 변경은 알리지 않는다 — 스킬을 새로 만들면 화면을 다시 연다.
+
+### 녹음 (2026-10-22, 시안 "녹음 중 · 입력창 위에 붙음" · "녹음 후 · 기록 카드" · "녹음 위젯 패널")
+
+설계는 `features/recording.md` "채팅 창의 녹음" 절이다. 요점만 적는다 — 마이크 버튼·`/` 도우미가 녹음을 바로 시작하고(`/record`는 없앴다), 녹음 중에는 입력 도크 위에 **녹음 카드**(`recording/RecorderSection`, 페이지가 `recorderSlot`으로 넘긴다)가 붙고 도크 아래 한 줄 안내("창을 닫아도 녹음은 계속돼요 · ⌥⌘R")가 생긴다.
+정지하면 채팅으로 돌아와(`location.state.stoppedMeetingId`) "녹음을 멈췄어요" 줄과 **기록 카드**(`features/meeting/RecordCard` — 처리 중 진행률 → 제목·메타·요약·화자·교정 수·"전체 기록 보기")가 대화 끝에 붙는다. 앱을 켠 뒤 만든 회의(파일 가져오기 포함)마다 카드 하나다.
+위젯 패널은 시안 외형으로 바꿨고, 시스템 오디오 스위치는 설정 "마이크"로 옮겼다. 전체 기록 패널이 생기기 전까지 "전체 기록 보기"는 회의 상세(`/meetings/:id`)로 간다.
+
+### 설정 모달 (2026-10-22, 시안 "설정 · 큰 모달로 열림")
+
+- 설정은 페이지가 아니라 **채팅 창 위에 뜨는 큰 모달**이다. `pages/Settings`가 네이티브 `<dialog>`를 마운트 즉시 `showModal()`로 열고(포커스 가둠·Esc·배경은 플랫폼이 준다), 닫기(×)·Esc·배경 클릭이면 `onClose`에서 이전 화면으로 돌아간다(`navigate(-1)`, 첫 화면이면 `/`).
+  경로는 그대로 **`/settings`**다 — 설정으로 가는 링크(`RefinePanel`·`SummarySection`·`RecordingBar`·`ChatNotice`·사이드바·요약 템플릿 "설정으로")는 바꾸지 않았다. **`/settings`는 채팅 라우트(`/`)의 자식**이라 `pages/Assistant`의 `<Outlet />`에 그려지고, 시안처럼 모달 뒤에 채팅(입력 도크)이 보인다. 다른 화면에서 설정을 열어도 뒤는 채팅이고 닫으면 원래 화면으로 돌아간다.
+- 모양: 창에서 32px 안쪽, 반경 `--radius-xl`, `--color-border` 테두리, 큰 그림자, 배경(`::backdrop`)은 **`--color-backdrop`**(추가 토큰, 라이트 `rgba(20, 22, 26, 0.36)` · 다크 `rgba(0, 0, 0, 0.6)`).
+  헤더 60px: "설정"(`h2`, `--font-lg` 600) + 닫기 아이콘 버튼(32px, `aria-label` "설정 닫기"). 그 아래 두 칸 — 왼쪽 **카테고리 nav 220px**, 오른쪽 **본문**(패딩 32px·40px, 최대 폭 760px, 세로 스크롤).
+- 카테고리는 14개이고 **한 번에 하나만** 그린다(`useState`, 처음은 "개인 비서"). 순서: 개인 비서 · 화면 · 마이크 · 녹음·처리 · 녹음 위젯 · 단축키 · 받아쓰기 · 음성 인식 모델 · 요약 · 용어 초안 · 요약 템플릿 · 용어 사전 · 업데이트 · 언어 · 피드백.
+  nav 항목은 버튼(현재는 `aria-current="true"`, 13px, 반경 `--radius-sm`, 현재·hover는 `--color-surface-hover`). 본문은 카테고리 위젯 하나 — `AssistantSettingSection` · `SettingsSection category="…"`(화면·마이크·녹음·처리·녹음 위젯·단축키·업데이트·언어·피드백 여덟 묶음 중 하나를 `category`로 고른다. 예전의 `children` 슬롯은 없앴다) · `DictationSection` · `ModelDownloadSection variant="setting"` · `LlmSection` · `SummaryTemplateSection` · `GlossarySection`.
+  `composites/PageToc`(오른쪽 목차)는 nav가 대신하므로 지웠다.
+- 행·제목은 시안 값으로: `SettingGroup` 제목은 회색 소제목이 아니라 **본문색 15px 600**(카테고리 제목 자리), `SettingRow`는 제목 14px 500·설명 13px(줄 간격 1.45)·컨트롤 세로 가운데, `Switch`는 40×24(손잡이 20), 설정의 `<select>`는 34px. `Button`은 **알약형**(`--radius-full`, `md` 34px)으로 바꿨다 — 시안의 모든 보드가 같은 버튼이라 설정만이 아니라 앱 전체에 적용된다.
+- **"개인 비서"에 "에이전트" 행**(시안)이 들어온다 — Claude Code / Codex `<select>`, 대화 중(턴이 있거나 실행 중)이면 비활성("대화 중에는 바꿀 수 없어요"). 채팅에서 뺀 에이전트 선택이 여기로 왔다.
+  값은 `assistant.provider`(`data-model.md`)에 저장하고 `assistant:setProvider`로 바꾸며 `AssistantStatus.provider`로 읽는다 — 저장된 값이 없으면 main이 설치된 첫 CLI(Claude Code → Codex, 둘 다 없으면 Claude Code)로 채워 준다. 채팅은 `state.provider ?? status.provider`로 보낸다 (`features/assistant.md` "화면").
+
+### 처음 실행 (설정도 대화로, 2026-10-22)
+
+시안 보드 "처음 실행 · 설정도 대화로"·"처음 실행 · 준비 완료". 온보딩 페이지 대신 **채팅 창 안의 카드 두 장**으로 작업 폴더와 음성 인식 모델을 정한다. 모델은 이제 **선택**이다("녹음할 때만 필요해요") — 채팅은 모델 없이 열린다.
+
+- 위젯 `assistant/SetupSection` — `useAssistantStatus`와 `useModelStatus`를 함께 보고, 페이지(`pages/Assistant`)가 채팅 섹션 **위**에 놓는다(채팅 섹션의 스크롤 영역 안으로 넣는 것은 섹션에 슬롯이 생기면 옮긴다). 폭은 채팅 본문과 같은 `--chat-width`, 창이 낮으면 카드 쪽이 스크롤된다.
+- **보이는 조건**: 작업 폴더가 없거나(문제가 있는 것도 포함), 필수 모델이 없는데 "나중에 받기"를 누른 적이 없을 때. 이 세션에서 폴더를 고르거나 받기·나중에 받기를 누르면 **그대로 붙어 있어** 완료 상태(두 카드 체크 + "준비가 끝났어요" + 칩)를 보여 준다. 다음 실행부터는 조건이 거짓이라 보이지 않는다.
+- "나중에 받기"는 renderer `localStorage`(`assistant.setup.modelDeferred`)에 남긴다 — 창마다 달라도 되는 편의 상태라 설정 DB에 두지 않는다. 미룬 카드는 한 줄("나중에 받기로 했어요…")과 "지금 받기"로 접힌다.
+- 카드 1 "작업 폴더": 단계 번호(끝나면 체크, 스크린 리더용 "완료"/"1단계"), 경로(`--font-mono`), "폴더 고르기"/"바꾸기"(기존 `assistant:chooseFolder` 대화상자). 폴더 문제는 카드 안에 `role="status"`로 알린다. 고른 결과는 `useAssistantStatus`의 **모듈 캐시**로 같은 창의 채팅 섹션에도 바로 퍼진다(훅 API는 그대로, 구독자가 없어지면 비운다).
+- 카드 2 "음성 인식 모델": 모델 선택(라벨 + 용량)은 `models:status`의 `whisperOptions`, 받을 목록은 `shared/utils/planDownload`(`ModelDownloadSection/utils`에서 올렸다, 두 위젯이 같이 쓴다). 받는 동안은 항목별 막대 대신 **합산 한 줄**("받는 중 · 모델 N/M개 완료", `받은 / 전체`, 막대 하나, `SetupSection/utils/summarizeDownload`)과 "받는 중에 창을 닫지 마세요". 버튼은 "받기 (용량)"·"나중에 받기"이고 받는 동안은 숨긴다. 받고 나면 "기본 (권장) · 574MB · 받기 완료"와 함께 받은 모델 수.
+  **"받기 취소"는 없다** — 다운로드 취소 IPC가 없고 다른 세션이 `ipc.ts`·`preload`·`handlers.ts`를 고치는 중이라 미뤘다. 완료 카드의 "바꾸기"도 없다(설정의 "모델 바꾸기"가 있다).
+- 완료 줄(`role="status"`): 모델이 있으면 "준비가 끝났어요. 이제 바로 물어보거나 녹음을 시작할 수 있어요." + 칩 "녹음 시작"(`recording:control start`). 미뤘으면 "…녹음은 모델을 받은 뒤에 할 수 있어요."만. 시안의 "파일로 기록 만들기"·"/ 로 명령 보기" 칩은 녹음 카드·`/` 메뉴 작업이 붙일 때 더한다.
+- 문구는 사전 `setup`(`src/shared/locales/setup.ts`). `models.onboarding` 사전과 `pages/Onboarding`·`/onboarding`은 없앴다.
+- **모델 가드 `RequireModels`는 `/record`에만 건다.** 모델이 없으면 `/`(채팅, 설정 카드가 보인다)로 보낸다. 상세·설정은 막지 않는다 — 파이프라인이 모델 부재를 한국어로 알린다. 입력 도크의 마이크·도우미 "녹음 시작"은 가드 밖이라 모델 없이도 녹음이 시작될 수 있다 — 그 경우 파이프라인이 실패를 한국어로 알린다(녹음 카드 작업에서 모델 없음을 미리 막는 것이 남았다).
+
 ## 화면 라우트 (Phase 2)
 
 `file://`에서도 동작해야 하므로 `createHashRouter` + `RouterProvider`를 쓴다. 라우팅 관련 코드는 `src/renderer/src/shared/routes/`에만 두고, 다른 코드는 경로 문자열을 직접 쓰지 않는다.
@@ -256,23 +353,19 @@
 
 | 경로 | 페이지 | 배치하는 widget |
 | --- | --- | --- |
-| `/` | `pages/Home` | 빈 상태 안내 ("회의를 고르거나 새로 녹음하세요") |
+| `/` | `pages/Assistant` | `assistant/AssistantChatSection`, `assistant/DocumentEditorSection` — 채팅 창 하나 (2026-10-22, 위 "채팅창 리뉴얼" 절). 사이드바 레이아웃 밖 |
+| `/meetings` | `pages/Home` | 빈 상태 안내 ("회의를 고르거나 새로 녹음하세요"). 2026-10-22까지 `/`였다 |
 | `/record` | `pages/Record` | `recording/RecorderSection` |
 | `/meetings/:meetingId` | `pages/MeetingDetail` | `meeting/TranscriptSection` (오른쪽 레일에 `meeting/SummarySection`을 슬롯으로 받음) |
-| `/settings` | `pages/Settings` | `setting/SettingsSection` (카테고리 묶음, 모델·LLM·용어 사전 위젯을 `children`으로 받음), `model/ModelDownloadSection`, `setting/LlmSection` (`model/SummaryModelSection`을 슬롯으로 받음), `setting/SummaryTemplateSection`(편집 페이지로 가는 행), `setting/GlossarySection`, 오른쪽 목차 `composites/PageToc` |
-| `/assistant` | `pages/Assistant` | `assistant/AssistantChatSection`, `assistant/DocumentEditorSection` (Phase 6, `references/features/assistant.md` "개인 비서 모드" 절) |
+| `/settings` | `pages/Settings` | **설정 모달**(2026-10-22, 위 "채팅창 리뉴얼" > "설정 모달"). `/`(채팅)의 자식 라우트라 채팅 위에 뜬다 — `<dialog>` + 카테고리 nav + 카테고리 위젯 하나: `setting/AssistantSettingSection`, `setting/SettingsSection`(`category`), `setting/DictationSection`, `model/ModelDownloadSection`(`variant="setting"`), `setting/LlmSection`(`model/SummaryModelSection`·`features/refine/AutoRefineToggle` 슬롯), `setting/SummaryTemplateSection`(편집 페이지로 가는 행), `setting/GlossarySection` |
 | `/summary-templates` | `pages/SummaryTemplates` | `summaryTemplate/SummaryTemplateEditorSection` (2026-09-29, 설정에서 들어오는 하위 화면) |
 | `/recordings` | `pages/Recordings` | `recording/RecordingFileSection` (2026-10-21, 설정에서 들어오는 하위 화면, `references/features/recording.md` "녹음 파일 관리" 절) |
-| `/onboarding` | `pages/Onboarding` | `model/ModelDownloadSection` |
 | `/widget` | `pages/Widget` | `recording/WidgetPanelSection` (위젯 창 전용, 가드 밖) |
 
 - `/settings`는 Phase 3에서 원본 WAV 보관 옵션과 함께 추가했다. Phase 4에서 업데이트 확인 옵션(`SettingsSection`),
   음성 인식 모델 변경(`ModelDownloadSection`, 온보딩과 같은 위젯), 요약 모델 다운로드(`SummaryModelSection`)를 붙였다.
   이후 발열·팬 소음을 줄이는 '조용히 처리' 옵션(`SettingsSection`, `pipeline.quiet`)을 붙였다.
-- 온보딩(`/onboarding`)은 Phase 4에서 추가했다. **진입 가드**는 `shared/routes/guards.tsx`의 `RequireModels`가 맡는다 —
-  홈·녹음·상세·설정을 자식으로 갖는 경로 없는 레이아웃 라우트로, `models:status`의 `isReady`가 거짓이면 `/onboarding`으로 보낸다.
-  온보딩 페이지 자체는 가드 밖에 있고, 다운로드가 끝나면 홈으로 이동한다. 가드는 레이아웃이 처음 마운트될 때 한 번만 조회한다
-  (모델은 온보딩 밖에서 사라지지 않는다).
+- 온보딩 페이지(`/onboarding`)는 Phase 4에서 추가했다가 2026-10-22 리뉴얼에서 없앴다 — 처음 실행 설정은 채팅 창의 카드다(위 "처음 실행" 소절). **모델 가드** `shared/routes/guards.tsx`의 `RequireModels`는 `/record`에만 걸리고, `models:status`의 `isReady`가 거짓이면 `/`로 보낸다. 가드는 마운트될 때 한 번만 조회한다.
 - `features/update/UpdateBanner`는 `update:available` 이벤트를 받았을 때만 나타난다 (`references/distribution.md` 7절). 리디자인부터 홈이 아니라 셸 본문 위에 둔다.
 - 흐름: 사이드바(리디자인 전에는 홈)에서 "새 녹음" → `/record`(또는 위젯·단축키) → 정지 → main이 잡을 큐에 넣고 `/meetings/:meetingId`로 이동 → 처리 중 상태를 보여주다가 `pipeline:progress`의 `done`을 받으면 회의록을 다시 불러온다.
 - **Phase 5-3부터 `/record`를 벗어나도 녹음은 계속된다.** 오디오 그래프가 위젯 창으로 옮겨 갔기 때문이다

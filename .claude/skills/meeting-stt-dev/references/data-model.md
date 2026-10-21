@@ -294,7 +294,9 @@ export interface AppSettings {
   | --- | --- | --- | --- |
   | `assistant.folder` | string \| 없음 | 없음 | 작업 폴더의 절대 경로. 문자열이 아니면 없음으로 읽는다. 폴더가 사라져도 값은 지우지 않고 화면이 안내한다 |
   | `assistant.permissionMode` | `'acceptEdits' \| 'bypassPermissions'` | `'acceptEdits'` | 에이전트 권한 모드. 모르는 값은 `'acceptEdits'`로 읽는다. Codex는 `acceptEdits`를 `workspace-write` 샌드박스로, `bypassPermissions`를 샌드박스·승인 끄기로 옮긴다. Codex 에이전트의 모델은 새 키 없이 `llm.codexModel`을 쓴다 |
+  | `assistant.provider` | `'claude-cli' \| 'codex-cli'` \| 없음 | 없음 | 채팅이 쓰는 에이전트 CLI (2026-10-22, 설정 모달 "에이전트" 행). 없거나 모르는 값이면 main이 설치된 첫 CLI(Claude Code → Codex, 둘 다 없으면 Claude Code)로 `AssistantStatus.provider`를 채운다. `assistant:setProvider`로 바꾼다 (`references/features/ui.md` "설정 모달") |
   | `assistant.autoOrganize` | boolean | `true` | 녹음이 처리되면 정리 에이전트를 자동으로 돌릴지 (2026-10-21). 켜져 있으면 녹음 전사본이 공급자 서버로 전송된다. 꺼도 원문은 작업 폴더에 저장한다. `assistant:setAutoOrganize`로 바꾸고 `AssistantStatus.isAutoOrganizeEnabled`로 읽는다 (`references/architecture.md` "녹음 기록 자동 정리") |
+  | `assistant.routines` | `Routine[]` (JSON) | `[]` | 루틴 목록 (2026-10-22). 형식이 깨진 항목은 읽을 때 버린다. 만들기·고치기·지우기는 `routines:save`·`routines:delete`, 실행 결과(`lastRun`)와 기준 시각(`anchorAt`)은 main 스케줄러가 쓴다. 타입·제약은 `references/features/assistant.md` "루틴" |
 
   ```ts
   export type AssistantPermissionMode = 'acceptEdits' | 'bypassPermissions'

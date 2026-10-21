@@ -675,6 +675,26 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
   — 빌드된 앱에서 Codex로 파일 생성(`Add notes/codex.md`, workspace-write 샌드박스) → 바뀐 파일을 에디터로 열기 → `exec resume`으로 이어 묻기를 확인. 이 기기에는 codex가 설치돼 있지 않아 npx 캐시의 0.163.0을 로그인 셸 조회 대신 넘겨 확인했다. **실제 설치(Homebrew·npm 전역·ChatGPT 앱 동봉) 경로에서의 사용자 확인이 남았다**
 - [ ] 빠른 질문 모드 (로컬 모델 포함) — 키워드로 문서를 먼저 찾아 한 턴 호출
 
+### 채팅창 리뉴얼 (2026-10-21 시안, `features/ui.md` 같은 이름의 절)
+
+- [x] 홈 화면부터 채팅 플로우 — 토큰 값 교체, `/` = 채팅(사이드바 밖)·옛 홈 `/meetings`, 도우미 6개 + 입력 도크, `/` 명령 메뉴(내장 명령 + 스킬, `assistant:listSkills`)·`@` 파일 선택, 턴(말풍선·도구 라벨·바뀐 파일 칩·작업 중), 문서 패널(옆 카드·닫기) + 통합 테스트·순수 함수 vitest (2026-10-22)
+  — 같은 날 빌드된 앱을 별도 userData로 띄워(playwright-core, 폴더 대화상자만 대체) 확인: 홈 도우미·`/` 메뉴(내장 + 스킬)·`@` 파일 메뉴·실제 Claude Code 턴("고침 notes/hello.md" 줄과 칩)·칩으로 문서 패널 열기·닫기·다크 모드까지 시안과 같은 모양. **`pnpm dev`에서 사람이 실제 작업 폴더로 확인하는 것이 남았다**
+- [ ] 녹음 카드(입력창 위에 붙는 녹음 중, 녹음 후 기록 카드) — 채팅의 `recorderSlot`에 붙인다 (다른 세션 진행 중)
+- [ ] 전체 기록 패널·기록 찾기(결과가 대화에) — 도우미 "기록 찾기"가 `/meetings`로 가는 다리를 대체. 끝나면 사이드바·`/meetings`·회의 상세의 옛 구조를 없앤다
+- [x] 설정 모달 (보드 "설정 · 큰 모달로 열림", 설계는 `features/ui.md` "설정 모달") — 문서를 먼저 고쳤다 (`features/ui.md` 새 절·라우트 표·공통 컴포넌트 표, `features/assistant.md` IPC·화면, `data-model.md` `assistant.provider`, `architecture.md` IPC 목록, `SKILL.md` 개인 비서 행). 경로는 `/settings` 그대로이고 설정으로 가는 링크는 바꾸지 않았다 (2026-10-22)
+  - [x] 계약: `AssistantStatus.provider`, `assistant:setProvider`(`SetAssistantProviderRequest`), `readAssistantProviderPayload` + vitest (2026-10-22)
+  - [x] main: `db/settings.ts` `assistant.provider`, `assistant/folder.ts`가 저장값 없으면 설치된 첫 CLI(Claude Code → Codex)로 채움, `ipc/assistant.ts` 핸들러, preload, `api/assistant` `setAssistantProviderApi` (2026-10-22)
+  - [x] `pages/Settings` = `<dialog>` 모달(헤더 60px·카테고리 nav 220px·본문 760px, `showModal`, 닫기·Esc·배경 클릭 → 이전 화면), `constants/categories.ts`·`ui/CategoryNav`·`ui/CategoryContent`, `composites/PageToc` 삭제 (2026-10-22)
+  - [x] `setting/SettingsSection` `category` prop(여덟 묶음 중 하나, `children` 삭제), `setting/AssistantSettingSection` "에이전트" 행(대화 중 비활성) + 통합 테스트, 채팅은 `state.provider ?? status.provider`로 보냄 (2026-10-22)
+  - [x] 시안 값: `SettingGroup` 제목 본문색 15px, `SettingRow` 14px/13px·세로 가운데, `Switch` 40×24, 설정 `<select>`·단축키 칸 34px, `--color-backdrop` 토큰(라이트·다크) (2026-10-22)
+  - [x] 설정 위젯 통합 테스트·`assistant.test.ts`(100개) 통과, 바꾼 파일 eslint·prettier 통과, `electron-vite build`한 앱을 별도 userData로 띄워 라이트·다크에서 모달·14 카테고리·Esc 닫기 확인 (2026-10-22)
+  - [x] `/settings`를 채팅 라우트(`/`)의 자식(`pages/Assistant`의 `<Outlet />`)으로 옮겨 모달 뒤에 채팅이 보인다. `Button` 알약형(`--radius-full`, `md` 34px) (2026-10-22)
+  - [x] 저장소 전체 `pnpm build`(typecheck 포함)·`pnpm test`(데스크탑 739개) 통과 — 다른 세션이 더한 `RecordingStateEvent.note`·`MeetingDetail.note`의 테스트 픽스처 다섯 곳에 `note: ''`를 채웠다. `pnpm lint`는 같은 시각 다른 세션이 쓰는 중인 파일의 prettier 경고만 남는다 (2026-10-22)
+  - [ ] 완료 기준: `pnpm dev`에서 설정을 열면 창 안쪽에 모달이 뜨고 왼쪽 14개 카테고리를 누를 때마다 오른쪽이 바뀐다. "개인 비서"의 에이전트를 Codex로 바꾸면 채팅이 Codex로 보내고, 대화 중에는 그 select가 비활성이다. Esc·×·배경 클릭으로 닫히고 이전 화면으로 돌아간다
+- [x] 처음 실행 (설정도 대화로) — `assistant/SetupSection`(작업 폴더·음성 인식 모델 카드, 합산 진행 줄, 나중에 받기 `localStorage`, 준비 완료 + "녹음 시작" 칩) + `test.tsx`·`utils/summarizeDownload` vitest, `useAssistantStatus` 모듈 캐시, `shared/utils/planDownload`로 올림, 사전 `setup`, `RequireModels`를 `/record`에만·`/`로 보냄, `pages/Onboarding`·`/onboarding`·`models.onboarding` 삭제 (2026-10-22, `features/ui.md` "처음 실행"). **`pnpm dev` 사람 확인이 남았다** — 빈 `userData`로 띄워 폴더 고르기 → 받기 → 준비 완료 칩, "나중에 받기" 뒤 재실행 시 카드 없음
+  - [ ] 미룬 것: "받기 취소"(다운로드 취소 IPC), 완료 카드의 모델 "바꾸기", "파일로 기록 만들기"·"/ 로 명령 보기" 칩, 카드를 채팅 스크롤 안으로(섹션 슬롯), 모델 없이 녹음 시작 막기
+- [ ] 답변 마크다운 렌더러 (녹음 노트와 공유)
+
 ### 녹음 기록 자동 정리 (2026-10-21)
 
 녹음을 멈추면 STT → 화자 분리(회의만) → 작업 폴더 `기록/`에 원문 저장 → 정리 에이전트 → 알림이 자동으로 이어진다. 결정 10가지는 2026-10-21 사용자가 골랐다 (`architecture.md` "녹음 기록 자동 정리" 표).
@@ -705,3 +725,18 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 - [ ] 측정 — 실제 회의·메모 녹음 몇 개(71분 회의, 짧은 메모)로 로컬 4B와 외부 공급자의 제목을 보고 `TITLE_INPUT_MAX_CHARS`(잠정 4,000)를 확정
 - [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과
 - [ ] 완료 기준: `pnpm dev`에서 로컬 요약 모델이 있는 상태로 메모를 녹음하면 처리 뒤 사이드바 제목이 `오늘 날짜 + 주제`로 바뀌고, 처리 중에 제목을 고쳐 두면 바뀌지 않는다. 외부 공급자에서 두 동의가 모두 꺼져 있으면 기본 제목이 그대로다. 작업 폴더가 있으면 `기록/<시각> <주제>.md`와 머리말 제목이 같은 제목으로 생긴다
+
+### 루틴 (2026-10-22)
+
+정해진 주기마다 작업 폴더에서 에이전트에게 같은 프롬프트를 자동으로 보내고 결과를 알림으로 알린다. 갈림길 네 가지(주기 형태·결과 확인·놓친 실행·화면 위치)는 2026-10-22 사용자가 골랐다 (`features/assistant.md` "루틴").
+문서를 먼저 고쳤다 (`SKILL.md` 1절 표·3절, `features/assistant.md` 새 절, `architecture.md` 목차, `data-model.md` `assistant.routines`, `.claude/rules/project-structure.md` 도메인 `routine`). 스키마 변경은 없다.
+
+- [ ] 계약: `RoutineSchedule`·`Routine`·`RoutineRun`·`RoutineInput`·`RoutinesState`, IPC `routines.list`·`save`·`delete`·`run`·`events.routinesChanged`
+- [ ] 순수 함수 `src/shared/routine.ts` + vitest — `nextRoutineRunAt`(간격·시각·요일 넘김·같은 날 지난 시각), `isRoutineDue`, 저장 payload 검증, 저장값 읽기(깨진 항목 버림)
+- [ ] `db/settings.ts` `assistant.routines` 읽기·쓰기, `buildClaudeAgentArgs`의 `isUnattended` + vitest
+- [ ] `assistant/routines.ts` — 30초 훑기·시작 직후 한 번, 큐(동시성 1), 채팅과 같은 에이전트·새 세션·머리말·10분 제한, 지우면 끝내기, 앱 종료 시 끝내기, `lastRun` 저장·push
+- [ ] 알림 `windows/notify.ts` — 완료·실패, 누르면 메인 창
+- [ ] 화면 `setting/RoutineSection` — 목록(주기 요약·다음 실행·마지막 실행·스위치·지금 실행·고치기·삭제 2단계), 인라인 폼, 마지막 답 펼치기 + 통합 테스트
+- [ ] 사전 `routine.*`(`ko`·`en`)
+- [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과
+- [ ] 완료 기준: `pnpm dev`에서 작업 폴더를 고른 상태로 "10분마다 · 오늘 날짜를 notes/today.md에 적어 줘" 루틴을 만들고 "지금 실행"을 누르면 "실행 중"이 보이고, 끝나면 macOS 알림이 뜨고 목록에 마지막 답과 바뀐 파일이 보인다. 앱을 끄고 10분 넘게 지난 뒤 켜면 한 번만 다시 돈다. 스위치를 끄면 돌지 않는다

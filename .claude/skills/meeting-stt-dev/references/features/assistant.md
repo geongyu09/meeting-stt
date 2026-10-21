@@ -138,9 +138,10 @@ interface AssistantChatState {
 
 | 키 | 채널 | 방향 | 요청 → 응답 |
 | --- | --- | --- | --- |
-| `assistant.status` | `assistant:status` | invoke | 없음 → `AssistantStatus` (폴더·폴더 문제·git 여부·권한 모드) |
+| `assistant.status` | `assistant:status` | invoke | 없음 → `AssistantStatus` (폴더·폴더 문제·git 여부·권한 모드·에이전트) |
 | `assistant.chooseFolder` | `assistant:chooseFolder` | invoke | 없음 → `AssistantStatus`. 대화상자를 취소하면 그대로, 바꾸면 대화를 비운다 |
 | `assistant.setPermissionMode` | `assistant:setPermissionMode` | invoke | `{ permissionMode }` → `AssistantStatus` |
+| `assistant.setProvider` | `assistant:setProvider` | invoke | `{ provider }` → `AssistantStatus` (2026-10-22, 설정 모달 "에이전트" 행. `assistant.provider`에 저장) |
 | `assistant.state` | `assistant:state` | invoke | 없음 → `AssistantChatState` |
 | `assistant.send` | `assistant:send` | invoke | `{ provider, text }` → 없음. 턴 시작만 기다리고 진행은 이벤트로 받는다. 폴더 문제·실행 중·빈 질문·공급자 불일치는 reject |
 | `assistant.cancel` | `assistant:cancel` | invoke | 없음 → 없음 |
@@ -155,6 +156,9 @@ interface AssistantChatState {
 - 질문 최대 `MAX_QUESTION_CHARS`(2만 자), 문서 저장 최대 `MAX_DOCUMENT_BYTES`.
 
 ### 화면
+
+**2026-10-22부터 채팅이 앱의 첫 화면(`/`)이고 구성은 `features/ui.md` "채팅창 리뉴얼"이 정한다** — 에이전트 `<select>` 없음, `/` 명령 메뉴·`@` 파일 선택, 문서 패널은 필요할 때만 옆에 열림. 아래는 그 전(2026-10-20)의 구성이다.
+**에이전트는 설정 모달 "개인 비서"의 "에이전트" 행에서 고른다** (2026-10-22, `features/ui.md` "설정 모달") — 값은 `assistant.provider`, 읽기는 `AssistantStatus.provider`(저장값이 없으면 main이 설치된 첫 CLI로 채움), 대화 중에는 비활성. 채팅은 `state.provider ?? status.provider`로 보낸다.
 
 - 사이드바 하단 설정 링크 위에 **"비서"** 링크(`PATHS.assistant = '/assistant'`).
 - `pages/Assistant` — 상단 바 + 두 칸: 왼쪽 `assistant/AssistantChatSection`(채팅), 오른쪽 `assistant/DocumentEditorSection`(파일 목록 + 에디터, 기본 폭 절반).
@@ -307,3 +311,108 @@ interface OrganizeStatus {
 - **회의 상세** — 요약 카드 근처에 "비서의 뇌" 한 줄: 원문 경로(작업 폴더 기준), 정리 상태(대기·정리 중·완료와 바꾼 파일 수·실패와 이유), "비서에서 열기", **"비서에게 보내기"**(원문 없음) / **"다시 보내기"**(원문 있음, "뇌의 원문을 덮어쓰고 다시 정리합니다" 2단계 인라인 확인). 작업 폴더가 없으면 설정 링크만.
 - **설정 "개인 비서"** — "녹음 기록 자동 정리" 스위치(기본 켜짐). 설명: "녹음이 끝나면 전사 원문을 작업 폴더의 `기록/`에 저장하고 에이전트가 정리합니다. 켜져 있으면 녹음 내용이 Anthropic·OpenAI 서버로 전송되고, 제목도 내용으로 만듭니다. 꺼도 원문은 저장합니다." (제목 전송 조건은 `features/transcript.md` "회의록 자동 제목")
 - **설정 "단축키"** — "녹음 시작·정지"를 "회의 녹음 시작·정지"로 바꾸고 "메모 녹음 시작·정지"(`memoShortcut`)를 더한다. 네 단축키는 서로 같을 수 없다.
+
+## 루틴 (2026-10-22)
+
+정해진 주기마다 작업 폴더에서 에이전트에게 **같은 프롬프트를 자동으로 보낸다** (2026-10-22 사용자 요청 — "주기를 정하면 매 주기마다 프롬프트를 실행").
+아침 브리핑·주간 회고처럼 사용자가 묻지 않아도 비서가 먼저 일하게 하는 첫걸음이다("진짜 비서처럼 돌아다닌다" 방향, `SKILL.md` "제품 방향"). 아래 결정은 같은 날 사용자가 골랐다.
+
+| 갈림길 | 결정 (2026-10-22 사용자) | 이유 |
+| --- | --- | --- |
+| 주기 | **시각**(매일 또는 고른 요일의 `HH:MM`)과 **간격**(N분·N시간마다) 둘 다 | 아침 브리핑은 시각이, 자주 확인하는 일은 간격이 맞다 |
+| 결과 | **채팅과 별도로 백그라운드 실행**, 끝나면 macOS 알림, 마지막 답은 루틴 목록에서 펼쳐 본다 | 녹음 기록 자동 정리와 같은 방식이다. 채팅 중이어도 충돌하지 않고 대화 맥락에 루틴 결과가 섞이지 않는다 |
+| 놓친 실행 | 앱이 꺼져 있었거나 잠자기로 놓쳤으면 **켜진 뒤 한 번만** 실행 | "매일 9시 브리핑"을 10시에 앱을 켜도 받는다. 여러 번 놓쳐도 몰아서 돌리지 않는다 |
+| 화면 | 설정 **"개인 비서" 아래 "루틴" 묶음** | 지금 앱 구조에 맞춘다. 채팅창 리뉴얼(`features/ui.md`)의 설정 모달로 옮길 때 같이 옮긴다 |
+
+### 루틴과 저장 (`src/shared/routine.ts`, 순수 함수 + vitest)
+
+```ts
+type RoutineSchedule =
+  /** 고른 요일(0 = 일 … 6 = 토)의 로컬 시각 `HH:MM` */
+  | { kind: 'time'; weekdays: number[]; time: string }
+  | { kind: 'interval'; minutes: number }
+
+interface RoutineRun {
+  finishedAt: number
+  /** 답변 글. 앞 ROUTINE_RESULT_MAX_CHARS자까지 */
+  text: string
+  /** 에이전트가 쓰거나 고친 파일 (작업 폴더 기준 상대 경로) */
+  changedFiles: string[]
+  /** 실패 사유. 성공이면 null */
+  error: string | null
+}
+
+interface Routine {
+  id: string
+  name: string
+  prompt: string
+  schedule: RoutineSchedule
+  isEnabled: boolean
+  /** 다음 실행을 계산하는 기준 시각(epoch ms) — 저장하거나 실행을 시작한 시각 */
+  anchorAt: number
+  lastRun: RoutineRun | null
+}
+
+/** 만들기·고치기 요청. id가 null이면 새로 만든다 */
+type RoutineInput = Pick<Routine, 'name' | 'prompt' | 'schedule' | 'isEnabled'> & { id: string | null }
+```
+
+- 저장은 settings 키 **`assistant.routines`(JSON 배열) 하나**다. 테이블을 만들지 않는다 — 루틴은 많아야 수십 개이고 용어 사전(`glossary.terms`)처럼 통째로 읽고 쓴다. 형식이 깨진 항목은 읽을 때 버린다.
+- 제약 (저장 시 main이 검증, 어기면 거절): 이름 1~`ROUTINE_NAME_MAX_CHARS`(40)자, 프롬프트 1자~`MAX_QUESTION_CHARS`, 요일 0~6 하나 이상, 시각 24시간 `HH:MM`, 간격 `ROUTINE_MIN_INTERVAL_MIN`(10분)~`ROUTINE_MAX_INTERVAL_MIN`(1,440분 = 24시간) 정수.
+  10분 아래를 막는 이유: 에이전트 한 턴이 몇 분씩 걸려 더 짧으면 쉬지 않고 연달아 돌며 구독 한도를 쓴다. 24시간보다 긴 주기는 시각 루틴(요일)으로 만든다.
+
+### 다음 실행 계산
+
+- 다음 실행 = `nextRoutineRunAt({ schedule, after: anchorAt })` — 간격은 `anchorAt + 분`, 시각은 `anchorAt`보다 뒤인 첫 "고른 요일의 `HH:MM`"(로컬 시각)이다.
+- **실행을 시작하면 `anchorAt`을 지금으로 바꾼다** → 여러 주기를 놓쳤어도 한 번만 돈다(놓친 실행 결정). 간격은 실행 시작 기준이다.
+- **저장(만들기·고치기·켜기)도 `anchorAt`을 지금으로 바꾼다** — 고친 순간 이미 지난 시각이 "놓친 실행"으로 바로 돌지 않게 한다.
+
+### 스케줄러와 실행 (`src/main/assistant/routines.ts`)
+
+- 앱이 켜져 있는 동안 **`ROUTINE_TICK_MS`(30초)마다, 그리고 시작 직후 한 번** 켜진 루틴을 훑어 때가 된 것을 큐에 넣는다. 루틴마다 타이머를 맞추지 않는 이유: 잠자기에서 깨어나면 `setTimeout`이 밀리는데, 30초 훑기는 깨어난 직후 놓친 실행을 잡는다.
+  앱이 꺼져 있으면 돌지 않는다 — 창을 닫아도 앱은 메뉴바에 남고, 로그인 항목 등록은 하지 않는다.
+- 큐는 **동시성 1**이고 GPU 큐·채팅·정리 큐와 별개다. 이미 큐에 있거나 도는 루틴은 다시 넣지 않는다.
+- 한 번 실행:
+  1. `anchorAt`을 지금으로 저장한다.
+  2. 작업 폴더 확인(`requireWorkspaceFolder`) — 없거나 문제가 있으면 실패로 기록한다.
+  3. 에이전트는 **채팅과 같은 에이전트** — 설정에서 고른 것(`assistant.provider`), 고른 적이 없으면 설치된 첫 CLI(Claude Code → Codex, `folder.ts`의 `resolveProvider`). 그 CLI가 없으면 실패.
+  4. **새 세션 한 턴**(`--resume` 없음). 권한 모드는 채팅 설정(`assistant.permissionMode`), Codex 모델은 `llm.codexModel`. stdin은 고정 머리말 + 사용자 프롬프트다.
+     머리말(`routines.ts`의 상수 `ROUTINE_PREAMBLE` — UI 문구가 아니라 프롬프트라 채팅의 `NO_DIALOG_PROMPT`처럼 코드에 두고 UI 언어와 무관하게 한국어): "이 요청은 사용자가 정해 둔 루틴으로, 정해진 주기에 자동으로 실행됐다. 답할 사람이 없으니 질문하지 말고 끝까지 처리하라. 답변 글은 알림과 루틴 목록에 그대로 보인다."
+     Claude는 채팅용 `--append-system-prompt`(질문하고 기다리라는 안내)를 붙이지 않는다(`buildClaudeAgentArgs`의 `isUnattended`). `AskUserQuestion`은 그대로 끈다. 도구 권한은 채팅과 같다.
+  5. 시간 제한 `ROUTINE_TIMEOUT_MS`(10분). 넘으면 `AbortController`로 끝내고 실패로 기록한다.
+  6. `lastRun`을 저장하고 `routines:changed`를 push한 뒤 알린다.
+- 루틴을 지우면 큐에서 빼고, 도는 중이면 끝낸다(결과를 남기지 않는다). 고치는 것은 도는 실행에 영향이 없다 — 시작할 때의 프롬프트로 끝난다.
+- 앱 종료(`will-quit`)는 도는 루틴을 끝내고 큐를 버린다. 결과는 남기지 않는다(다음 실행 때 다시 돈다 — `anchorAt`이 이미 바뀌어 다음 주기에).
+- 도는 루틴 id와 큐는 main 메모리에만 둔다.
+
+### 알림 (`src/main/windows/notify.ts`)
+
+- Electron `Notification`(main). 제목은 루틴 이름, 본문은 답변 글 앞 `NOTIFICATION_BODY_MAX_CHARS`(120자) / 실패면 "실패: <이유>". 누르면 메인 창을 앞으로 가져온다(`showMainWindow`). 녹음 기록 자동 정리의 알림도 이 파일을 쓴다.
+- `Notification.isSupported()`가 거짓이면 로그만 남긴다. 알림 권한은 macOS가 처음 보낼 때 묻는다.
+
+### IPC
+
+| 키 | 채널 | 방향 | 요청 → 응답 |
+| --- | --- | --- | --- |
+| `routines.list` | `routines:list` | invoke | 없음 → `RoutinesState` |
+| `routines.save` | `routines:save` | invoke | `RoutineInput` → `RoutinesState`. 형식이 틀리면 reject, 없는 id면 reject |
+| `routines.delete` | `routines:delete` | invoke | `{ id }` → `RoutinesState` |
+| `routines.run` | `routines:run` | invoke | `{ id }` → `RoutinesState`. 주기와 무관하게 지금 큐에 넣는다("지금 실행"). 꺼진 루틴도 된다 |
+| `events.routinesChanged` | `routines:changed` | push | `RoutinesState` |
+
+```ts
+interface RoutinesState {
+  routines: Routine[]
+  /** 도는 루틴. 없으면 null */
+  runningId: string | null
+  queuedIds: string[]
+}
+```
+
+### 화면 (`setting/RoutineSection`)
+
+- 설정 페이지에서 `AssistantSettingSection` 바로 아래 **"루틴"** 묶음. 설명: 정해진 주기마다 작업 폴더에서 에이전트에게 프롬프트를 보낸다는 것, 앱이 켜져 있을 때만 돈다는 것, 프롬프트와 읽은 파일이 공급자 서버로 전송된다는 것.
+- 작업 폴더가 없으면 한 줄 안내(루틴은 작업 폴더에서 돈다). 만들기는 막지 않는다.
+- 루틴 행: 이름 · 주기 요약("매일 09:00", "월·수·금 09:00", "30분마다", "3시간마다") · 다음 실행(켜져 있을 때) · 마지막 실행(시각 · 완료 또는 실패와 이유) · 켜기 스위치 · "지금 실행"(돌면 "실행 중", 큐에 있으면 "대기 중"으로 비활성) · "고치기" · "삭제"(2단계 인라인 확인).
+  마지막 답은 `<details>`로 펼친다(줄바꿈만 살린 평문, 바뀐 파일 목록).
+- "루틴 추가"·"고치기"는 그 자리의 인라인 폼: 이름 · 프롬프트(textarea) · 주기 종류(라디오 "시각"/"간격") · 시각이면 요일 토글 7개(`aria-pressed`) + `<input type="time">`, 간격이면 숫자 + 단위(분/시간) · 저장/취소. 저장 실패는 폼 아래에 보인다. 새 루틴의 기본값은 평일 09:00이다.
