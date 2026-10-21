@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import {
   IPC,
+  type GetAssistantFolderResponse,
   type GetAssistantStateResponse,
   type GetAssistantStatusResponse,
   type GetRoutinesResponse,
@@ -12,12 +13,15 @@ import {
 import {
   readAssistantMessagePayload,
   readAssistantProviderPayload,
+  readAutoOrganizePayload,
   readPermissionModePayload,
   readWorkspacePathPayload,
   readWorkspaceWritePayload
 } from '@shared/assistant'
 import { readRoutineIdPayload, readRoutineInputPayload } from '@shared/routine'
 import {
+  getAssistantFolder,
+  setAssistantAutoOrganize,
   setAssistantFolder,
   setAssistantPermissionMode,
   setAssistantProvider
@@ -77,6 +81,10 @@ export const registerAssistantHandlers = () => {
     getAssistantStatus()
   )
 
+  ipcMain.handle(IPC.assistant.folder, (): GetAssistantFolderResponse => ({
+    folder: getAssistantFolder()
+  }))
+
   ipcMain.handle(IPC.assistant.chooseFolder, () => handleChooseFolder())
 
   ipcMain.handle(IPC.assistant.installHarness, async (): Promise<InstallHarnessResponse> => {
@@ -102,6 +110,15 @@ export const registerAssistantHandlers = () => {
       setAssistantProvider({
         provider: readAssistantProviderPayload(payload, t().assistant.errors)
       })
+
+      return getAssistantStatus()
+    }
+  )
+
+  ipcMain.handle(
+    IPC.assistant.setAutoOrganize,
+    (_event, payload): Promise<GetAssistantStatusResponse> => {
+      setAssistantAutoOrganize({ isEnabled: readAutoOrganizePayload(payload, t().assistant.errors) })
 
       return getAssistantStatus()
     }

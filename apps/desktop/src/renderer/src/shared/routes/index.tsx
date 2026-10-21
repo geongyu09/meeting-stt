@@ -5,6 +5,7 @@ import Settings from '@renderer/pages/Settings'
 import SummaryTemplates from '@renderer/pages/SummaryTemplates'
 import Widget from '@renderer/pages/Widget'
 
+import { RequireFolder } from './guards'
 import { MainWindowLayout } from './layout'
 import { PATHS } from './paths'
 
@@ -14,17 +15,23 @@ export const router = createHashRouter([
   {
     element: <MainWindowLayout />,
     children: [
-      // 채팅은 창 하나이고 모델 없이도 열린다 — 처음 실행 설정 카드가 그 안에 있고, 녹음·기록·문서도 그 안의 카드·옆 패널이다
-      // (references/features/ui.md "채팅창 리뉴얼")
       {
-        path: PATHS.assistant,
-        element: <Assistant />,
-        // 설정은 채팅 위에 뜨는 모달이라 채팅의 자식 라우트다 (references/features/ui.md "설정 모달")
-        children: [{ path: PATHS.settings, element: <Settings /> }]
-      },
-      // 설정에서 들어오는 전체 창 편집 화면. 돌아가기 버튼이 설정 모달을 다시 연다
-      { path: PATHS.summaryTemplates, element: <SummaryTemplates /> },
-      { path: PATHS.recordings, element: <Recordings /> }
+        // 작업 폴더를 고르기 전에는 메인 창의 어떤 화면도 열리지 않고 첫 화면만 보인다 (references/features/ui.md "첫 화면")
+        element: <RequireFolder />,
+        children: [
+          // 채팅은 창 하나이고 모델 없이도 열린다 — 처음 실행 설정 카드가 그 안에 있고, 녹음·기록·문서도 그 안의 카드·옆 패널이다
+          // (references/features/ui.md "채팅창 리뉴얼")
+          {
+            path: PATHS.assistant,
+            element: <Assistant />,
+            // 설정은 채팅 위에 뜨는 모달이라 채팅의 자식 라우트다 (references/features/ui.md "설정 모달")
+            children: [{ path: PATHS.settings, element: <Settings /> }]
+          },
+          // 설정에서 들어오는 전체 창 편집 화면. 돌아가기 버튼이 설정 모달을 다시 연다
+          { path: PATHS.summaryTemplates, element: <SummaryTemplates /> },
+          { path: PATHS.recordings, element: <Recordings /> }
+        ]
+      }
     ]
   }
 ])

@@ -104,9 +104,11 @@ export const IPC = {
   // 개인 비서 모드 (references/architecture.md "개인 비서 모드")
   assistant: {
     status: 'assistant:status',
+    folder: 'assistant:folder',
     chooseFolder: 'assistant:chooseFolder',
     setPermissionMode: 'assistant:setPermissionMode',
     setProvider: 'assistant:setProvider',
+    setAutoOrganize: 'assistant:setAutoOrganize',
     state: 'assistant:state',
     send: 'assistant:send',
     cancel: 'assistant:cancel',
@@ -142,6 +144,8 @@ export const IPC = {
     dictationCommand: 'dictation:command',
     assistantState: 'assistant:stateChanged',
     assistantFilesChanged: 'assistant:filesChanged',
+    // 정리 알림을 누르면 비서 화면이 그 원문을 연다 (references/features/assistant.md "녹음 기록 자동 정리" > "알림")
+    assistantOpenFile: 'assistant:openFile',
     routinesChanged: 'routines:changed'
   }
 } as const
@@ -631,6 +635,8 @@ export interface UpdateAvailableEvent {
 }
 
 export type GetAssistantStatusResponse = AssistantStatus
+/** 폴더 경로만 — `assistant:status`는 첫 호출에 CLI 탐색(로그인 셸)을 기다려 느리므로 첫 화면 가드가 이것을 먼저 읽는다 */
+export type GetAssistantFolderResponse = Pick<AssistantStatus, 'folder'>
 
 export interface SetAssistantPermissionModeRequest {
   permissionMode: AssistantPermissionMode
@@ -639,6 +645,16 @@ export interface SetAssistantPermissionModeRequest {
 /** 설정 모달 "에이전트" 행. 응답은 갱신된 상태 (references/features/ui.md "설정 모달") */
 export interface SetAssistantProviderRequest {
   provider: AssistantProvider
+}
+
+/** 설정 "녹음 기록 자동 정리" 스위치. 응답은 갱신된 상태 */
+export interface SetAssistantAutoOrganizeRequest {
+  isEnabled: boolean
+}
+
+/** 알림을 눌렀을 때. 작업 폴더 기준 상대 경로 */
+export interface AssistantOpenFileEvent {
+  path: string
 }
 
 /** 설정 "기본 설정 추가하기" (references/features/assistant.md "기본 하네스") */

@@ -3,6 +3,7 @@ import type { AssistantChatState } from '@shared/types'
 import {
   IPC,
   type DeleteRoutineRequest,
+  type GetAssistantFolderResponse,
   type GetAssistantStatusResponse,
   type GetRoutinesResponse,
   type InstallHarnessResponse,
@@ -14,8 +15,10 @@ import {
   type ReadWorkspaceFileRequest,
   type ReadWorkspaceFileResponse,
   type SendAssistantMessageRequest,
+  type SetAssistantAutoOrganizeRequest,
   type SetAssistantPermissionModeRequest,
   type SetAssistantProviderRequest,
+  type AssistantOpenFileEvent,
   type WorkspaceFilesChangedEvent,
   type WriteWorkspaceFileRequest,
   type CheckLlmResponse,
@@ -200,6 +203,7 @@ const api = {
   },
   assistant: {
     status: (): Promise<GetAssistantStatusResponse> => ipcRenderer.invoke(IPC.assistant.status),
+    folder: (): Promise<GetAssistantFolderResponse> => ipcRenderer.invoke(IPC.assistant.folder),
     chooseFolder: (): Promise<GetAssistantStatusResponse> =>
       ipcRenderer.invoke(IPC.assistant.chooseFolder),
     setPermissionMode: (
@@ -208,6 +212,10 @@ const api = {
       ipcRenderer.invoke(IPC.assistant.setPermissionMode, payload),
     setProvider: (payload: SetAssistantProviderRequest): Promise<GetAssistantStatusResponse> =>
       ipcRenderer.invoke(IPC.assistant.setProvider, payload),
+    setAutoOrganize: (
+      payload: SetAssistantAutoOrganizeRequest
+    ): Promise<GetAssistantStatusResponse> =>
+      ipcRenderer.invoke(IPC.assistant.setAutoOrganize, payload),
     state: (): Promise<AssistantChatState> => ipcRenderer.invoke(IPC.assistant.state),
     send: (payload: SendAssistantMessageRequest): Promise<void> =>
       ipcRenderer.invoke(IPC.assistant.send, payload),
@@ -407,6 +415,14 @@ const api = {
 
       return () => {
         ipcRenderer.removeListener(IPC.events.routinesChanged, handler)
+      }
+    },
+    onAssistantOpenFile: (listener: (event: AssistantOpenFileEvent) => void) => {
+      const handler = (_: IpcRendererEvent, payload: AssistantOpenFileEvent) => listener(payload)
+      ipcRenderer.on(IPC.events.assistantOpenFile, handler)
+
+      return () => {
+        ipcRenderer.removeListener(IPC.events.assistantOpenFile, handler)
       }
     }
   }

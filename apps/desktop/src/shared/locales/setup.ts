@@ -4,6 +4,11 @@
  */
 export const setupKo = {
   title: '처음 설정',
+  /** 작업 폴더를 고르기 전의 첫 화면 (`pages/Welcome`). 설명·버튼·오류는 아래 `folder`를 같이 쓴다 */
+  welcome: {
+    title: '시작하기',
+    heading: '작업 폴더를 골라 주세요'
+  },
   greeting: '처음이시네요. 두 가지만 정하면 바로 시작할 수 있어요.',
   stepDone: '완료',
   stepLabel: ({ step }: { step: number }) => `${step}단계`,
@@ -45,6 +50,10 @@ export const setupKo = {
 
 export const setupEn: typeof setupKo = {
   title: 'First-time setup',
+  welcome: {
+    title: 'Get started',
+    heading: 'Choose your work folder'
+  },
   greeting: 'Looks like your first time. Set two things and you are ready.',
   stepDone: 'Done',
   stepLabel: ({ step }) => `Step ${step}`,

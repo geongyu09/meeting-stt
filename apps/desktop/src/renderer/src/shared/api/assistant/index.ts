@@ -1,10 +1,21 @@
 import type {
   ReadWorkspaceFileRequest,
   SendAssistantMessageRequest,
+  SetAssistantAutoOrganizeRequest,
   SetAssistantPermissionModeRequest,
   SetAssistantProviderRequest,
   WriteWorkspaceFileRequest
 } from '@shared/ipc'
+
+/**
+ * @description 녹음 기록 자동 정리 스위치를 저장합니다. 꺼도 원문은 작업 폴더에 저장됩니다.
+ * @param isEnabled - 켜짐 여부
+ * @returns 갱신된 작업 폴더 상태
+ * @example
+ * await setAssistantAutoOrganizeApi({ isEnabled: false })
+ */
+export const setAssistantAutoOrganizeApi = async ({ isEnabled }: SetAssistantAutoOrganizeRequest) =>
+  window.api.assistant.setAutoOrganize({ isEnabled })
 
 /**
  * @description 개인 비서 작업 폴더 상태(경로·문제·git 여부·권한 모드)를 조회합니다.
@@ -13,6 +24,14 @@ import type {
  * const status = await getAssistantStatusApi()
  */
 export const getAssistantStatusApi = async () => window.api.assistant.status()
+
+/**
+ * @description 작업 폴더 경로만 조회합니다. 전체 상태와 달리 CLI 탐색을 기다리지 않아 바로 답합니다.
+ * @returns 작업 폴더 경로. 고른 적이 없으면 null
+ * @example
+ * const { folder } = await getAssistantFolderApi()
+ */
+export const getAssistantFolderApi = async () => window.api.assistant.folder()
 
 /**
  * @description main의 폴더 고르기 대화상자를 엽니다. 폴더를 바꾸면 진행 중 대화가 비워집니다.
