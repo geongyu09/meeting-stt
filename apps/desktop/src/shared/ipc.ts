@@ -96,7 +96,8 @@ export const IPC = {
   models: {
     status: 'models:status',
     download: 'models:download',
-    downloadSummary: 'models:downloadSummary'
+    downloadSummary: 'models:downloadSummary',
+    remove: 'models:remove'
   },
   update: { check: 'update:check', download: 'update:download', install: 'update:install' },
   feedback: { open: 'feedback:open' },
@@ -603,6 +604,12 @@ export interface DownloadModelsRequest {
 }
 /** 다운로드가 끝난 뒤의 상태. 진행 중 퍼센트는 `models:downloadProgress`로 온다 */
 export type DownloadModelsResponse = ModelStatusResponse
+
+/** 설정에서 모델 파일 하나를 지운다. `whisper`는 현재 선택된 모델이다 (references/distribution.md 3절) */
+export interface RemoveModelRequest {
+  key: ModelKey
+}
+export type RemoveModelResponse = ModelStatusResponse
 
 export interface ModelDownloadProgressEvent {
   key: ModelKey

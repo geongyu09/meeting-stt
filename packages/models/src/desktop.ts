@@ -158,6 +158,11 @@ export const SUMMARY_MODEL_ASSET: DirectModelAsset = {
   downloadBytes: 2497281120
 }
 
+const MODEL_KEYS: ModelKey[] = ['whisper', 'vad', 'segmentation', 'embedding', 'summary']
+
+export const isModelKey = (value: unknown): value is ModelKey =>
+  MODEL_KEYS.some((key) => key === value)
+
 export const isWhisperModelId = (value: unknown): value is WhisperModelId =>
   WHISPER_MODEL_OPTIONS.some((option) => option.id === value)
 

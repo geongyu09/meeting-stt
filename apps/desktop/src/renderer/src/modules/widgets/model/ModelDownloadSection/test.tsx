@@ -7,7 +7,8 @@ import type { ModelDownloadProgressEvent, ModelStatusResponse } from '@shared/ip
 vi.mock('@renderer/shared/api/models', () => ({
   getModelStatusApi: vi.fn(),
   downloadModelsApi: vi.fn(),
-  downloadSummaryModelApi: vi.fn()
+  downloadSummaryModelApi: vi.fn(),
+  removeModelApi: vi.fn()
 }))
 vi.mock('@renderer/shared/api/events', () => ({
   onModelDownloadProgress: vi.fn(() => () => {}),
@@ -15,7 +16,7 @@ vi.mock('@renderer/shared/api/events', () => ({
 }))
 
 import { onModelDownloadProgress } from '@renderer/shared/api/events'
-import { downloadModelsApi, getModelStatusApi } from '@renderer/shared/api/models'
+import { downloadModelsApi, getModelStatusApi, removeModelApi } from '@renderer/shared/api/models'
 import ModelDownloadSection from './index'
 
 const TURBO_BYTES = 574041195
@@ -184,6 +185,30 @@ describe('ModelDownloadSection', () => {
 
     expect(await screen.findByRole('alert')).toBeTruthy()
     expect(screen.getByText('내려받은 파일이 손상되었습니다')).toBeTruthy()
+  })
+
+  it('설정에서는 설치된 항목을 2단계 확인 뒤 지우고 새 상태를 반영한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getModelStatusApi).mockResolvedValue(readyStatus())
+    vi.mocked(removeModelApi).mockResolvedValue(statusOf())
+    await act(async () => {
+      render(<ModelDownloadSection variant="setting" />)
+    })
+
+    await user.click(screen.getByRole('button', { name: '모델 바꾸기' }))
+    await user.click(screen.getByRole('button', { name: '무음 감지 모델 제거' }))
+    expect(removeModelApi).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: '정말 제거' }))
+
+    expect(removeModelApi).toHaveBeenCalledWith({ key: 'vad' })
+    expect(screen.queryByRole('button', { name: '무음 감지 모델 제거' })).toBeNull()
+    expect(screen.getByRole('button', { name: '다운로드 (575MB)' })).toBeTruthy()
+  })
+
+  it('처음 실행 카드에는 제거 버튼이 없다', async () => {
+    await renderSection(readyStatus())
+
+    expect(screen.queryByRole('button', { name: /제거/ })).toBeNull()
   })
 
   it('모델 상태를 불러오지 못하면 오류와 다시 시도를 보여준다', async () => {

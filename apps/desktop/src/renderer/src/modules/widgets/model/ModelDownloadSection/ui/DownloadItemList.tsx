@@ -16,15 +16,54 @@ interface DownloadItemListProps {
   items: PlannedItem[]
   progress: Partial<Record<ModelKey, ModelDownloadProgressEvent>>
   isDownloading: boolean
+  /** 설정에서만 넘긴다. 설치된 항목에 "제거"(2단계 확인)를 붙인다 */
+  onRemove?: (key: ModelKey) => void
 }
 
 /** 함께 받는 모델 목록. 항목마다 완료·진행률·대기(받기 전에는 용량)를 보여 준다 */
 export default function DownloadItemList({
   items,
   progress,
-  isDownloading
+  isDownloading,
+  onRemove
 }: DownloadItemListProps) {
   const { t } = useLocale()
+  const [confirmingKey, setConfirmingKey] = useState<ModelKey | null>(null)
+
+  const renderRemove = (item: PlannedItem) => {
+    if (!onRemove || !item.isInstalled || isDownloading) return null
+    if (confirmingKey !== item.key) {
+      return (
+        <Button
+          variant="secondary"
+          size="sm"
+          aria-label={t.models.download.removeLabel({ label: item.label })}
+          onClick={() => setConfirmingKey(item.key)}
+        >
+          {t.models.download.remove}
+        </Button>
+      )
+    }
+
+    return (
+      <>
+        <Button
+          variant="danger"
+          size="sm"
+          onClick={() => {
+            setConfirmingKey(null)
+            onRemove(item.key)
+          }}
+        >
+          {t.models.download.confirmRemove}
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => setConfirmingKey(null)}>
+          {t.models.download.cancel}
+        </Button>
+      </>
+    )
+  }
+
   const renderState = (item: PlannedItem) => {
     const percent = progress[item.key]?.percent
 
@@ -58,7 +97,10 @@ export default function DownloadItemList({
             <li key={item.key} className={styles.item}>
               <span className={styles.row}>
                 <span>{item.label}</span>
-                {renderState(item)}
+                <span className={styles.state}>
+                  {renderState(item)}
+                  {renderRemove(item)}
+                </span>
               </span>
               {isInProgress ? (
                 <ProgressBar

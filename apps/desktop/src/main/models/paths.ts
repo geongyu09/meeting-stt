@@ -57,6 +57,9 @@ const resolveModelFile = (fileName: string) => {
   return existsSync(fallback) ? fallback : installed
 }
 
+/** userData 안의 설치 경로만. 제거가 개발 모드 픽스처를 지우지 않게 폴백 없이 쓴다 */
+export const installedModelPath = (key: ModelKey) => path.join(modelsDir(), assetOf(key).fileName)
+
 /** 모델 파일 경로. 개발 모드에서 userData에 없으면 Phase 1 픽스처를 가리킨다 */
 export const modelPath = (key: ModelKey) => resolveModelFile(assetOf(key).fileName)
 

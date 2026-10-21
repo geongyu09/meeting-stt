@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import SettingRow from '@renderer/shared/components/primitives/layout/SettingRow'
 import Button from '@renderer/shared/components/primitives/ui/Button'
 import ProgressBar from '@renderer/shared/components/primitives/ui/ProgressBar'
@@ -13,8 +14,17 @@ import styles from './index.module.css'
  */
 export default function SummaryModelSection() {
   const { t } = useLocale()
-  const { status, isLoading, error, progress, isDownloading, downloadError, downloadSummaryModel } =
-    useModelStatus()
+  const {
+    status,
+    isLoading,
+    error,
+    progress,
+    isDownloading,
+    downloadError,
+    downloadSummaryModel,
+    removeModel
+  } = useModelStatus()
+  const [isConfirmingRemove, setIsConfirmingRemove] = useState(false)
 
   if (isLoading && !status) return <p className={styles.message}>{t.models.status.loading}</p>
   if (!status) {
@@ -35,7 +45,32 @@ export default function SummaryModelSection() {
   const renderControl = () => {
     if (isDownloading) return <span className={styles.meta}>{percent}%</span>
     if (item.isInstalled) {
-      return <span className={styles.success}>{t.models.summaryModel.installedStatus}</span>
+      return (
+        <span className={styles.installedControl}>
+          <span className={styles.success}>{t.models.summaryModel.installedStatus}</span>
+          {isConfirmingRemove ? (
+            <>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => {
+                  setIsConfirmingRemove(false)
+                  removeModel({ key: 'summary' })
+                }}
+              >
+                {t.models.download.confirmRemove}
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setIsConfirmingRemove(false)}>
+                {t.models.download.cancel}
+              </Button>
+            </>
+          ) : (
+            <Button variant="secondary" size="sm" onClick={() => setIsConfirmingRemove(true)}>
+              {t.models.download.remove}
+            </Button>
+          )}
+        </span>
+      )
     }
 
     return <Button onClick={downloadSummaryModel}>{t.models.summaryModel.download}</Button>

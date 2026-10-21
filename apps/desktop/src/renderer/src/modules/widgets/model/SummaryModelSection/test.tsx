@@ -7,7 +7,8 @@ import type { ModelDownloadProgressEvent, ModelStatusResponse } from '@shared/ip
 vi.mock('@renderer/shared/api/models', () => ({
   getModelStatusApi: vi.fn(),
   downloadModelsApi: vi.fn(),
-  downloadSummaryModelApi: vi.fn()
+  downloadSummaryModelApi: vi.fn(),
+  removeModelApi: vi.fn()
 }))
 vi.mock('@renderer/shared/api/events', () => ({
   onModelDownloadProgress: vi.fn(() => () => {}),
@@ -15,7 +16,11 @@ vi.mock('@renderer/shared/api/events', () => ({
 }))
 
 import { onModelDownloadProgress } from '@renderer/shared/api/events'
-import { downloadSummaryModelApi, getModelStatusApi } from '@renderer/shared/api/models'
+import {
+  downloadSummaryModelApi,
+  getModelStatusApi,
+  removeModelApi
+} from '@renderer/shared/api/models'
 import SummaryModelSection from './index'
 
 const SUMMARY_BYTES = 2497281120
@@ -61,11 +66,28 @@ describe('SummaryModelSection', () => {
     expect(screen.getByText(/없어도 녹음과 회의록 작성은 그대로 됩니다/)).toBeTruthy()
   })
 
-  it('설치돼 있으면 버튼 대신 설치됨을 보여준다', async () => {
+  it('설치돼 있으면 설치됨과 제거 버튼을 보여준다', async () => {
     await renderSection(statusOf(true))
 
-    expect(screen.queryByRole('button')).toBeNull()
+    expect(screen.queryByRole('button', { name: '모델 파일 받기' })).toBeNull()
     expect(screen.getByText('설치되어 있습니다')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '제거' })).toBeTruthy()
+  })
+
+  it('제거는 2단계 확인 뒤 요청하고 끝나면 다시 받을 수 있다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(removeModelApi).mockResolvedValue(statusOf(false))
+    await renderSection(statusOf(true))
+
+    await user.click(screen.getByRole('button', { name: '제거' }))
+    await user.click(screen.getByRole('button', { name: '취소' }))
+    expect(removeModelApi).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: '제거' }))
+    await user.click(screen.getByRole('button', { name: '정말 제거' }))
+
+    expect(removeModelApi).toHaveBeenCalledWith({ key: 'summary' })
+    expect(screen.getByRole('button', { name: '모델 파일 받기' })).toBeTruthy()
   })
 
   it('버튼을 누르면 진행률을 보여주고 끝나면 설치됨으로 바뀐다', async () => {

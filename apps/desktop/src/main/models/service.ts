@@ -1,10 +1,11 @@
-import { mkdir } from 'node:fs/promises'
+import { mkdir, rm } from 'node:fs/promises'
 import os from 'node:os'
 import type { ModelStatusResponse } from '@shared/ipc'
 import { info } from '../log'
 import { downloadModelAsset, type ModelDownloadProgress } from './download'
 import {
   getSelectedWhisperModelId,
+  installedModelPath,
   isModelSetReady,
   isSummaryModelReady,
   modelInstallStates,
@@ -16,7 +17,8 @@ import {
   WHISPER_MODEL_OPTIONS,
   isWhisperModelId,
   modelAssetsOf,
-  type ModelAsset
+  type ModelAsset,
+  type ModelKey
 } from '@meeting-stt/models/desktop'
 import { recommendWhisperModelId } from './recommend'
 import { t } from '../locale'
@@ -85,6 +87,16 @@ export const downloadModels = async ({ whisperModelId, onProgress }: DownloadMod
   setSelectedWhisperModelId(whisperModelId)
 
   return downloadAssets({ assets: modelAssetsOf({ whisperModelId }), onProgress })
+}
+
+/** 설치된 모델 파일 하나를 지운다. 받는 중에는 같은 파일을 만질 수 있어 거절한다 (references/distribution.md 3절) */
+export const removeModel = async ({ key }: { key: ModelKey }) => {
+  if (isDownloading) throw new Error(t().main.models.alreadyDownloading)
+
+  await rm(installedModelPath(key), { force: true })
+  info(`모델 제거: ${key}`)
+
+  return modelStatus()
 }
 
 /** 요약 모델만 받는다. 온보딩 묶음에 들어가지 않는 선택 모델이다 (`references/distribution.md` 1절) */

@@ -39,6 +39,8 @@ import {
   type SetCodexModelResponse,
   type DownloadModelsRequest,
   type DownloadModelsResponse,
+  type RemoveModelRequest,
+  type RemoveModelResponse,
   type DraftGlossaryRequest,
   type DraftGlossaryResponse,
   type GetGlossaryResponse,
@@ -271,7 +273,10 @@ const api = {
     download: (payload: DownloadModelsRequest): Promise<DownloadModelsResponse> =>
       ipcRenderer.invoke(IPC.models.download, payload),
     downloadSummary: (): Promise<DownloadModelsResponse> =>
-      ipcRenderer.invoke(IPC.models.downloadSummary)
+      ipcRenderer.invoke(IPC.models.downloadSummary),
+    /** 설정에서 모델 파일 하나를 지운다. `whisper`는 현재 선택된 모델 */
+    remove: (payload: RemoveModelRequest): Promise<RemoveModelResponse> =>
+      ipcRenderer.invoke(IPC.models.remove, payload)
   },
   update: {
     check: (): Promise<CheckUpdateResponse> => ipcRenderer.invoke(IPC.update.check),

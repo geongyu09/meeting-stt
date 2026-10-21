@@ -5,7 +5,8 @@ import { onModelDownloadProgress, onModelsChanged } from '@renderer/shared/api/e
 import {
   downloadModelsApi,
   downloadSummaryModelApi,
-  getModelStatusApi
+  getModelStatusApi,
+  removeModelApi
 } from '@renderer/shared/api/models'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
@@ -80,6 +81,17 @@ const useModelStatus = () => {
 
   const downloadSummaryModel = () => runDownload(downloadSummaryModelApi)
 
+  /** 실패 안내는 다운로드와 같은 자리(downloadError)에 띄운다 */
+  const removeModel = async ({ key }: { key: ModelKey }) => {
+    setDownloadError(null)
+    setProgress({})
+    try {
+      setStatus(await removeModelApi({ key }))
+    } catch (caught) {
+      setDownloadError(caught instanceof Error ? caught : new Error(t.models.status.removeError))
+    }
+  }
+
   return {
     status,
     isLoading,
@@ -89,7 +101,8 @@ const useModelStatus = () => {
     isDownloading,
     downloadError,
     downloadModels,
-    downloadSummaryModel
+    downloadSummaryModel,
+    removeModel
   }
 }
 

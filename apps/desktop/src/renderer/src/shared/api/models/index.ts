@@ -1,4 +1,4 @@
-import type { DownloadModelsRequest } from '@shared/ipc'
+import type { DownloadModelsRequest, RemoveModelRequest } from '@shared/ipc'
 
 /**
  * @description 모델 설치 상태와 선택지를 불러옵니다. 온보딩 진입 여부(`isReady`)와 요약 가능 여부(`isSummaryReady`)를 함께 줍니다.
@@ -25,3 +25,13 @@ export const downloadModelsApi = async ({ whisperModelId }: DownloadModelsReques
  * const status = await downloadSummaryModelApi()
  */
 export const downloadSummaryModelApi = async () => window.api.models.downloadSummary()
+
+/**
+ * @description 설치된 모델 파일 하나를 지웁니다. `whisper`는 현재 선택된 모델이고, 받는 중에는 거절됩니다.
+ * @param key - 지울 모델
+ * @returns 지운 뒤의 모델 상태
+ * @example
+ * const status = await removeModelApi({ key: 'summary' })
+ */
+export const removeModelApi = async ({ key }: RemoveModelRequest) =>
+  window.api.models.remove({ key })

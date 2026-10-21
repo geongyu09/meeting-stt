@@ -35,7 +35,8 @@ export default function ModelDownloadSection({
     progress,
     isDownloading,
     downloadError,
-    downloadModels
+    downloadModels,
+    removeModel
   } = useModelStatus()
   const [chosenId, setChosenId] = useState<WhisperModelId | null>(null)
   const [isCompleted, setIsCompleted] = useState(false)
@@ -119,7 +120,19 @@ export default function ModelDownloadSection({
 
       {isLowSpecWarning && <p className={styles.warning}>{t.models.download.lowSpecWarning}</p>}
 
-      <DownloadItemList items={items} progress={progress} isDownloading={isDownloading} />
+      <DownloadItemList
+        items={items}
+        progress={progress}
+        isDownloading={isDownloading}
+        onRemove={
+          variant === 'setting'
+            ? (key) => {
+                setIsCompleted(false)
+                removeModel({ key })
+              }
+            : undefined
+        }
+      />
 
       <div className={styles.actions}>
         {renderStatusNote()}

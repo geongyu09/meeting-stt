@@ -120,13 +120,13 @@ import {
   updateUtteranceText
 } from '../db/utterances'
 import type { ModelDownloadProgress } from '../models/download'
-import { isWhisperModelId } from '@meeting-stt/models/desktop'
+import { isModelKey, isWhisperModelId } from '@meeting-stt/models/desktop'
 import { notifyMeetingsChanged } from '../meetingsChanged'
 import { setCurrentLocale, t } from '../locale'
 import { buildFeedbackIssueUrl } from '../feedbackUrl'
 import { openExternalUrl } from '../windows/externalUrl'
 import { applyTheme } from '../theme'
-import { downloadModels, downloadSummaryModel, modelStatus } from '../models/service'
+import { downloadModels, downloadSummaryModel, modelStatus, removeModel } from '../models/service'
 import { recordCorrection } from '../glossary/corrections'
 import { enqueueGlossaryDraft, enqueueRefineJob, enqueueSummaryJob } from '../pipeline/queue'
 import { reprocessMeeting } from '../pipeline/reprocess'
@@ -371,6 +371,14 @@ const readOpenaiModel = (payload: unknown) => {
   }
 
   return payload.model
+}
+
+const readModelKey = (payload: unknown) => {
+  if (!isRecord(payload) || !isModelKey(payload.key)) {
+    throw new Error(t().main.errors.unknownModelKey)
+  }
+
+  return payload.key
 }
 
 const readWhisperModelId = (payload: unknown) => {
@@ -795,6 +803,9 @@ export const registerIpcHandlers = () => {
   ipcMain.handle(IPC.models.status, (): ModelStatusResponse => modelStatus())
 
   ipcMain.handle(IPC.models.download, (_event, payload) => handleDownloadModels(payload))
+  ipcMain.handle(IPC.models.remove, async (_event, payload) =>
+    broadcastModelsChanged(await removeModel({ key: readModelKey(payload) }))
+  )
 
   ipcMain.handle(IPC.models.downloadSummary, async (): Promise<DownloadModelsResponse> =>
     broadcastModelsChanged(
