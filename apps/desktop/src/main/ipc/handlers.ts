@@ -4,6 +4,8 @@ import {
   type CheckLlmResponse,
   type DownloadModelsResponse,
   type ExportMeetingAudioResponse,
+  type ListMeetingAudioResponse,
+  type DeleteMeetingAudioResponse,
   type ImportMeetingAudioResponse,
   type GetLlmStatusResponse,
   type GetMeetingRequest,
@@ -60,7 +62,7 @@ import {
 import { exportRecording } from '../audio/exportRecording'
 import { registerAssistantHandlers } from './assistant'
 import { importRecording } from '../audio/importRecording'
-import { deleteMeetingWithRecording } from '../audio/recordings'
+import { deleteAudioFiles, deleteMeetingWithRecording, listAudioFiles } from '../audio/recordings'
 import {
   appendRecordingChunk,
   getRecordingState,
@@ -189,6 +191,14 @@ const readMeetingId = (payload: unknown) =>
     maxLength: LABEL_MAX_LENGTH,
     label: t().main.fields.meetingId
   })
+
+const readMeetingIds = (payload: unknown) => {
+  if (!isRecord(payload) || !Array.isArray(payload.meetingIds)) {
+    throw new Error(t().main.errors.invalidRequest({ what: t().main.fields.meetingId }))
+  }
+
+  return payload.meetingIds.map((meetingId) => readMeetingId({ meetingId }))
+}
 
 /** 요약 템플릿 id. 요약 요청에서는 생략할 수 있다 (없으면 기본 템플릿) */
 const readTemplateId = (payload: unknown) =>
@@ -712,6 +722,12 @@ export const registerIpcHandlers = () => {
     async (_event, payload): Promise<ExportMeetingAudioResponse> => ({
       isSaved: await exportRecording({ meetingId: readMeetingId(payload) })
     })
+  )
+
+  ipcMain.handle(IPC.meetings.listAudio, (): Promise<ListMeetingAudioResponse> => listAudioFiles())
+
+  ipcMain.handle(IPC.meetings.deleteAudio, (_event, payload): Promise<DeleteMeetingAudioResponse> =>
+    deleteAudioFiles({ meetingIds: readMeetingIds(payload) })
   )
 
   // 열기 대화상자와 변환이 끝날 때까지 기다린다. 취소는 meeting: null로 알린다

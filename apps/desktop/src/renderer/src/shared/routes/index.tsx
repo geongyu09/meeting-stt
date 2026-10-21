@@ -1,5 +1,6 @@
 import { createHashRouter } from 'react-router'
 import Assistant from '@renderer/pages/Assistant'
+import Recordings from '@renderer/pages/Recordings'
 import Settings from '@renderer/pages/Settings'
 import SummaryTemplates from '@renderer/pages/SummaryTemplates'
 import Widget from '@renderer/pages/Widget'
@@ -22,7 +23,8 @@ export const router = createHashRouter([
         children: [{ path: PATHS.settings, element: <Settings /> }]
       },
       // 설정에서 들어오는 전체 창 편집 화면. 돌아가기 버튼이 설정 모달을 다시 연다
-      { path: PATHS.summaryTemplates, element: <SummaryTemplates /> }
+      { path: PATHS.summaryTemplates, element: <SummaryTemplates /> },
+      { path: PATHS.recordings, element: <Recordings /> }
     ]
   }
 ])

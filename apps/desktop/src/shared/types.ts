@@ -21,6 +21,17 @@ export type { ModelKey, WhisperModelId } from '@meeting-stt/models/desktop'
 
 export type MeetingStatus = 'recording' | 'processing' | 'done' | 'error'
 
+/** 녹음 파일 관리 화면의 한 행 (references/features/recording.md "녹음 파일 관리") */
+export interface MeetingAudioFile {
+  meetingId: string
+  title: string
+  createdAt: number
+  durationSec: number
+  status: MeetingStatus
+  /** null이면 경로는 있는데 파일이 없다 */
+  sizeBytes: number | null
+}
+
 export interface Meeting {
   id: string
   title: string

@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router'
 import FeedbackButton from '@renderer/modules/features/feedback/FeedbackButton'
 import UpdateCheck from '@renderer/modules/features/update/UpdateCheck'
 import {
@@ -11,10 +12,13 @@ import {
   WIDGET_FADE_OPACITY_STEP
 } from '@shared/widget'
 import SettingGroup from '@renderer/shared/components/primitives/layout/SettingGroup'
+import SettingRow from '@renderer/shared/components/primitives/layout/SettingRow'
+import Button from '@renderer/shared/components/primitives/ui/Button'
 import useInputDevices from '@renderer/shared/hooks/domain/recording/useInputDevices'
 import useRecordingState from '@renderer/shared/hooks/domain/recording/useRecordingState'
 import useSettings from '@renderer/shared/hooks/domain/setting/useSettings'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
+import { PATHS } from '@renderer/shared/routes/paths'
 
 import InputDeviceSelect from './ui/InputDeviceSelect'
 import LocaleSelect from './ui/LocaleSelect'
@@ -44,6 +48,7 @@ interface SettingsSectionProps {
 
 export default function SettingsSection({ category }: SettingsSectionProps) {
   const { t } = useLocale()
+  const navigate = useNavigate()
   const { settings, isLoading, error, updateSettings } = useSettings()
   const { devices, isLoading: isDevicesLoading, error: devicesError } = useInputDevices()
   const { isRecording, systemAudio } = useRecordingState()
@@ -91,6 +96,15 @@ export default function SettingsSection({ category }: SettingsSectionProps) {
           >
             {t.settings.audioKeep.description}
           </SettingToggle>
+          <SettingRow
+            title={t.settings.audioFiles.title}
+            description={t.settings.audioFiles.description}
+            control={
+              <Button variant="secondary" size="sm" onClick={() => navigate(PATHS.recordings)}>
+                {t.settings.audioFiles.manage}
+              </Button>
+            }
+          />
           <SettingToggle
             title={t.settings.quietProcessing.title}
             isChecked={settings.isQuietProcessing}

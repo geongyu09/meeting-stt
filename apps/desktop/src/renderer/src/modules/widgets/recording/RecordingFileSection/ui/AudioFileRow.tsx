@@ -1,10 +1,8 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
 import type { MeetingAudioFile } from '@shared/types'
 import Badge from '@renderer/shared/components/primitives/ui/Badge'
 import Button from '@renderer/shared/components/primitives/ui/Button'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
-import { meetingDetailPath } from '@renderer/shared/routes/paths'
 import { formatBytes } from '@renderer/shared/utils/formatBytes'
 import { formatDuration } from '@renderer/shared/utils/formatDuration'
 import { formatMeetingDate } from '@renderer/shared/utils/formatMeetingDate'
@@ -54,9 +52,8 @@ export default function AudioFileRow({
           onChange={(event) => onSelect(event.target.checked)}
         />
         <div className={styles.text}>
-          <Link className={styles.title} to={meetingDetailPath({ meetingId: file.meetingId })}>
-            {file.title}
-          </Link>
+          {/* shortcut: 회의 상세 페이지가 없어져 제목은 글자만, 전체 기록 패널을 밖에서 열 수 있게 되면 링크로 */}
+          <span className={styles.title}>{file.title}</span>
           <span className={styles.meta}>
             {formatMeetingDate({ epochMs: file.createdAt, locale })} ·{' '}
             {formatDuration({ sec: file.durationSec, locale })} · {size}

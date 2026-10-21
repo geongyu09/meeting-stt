@@ -14,6 +14,7 @@ import type {
   LlmStatus,
   OpenaiModelId,
   Meeting,
+  MeetingAudioFile,
   MeetingDetail,
   ModelKey,
   PipelineStage,
@@ -384,6 +385,22 @@ export interface ExportMeetingAudioRequest {
 /** 저장 위치 대화상자를 사용자가 취소하면 false. 취소는 오류가 아니다 */
 export interface ExportMeetingAudioResponse {
   isSaved: boolean
+}
+
+/** 보관 중인 녹음 파일 목록 (녹음 중인 회의 제외, 최근 녹음 먼저) */
+export type ListMeetingAudioResponse = MeetingAudioFile[]
+
+/**
+ * 녹음 파일만 지우고 회의록은 남긴다. 녹음 중·처리 중인 회의는 건너뛰고 failedCount에 센다
+ * (references/features/recording.md "녹음 파일 관리").
+ */
+export interface DeleteMeetingAudioRequest {
+  meetingIds: string[]
+}
+export interface DeleteMeetingAudioResponse {
+  /** 지운 뒤 다시 읽은 목록 */
+  files: MeetingAudioFile[]
+  failedCount: number
 }
 
 /**

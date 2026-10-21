@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
 
 vi.mock('@renderer/shared/api/settings', () => ({
   getSettingsApi: vi.fn(),
@@ -126,7 +127,11 @@ afterEach(() => {
 describe('SettingsSection', () => {
   it('원본 녹음 보관이 꺼진 상태를 보여준다', async () => {
     vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
-    render(<SettingsSection category="recording" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="recording" />
+      </MemoryRouter>
+    )
 
     expect(isOn(await findSwitch(AUDIO_LABEL))).toBe(false)
     expect(screen.getByText(/보관하지 않은 회의는 나중에 다시 처리할 수 없습니다/)).toBeTruthy()
@@ -136,7 +141,11 @@ describe('SettingsSection', () => {
     const user = userEvent.setup()
     vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
     vi.mocked(updateSettingsApi).mockResolvedValue({ ...DEFAULT_SETTINGS, isAudioKept: true })
-    render(<SettingsSection category="recording" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="recording" />
+      </MemoryRouter>
+    )
 
     await user.click(await findSwitch(AUDIO_LABEL))
 
@@ -152,7 +161,11 @@ describe('SettingsSection', () => {
       isAudioKept: true,
       isUpdateCheckEnabled: true
     })
-    render(<SettingsSection category="update" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="update" />
+      </MemoryRouter>
+    )
 
     await user.click(await findSwitch(UPDATE_LABEL))
 
@@ -168,7 +181,11 @@ describe('SettingsSection', () => {
     const user = userEvent.setup()
     vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
     vi.mocked(updateSettingsApi).mockResolvedValue({ ...DEFAULT_SETTINGS, isQuietProcessing: true })
-    render(<SettingsSection category="recording" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="recording" />
+      </MemoryRouter>
+    )
 
     const toggle = await findSwitch(QUIET_LABEL)
     expect(isOn(toggle)).toBe(false)
@@ -184,7 +201,11 @@ describe('SettingsSection', () => {
     const user = userEvent.setup()
     vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
     vi.mocked(updateSettingsApi).mockRejectedValue(new Error('설정을 저장하지 못했습니다'))
-    render(<SettingsSection category="recording" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="recording" />
+      </MemoryRouter>
+    )
 
     await user.click(await findSwitch(AUDIO_LABEL))
 
@@ -199,7 +220,11 @@ describe('SettingsSection', () => {
       ...DEFAULT_SETTINGS,
       isWidgetFadeEnabled: false
     })
-    render(<SettingsSection category="widget" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="widget" />
+      </MemoryRouter>
+    )
 
     const slider = (await screen.findByLabelText(OPACITY_LABEL)) as HTMLInputElement
     expect(slider.disabled).toBe(false)
@@ -216,7 +241,11 @@ describe('SettingsSection', () => {
   it('불투명도 슬라이더를 움직이면 값을 저장한다', async () => {
     vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
     vi.mocked(updateSettingsApi).mockResolvedValue({ ...DEFAULT_SETTINGS, widgetFadeOpacity: 0.3 })
-    render(<SettingsSection category="widget" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="widget" />
+      </MemoryRouter>
+    )
 
     fireEvent.change(await screen.findByLabelText(OPACITY_LABEL), { target: { value: '0.3' } })
 
@@ -236,7 +265,11 @@ describe('SettingsSection', () => {
       ...DEFAULT_SETTINGS,
       recordingShortcut: 'Control+Shift+F5'
     })
-    render(<SettingsSection category="shortcut" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="shortcut" />
+      </MemoryRouter>
+    )
 
     const button = await screen.findByRole('button', { name: RECORDING_SHORTCUT_BUTTON })
     expect(button.textContent).toBe('⌥⌘R')
@@ -260,7 +293,11 @@ describe('SettingsSection', () => {
     const user = userEvent.setup()
     vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
     vi.mocked(updateSettingsApi).mockResolvedValue({ ...DEFAULT_SETTINGS, recordingShortcut: '' })
-    render(<SettingsSection category="shortcut" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="shortcut" />
+      </MemoryRouter>
+    )
 
     const [turnOffRecording] = await screen.findAllByRole('button', { name: '끄기' })
     await user.click(turnOffRecording)
@@ -276,7 +313,11 @@ describe('SettingsSection', () => {
   it('수식키 없는 입력은 무시하고 Esc로 취소한다', async () => {
     const user = userEvent.setup()
     vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
-    render(<SettingsSection category="shortcut" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="shortcut" />
+      </MemoryRouter>
+    )
 
     const button = await screen.findByRole('button', { name: RECORDING_SHORTCUT_BUTTON })
     await user.click(button)
@@ -297,7 +338,11 @@ describe('SettingsSection', () => {
     vi.mocked(updateSettingsApi).mockRejectedValue(
       new Error('단축키 ⌘Space를 등록하지 못했습니다. 다른 앱이 쓰는 중일 수 있습니다')
     )
-    render(<SettingsSection category="shortcut" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="shortcut" />
+      </MemoryRouter>
+    )
 
     const button = await screen.findByRole('button', { name: RECORDING_SHORTCUT_BUTTON })
     await user.click(button)
@@ -309,14 +354,22 @@ describe('SettingsSection', () => {
 
   it('설정을 불러오지 못하면 오류를 보여준다', async () => {
     vi.mocked(getSettingsApi).mockRejectedValue(new Error('설정을 불러오지 못했습니다'))
-    render(<SettingsSection category="recording" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="recording" />
+      </MemoryRouter>
+    )
 
     expect(await screen.findByRole('alert')).toBeTruthy()
   })
 
   it('고른 카테고리 하나만 그린다', async () => {
     vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
-    render(<SettingsSection category="widget" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="widget" />
+      </MemoryRouter>
+    )
 
     await findSwitch(FADE_LABEL)
     const regions = screen
@@ -335,7 +388,11 @@ describe('SettingsSection', () => {
     const user = userEvent.setup()
     vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
     vi.mocked(updateSettingsApi).mockResolvedValue({ ...DEFAULT_SETTINGS, inputDevice: USB_DEVICE })
-    render(<SettingsSection category="microphone" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="microphone" />
+      </MemoryRouter>
+    )
 
     const select = (await screen.findByRole('combobox', {
       name: DEVICE_LABEL
@@ -355,7 +412,11 @@ describe('SettingsSection', () => {
     const user = userEvent.setup()
     vi.mocked(getSettingsApi).mockResolvedValue({ ...DEFAULT_SETTINGS, inputDevice: USB_DEVICE })
     vi.mocked(updateSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
-    render(<SettingsSection category="microphone" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="microphone" />
+      </MemoryRouter>
+    )
 
     const select = await screen.findByRole('combobox', { name: DEVICE_LABEL })
     await screen.findByRole('option', { name: 'USB 마이크' })
@@ -367,7 +428,11 @@ describe('SettingsSection', () => {
   it('골라 둔 마이크가 빠져 있으면 연결되지 않았다고 알리고 기본 마이크 폴백을 안내한다', async () => {
     stubMediaDevices([BUILT_IN_DEVICE])
     vi.mocked(getSettingsApi).mockResolvedValue({ ...DEFAULT_SETTINGS, inputDevice: USB_DEVICE })
-    render(<SettingsSection category="microphone" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="microphone" />
+      </MemoryRouter>
+    )
 
     expect(await screen.findByRole('option', { name: 'USB 마이크 (연결되지 않음)' })).toBeTruthy()
     expect(screen.getByText(/고른 마이크가 연결돼 있지 않습니다/)).toBeTruthy()
@@ -376,7 +441,11 @@ describe('SettingsSection', () => {
   it('마이크 테스트를 시작하면 입력 세기를 보여주고 정지하면 지운다', async () => {
     const user = userEvent.setup()
     vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
-    render(<SettingsSection category="microphone" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="microphone" />
+      </MemoryRouter>
+    )
 
     await user.click(await screen.findByRole('button', { name: TEST_START_BUTTON }))
 
@@ -392,7 +461,11 @@ describe('SettingsSection', () => {
   it('마이크를 열지 못하면 테스트가 그 이유를 보여준다', async () => {
     const user = userEvent.setup()
     vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
-    render(<SettingsSection category="microphone" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="microphone" />
+      </MemoryRouter>
+    )
     await screen.findByRole('option', { name: 'USB 마이크' })
     vi.mocked(navigator.mediaDevices.getUserMedia).mockRejectedValueOnce(
       new Error('Permission denied')
@@ -412,7 +485,11 @@ describe('SettingsSection', () => {
       startedAt: Date.now(),
       level: 0.1
     })
-    render(<SettingsSection category="microphone" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="microphone" />
+      </MemoryRouter>
+    )
 
     const button = await screen.findByRole('button', { name: TEST_START_BUTTON })
     expect(await screen.findByText(/녹음 중에는 테스트할 수 없습니다/)).toBeTruthy()
@@ -423,7 +500,11 @@ describe('SettingsSection', () => {
     const user = userEvent.setup()
     vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
     vi.mocked(updateSettingsApi).mockResolvedValue({ ...DEFAULT_SETTINGS, locale: 'en' })
-    render(<SettingsSection category="language" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="language" />
+      </MemoryRouter>
+    )
 
     const select = (await screen.findByRole('combobox', {
       name: LOCALE_LABEL
@@ -443,7 +524,11 @@ describe('SettingsSection', () => {
     const user = userEvent.setup()
     vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
     vi.mocked(updateSettingsApi).mockResolvedValue({ ...DEFAULT_SETTINGS, theme: 'dark' })
-    render(<SettingsSection category="appearance" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="appearance" />
+      </MemoryRouter>
+    )
 
     const select = (await screen.findByRole('combobox', {
       name: THEME_LABEL
@@ -465,7 +550,11 @@ describe('SettingsSection', () => {
       ...IDLE_STATE,
       systemAudio: { isEnabled: false, errorMessage: '권한이 거부됐습니다' }
     })
-    render(<SettingsSection category="microphone" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="microphone" />
+      </MemoryRouter>
+    )
 
     await userEvent.click(await findSwitch('온라인 회의 소리 함께 녹음'))
 
@@ -479,7 +568,11 @@ describe('SettingsSection', () => {
       meetingId: 'meeting-1',
       startedAt: Date.now()
     })
-    render(<SettingsSection category="microphone" />)
+    render(
+      <MemoryRouter>
+        <SettingsSection category="microphone" />
+      </MemoryRouter>
+    )
 
     const toggle = await findSwitch('온라인 회의 소리 함께 녹음')
     await waitFor(() => expect(toggle.hasAttribute('disabled')).toBe(true))

@@ -4,5 +4,6 @@ export const PATHS = {
   assistant: '/',
   settings: '/settings',
   summaryTemplates: '/summary-templates',
+  recordings: '/recordings',
   widget: '/widget'
 } as const

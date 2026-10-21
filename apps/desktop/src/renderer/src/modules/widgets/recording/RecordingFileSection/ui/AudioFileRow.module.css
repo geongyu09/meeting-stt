@@ -30,13 +30,8 @@
   overflow: hidden;
   color: var(--color-text);
   font-weight: 600;
-  text-decoration: none;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.title:hover {
-  text-decoration: underline;
 }
 
 .meta {

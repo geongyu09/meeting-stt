@@ -46,6 +46,11 @@ export const settingsKo = {
     description:
       '꺼 두면 회의록을 만든 뒤 원본 녹음을 지웁니다. 16kHz 녹음은 한 시간에 약 115MB를 차지하며, 보관하지 않은 회의는 나중에 다시 처리할 수 없습니다.'
   },
+  audioFiles: {
+    title: '녹음 파일 관리하기',
+    description: '보관 중인 녹음 파일을 모아 보고 지웁니다. 녹음 파일만 지우고 회의록은 남습니다.',
+    manage: '관리'
+  },
   quietProcessing: {
     title: '조용히 처리',
     description:
@@ -159,6 +164,12 @@ export const settingsEn: typeof settingsKo = {
     title: 'Keep original recordings',
     description:
       'When off, the original recording is deleted after the transcript is made. A 16kHz recording takes about 115MB per hour, and meetings without a kept recording cannot be reprocessed later.'
+  },
+  audioFiles: {
+    title: 'Manage recording files',
+    description:
+      'See every kept recording in one place and delete the ones you no longer need. Only the audio is removed; transcripts stay.',
+    manage: 'Manage'
   },
   quietProcessing: {
     title: 'Quiet processing',
