@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from 'react'
+import { useState, type KeyboardEvent } from 'react'
 import Button from '@renderer/shared/components/primitives/ui/Button'
 import useAssistantStatus from '@renderer/shared/hooks/domain/assistant/useAssistantStatus'
 import useWorkspaceFiles from '@renderer/shared/hooks/domain/assistant/useWorkspaceFiles'
@@ -6,6 +6,8 @@ import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import useDocumentEditor from './model/useDocumentEditor'
 import EditorToolbar from './ui/EditorToolbar'
+import FileTree from './ui/FileTree'
+import { fileTreeOf } from './utils/fileTree'
 import styles from './index.module.css'
 
 interface DocumentEditorSectionProps {
@@ -17,7 +19,7 @@ interface DocumentEditorSectionProps {
 }
 
 /**
- * 대화 옆 문서 패널 — 목록 + textarea (references/features/ui.md "채팅창 리뉴얼" > "문서 패널").
+ * 대화 옆 문서 패널 — 파일 트리 + textarea (references/features/ui.md "채팅창 리뉴얼" > "문서 패널").
  * 에디터 라이브러리는 쓰지 않는다 (SKILL.md 1절 "편집").
  */
 export default function DocumentEditorSection({
@@ -31,6 +33,16 @@ export default function DocumentEditorSection({
   const folder = status && !status.folderProblem ? status.folder : null
   const { files, error: listError } = useWorkspaceFiles({ folder })
   const editor = useDocumentEditor({ path: folder ? openPath : null })
+  // 문서를 열었다 목록으로 돌아와도 펼친 폴더를 유지하려고 트리 밖에 둔다
+  const [expandedPaths, setExpandedPaths] = useState<ReadonlySet<string>>(new Set())
+
+  const handleToggle = (path: string) =>
+    setExpandedPaths((current) => {
+      const next = new Set(current)
+      if (current.has(path)) next.delete(path)
+      else next.add(path)
+      return next
+    })
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (!(event.metaKey || event.ctrlKey) || event.key !== 's') return
@@ -43,18 +55,18 @@ export default function DocumentEditorSection({
     ? null
     : listError
       ? labels.listError
-      : !openPath
-        ? files.length
-          ? labels.pickFile
+      : openPath
+        ? editor.loadError
+        : files.length
+          ? null
           : labels.noFiles
-        : editor.loadError
+  const isTreeShown = Boolean(folder) && !listError && !openPath && files.length > 0
 
   return (
     <section className={styles.section} aria-label={labels.title}>
       <EditorToolbar
-        files={files}
         openPath={folder ? openPath : null}
-        onOpenPathChange={onOpenPathChange}
+        onBack={() => onOpenPathChange(null)}
         isDirty={editor.isDirty}
         isSaving={editor.isSaving}
         isJustSaved={editor.isJustSaved}
@@ -75,6 +87,16 @@ export default function DocumentEditorSection({
         </p>
       ) : null}
       {message ? <p className={styles.message}>{message}</p> : null}
+      {isTreeShown ? (
+        <nav className={styles.tree} aria-label={labels.fileList}>
+          <FileTree
+            nodes={fileTreeOf(files)}
+            expandedPaths={expandedPaths}
+            onToggle={handleToggle}
+            onOpen={onOpenPathChange}
+          />
+        </nav>
+      ) : null}
       {openPath && editor.isLoaded ? (
         <textarea
           className={styles.editor}

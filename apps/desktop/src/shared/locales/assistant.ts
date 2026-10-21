@@ -58,10 +58,9 @@ export const assistantKo = {
   },
   editor: {
     title: '문서',
-    fileList: '열린 문서',
+    fileList: '문서 목록',
     close: '문서 닫기',
     saveKey: '⌘S',
-    pickFile: '문서를 고르세요',
     noFiles: '작업 폴더에 마크다운 문서가 없습니다',
     editorLabel: ({ path }: { path: string }) => `${path} 편집`,
     save: '저장',
@@ -196,10 +195,9 @@ export const assistantEn: typeof assistantKo = {
   },
   editor: {
     title: 'Documents',
-    fileList: 'Open document',
+    fileList: 'Document list',
     close: 'Close document',
     saveKey: '⌘S',
-    pickFile: 'Pick a document',
     noFiles: 'No Markdown documents in the work folder',
     editorLabel: ({ path }) => `Edit ${path}`,
     save: 'Save',

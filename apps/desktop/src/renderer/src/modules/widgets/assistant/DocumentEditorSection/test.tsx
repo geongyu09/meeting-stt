@@ -53,6 +53,14 @@ const notifyChanged = async (event: WorkspaceFilesChangedEvent) => {
   await act(async () => listeners.forEach((listener) => listener(event)))
 }
 
+/** 트리에서 폴더를 펴고 파일을 누른다 */
+const openFromTree = async ({ folder, file }: { folder: string; file: string }) => {
+  await userEvent.click(await screen.findByRole('button', { name: folder }))
+  await userEvent.click(screen.getByRole('button', { name: file }))
+}
+
+const backToList = () => userEvent.click(screen.getByRole('button', { name: '문서 목록' }))
+
 const editorOf = (path: string) =>
   screen.findByRole('textbox', { name: `${path} 편집` }) as Promise<HTMLTextAreaElement>
 
@@ -75,12 +83,13 @@ afterEach(() => {
 })
 
 describe('DocumentEditorSection', () => {
-  it('목록에서 문서를 고르면 열고, 고쳐서 ⌘S로 저장한다', async () => {
+  it('트리에서 폴더를 펴고 문서를 누르면 열고, 고쳐서 ⌘S로 저장한다', async () => {
     render(<Harness />)
-    const select = await screen.findByRole('combobox', { name: '열린 문서' })
-    await screen.findByRole('option', { name: 'notes/b.md' })
+    const tree = await screen.findByRole('navigation', { name: '문서 목록' })
+    expect(screen.queryByRole('button', { name: 'b.md' })).toBeNull()
+    expect(tree.textContent).toContain('a.md')
 
-    await userEvent.selectOptions(select, 'notes/b.md')
+    await openFromTree({ folder: 'notes', file: 'b.md' })
     const editor = await editorOf('notes/b.md')
     expect(editor.value).toBe('# B')
 
@@ -90,6 +99,9 @@ describe('DocumentEditorSection', () => {
 
     await vi.waitFor(() => expect(disk['notes/b.md']).toBe('# B 고침'))
     expect((await screen.findByRole('status')).textContent).toBe('저장했습니다')
+
+    await backToList()
+    expect(await screen.findByRole('button', { name: 'b.md' })).toBeTruthy()
   })
 
   it('편집 중이 아니면 에이전트가 고친 내용을 바로 보여 준다', async () => {
@@ -134,22 +146,22 @@ describe('DocumentEditorSection', () => {
     fireEvent.change(await editorOf('a.md'), { target: { value: '# A 저장' } })
     await userEvent.click(screen.getByRole('button', { name: '저장' }))
     expect((await screen.findByRole('status')).textContent).toBe('저장했습니다')
-    await screen.findByRole('option', { name: 'notes/b.md' })
 
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: '열린 문서' }), 'notes/b.md')
+    await backToList()
+    await openFromTree({ folder: 'notes', file: 'b.md' })
     await editorOf('notes/b.md')
 
     expect(screen.queryByText('저장했습니다')).toBeNull()
   })
 
-  it('다른 문서로 바꾸면 저장하지 않은 변경을 저장한다', async () => {
+  it('목록으로 돌아가면 저장하지 않은 변경을 저장한다', async () => {
     render(<Harness initialPath="a.md" />)
     fireEvent.change(await editorOf('a.md'), { target: { value: '# A 바꾸기 전' } })
-    await screen.findByRole('option', { name: 'notes/b.md' })
 
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: '열린 문서' }), 'notes/b.md')
+    await backToList()
 
     await vi.waitFor(() => expect(disk['a.md']).toBe('# A 바꾸기 전'))
+    await openFromTree({ folder: 'notes', file: 'b.md' })
     expect((await editorOf('notes/b.md')).value).toBe('# B')
   })
 
