@@ -1,5 +1,5 @@
 /**
- * 모델 다운로드·온보딩 문구 (ModelDownloadSection·SummaryModelSection·pages/Onboarding).
+ * 모델 다운로드 문구 (ModelDownloadSection·SummaryModelSection). 처음 실행 설정 카드는 `setup.ts`.
  * ko가 타입을 정하고 en은 같은 키를 가져야 한다 (references/architecture.md "UI 언어").
  * 모델 자체의 이름·설명(`whisperOptions[].label`, `items[].label`)은 main의 카탈로그가 준다.
  */
@@ -8,6 +8,7 @@ export const modelsKo = {
     loading: '모델 상태를 확인하는 중입니다',
     loadError: '모델 상태를 확인하지 못했습니다',
     downloadError: '모델을 내려받지 못했습니다',
+    removeError: '모델을 지우지 못했습니다',
     retry: '다시 시도'
   },
   download: {
@@ -32,7 +33,11 @@ export const modelsKo = {
     itemDone: '완료',
     itemWaiting: '대기',
     itemProgressLabel: ({ label }: { label: string }) => `${label} 다운로드 진행률`,
-    whisperItemLabel: ({ label }: { label: string }) => `음성 인식 모델 (${label})`
+    whisperItemLabel: ({ label }: { label: string }) => `음성 인식 모델 (${label})`,
+    remove: '제거',
+    removeLabel: ({ label }: { label: string }) => `${label} 제거`,
+    confirmRemove: '정말 제거',
+    cancel: '취소'
   },
   summaryModel: {
     title: '로컬 요약 모델 파일',
@@ -44,18 +49,6 @@ export const modelsKo = {
     installedStatus: '설치되어 있습니다',
     download: '모델 파일 받기',
     progressLabel: '요약 모델 다운로드 진행률'
-  },
-  onboarding: {
-    eyebrow: '처음 설정',
-    title: '인터넷 사용, 비용, 시간 제한 없는 회의록',
-    descriptionLine1: '로컬 모델을 사용해 음성 인식·화자 분리를 제한 없이 사용해 보세요.',
-    descriptionLine2:
-      '처음 한 번 설치하면 인터넷 연결 없이 동작하고, 녹음은 어디로도 보내지 않습니다.',
-    features: [
-      '서버 없음, 계정 없음',
-      '화자별로 나눠진 회의록과 로컬 요약',
-      '회의 중엔 작은 위젯과 단축키로 녹음'
-    ]
   }
 }
 
@@ -64,6 +57,7 @@ export const modelsEn: typeof modelsKo = {
     loading: 'Checking model status',
     loadError: 'Could not check model status',
     downloadError: 'Could not download the model',
+    removeError: 'Could not remove the model',
     retry: 'Try again'
   },
   download: {
@@ -88,7 +82,11 @@ export const modelsEn: typeof modelsKo = {
     itemDone: 'Done',
     itemWaiting: 'Waiting',
     itemProgressLabel: ({ label }: { label: string }) => `${label} download progress`,
-    whisperItemLabel: ({ label }: { label: string }) => `Speech recognition model (${label})`
+    whisperItemLabel: ({ label }: { label: string }) => `Speech recognition model (${label})`,
+    remove: 'Remove',
+    removeLabel: ({ label }: { label: string }) => `Remove ${label}`,
+    confirmRemove: 'Confirm removal',
+    cancel: 'Cancel'
   },
   summaryModel: {
     title: 'Local summary model file',
@@ -100,17 +98,5 @@ export const modelsEn: typeof modelsKo = {
     installedStatus: 'Installed',
     download: 'Download model file',
     progressLabel: 'Summary model download progress'
-  },
-  onboarding: {
-    eyebrow: 'First-time setup',
-    title: 'Meeting transcripts with no internet, no cost and no time limit',
-    descriptionLine1: 'Use local models for unlimited speech recognition and speaker separation.',
-    descriptionLine2:
-      'After a one-time install it works without an internet connection, and recordings are never sent anywhere.',
-    features: [
-      'No server, no account',
-      'Speaker-separated transcripts and local summaries',
-      'Record during meetings with a small widget and shortcuts'
-    ]
   }
 }

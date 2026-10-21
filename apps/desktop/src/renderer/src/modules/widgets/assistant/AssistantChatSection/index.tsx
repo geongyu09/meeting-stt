@@ -1,19 +1,34 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useLocation, useNavigate } from 'react-router'
 import type { AssistantProvider, LlmStatus } from '@shared/types'
-import { ASSISTANT_PROVIDERS, isAssistantProvider } from '@shared/assistant'
-import Button from '@renderer/shared/components/primitives/ui/Button'
+import { ASSISTANT_PROVIDERS } from '@shared/assistant'
+import { formatAccelerator } from '@shared/shortcut'
+import { controlRecordingApi } from '@renderer/shared/api/recording'
 import useAssistantChat from '@renderer/shared/hooks/domain/assistant/useAssistantChat'
 import useAssistantStatus from '@renderer/shared/hooks/domain/assistant/useAssistantStatus'
+import useWorkspaceFiles from '@renderer/shared/hooks/domain/assistant/useWorkspaceFiles'
+import useWorkspaceSkills from '@renderer/shared/hooks/domain/assistant/useWorkspaceSkills'
 import useLlmStatus from '@renderer/shared/hooks/domain/llm/useLlmStatus'
+import useAudioImport from '@renderer/shared/hooks/domain/meeting/useAudioImport'
+import useMeetings from '@renderer/shared/hooks/domain/meeting/useMeetings'
+import useRecordingState from '@renderer/shared/hooks/domain/recording/useRecordingState'
+import useSettings from '@renderer/shared/hooks/domain/setting/useSettings'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
+import { COMMAND_PATHS, COMMANDS, MAX_MENU_ITEMS } from './constants/commands'
+import type { CommandId, MenuGroup, MenuItem } from './types/menu'
+import { folderPathsOf, matchesQuery, type MenuQuery } from './utils/menuQuery'
 import ChatNotice from './ui/ChatNotice'
-import MessageInput from './ui/MessageInput'
+import Composer from './ui/Composer'
+import HelperGrid from './ui/HelperGrid'
+import RecordTimeline from './ui/RecordTimeline'
 import TurnList from './ui/TurnList'
 import styles from './index.module.css'
 
 /** 아래에서 이만큼 안이면 새 글이 올 때 따라 내려간다. 위로 올려 읽는 중이면 그대로 둔다 */
 const STICK_TO_BOTTOM_PX = 80
+/** 이 시각 뒤에 만들어진 회의만 대화에 기록 카드로 보인다 (references/features/recording.md "채팅 창의 녹음" > "기록 카드") */
+const SESSION_STARTED_AT = Date.now()
 
 const cliPathOf = ({
   provider,
@@ -23,22 +38,48 @@ const cliPathOf = ({
   llmStatus: LlmStatus
 }) => (provider === 'codex-cli' ? llmStatus.codexCliPath : llmStatus.claudeCliPath)
 
+const parentFolderOf = (path: string) => path.split('/').slice(0, -1).join('/')
+
 interface AssistantChatSectionProps {
-  /** 바뀐 파일을 누르면 페이지가 에디터에 연다 */
-  onOpenFile: (path: string) => void
+  /** 문서 패널에 열린 파일. 패널이 닫혀 있으면 null */
+  openPath: string | null
+  /** 파일과 함께 패널을 연다. null이면 패널만 열어 고르게 한다 */
+  onOpenDocument: (path: string | null) => void
+  /** 입력 도크 바로 위에 붙는 녹음 카드. 페이지가 `recording/RecorderSection`을 넘긴다 */
+  recorderSlot?: ReactNode
 }
 
 /**
- * 개인 비서 채팅 (references/architecture.md "개인 비서 모드" > "화면").
- * 대화의 단일 출처는 main이라 화면을 옮겼다 돌아와도 이어 그린다.
+ * 채팅 창 (references/features/ui.md "채팅창 리뉴얼"). 대화의 단일 출처는 main이라 화면을 옮겼다 돌아와도 이어 그린다.
+ * 에이전트는 설정(`AssistantStatus.provider`)을 따르고 여기서 고르지 않는다.
  */
-export default function AssistantChatSection({ onOpenFile }: AssistantChatSectionProps) {
+export default function AssistantChatSection({
+  openPath,
+  onOpenDocument,
+  recorderSlot
+}: AssistantChatSectionProps) {
   const { t } = useLocale()
   const labels = t.assistant.chat
+  const navigate = useNavigate()
   const { status } = useAssistantStatus()
   const { status: llmStatus } = useLlmStatus()
+  const { settings } = useSettings()
+  const {
+    isRecording,
+    meetingId: recordingMeetingId,
+    startedAt: recordingStartedAt,
+    qualityIssue,
+    errorMessage: recordingError
+  } = useRecordingState()
+  const { meetings } = useMeetings()
+  const { error: importError, importAudio } = useAudioImport()
+  // 정지한 회의는 레이아웃이 이동하며 location.state로 알려 준다 (references/features/recording.md "채팅 창의 녹음")
+  const stoppedMeetingId =
+    (useLocation().state as { stoppedMeetingId?: string } | null)?.stoppedMeetingId ?? null
   const { state, send, cancel, reset } = useAssistantChat()
-  const [selectedProvider, setSelectedProvider] = useState<AssistantProvider | null>(null)
+  const folder = status && !status.folderProblem ? status.folder : null
+  const { files } = useWorkspaceFiles({ folder })
+  const { skills } = useWorkspaceSkills({ folder })
   const [actionError, setActionError] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const isAtBottomRef = useRef(true)
@@ -46,7 +87,7 @@ export default function AssistantChatSection({ onOpenFile }: AssistantChatSectio
   useEffect(() => {
     const scroller = scrollRef.current
     if (scroller && isAtBottomRef.current) scroller.scrollTop = scroller.scrollHeight
-  }, [state.turns])
+  }, [state.turns, meetings, isRecording])
 
   const handleScroll = () => {
     const scroller = scrollRef.current
@@ -56,20 +97,91 @@ export default function AssistantChatSection({ onOpenFile }: AssistantChatSectio
       scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < STICK_TO_BOTTOM_PX
   }
 
-  const handleReset = async () => {
+  /** 실패는 입력 도크 위의 한 줄로 알린다 */
+  const runSafely = async (task: Promise<unknown>) => {
     try {
-      await reset()
+      await task
       setActionError(null)
     } catch (caught) {
       setActionError(caught instanceof Error ? caught.message : labels.sendError)
     }
   }
 
-  const installedProvider = llmStatus
-    ? ASSISTANT_PROVIDERS.find((option) => cliPathOf({ provider: option, llmStatus }))
-    : undefined
-  // 대화 중이면 그 대화의 에이전트, 아니면 사용자가 고른 것, 아직 고르지 않았으면 설치된 첫 CLI
-  const provider = state.provider ?? selectedProvider ?? installedProvider ?? ASSISTANT_PROVIDERS[0]
+  const handleCommand = (id: CommandId) => {
+    if (id === 'record') return runSafely(controlRecordingApi({ kind: 'start' }))
+    if (id === 'importAudio') return importAudio()
+    if (id === 'newChat') return state.turns.length ? runSafely(reset()) : undefined
+    if (id === 'openDocument') return onOpenDocument(null)
+
+    return navigate(COMMAND_PATHS[id])
+  }
+
+  const groupsOf = (query: MenuQuery | null): MenuGroup[] => {
+    if (!query) return []
+    const itemsOf = (candidates: MenuItem[]) =>
+      candidates
+        .filter(({ title, description }) =>
+          matchesQuery({ query: query.query, fields: [title, description] })
+        )
+        .slice(0, MAX_MENU_ITEMS)
+
+    if (query.kind === 'command') {
+      const commands = itemsOf(
+        COMMANDS.map(({ id, icon }) => ({
+          id: `command:${id}`,
+          icon,
+          title: labels.commands[id].label,
+          description: labels.commands[id].description,
+          isMono: false,
+          action: { kind: 'command', commandId: id }
+        }))
+      )
+      const skillItems = itemsOf(
+        skills.map(({ name, description }) => ({
+          id: `skill:${name}`,
+          icon: 'bolt',
+          title: `/${name}`,
+          description,
+          isMono: true,
+          action: { kind: 'insert', text: `/${name}` }
+        }))
+      )
+
+      return [
+        { id: 'commands', title: labels.menu.commands, items: commands },
+        { id: 'skills', title: labels.menu.skills, items: skillItems }
+      ].filter((group) => group.items.length)
+    }
+
+    const fileItems = itemsOf(
+      files.map((path) => ({
+        id: `file:${path}`,
+        icon: 'file',
+        title: path,
+        description: parentFolderOf(path)
+          ? labels.menu.folderOf({ name: parentFolderOf(path).split('/').at(-1) ?? '' })
+          : labels.menu.rootFolder,
+        isMono: true,
+        action: { kind: 'insert', text: `@${path}` }
+      }))
+    )
+    const folderItems = itemsOf(
+      folderPathsOf(files).map((path) => ({
+        id: `folder:${path}`,
+        icon: 'folder',
+        title: path,
+        description: labels.menu.wholeFolder,
+        isMono: true,
+        action: { kind: 'insert', text: `@${path}` }
+      }))
+    )
+    const items = [...fileItems, ...folderItems]
+
+    return items.length ? [{ id: 'files', title: labels.menu.files, items }] : []
+  }
+
+  // 대화 중이면 그 대화의 에이전트, 아니면 설정의 에이전트(저장값이 없으면 main이 설치된 첫 CLI로 채운다)
+  const provider = state.provider ?? status?.provider ?? ASSISTANT_PROVIDERS[0]
   const folderNotice = !status
     ? null
     : !status.folder
@@ -79,59 +191,91 @@ export default function AssistantChatSection({ onOpenFile }: AssistantChatSectio
         : null
   const isCliMissing = llmStatus !== null && !cliPathOf({ provider, llmStatus })
   const isReady = status !== null && folderNotice === null && llmStatus !== null && !isCliMissing
+  const placeholder = openPath
+    ? labels.placeholderDocument
+    : state.turns.length
+      ? labels.placeholderContinue
+      : labels.placeholder
+  const sessionMeetings = meetings
+    .filter((meeting) => meeting.createdAt >= SESSION_STARTED_AT)
+    .toSorted((a, b) => a.createdAt - b.createdAt)
+  const recordingLabels = t.recording.recorder
+  const recordingHint = settings?.recordingShortcut
+    ? `${recordingLabels.keepsRunning} · ${formatAccelerator(settings.recordingShortcut)}`
+    : recordingLabels.keepsRunning
+  const qualityNotice = qualityIssue
+    ? `${t.recording.quality[qualityIssue].title} ${t.recording.quality[qualityIssue].advice}`
+    : null
+
+  // 열린 문서에 대해 묻는 것이라 에이전트에게 어느 문서인지 알린다. 말풍선에도 그대로 보인다
+  const handleSend = (text: string) =>
+    send({
+      provider,
+      text: openPath && !text.includes(`@${openPath}`) ? `@${openPath} ${text}` : text
+    })
 
   return (
     <section className={styles.section} aria-label={labels.title}>
-      <div className={styles.toolbar}>
-        <label className={styles.providerField}>
-          <span>{labels.provider}</span>
-          <select
-            value={provider}
-            disabled={state.turns.length > 0 || state.isRunning}
-            onChange={(event) => {
-              if (isAssistantProvider(event.target.value)) setSelectedProvider(event.target.value)
-            }}
-          >
-            {ASSISTANT_PROVIDERS.map((option) => (
-              <option key={option} value={option}>
-                {t.assistant.providers[option]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={state.isRunning || state.turns.length === 0}
-          onClick={handleReset}
-        >
-          {labels.newChat}
-        </Button>
-      </div>
       <div className={styles.scroll} ref={scrollRef} onScroll={handleScroll}>
-        {state.turns.length ? (
-          <TurnList turns={state.turns} isRunning={state.isRunning} onOpenFile={onOpenFile} />
-        ) : (
-          <p className={styles.empty}>{labels.empty}</p>
-        )}
+        <div className={styles.thread}>
+          {state.turns.length ? (
+            <TurnList
+              turns={state.turns}
+              isRunning={state.isRunning}
+              openPath={openPath}
+              onOpenFile={onOpenDocument}
+            />
+          ) : null}
+          <RecordTimeline
+            meetings={sessionMeetings}
+            recordingMeetingId={recordingMeetingId}
+            recordingStartedAt={recordingStartedAt ?? 0}
+            stoppedMeetingId={stoppedMeetingId}
+          />
+        </div>
       </div>
       <div className={styles.footer}>
+        {state.turns.length ? null : (
+          <HelperGrid
+            recordShortcut={settings ? formatAccelerator(settings.recordingShortcut) : null}
+            onCommand={(id) => void handleCommand(id)}
+          />
+        )}
         <ChatNotice
           folderNotice={folderNotice}
           missingCliLabel={isCliMissing ? t.assistant.providers[provider] : null}
           isNotGitRepo={status !== null && !status.isGitRepo}
         />
-        {actionError ? (
+        {(actionError ?? importError) ? (
           <p className={styles.error} role="alert">
-            {actionError}
+            {actionError ?? importError}
           </p>
         ) : null}
-        <MessageInput
+        {recorderSlot}
+        <Composer
+          placeholder={placeholder}
           isRunning={state.isRunning}
+          isRecording={isRecording}
           isDisabled={!isReady}
-          onSend={(text) => send({ provider, text })}
+          groupsOf={groupsOf}
+          onSend={handleSend}
           onStop={() => void cancel()}
+          onRecord={() => void runSafely(controlRecordingApi({ kind: 'toggle' }))}
+          onCommand={(id) => void handleCommand(id)}
         />
+        {/* 녹음 안내 한 줄. 세션 오류(마이크 권한·모델 없음)는 녹음이 아니어도 보인다 */}
+        {recordingError ? (
+          <p className={styles.recordingError} role="alert">
+            {recordingError}
+          </p>
+        ) : isRecording ? (
+          <p className={qualityNotice ? styles.qualityNotice : styles.recordingHint} role="status">
+            {qualityNotice ?? recordingHint}
+          </p>
+        ) : null}
+        {state.turns.length ? (
+          <HelperGrid isCompact recordShortcut={null} onCommand={(id) => void handleCommand(id)} />
+        ) : null}
       </div>
     </section>
   )

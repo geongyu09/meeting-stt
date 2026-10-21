@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { MeetingDetail } from '@shared/types'
-import { onPipelineProgress, onRefineProgress } from '@renderer/shared/api/events'
+import {
+  onMeetingsChanged,
+  onPipelineProgress,
+  onRefineProgress
+} from '@renderer/shared/api/events'
 import {
   deleteMeetingApi,
   getMeetingApi,
@@ -50,6 +54,10 @@ const useMeeting = ({ meetingId }: UseMeetingParams) => {
   useEffect(() => {
     fetchMeeting()
   }, [fetchMeeting])
+
+  // 녹음 → 처리 중 전환·제목 변경은 진행률 이벤트로 알 수 없다. 대화 속 기록 카드가 이것으로 상태를 따라간다
+  // (references/features/recording.md "채팅 창의 녹음" > "기록 카드")
+  useEffect(() => onMeetingsChanged(() => void fetchMeeting()), [fetchMeeting])
 
   // 이 회의의 처리가 끝났을 때만 다시 읽는다
   useEffect(

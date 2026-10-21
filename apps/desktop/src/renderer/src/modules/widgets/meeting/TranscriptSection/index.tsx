@@ -93,7 +93,7 @@ export default function TranscriptSection({ meetingId, aside }: TranscriptSectio
   })
 
   const handleDelete = async () => {
-    if (await removeMeeting()) navigate(PATHS.home)
+    if (await removeMeeting()) navigate(PATHS.meetings)
   }
 
   const renderBody = () => {

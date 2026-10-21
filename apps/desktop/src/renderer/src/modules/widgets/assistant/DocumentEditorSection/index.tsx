@@ -9,18 +9,21 @@ import EditorToolbar from './ui/EditorToolbar'
 import styles from './index.module.css'
 
 interface DocumentEditorSectionProps {
-  /** 열린 문서. 채팅의 바뀐 파일 버튼과 같이 쓰므로 페이지가 든다 */
+  /** 열린 문서. 채팅의 바뀐 파일 칩과 같이 쓰므로 페이지가 든다 */
   openPath: string | null
   onOpenPathChange: (path: string | null) => void
+  /** 패널을 닫는다. 페이지가 언마운트하므로 저장하지 않은 변경은 정리 effect가 저장한다 */
+  onClose: () => void
 }
 
 /**
- * 작업 폴더의 마크다운 문서 에디터 — 목록 + textarea (references/architecture.md "개인 비서 모드" > "문서 에디터").
+ * 대화 옆 문서 패널 — 목록 + textarea (references/features/ui.md "채팅창 리뉴얼" > "문서 패널").
  * 에디터 라이브러리는 쓰지 않는다 (SKILL.md 1절 "편집").
  */
 export default function DocumentEditorSection({
   openPath,
-  onOpenPathChange
+  onOpenPathChange,
+  onClose
 }: DocumentEditorSectionProps) {
   const { t } = useLocale()
   const labels = t.assistant.editor
@@ -56,6 +59,7 @@ export default function DocumentEditorSection({
         isSaving={editor.isSaving}
         isJustSaved={editor.isJustSaved}
         onSave={() => void editor.save()}
+        onClose={onClose}
       />
       {editor.hasExternalChange ? (
         <div className={styles.notice} role="status">

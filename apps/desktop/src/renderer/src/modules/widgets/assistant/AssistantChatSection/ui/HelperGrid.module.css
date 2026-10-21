@@ -1,0 +1,83 @@
+.helpers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.helper {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  min-height: 72px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.helper:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
+}
+
+.helper > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--color-text-muted);
+}
+
+.helper b {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--font-base);
+  font-weight: 500;
+}
+
+.helper small {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  line-height: 1.45;
+}
+
+/* 대화 중 입력 도크 아래 한 줄. 설명이 없어 낮고 좁으며, 폭이 모자라면 줄을 바꾼다 */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: center;
+}
+
+.row .helper {
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+}
+
+.row .helper > svg {
+  margin-top: 0;
+}
+
+.row .helper b {
+  font-size: var(--font-sm);
+}
+
+.key {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+@media (max-width: 640px) {
+  .helpers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -1,6 +1,22 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.titleBar {
+  flex-shrink: 0;
+  height: var(--topbar-height);
+  -webkit-app-region: drag;
+}
+
 .columns {
   display: grid;
   flex: 1;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   min-height: 0;
+}
+
+.withDocument .columns {
+  grid-template-columns: minmax(0, 1fr) var(--document-panel-width);
 }

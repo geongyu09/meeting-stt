@@ -29,17 +29,22 @@ const STATUS: AssistantStatus = {
   folder: '/Users/me/notes',
   folderProblem: null,
   isGitRepo: true,
-  permissionMode: 'acceptEdits'
+  permissionMode: 'acceptEdits',
+  provider: 'claude-cli'
 }
 
 /** 디스크 역할. 읽기·쓰기 목이 이 객체를 본다 */
 let disk: Record<string, string> = {}
 
+const onClose = vi.fn()
+
 /** 페이지처럼 열린 경로를 든다 */
 function Harness({ initialPath = null }: { initialPath?: string | null }) {
   const [openPath, setOpenPath] = useState<string | null>(initialPath)
 
-  return <DocumentEditorSection openPath={openPath} onOpenPathChange={setOpenPath} />
+  return (
+    <DocumentEditorSection openPath={openPath} onOpenPathChange={setOpenPath} onClose={onClose} />
+  )
 }
 
 /** 목록 훅과 에디터 훅이 같은 이벤트를 따로 구독한다. 살아 있는 구독 전부에 보낸다 */
@@ -72,7 +77,7 @@ afterEach(() => {
 describe('DocumentEditorSection', () => {
   it('목록에서 문서를 고르면 열고, 고쳐서 ⌘S로 저장한다', async () => {
     render(<Harness />)
-    const select = await screen.findByRole('combobox', { name: '열 문서' })
+    const select = await screen.findByRole('combobox', { name: '열린 문서' })
     await screen.findByRole('option', { name: 'notes/b.md' })
 
     await userEvent.selectOptions(select, 'notes/b.md')
@@ -131,7 +136,7 @@ describe('DocumentEditorSection', () => {
     expect((await screen.findByRole('status')).textContent).toBe('저장했습니다')
     await screen.findByRole('option', { name: 'notes/b.md' })
 
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: '열 문서' }), 'notes/b.md')
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: '열린 문서' }), 'notes/b.md')
     await editorOf('notes/b.md')
 
     expect(screen.queryByText('저장했습니다')).toBeNull()
@@ -142,10 +147,19 @@ describe('DocumentEditorSection', () => {
     fireEvent.change(await editorOf('a.md'), { target: { value: '# A 바꾸기 전' } })
     await screen.findByRole('option', { name: 'notes/b.md' })
 
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: '열 문서' }), 'notes/b.md')
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: '열린 문서' }), 'notes/b.md')
 
     await vi.waitFor(() => expect(disk['a.md']).toBe('# A 바꾸기 전'))
     expect((await editorOf('notes/b.md')).value).toBe('# B')
+  })
+
+  it('닫기 버튼은 페이지에 패널을 닫으라고 알린다', async () => {
+    render(<Harness initialPath="a.md" />)
+    await editorOf('a.md')
+
+    await userEvent.click(screen.getByRole('button', { name: '문서 닫기' }))
+
+    expect(onClose).toHaveBeenCalled()
   })
 
   it('작업 폴더에 문서가 없으면 그렇게 알린다', async () => {

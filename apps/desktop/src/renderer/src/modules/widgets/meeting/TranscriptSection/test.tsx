@@ -25,7 +25,8 @@ vi.mock('@renderer/shared/api/speakers', () => ({
 vi.mock('@renderer/shared/api/clipboard', () => ({ writeClipboardTextApi: vi.fn() }))
 vi.mock('@renderer/shared/api/events', () => ({
   onPipelineProgress: vi.fn(() => () => {}),
-  onRefineProgress: vi.fn(() => () => {})
+  onRefineProgress: vi.fn(() => () => {}),
+  onMeetingsChanged: vi.fn(() => () => {})
 }))
 vi.mock('@renderer/shared/api/refine', () => ({ runRefineApi: vi.fn() }))
 vi.mock('@renderer/shared/api/llm', () => ({ getLlmStatusApi: vi.fn() }))
@@ -95,6 +96,7 @@ const speakerOf = (overrides: Partial<Speaker> = {}): Speaker => ({
 
 const detailOf = (overrides: Partial<MeetingDetail> = {}): MeetingDetail => ({
   meeting: meetingOf(),
+  note: '',
   utterances: [utteranceOf()],
   speakers: [speakerOf()],
   refineResult: null,
@@ -112,7 +114,7 @@ const renderSection = () =>
   render(
     <MemoryRouter initialEntries={[`/meetings/${MEETING_ID}`]}>
       <Routes>
-        <Route path="/" element={<p>{HOME_MARKER}</p>} />
+        <Route path="/meetings" element={<p>{HOME_MARKER}</p>} />
         <Route path="/meetings/:meetingId" element={<TranscriptSection meetingId={MEETING_ID} />} />
       </Routes>
     </MemoryRouter>

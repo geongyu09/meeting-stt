@@ -3,26 +3,71 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
-import type { AssistantChatState, AssistantStatus, LlmStatus } from '@shared/types'
+import type { RecordingStateEvent } from '@shared/ipc'
+import type { AppSettings, AssistantChatState, AssistantStatus, LlmStatus } from '@shared/types'
 
 vi.mock('@renderer/shared/api/assistant', () => ({
   getAssistantStatusApi: vi.fn(),
   getAssistantStateApi: vi.fn(),
   sendAssistantMessageApi: vi.fn(),
   cancelAssistantApi: vi.fn(),
-  resetAssistantChatApi: vi.fn()
+  resetAssistantChatApi: vi.fn(),
+  listWorkspaceFilesApi: vi.fn(),
+  listAssistantSkillsApi: vi.fn()
 }))
 vi.mock('@renderer/shared/api/llm', () => ({ getLlmStatusApi: vi.fn() }))
-vi.mock('@renderer/shared/api/events', () => ({ onAssistantState: vi.fn(() => () => {}) }))
+vi.mock('@renderer/shared/api/recording', () => ({
+  controlRecordingApi: vi.fn(),
+  getRecordingStateApi: vi.fn()
+}))
+vi.mock('@renderer/shared/api/meetings', () => ({
+  importMeetingAudioApi: vi.fn(),
+  getMeetingsApi: vi.fn(),
+  getMeetingApi: vi.fn(),
+  renameMeetingApi: vi.fn(),
+  deleteMeetingApi: vi.fn(),
+  reprocessMeetingApi: vi.fn()
+}))
+vi.mock('@renderer/shared/api/speakers', () => ({
+  mergeSpeakersApi: vi.fn(),
+  renameSpeakerApi: vi.fn()
+}))
+vi.mock('@renderer/shared/api/utterances', () => ({
+  reassignUtteranceApi: vi.fn(),
+  revertUtteranceRefineApi: vi.fn(),
+  updateUtteranceTextApi: vi.fn()
+}))
+vi.mock('@renderer/shared/api/summary', () => ({ createSummaryApi: vi.fn() }))
+vi.mock('@renderer/shared/api/summaryTemplate', () => ({ getSummaryTemplatesApi: vi.fn() }))
+vi.mock('@renderer/shared/api/clipboard', () => ({ writeClipboardTextApi: vi.fn() }))
+vi.mock('@renderer/shared/api/settings', () => ({
+  getSettingsApi: vi.fn(),
+  updateSettingsApi: vi.fn()
+}))
+vi.mock('@renderer/shared/api/events', () => ({
+  onAssistantState: vi.fn(() => () => {}),
+  onWorkspaceFilesChanged: vi.fn(() => () => {}),
+  onRecordingState: vi.fn(() => () => {}),
+  onMeetingsChanged: vi.fn(() => () => {}),
+  onPipelineProgress: vi.fn(() => () => {}),
+  onRefineProgress: vi.fn(() => () => {}),
+  onSummaryProgress: vi.fn(() => () => {})
+}))
 
 import {
   cancelAssistantApi,
   getAssistantStateApi,
   getAssistantStatusApi,
+  listAssistantSkillsApi,
+  listWorkspaceFilesApi,
   sendAssistantMessageApi
 } from '@renderer/shared/api/assistant'
-import { onAssistantState } from '@renderer/shared/api/events'
+import { onAssistantState, onRecordingState } from '@renderer/shared/api/events'
 import { getLlmStatusApi } from '@renderer/shared/api/llm'
+import { getMeetingApi, getMeetingsApi, importMeetingAudioApi } from '@renderer/shared/api/meetings'
+import { controlRecordingApi, getRecordingStateApi } from '@renderer/shared/api/recording'
+import { getSettingsApi } from '@renderer/shared/api/settings'
+import { getSummaryTemplatesApi } from '@renderer/shared/api/summaryTemplate'
 import AssistantChatSection from './index'
 
 const EMPTY_CHAT: AssistantChatState = {
@@ -32,11 +77,15 @@ const EMPTY_CHAT: AssistantChatState = {
   isRunning: false
 }
 
+/** 채팅은 녹음 중인지만 본다 */
+const IDLE_RECORDING = { meetingId: null, startedAt: null } as unknown as RecordingStateEvent
+
 const statusOf = (overrides: Partial<AssistantStatus> = {}): AssistantStatus => ({
   folder: '/Users/me/notes',
   folderProblem: null,
   isGitRepo: true,
   permissionMode: 'acceptEdits',
+  provider: 'claude-cli',
   ...overrides
 })
 
@@ -60,7 +109,7 @@ const answeringChat: AssistantChatState = {
       id: 'a',
       role: 'assistant',
       text: '만들었습니다.',
-      tools: [{ id: 'toolu_1', name: 'Write', target: '/Users/me/notes/notes/template.md' }],
+      tools: [{ id: 'toolu_1', name: 'Write', target: 'notes/template.md' }],
       changedFiles: ['notes/template.md', '/tmp/outside.md'],
       error: null
     }
@@ -72,22 +121,56 @@ const pushState = (state: AssistantChatState) => {
   act(() => listener?.(state))
 }
 
-const renderChat = (onOpenFile = vi.fn()) => {
+/** 녹음 상태 구독자를 잡아 두고 main이 보내는 이벤트를 직접 흘려보낸다 */
+const recordingListeners: ((event: RecordingStateEvent) => void)[] = []
+const pushRecording = (event: RecordingStateEvent) =>
+  act(() => recordingListeners.forEach((listener) => listener(event)))
+
+const renderChat = ({
+  openPath = null,
+  stoppedMeetingId
+}: { openPath?: string | null; stoppedMeetingId?: string } = {}) => {
+  const onOpenDocument = vi.fn()
   render(
-    <MemoryRouter>
-      <AssistantChatSection onOpenFile={onOpenFile} />
+    <MemoryRouter initialEntries={[{ pathname: '/', state: { stoppedMeetingId } }]}>
+      <AssistantChatSection openPath={openPath} onOpenDocument={onOpenDocument} />
     </MemoryRouter>
   )
 
-  return { onOpenFile }
+  return { onOpenDocument }
+}
+
+const inputOf = () => screen.getByRole('textbox', { name: '질문' }) as HTMLTextAreaElement
+
+const readyInput = async () => {
+  const input = inputOf()
+  await vi.waitFor(() => expect(input.disabled).toBe(false))
+
+  return input
 }
 
 beforeEach(() => {
+  recordingListeners.length = 0
+  vi.mocked(onRecordingState).mockImplementation((listener) => {
+    recordingListeners.push(listener)
+
+    return () => {}
+  })
+  vi.mocked(getMeetingsApi).mockResolvedValue([])
+  vi.mocked(getSummaryTemplatesApi).mockResolvedValue([])
+  vi.mocked(importMeetingAudioApi).mockResolvedValue({ meeting: null })
   vi.mocked(getAssistantStatusApi).mockResolvedValue(statusOf())
   vi.mocked(getAssistantStateApi).mockResolvedValue(EMPTY_CHAT)
   vi.mocked(getLlmStatusApi).mockResolvedValue(llmStatusOf('/Users/me/.local/bin/claude'))
+  vi.mocked(getRecordingStateApi).mockResolvedValue(IDLE_RECORDING)
+  vi.mocked(getSettingsApi).mockResolvedValue({ recordingShortcut: 'Alt+Command+R' } as AppSettings)
+  vi.mocked(listWorkspaceFilesApi).mockResolvedValue(['a.md', 'notes/b.md'])
+  vi.mocked(listAssistantSkillsApi).mockResolvedValue([
+    { name: 'wiki-review', description: '복습할 위키 페이지를 고른다' }
+  ])
   vi.mocked(sendAssistantMessageApi).mockResolvedValue(undefined)
   vi.mocked(cancelAssistantApi).mockResolvedValue(undefined)
+  vi.mocked(controlRecordingApi).mockResolvedValue(undefined)
 })
 
 afterEach(() => {
@@ -102,28 +185,22 @@ describe('AssistantChatSection', () => {
 
     expect((await screen.findByRole('status')).textContent).toContain('작업 폴더를 먼저 고르세요')
     expect(screen.getByRole('link', { name: '설정 열기' })).toBeTruthy()
-    expect((screen.getByRole('textbox', { name: '질문' }) as HTMLTextAreaElement).disabled).toBe(
-      true
-    )
+    expect(inputOf().disabled).toBe(true)
   })
 
-  it('고른 에이전트의 CLI가 없으면 설치를 안내한다', async () => {
+  it('설치된 CLI가 없으면 설치를 안내한다', async () => {
     vi.mocked(getLlmStatusApi).mockResolvedValue(llmStatusOf(null))
     renderChat()
 
     expect((await screen.findByRole('status')).textContent).toContain('Claude Code CLI를 찾지')
   })
 
-  it('Codex만 설치돼 있으면 Codex를 기본으로 골라 보낸다', async () => {
+  it('설정의 에이전트가 Codex면 Codex로 보낸다', async () => {
+    vi.mocked(getAssistantStatusApi).mockResolvedValue(statusOf({ provider: 'codex-cli' }))
     vi.mocked(getLlmStatusApi).mockResolvedValue(llmStatusOf(null, '/opt/homebrew/bin/codex'))
     renderChat()
-    const input = screen.getByRole('textbox', { name: '질문' })
-    await vi.waitFor(() => expect((input as HTMLTextAreaElement).disabled).toBe(false))
 
-    expect((screen.getByRole('combobox', { name: '에이전트' }) as HTMLSelectElement).value).toBe(
-      'codex-cli'
-    )
-    await userEvent.type(input, '요약해 줘{Enter}')
+    await userEvent.type(await readyInput(), '요약해 줘{Enter}')
 
     expect(sendAssistantMessageApi).toHaveBeenCalledWith({
       provider: 'codex-cli',
@@ -131,21 +208,9 @@ describe('AssistantChatSection', () => {
     })
   })
 
-  it('설치되지 않은 에이전트로 바꾸면 그 CLI의 설치를 안내하고 입력을 막는다', async () => {
-    renderChat()
-    const input = screen.getByRole('textbox', { name: '질문' })
-    await vi.waitFor(() => expect((input as HTMLTextAreaElement).disabled).toBe(false))
-
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: '에이전트' }), 'codex-cli')
-
-    expect(screen.getByRole('status').textContent).toContain('Codex CLI를 찾지')
-    expect((input as HTMLTextAreaElement).disabled).toBe(true)
-  })
-
   it('Enter로 질문을 보내고 입력란을 비운다', async () => {
     renderChat()
-    const input = screen.getByRole('textbox', { name: '질문' })
-    await vi.waitFor(() => expect((input as HTMLTextAreaElement).disabled).toBe(false))
+    const input = await readyInput()
 
     await userEvent.type(input, '회의 메모 템플릿 만들어 줘{Enter}')
 
@@ -153,13 +218,12 @@ describe('AssistantChatSection', () => {
       provider: 'claude-cli',
       text: '회의 메모 템플릿 만들어 줘'
     })
-    expect((input as HTMLTextAreaElement).value).toBe('')
+    expect(input.value).toBe('')
   })
 
   it('한글 조합 중의 Enter와 Shift+Enter는 보내지 않는다', async () => {
     renderChat()
-    const input = screen.getByRole('textbox', { name: '질문' })
-    await vi.waitFor(() => expect((input as HTMLTextAreaElement).disabled).toBe(false))
+    const input = await readyInput()
     fireEvent.change(input, { target: { value: '안녕' } })
 
     fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
@@ -168,36 +232,135 @@ describe('AssistantChatSection', () => {
     expect(sendAssistantMessageApi).not.toHaveBeenCalled()
   })
 
-  it('답변·도구·바뀐 파일을 그리고, 폴더 안의 마크다운만 에디터로 연다', async () => {
-    const { onOpenFile } = renderChat()
-    await screen.findByText(/작업 폴더의 문서에 대해 묻거나/)
+  it('빈 대화에는 도우미가 있고, 문서 열기는 패널만 열며 녹음 시작은 녹음을 시작한다', async () => {
+    const { onOpenDocument } = renderChat()
+    await readyInput()
+    const helpers = screen.getByRole('navigation', { name: '도우미' })
+    expect(helpers.querySelectorAll('button')).toHaveLength(6)
+    expect(helpers.textContent).toContain('⌥⌘R')
+
+    await userEvent.click(screen.getByRole('button', { name: /문서 열기/ }))
+    expect(onOpenDocument).toHaveBeenCalledWith(null)
+
+    await userEvent.click(screen.getByRole('button', { name: /녹음 시작 ⌥⌘R/ }))
+    expect(controlRecordingApi).toHaveBeenCalledWith({ kind: 'start' })
+  })
+
+  it('대화가 시작되면 같은 도우미 6개가 입력 도크 아래 한 줄로 남는다', async () => {
+    const { onOpenDocument } = renderChat()
+    await readyInput()
+    pushState({ ...answeringChat, isRunning: false })
+
+    const helpers = screen.getByRole('navigation', { name: '도우미' })
+    expect(helpers.querySelectorAll('button')).toHaveLength(6)
+    expect(helpers.textContent).not.toContain('⌥⌘R')
+    expect(
+      helpers.compareDocumentPosition(inputOf()) & Node.DOCUMENT_POSITION_PRECEDING
+    ).toBeTruthy()
+
+    await userEvent.click(screen.getByRole('button', { name: '문서 열기' }))
+    expect(onOpenDocument).toHaveBeenCalledWith(null)
+  })
+
+  it('입력 도크의 마이크 버튼은 녹음을 켜고 끈다', async () => {
+    renderChat()
+    await readyInput()
+
+    await userEvent.click(screen.getByRole('button', { name: '녹음 시작' }))
+
+    expect(controlRecordingApi).toHaveBeenCalledWith({ kind: 'toggle' })
+  })
+
+  it('/ 로 명령과 스킬 메뉴를 열고, 거른 뒤 Enter로 고르면 스킬 이름이 입력된다', async () => {
+    renderChat()
+    const input = await readyInput()
+
+    await userEvent.type(input, '/')
+    const menu = screen.getByRole('listbox')
+    expect(menu.textContent).toContain('녹음 시작')
+    expect(menu.textContent).toContain('/wiki-review')
+
+    await userEvent.type(input, 'wiki')
+    expect(screen.getAllByRole('option')).toHaveLength(1)
+
+    await userEvent.type(input, '{Enter}')
+    expect(input.value).toBe('/wiki-review ')
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(sendAssistantMessageApi).not.toHaveBeenCalled()
+  })
+
+  it('/ 메뉴에서 내장 명령을 고르면 바로 실행하고 입력을 비운다', async () => {
+    const { onOpenDocument } = renderChat()
+    const input = await readyInput()
+
+    await userEvent.type(input, '/문서{Enter}')
+
+    expect(onOpenDocument).toHaveBeenCalledWith(null)
+    expect(input.value).toBe('')
+  })
+
+  it('@ 로 작업 폴더의 파일과 폴더를 고른다', async () => {
+    renderChat()
+    const input = await readyInput()
+
+    await userEvent.type(input, '정리해줘 @')
+    const options = screen.getAllByRole('option').map((option) => option.textContent)
+    expect(options.join('|')).toContain('notes/b.md')
+    expect(options.join('|')).toContain('notes/폴더 전체를 붙여요')
+
+    await userEvent.type(input, 'b.md{Enter}')
+    expect(input.value).toBe('정리해줘 @notes/b.md ')
+  })
+
+  it('답변·도구·바뀐 파일을 그리고, 폴더 안의 마크다운만 칩으로 연다', async () => {
+    const { onOpenDocument } = renderChat()
+    await readyInput()
 
     pushState(answeringChat)
 
     expect(screen.getByText('만들었습니다.')).toBeTruthy()
-    expect(screen.getByText('Write')).toBeTruthy()
-    await userEvent.click(screen.getByRole('button', { name: 'notes/template.md' }))
-    expect(onOpenFile).toHaveBeenCalledWith('notes/template.md')
-    expect(screen.queryByRole('button', { name: '/tmp/outside.md' })).toBeNull()
+    expect(screen.getByText('고침').textContent).toContain('notes/template.md')
+    await userEvent.click(screen.getByRole('button', { name: 'notes/template.md 열기' }))
+    expect(onOpenDocument).toHaveBeenCalledWith('notes/template.md')
+    expect(screen.queryByRole('button', { name: /outside\.md/ })).toBeNull()
     expect(screen.getByText('/tmp/outside.md')).toBeTruthy()
   })
 
-  it('실행 중에는 중지 버튼이 에이전트를 끝내고, 대화 중에는 에이전트를 바꿀 수 없다', async () => {
+  it('열린 문서의 칩은 열림으로 보이고, 보낼 글 앞에 그 문서를 붙인다', async () => {
+    renderChat({ openPath: 'notes/template.md' })
+    const input = await readyInput()
+    pushState({ ...answeringChat, isRunning: false })
+
+    expect(
+      (
+        screen.getByRole('button', { name: 'notes/template.md 열림' }) as HTMLButtonElement
+      ).getAttribute('aria-pressed')
+    ).toBe('true')
+    expect(input.placeholder).toBe('이 문서에 대해 묻기')
+
+    await userEvent.type(input, '요약해 줘{Enter}')
+
+    expect(sendAssistantMessageApi).toHaveBeenCalledWith({
+      provider: 'claude-cli',
+      text: '@notes/template.md 요약해 줘'
+    })
+  })
+
+  it('실행 중에는 보내기 자리의 중지 버튼이 에이전트를 끝낸다', async () => {
     renderChat()
-    await screen.findByText(/작업 폴더의 문서에 대해 묻거나/)
+    await readyInput()
     pushState(answeringChat)
 
+    expect(screen.getByRole('status').textContent).toContain('작업하는 중')
     await userEvent.click(screen.getByRole('button', { name: '중지' }))
 
     expect(cancelAssistantApi).toHaveBeenCalled()
-    expect((screen.getByRole('combobox', { name: '에이전트' }) as HTMLSelectElement).disabled).toBe(
-      true
-    )
+    expect(screen.queryByRole('button', { name: '보내기' })).toBeNull()
   })
 
   it('턴 오류를 보여 준다', async () => {
     renderChat()
-    await screen.findByText(/작업 폴더의 문서에 대해 묻거나/)
+    await readyInput()
 
     pushState({
       ...answeringChat,
@@ -206,5 +369,81 @@ describe('AssistantChatSection', () => {
     })
 
     expect(screen.getByRole('alert').textContent).toBe('중지했습니다')
+  })
+
+  it('녹음 중이면 시작 줄과 단축키 안내가 보이고, 품질 문제는 안내 자리에 대신 쓴다', async () => {
+    renderChat()
+    await readyInput()
+
+    pushRecording({
+      ...IDLE_RECORDING,
+      meetingId: 'meeting-1',
+      startedAt: new Date(2026, 9, 21, 14, 0).getTime()
+    })
+
+    expect(screen.getByText(/오후 2:00 · 녹음을 시작했어요/)).toBeTruthy()
+    expect(screen.getByRole('status').textContent).toBe('창을 닫아도 녹음은 계속돼요 · ⌥⌘R')
+    expect(
+      (screen.getByRole('button', { name: '녹음 시작' }) as HTMLButtonElement).getAttribute(
+        'aria-pressed'
+      )
+    ).toBe('true')
+
+    pushRecording({
+      ...IDLE_RECORDING,
+      meetingId: 'meeting-1',
+      startedAt: Date.now(),
+      qualityIssue: 'silent'
+    })
+
+    expect(screen.getByRole('status').textContent).toContain('소리가 들어오지 않습니다')
+  })
+
+  it('녹음 시작이 실패하면 그 안내를 입력 도크 아래에 보여 준다', async () => {
+    renderChat()
+    await readyInput()
+
+    pushRecording({ ...IDLE_RECORDING, errorMessage: '마이크 사용 권한이 없습니다' })
+
+    expect(screen.getByRole('alert').textContent).toBe('마이크 사용 권한이 없습니다')
+  })
+
+  it('앱을 켠 뒤 만든 기록은 카드로 보이고, 막 멈춘 기록 위에는 멈췄어요 줄이 붙는다', async () => {
+    const createdAt = new Date(2026, 9, 21, 14, 0).getTime()
+    const meeting = {
+      id: 'meeting-1',
+      title: '주간 제품 회의',
+      createdAt: Date.now(),
+      durationSec: 48 * 60,
+      status: 'done' as const,
+      hasAudio: false
+    }
+    vi.mocked(getMeetingsApi).mockResolvedValue([
+      meeting,
+      { ...meeting, id: 'old', title: '지난 회의', createdAt: createdAt - 86_400_000 }
+    ])
+    vi.mocked(getMeetingApi).mockResolvedValue({
+      meeting,
+      utterances: [],
+      speakers: [],
+      refineResult: null,
+      note: ''
+    })
+    renderChat({ stoppedMeetingId: 'meeting-1' })
+
+    expect(await screen.findByRole('article', { name: '기록 주간 제품 회의' })).toBeTruthy()
+    expect(screen.getByText(/녹음을 멈췄어요/)).toBeTruthy()
+    expect(screen.queryByText('지난 회의')).toBeNull()
+  })
+
+  it('도우미 파일로 기록 만들기는 파일을 고르게 하고 실패를 도크 위에 알린다', async () => {
+    vi.mocked(importMeetingAudioApi).mockRejectedValue(new Error('지원하지 않는 형식입니다'))
+    renderChat()
+    await readyInput()
+
+    await userEvent.click(screen.getByRole('button', { name: /파일로 기록 만들기/ }))
+
+    expect(importMeetingAudioApi).toHaveBeenCalled()
+    expect((await screen.findByRole('alert')).textContent).toBe('지원하지 않는 형식입니다')
   })
 })

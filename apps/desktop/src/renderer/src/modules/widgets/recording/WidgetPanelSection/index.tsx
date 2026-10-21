@@ -17,9 +17,11 @@ import { formatClock } from '@renderer/shared/utils/formatClock'
 import DictationView from './ui/DictationView'
 import styles from './index.module.css'
 
+const STOP_ICON_SIZE = 16
+
 /**
  * 오디오 그래프를 들고 있는 위젯 창의 화면. 메인 창을 앞으로 꺼내지 않고 녹음을 시작·정지한다
- * (references/architecture.md의 "녹음 위젯 패널"). 받아쓰기 중에는 같은 창이 받아쓰기 보기로 바뀐다 —
+ * (references/features/recording.md "녹음 위젯 패널", 외형은 "채팅 창의 녹음" > "위젯 패널 외형"). 받아쓰기 중에는 같은 창이 받아쓰기 보기로 바뀐다 —
  * 그래프 소유자가 하나여야 하므로 새 창을 만들지 않는다 ("받아쓰기").
  */
 export default function WidgetPanelSection() {
@@ -92,6 +94,13 @@ export default function WidgetPanelSection() {
       <header className={styles.header}>
         <span className={isCapturing ? styles.recordingDot : styles.idleDot} aria-hidden="true" />
         <span className={isCapturing ? styles.recordingTitle : styles.title}>{renderTitle()}</span>
+        {isRecording ? (
+          <PauseRecordingButton
+            isPaused={isPaused}
+            className={styles.iconButton}
+            onError={setPauseError}
+          />
+        ) : null}
         <button
           className={styles.hideButton}
           type="button"
@@ -119,22 +128,10 @@ export default function WidgetPanelSection() {
         />
       </div>
       {isRecording ? (
-        <div className={styles.stopRow}>
-          <PauseRecordingButton
-            isPaused={isPaused}
-            className={styles.pauseButton}
-            onError={setPauseError}
-          />
-          <Button
-            variant="secondary"
-            className={styles.stopButton}
-            onClick={stop}
-            disabled={isBusy}
-          >
-            <span className={styles.stopIcon} aria-hidden="true" />
-            {t.widget.stop}
-          </Button>
-        </div>
+        <Button variant="secondary" className={styles.stopButton} onClick={stop} disabled={isBusy}>
+          <Icon name="stop" size={STOP_ICON_SIZE} />
+          {t.widget.stop}
+        </Button>
       ) : (
         <Button
           variant="accent"

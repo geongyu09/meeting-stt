@@ -1,50 +1,26 @@
 .list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.user,
-.agent {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-}
-
 .user {
   align-self: flex-end;
-  max-width: 85%;
-  background: var(--color-accent-soft);
-}
-
-.agent {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-}
-
-.role {
-  color: var(--color-text-muted);
-  font-size: var(--font-xs);
-  font-weight: 600;
-}
-
-.text {
-  margin: 0;
-  font-size: var(--font-base);
-  line-height: 1.6;
+  max-width: 80%;
+  padding: 10px var(--space-4);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface-hover);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-.working {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-sm);
+.agent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
 .tools {
@@ -55,49 +31,158 @@
   padding: 0;
   list-style: none;
   color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--font-xs);
+  font-size: var(--font-sm);
+}
+
+.tools > li {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
   overflow-wrap: anywhere;
 }
 
-.toolName {
-  color: var(--color-text);
-  font-weight: 600;
+.target {
+  font-family: var(--font-mono);
+}
+
+.text {
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .files {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
   gap: var(--space-2);
+  align-items: center;
 }
 
-.filesTitle {
-  color: var(--color-text-muted);
-  font-size: var(--font-xs);
-}
-
-.fileButton,
-.file {
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
-  font-family: var(--font-mono);
-  font-size: var(--font-xs);
-}
-
-.fileButton {
-  color: var(--color-accent);
+.chip {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-base);
   cursor: pointer;
 }
 
-.fileButton:hover {
+.chip:hover {
   background: var(--color-surface-hover);
 }
 
-.file {
+.chip[aria-pressed='true'] {
+  border-color: var(--color-text);
+  font-weight: 500;
+}
+
+.outsideFile {
   color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+}
+
+.working {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-base);
+}
+
+.dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  animation: breathe 1.2s ease-in-out infinite;
+}
+
+/* 점에서 퍼지는 물결 */
+.dot::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--color-accent);
+  animation: ripple 1.2s ease-out infinite;
+  content: '';
+}
+
+/* 글자 위로 밝은 띠가 지나간다 */
+.shimmer {
+  background: linear-gradient(
+      90deg,
+      var(--color-text-muted) 40%,
+      var(--color-text) 50%,
+      var(--color-text-muted) 60%
+    )
+    0 0 / 300% 100%;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 1.8s linear infinite;
+}
+
+/* 보낸 말풍선과 새 답변 자리가 아래에서 떠오른다 */
+.user,
+.agent {
+  animation: rise 0.24s ease-out;
+}
+
+@keyframes breathe {
+  50% {
+    transform: scale(0.75);
+  }
+}
+
+@keyframes ripple {
+  from {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(2.8);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: 0 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot,
+  .dot::after,
+  .shimmer,
+  .user,
+  .agent {
+    animation: none;
+  }
+
+  .shimmer {
+    color: var(--color-text-muted);
+  }
 }
 
 .error {

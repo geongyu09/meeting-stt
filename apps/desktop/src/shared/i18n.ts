@@ -10,6 +10,7 @@ import { recordingEn, recordingKo } from './locales/recording'
 import { refineEn, refineKo } from './locales/refine'
 import { routineEn, routineKo } from './locales/routine'
 import { settingsEn, settingsKo } from './locales/settings'
+import { setupEn, setupKo } from './locales/setup'
 import { sidebarEn, sidebarKo } from './locales/sidebar'
 import { summaryEn, summaryKo } from './locales/summary'
 import { summaryTemplateEn, summaryTemplateKo } from './locales/summaryTemplate'
@@ -46,6 +47,7 @@ const ko = {
   dictation: dictationKo,
   models: modelsKo,
   settings: settingsKo,
+  setup: setupKo,
   llm: llmKo,
   glossary: glossaryKo,
   update: updateKo,
@@ -69,6 +71,7 @@ const en: Messages = {
   dictation: dictationEn,
   models: modelsEn,
   settings: settingsEn,
+  setup: setupEn,
   llm: llmEn,
   glossary: glossaryEn,
   update: updateEn,

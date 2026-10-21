@@ -75,7 +75,8 @@ const IDLE_STATE: RecordingStateEvent = {
   pausedAt: null,
   level: 0,
   liveTranscript: { isEnabled: false, lines: [], partial: '' },
-  systemAudio: { isEnabled: false }
+  systemAudio: { isEnabled: false },
+  note: ''
 }
 
 const IDLE_DICTATION: DictationStateEvent = {
@@ -280,7 +281,7 @@ describe('WidgetPanelSection', () => {
     })
 
     expect(screen.getByText('말소리가 잘 들리지 않습니다. 마이크를 가까이 두세요')).toBeTruthy()
-    expect(screen.queryByText('정지하면 메인 창에서 회의록을 만듭니다')).toBeNull()
+    expect(screen.queryByText('정지하면 바로 기록을 만들어요')).toBeNull()
 
     act(() => {
       pushState({ ...recording, qualityIssue: 'silent' })
@@ -292,7 +293,7 @@ describe('WidgetPanelSection', () => {
       pushState(recording)
     })
 
-    expect(screen.getByText('정지하면 메인 창에서 회의록을 만듭니다')).toBeTruthy()
+    expect(screen.getByText('정지하면 바로 기록을 만들어요')).toBeTruthy()
   })
 
   it('세션이 보낸 오류 안내를 보여준다', async () => {

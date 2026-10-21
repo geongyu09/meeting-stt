@@ -1,7 +1,6 @@
 /** 개인 비서 모드(채팅·문서 에디터·설정) 문구. ko가 타입을 정하고 en은 같은 키를 가져야 한다 (references/architecture.md "UI 언어") */
 export const assistantKo = {
   nav: '비서',
-  topBar: '개인 비서',
   providers: {
     'claude-cli': 'Claude Code',
     'codex-cli': 'Codex'
@@ -13,17 +12,42 @@ export const assistantKo = {
   },
   chat: {
     title: '채팅',
-    provider: '에이전트',
-    newChat: '새 대화',
-    empty: '작업 폴더의 문서에 대해 묻거나, 문서를 만들거나 고쳐 달라고 해 보세요.',
     inputLabel: '질문',
-    placeholder: '질문을 입력하세요 (Enter 전송, Shift+Enter 줄바꿈)',
+    placeholder: '무엇을 도와드릴까요?',
+    placeholderContinue: '이어서 묻기, / 로 명령',
+    placeholderDocument: '이 문서에 대해 묻기',
     send: '보내기',
     stop: '중지',
-    you: '나',
-    agent: '에이전트',
+    record: '녹음 시작',
     working: '작업하는 중',
-    changedFiles: '바뀐 파일',
+    openFile: ({ name }: { name: string }) => `${name} 열기`,
+    openedFile: ({ name }: { name: string }) => `${name} 열림`,
+    tools: {
+      read: '읽음',
+      edit: '고침',
+      run: '실행',
+      web: '열어봄'
+    },
+    commands: {
+      record: { label: '녹음 시작', description: '회의나 떠오른 생각을 바로 기록해요' },
+      importAudio: {
+        label: '파일로 기록 만들기',
+        description: '다른 앱에서 녹음한 파일을 글로 옮겨요'
+      },
+      findRecords: { label: '기록 찾기', description: '지난 기록을 제목과 내용으로 찾아요' },
+      openDocument: { label: '문서 열기', description: '작업 폴더의 문서를 열고 고쳐요' },
+      newChat: { label: '새 대화', description: '지금 대화를 끝내고 새로 시작해요' },
+      settings: { label: '설정', description: '작업 폴더, 모델, 단축키, 용어 사전' }
+    },
+    menu: {
+      helpers: '도우미',
+      commands: '명령',
+      skills: '스킬 · 작업 폴더와 내 스킬',
+      files: '파일 · 작업 폴더',
+      folderOf: ({ name }: { name: string }) => `${name} 폴더`,
+      rootFolder: '작업 폴더',
+      wholeFolder: '폴더 전체를 붙여요'
+    },
     noFolder: '설정에서 작업 폴더를 먼저 고르세요.',
     cliMissing: ({ label }: { label: string }) =>
       `${label} CLI를 찾지 못했습니다. 설치하고 터미널에서 로그인한 뒤 다시 여세요.`,
@@ -34,7 +58,9 @@ export const assistantKo = {
   },
   editor: {
     title: '문서',
-    fileList: '열 문서',
+    fileList: '열린 문서',
+    close: '문서 닫기',
+    saveKey: '⌘S',
     pickFile: '문서를 고르세요',
     noFiles: '작업 폴더에 마크다운 문서가 없습니다',
     editorLabel: ({ path }: { path: string }) => `${path} 편집`,
@@ -53,7 +79,7 @@ export const assistantKo = {
     folder: {
       title: '작업 폴더',
       description:
-        '에이전트가 이 폴더의 CLAUDE.md·AGENTS.md·스킬·훅을 읽고 문서를 만들거나 고칩니다. 질문과 에이전트가 읽은 파일 내용은 고른 에이전트의 회사(Anthropic·OpenAI) 서버로 전송됩니다.',
+        '에이전트가 이 폴더의 CLAUDE.md·AGENTS.md·스킬·훅을 읽고 문서를 만들거나 고칩니다. CLAUDE.md와 AGENTS.md가 없는 폴더를 고르면 문서 위치와 요청별 규칙을 정한 기본 규칙 파일·폴더·스킬을 넣습니다(이미 있는 파일은 덮지 않습니다). 질문과 에이전트가 읽은 파일 내용은 고른 에이전트의 회사(Anthropic·OpenAI) 서버로 전송됩니다.',
       none: '아직 고르지 않았습니다',
       choose: '폴더 고르기',
       notGitRepo: 'git 저장소가 아니라 에이전트가 고친 내용을 되돌리기 어렵습니다',
@@ -96,7 +122,6 @@ export const assistantKo = {
 
 export const assistantEn: typeof assistantKo = {
   nav: 'Assistant',
-  topBar: 'Personal assistant',
   providers: {
     'claude-cli': 'Claude Code',
     'codex-cli': 'Codex'
@@ -108,17 +133,48 @@ export const assistantEn: typeof assistantKo = {
   },
   chat: {
     title: 'Chat',
-    provider: 'Agent',
-    newChat: 'New chat',
-    empty: 'Ask about the documents in your work folder, or ask the agent to create or edit one.',
     inputLabel: 'Question',
-    placeholder: 'Type a question (Enter to send, Shift+Enter for a new line)',
+    placeholder: 'How can I help?',
+    placeholderContinue: 'Ask more, or / for commands',
+    placeholderDocument: 'Ask about this document',
     send: 'Send',
     stop: 'Stop',
-    you: 'You',
-    agent: 'Agent',
+    record: 'Start recording',
     working: 'Working',
-    changedFiles: 'Changed files',
+    openFile: ({ name }) => `Open ${name}`,
+    openedFile: ({ name }) => `${name} is open`,
+    tools: {
+      read: 'Read',
+      edit: 'Edited',
+      run: 'Ran',
+      web: 'Fetched'
+    },
+    commands: {
+      record: { label: 'Start recording', description: 'Capture a meeting or a passing thought' },
+      importAudio: {
+        label: 'Transcribe a file',
+        description: 'Turn a recording made in another app into text'
+      },
+      findRecords: {
+        label: 'Find records',
+        description: 'Search past records by title and content'
+      },
+      openDocument: {
+        label: 'Open a document',
+        description: 'Open and edit a work folder document'
+      },
+      newChat: { label: 'New chat', description: 'End this chat and start over' },
+      settings: { label: 'Settings', description: 'Work folder, models, shortcuts, glossary' }
+    },
+    menu: {
+      helpers: 'Helpers',
+      commands: 'Commands',
+      skills: 'Skills · work folder and yours',
+      files: 'Files · work folder',
+      folderOf: ({ name }) => `${name} folder`,
+      rootFolder: 'Work folder',
+      wholeFolder: 'Attach the whole folder'
+    },
     noFolder: 'Choose a work folder in Settings first.',
     cliMissing: ({ label }) =>
       `Could not find the ${label} CLI. Install it, log in from a terminal, and reopen this screen.`,
@@ -130,7 +186,9 @@ export const assistantEn: typeof assistantKo = {
   },
   editor: {
     title: 'Documents',
-    fileList: 'Document to open',
+    fileList: 'Open document',
+    close: 'Close document',
+    saveKey: '⌘S',
     pickFile: 'Pick a document',
     noFiles: 'No Markdown documents in the work folder',
     editorLabel: ({ path }) => `Edit ${path}`,
@@ -149,7 +207,7 @@ export const assistantEn: typeof assistantKo = {
     folder: {
       title: 'Work folder',
       description:
-        "The agent reads this folder's CLAUDE.md, AGENTS.md, skills, and hooks, and creates or edits documents. Your questions and the files the agent reads are sent to the servers of the agent's company (Anthropic or OpenAI).",
+        "The agent reads this folder's CLAUDE.md, AGENTS.md, skills, and hooks, and creates or edits documents. If the folder has neither CLAUDE.md nor AGENTS.md, Gyeot adds default rule files, folders, and skills for where documents go and how to handle requests (existing files are never overwritten). Your questions and the files the agent reads are sent to the servers of the agent's company (Anthropic or OpenAI).",
       none: 'Not chosen yet',
       choose: 'Choose folder',
       notGitRepo: 'Not a git repository, so changes made by the agent are hard to undo',

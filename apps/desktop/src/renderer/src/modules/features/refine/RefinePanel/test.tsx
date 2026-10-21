@@ -9,7 +9,11 @@ import type { GlossarySettings, LlmStatus, RefinePair, RefineResult } from '@sha
 vi.mock('@renderer/shared/api/refine', () => ({ runRefineApi: vi.fn() }))
 vi.mock('@renderer/shared/api/llm', () => ({ getLlmStatusApi: vi.fn() }))
 vi.mock('@renderer/shared/api/glossary', () => ({ getGlossaryApi: vi.fn() }))
-vi.mock('@renderer/shared/api/events', () => ({ onRefineProgress: vi.fn(() => () => {}) }))
+vi.mock('@renderer/shared/api/events', () => ({
+  onRefineProgress: vi.fn(() => () => {}),
+  onPipelineProgress: vi.fn(() => () => {}),
+  onMeetingsChanged: vi.fn(() => () => {})
+}))
 
 import { onRefineProgress } from '@renderer/shared/api/events'
 import { getGlossaryApi } from '@renderer/shared/api/glossary'

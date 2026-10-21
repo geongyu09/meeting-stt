@@ -13,7 +13,8 @@ const IDLE_STATE: RecordingStateEvent = {
   pausedAt: null,
   level: 0,
   liveTranscript: { isEnabled: false, lines: [], partial: '' },
-  systemAudio: { isEnabled: false }
+  systemAudio: { isEnabled: false },
+  note: ''
 }
 
 /**
@@ -79,6 +80,8 @@ const useRecordingState = () => {
     isRecording: state.meetingId !== null,
     isPaused,
     meetingId: state.meetingId,
+    /** 경과 시간의 기준 시각. 일시정지한 만큼 뒤로 밀려 있어 실제 시작 시각은 회의 행의 createdAt이다 */
+    startedAt: state.startedAt,
     level: state.level,
     speakerCount: state.speakerCount,
     errorMessage: state.errorMessage,

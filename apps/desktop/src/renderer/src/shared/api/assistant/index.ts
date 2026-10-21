@@ -110,3 +110,11 @@ export const readWorkspaceFileApi = async ({ path }: ReadWorkspaceFileRequest) =
 export const writeWorkspaceFileApi = async ({ path, content }: WriteWorkspaceFileRequest) => {
   await window.api.assistant.writeFile({ path, content })
 }
+
+/**
+ * @description `/` 명령 메뉴에 보여 줄 스킬 목록(작업 폴더와 사용자 홈의 `.claude/skills`)을 조회합니다.
+ * @returns 이름순 스킬 목록
+ * @example
+ * const skills = await listAssistantSkillsApi()
+ */
+export const listAssistantSkillsApi = async () => window.api.assistant.listSkills()

@@ -4,6 +4,7 @@ import {
   type GetAssistantStateResponse,
   type GetAssistantStatusResponse,
   type GetRoutinesResponse,
+  type ListAssistantSkillsResponse,
   type ListWorkspaceFilesResponse,
   type ReadWorkspaceFileResponse
 } from '@shared/ipc'
@@ -32,6 +33,9 @@ import {
   pickWorkspaceFolder,
   requireWorkspaceFolder
 } from '../assistant/folder'
+import { installHarness } from '../assistant/harness'
+import { listAssistantSkills } from '../assistant/skills'
+import { messageOf, warn } from '../log'
 import { deleteRoutine, getRoutinesState, runRoutineNow, saveRoutine } from '../assistant/routines'
 import {
   cancelAssistant,
@@ -53,6 +57,10 @@ const handleChooseFolder = async (): Promise<GetAssistantStatusResponse> => {
   const folder = await pickWorkspaceFolder()
   if (folder) {
     setAssistantFolder({ folder })
+    // 하네스가 없어도 비서는 돈다 — 넣지 못해도 폴더 선택은 유지한다
+    await installHarness({ folder }).catch((caught: unknown) =>
+      warn(`기본 하네스를 넣지 못했습니다: ${messageOf(caught)}`)
+    )
     resetAssistantChat()
     watchWorkspace({ folder })
   }
@@ -117,6 +125,10 @@ export const registerAssistantHandlers = () => {
         folder: await requireWorkspaceFolder(),
         relativePath: readWorkspacePathPayload(payload, t().assistant.errors)
       })
+  )
+
+  ipcMain.handle(IPC.assistant.listSkills, async (): Promise<ListAssistantSkillsResponse> =>
+    listAssistantSkills({ folder: await requireWorkspaceFolder() })
   )
 
   ipcMain.handle(IPC.assistant.writeFile, async (_event, payload) => {

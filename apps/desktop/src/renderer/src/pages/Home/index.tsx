@@ -15,7 +15,7 @@ export default function Home() {
       <div className={styles.empty}>
         <h1 className={styles.title}>{t.sidebar.home.title}</h1>
         <p className={styles.description}>{t.sidebar.home.description}</p>
-        <Link className={styles.recordLink} to={PATHS.record}>
+        <Link className={styles.recordLink} to={PATHS.assistant}>
           {t.sidebar.home.startRecording}
         </Link>
       </div>

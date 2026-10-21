@@ -1,8 +1,5 @@
-/** 녹음 화면·위젯 패널·녹음 훅 문구. ko가 타입을 정하고 en은 같은 키를 가져야 한다 (references/architecture.md "UI 언어") */
+/** 녹음 카드·위젯 패널·녹음 훅 문구. ko가 타입을 정하고 en은 같은 키를 가져야 한다 (references/architecture.md "UI 언어") */
 export const recordingKo = {
-  page: {
-    title: '새 회의 녹음'
-  },
   status: {
     recording: '녹음 중',
     paused: '일시정지됨',
@@ -15,36 +12,32 @@ export const recordingKo = {
   },
   speakerCount: {
     label: '참석자 수',
+    short: '참석자',
     unknown: '모름',
-    hint: '알면 적어 주세요. 비우면 자동으로 나눕니다',
     invalid: ({ min, max }: { min: number; max: number }) =>
       `${min}~${max} 사이의 정수만 쓸 수 있습니다`
   },
-  panel: {
-    label: '녹음 옵션',
-    optionsTitle: '녹음 설정',
-    importTitle: '파일로 만들기'
-  },
+  // 채팅 입력창 위의 녹음 카드와 입력창의 마이크 버튼 (references/features/recording.md "채팅 창의 녹음")
   recorder: {
     sectionLabel: '녹음',
     start: '녹음 시작',
-    stopAndTranscribe: '녹음 정지하고 회의록 만들기',
+    micRecording: '녹음 중',
+    stop: '정지하고 기록 만들기',
+    elapsed: '경과 시간',
     controlError: '녹음 요청을 보내지 못했습니다. 잠시 후 다시 시도해 주세요',
-    keepsRunning: '창을 닫거나 다른 화면으로 옮겨도 녹음은 계속됩니다.',
-    widgetHintPrefix: '위젯 패널이나 ',
-    widgetHintSuffix: '로도 시작·정지할 수 있습니다.',
-    widgetHintPlain: '위젯 패널에서도 시작·정지할 수 있습니다.'
+    keepsRunning: '창을 닫아도 녹음은 계속돼요',
+    startedLine: ({ time }: { time: string }) =>
+      `${time} · 녹음을 시작했어요. 멈추면 기록으로 정리할게요`,
+    stoppedLine: ({ time }: { time: string }) => `${time} · 녹음을 멈췄어요`
   },
   live: {
-    viewLabel: '녹음 화면 보기',
+    viewLabel: '보기',
     waveform: '파형',
-    transcript: '라이브 받아쓰기',
+    transcript: '라이브',
     regionLabel: '라이브 받아쓰기',
-    idle: '녹음을 시작하면 들리는 말이 여기에 바로 글자로 나타납니다',
     listening: '듣고 있습니다…',
-    hint: '미리보기입니다. 회의록은 녹음을 마친 뒤 더 정확하게 다시 만듭니다',
     resourceNotice:
-      '말하는 동안 GPU를 계속 써서 발열과 배터리 소모가 늘 수 있습니다. 필요 없을 때는 파형으로 바꿔 두세요',
+      '미리보기입니다. 말하는 동안 GPU를 계속 써서 발열과 배터리 소모가 늘 수 있어요. 필요 없을 때는 파형으로 두세요',
     toggleError: '보기를 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요'
   },
   systemAudio: {
@@ -66,10 +59,9 @@ export const recordingKo = {
     }
   },
   importer: {
-    label: '녹음 파일 가져오기',
-    action: '가져오기',
+    label: '파일로 기록 만들기',
+    hint: '다른 앱에서 녹음한 파일을 글로 옮겨요',
     importing: '가져오는 중…',
-    hint: '음성 메모·회의 녹화 파일도 됩니다. 참석자 수를 함께 씁니다',
     failed: '녹음 파일을 가져오지 못했습니다'
   },
   widget: {
@@ -78,7 +70,7 @@ export const recordingKo = {
     start: '녹음 시작',
     stop: '녹음 정지',
     modelNotReady: '음성 인식 모델을 받으면 녹음할 수 있습니다',
-    stopHint: '정지하면 메인 창에서 회의록을 만듭니다',
+    stopHint: '정지하면 바로 기록을 만들어요',
     pausedHint: '일시정지 동안의 소리는 회의록에 남지 않습니다',
     startHint: '회의가 시작되면 녹음을 누르세요'
   },
@@ -93,15 +85,34 @@ export const recordingKo = {
     sampleRateUnsupported: ({ expected, actual }: { expected: number; actual: number }) =>
       `이 마이크는 ${expected}Hz 녹음을 지원하지 않습니다 (현재 ${actual}Hz)`
   },
+  files: {
+    title: '녹음 파일 관리하기',
+    backToSettings: '설정으로',
+    loading: '녹음 파일을 불러오는 중입니다',
+    loadError: '녹음 파일 목록을 불러오지 못했습니다',
+    deleteError: '녹음 파일을 지우지 못했습니다',
+    summary: ({ count, size }: { count: number; size: string }) =>
+      `보관 중인 녹음 ${count}개 · 총 ${size}`,
+    listLabel: '녹음 파일 목록',
+    selectAll: '전체 선택',
+    selectOne: ({ title }: { title: string }) => `${title} 선택`,
+    deleteSelected: ({ count }: { count: number }) => `선택한 ${count}개 삭제`,
+    delete: '삭제',
+    deleteLabel: ({ title }: { title: string }) => `${title} 녹음 파일 삭제`,
+    confirm: ({ count, size }: { count: number; size: string }) =>
+      `${count}개(${size})를 지울까요? 회의록은 남고 재생·내보내기·다시 인식을 할 수 없게 됩니다`,
+    cancel: '취소',
+    failed: ({ count }: { count: number }) => `${count}개를 지우지 못했습니다`,
+    status: { error: '처리 실패', processing: '처리 중', missing: '파일 없음' },
+    empty: '보관 중인 녹음 파일이 없습니다',
+    emptyHint: '원본 녹음 파일 보관을 끄면 회의록을 만든 뒤 녹음을 지웁니다'
+  },
   devices: {
     unnamed: ({ index }: { index: number }) => `마이크 ${index}`
   }
 }
 
 export const recordingEn: typeof recordingKo = {
-  page: {
-    title: 'New recording'
-  },
   status: {
     recording: 'Recording',
     paused: 'Paused',
@@ -114,35 +125,29 @@ export const recordingEn: typeof recordingKo = {
   },
   speakerCount: {
     label: 'Participants',
+    short: 'Participants',
     unknown: 'Unknown',
-    hint: 'Enter it if you know. Leave blank to detect automatically',
     invalid: ({ min, max }) => `Enter a whole number between ${min} and ${max}`
-  },
-  panel: {
-    label: 'Recording options',
-    optionsTitle: 'Recording settings',
-    importTitle: 'From a file'
   },
   recorder: {
     sectionLabel: 'Recording',
     start: 'Start recording',
-    stopAndTranscribe: 'Stop and create transcript',
+    micRecording: 'Recording',
+    stop: 'Stop and create record',
+    elapsed: 'Elapsed time',
     controlError: 'Could not send the recording command. Please try again shortly',
-    keepsRunning: 'Recording continues even if you close this window or switch screens.',
-    widgetHintPrefix: 'You can also start and stop from the widget panel or with ',
-    widgetHintSuffix: '.',
-    widgetHintPlain: 'You can also start and stop from the widget panel.'
+    keepsRunning: 'Recording continues even if you close this window',
+    startedLine: ({ time }) => `${time} · Recording started. Stop to turn it into a record`,
+    stoppedLine: ({ time }) => `${time} · Recording stopped`
   },
   live: {
-    viewLabel: 'Recording view',
+    viewLabel: 'View',
     waveform: 'Waveform',
-    transcript: 'Live transcript',
+    transcript: 'Live',
     regionLabel: 'Live transcript',
-    idle: 'Start recording and what is said will appear here as text right away',
     listening: 'Listening…',
-    hint: 'This is a preview. The transcript is recreated more accurately after you stop',
     resourceNotice:
-      'It keeps the GPU busy while people talk, which can add heat and drain the battery. Switch to the waveform when you do not need it',
+      'This is a preview. It keeps the GPU busy while people talk, which can add heat and drain the battery. Switch to the waveform when you do not need it',
     toggleError: 'Could not switch the view. Please try again shortly'
   },
   systemAudio: {
@@ -164,10 +169,9 @@ export const recordingEn: typeof recordingKo = {
     }
   },
   importer: {
-    label: 'Import a recording',
-    action: 'Import',
+    label: 'Create a record from a file',
+    hint: 'Turn a recording made in another app into text',
     importing: 'Importing…',
-    hint: 'Voice memos and recordings work too. Uses the participant count',
     failed: 'Could not import the recording'
   },
   widget: {
@@ -176,7 +180,7 @@ export const recordingEn: typeof recordingKo = {
     start: 'Start recording',
     stop: 'Stop recording',
     modelNotReady: 'Download the speech model to start recording',
-    stopHint: 'Stopping creates the transcript in the main window',
+    stopHint: 'Stopping creates the record right away',
     pausedHint: 'Audio while paused is not included in the transcript',
     startHint: 'Press record when the meeting starts'
   },
@@ -190,6 +194,28 @@ export const recordingEn: typeof recordingKo = {
     microphoneOpenFailed: 'Could not open the microphone',
     sampleRateUnsupported: ({ expected, actual }) =>
       `This microphone does not support ${expected}Hz recording (currently ${actual}Hz)`
+  },
+  files: {
+    title: 'Manage recording files',
+    backToSettings: 'Settings',
+    loading: 'Loading recording files',
+    loadError: 'Could not load the recording files',
+    deleteError: 'Could not delete the recording files',
+    summary: ({ count, size }) => `${count} kept recordings · ${size} total`,
+    listLabel: 'Recording files',
+    selectAll: 'Select all',
+    selectOne: ({ title }) => `Select ${title}`,
+    deleteSelected: ({ count }) => `Delete ${count} selected`,
+    delete: 'Delete',
+    deleteLabel: ({ title }) => `Delete recording file of ${title}`,
+    confirm: ({ count, size }) =>
+      `Delete ${count} files (${size})? Transcripts stay, but playback, export and reprocessing will no longer be possible`,
+    cancel: 'Cancel',
+    failed: ({ count }) => `${count} files could not be deleted`,
+    status: { error: 'Failed', processing: 'Processing', missing: 'File missing' },
+    empty: 'No recording files are kept',
+    emptyHint:
+      'Turn off "Keep original recordings" to delete recordings after the transcript is made'
   },
   devices: {
     unnamed: ({ index }) => `Microphone ${index}`

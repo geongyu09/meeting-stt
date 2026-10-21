@@ -1,190 +1,115 @@
-/*
- * 한 화면에 스크롤 없이 들어가고, 상태가 바뀌어도 요소가 움직이지 않는다
- * (references/architecture.md "화면별 구성" > 녹음). 문구가 바뀌는 자리는 줄 수를 정해 높이를 고정한다.
- */
-.section {
+/* 시안 "녹음 중 · 입력창 위에 붙음" (references/features/recording.md "채팅 창의 녹음" > "녹음 카드") */
+.card {
   display: flex;
-  flex: 1;
   flex-direction: column;
-  gap: var(--space-5);
-  min-height: 0;
-  padding: var(--space-4) var(--space-6) var(--space-5);
-  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-float);
 }
 
 .header {
   display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px 10px 20px;
+}
+
+.recordingDot,
+.pausedDot {
   flex-shrink: 0;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.statusRow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  height: 24px;
-}
-
-.recordingStatus,
-.idleStatus {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-base);
-  font-weight: 600;
-}
-
-.recordingStatus {
-  color: var(--color-accent);
-}
-
-.idleStatus {
-  color: var(--color-text-muted);
-}
-
-.dot {
-  width: 10px;
-  height: 10px;
-  background: currentColor;
+  width: 8px;
+  height: 8px;
+  background: var(--color-accent);
   border-radius: var(--radius-full);
 }
 
-.recordingStatus .dot {
-  box-shadow: 0 0 0 5px var(--color-accent-soft);
+.recordingDot {
+  box-shadow: 0 0 0 4px var(--color-accent-soft);
 }
 
-.elapsed,
-.idleElapsed {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--font-timer);
-  font-variant-numeric: tabular-nums;
+/* 일시정지는 후광을 거둬 "지금은 듣지 않는다"를 보인다 */
+.pausedDot {
+  opacity: 0.5;
+}
+
+.status {
   font-weight: 500;
-  line-height: 1;
-  letter-spacing: -0.02em;
 }
 
-.idleElapsed {
+.elapsed {
+  font-family: var(--font-mono);
+  font-size: var(--font-md);
+  font-variant-numeric: tabular-nums;
+}
+
+.chip {
+  padding: 0 var(--space-2);
   color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  line-height: 1.7;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  white-space: nowrap;
 }
 
+.viewToggle {
+  margin-left: auto;
+}
+
+/* 본문 높이는 고정이다. 파형 ↔ 라이브를 바꿔도 카드 크기가 같다 */
 .body {
   display: flex;
-  flex: 1;
-  gap: var(--space-6);
-  min-height: 0;
-}
-
-.stage {
-  display: flex;
-  flex: 1;
   flex-direction: column;
-  gap: var(--space-4);
-  min-width: 0;
-  min-height: 0;
-}
-
-/* 카드 크기는 남은 높이가 정한다. 파형 ↔ 라이브 받아쓰기를 바꿔도 크기가 같다 */
-.display {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
+  justify-content: center;
+  height: 112px;
+  padding: 0 20px;
   overflow: hidden;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
 }
 
-.displayHeader {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--color-divider);
-}
-
-.displayBody {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  min-height: 0;
-  padding: var(--space-4) var(--space-5);
-}
-
-.controls {
-  display: flex;
-  flex-shrink: 0;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-/* 시작 ↔ 일시정지·정지로 버튼 구성이 바뀌어도 행 높이는 그대로다 */
-.controlRow {
+.footer {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  height: 52px;
+  margin-top: 10px;
+  padding: 12px 12px 12px 20px;
+  border-top: 1px solid var(--color-divider);
 }
 
-/* 버튼이 무대 폭을 꽉 채운다. 녹음 중에는 일시정지 버튼 옆의 남은 폭을 채운다 */
-.controlButton {
-  flex: 1;
-  min-height: 52px;
-  padding: 0 28px;
-  gap: var(--space-3);
-  font-size: var(--font-md);
-  font-weight: 600;
-  border-radius: var(--radius-full);
+.speakerLabel {
+  font-size: var(--font-sm);
+}
+
+.spacer {
+  margin-left: auto;
 }
 
 .pauseButton {
-  width: 52px;
-  height: 52px;
-  padding: 0;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+}
+
+.stopButton {
+  gap: var(--space-2);
+  height: 40px;
+  min-height: 40px;
+  padding: 0 18px;
+  font-size: var(--font-base);
   border-radius: var(--radius-full);
 }
 
-.stopIcon {
-  width: 14px;
-  height: 14px;
-  background: currentColor;
-  border-radius: 3px;
-}
-
-.startIcon {
-  width: 14px;
-  height: 14px;
-  background: currentColor;
-  border-radius: var(--radius-full);
-}
-
-/* 안내 두 줄(13px × 1.6 × 2). 오류는 같은 자리·같은 높이에 대신 쓴다. 줄이 더 늘면 아래 여백으로 흘러나가게 두고 높이는 지킨다 */
-.hint,
-.quality,
-.error {
-  height: 42px;
+.error,
+.notice {
   margin: 0;
-  font-size: var(--font-sm);
-  line-height: 1.6;
-  word-break: keep-all;
-}
-
-.hint {
-  color: var(--color-text-muted);
+  padding: 0 20px 12px;
+  font-size: var(--font-xs);
 }
 
 .error {
   color: var(--color-danger);
 }
 
-/* 오류가 아니라 권고다. 빨강은 쓰지 않고 기본 안내(흐린 글자)보다 진하게만 한다 */
-.quality {
-  color: var(--color-text);
-}
-
-.key {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
+.notice {
+  color: var(--color-text-muted);
 }

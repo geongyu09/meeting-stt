@@ -8,7 +8,7 @@ import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import DownloadItemList from './ui/DownloadItemList'
 import ModelOption from './ui/ModelOption'
-import { planDownload } from './utils/downloadPlan'
+import { planDownload } from '@renderer/shared/utils/planDownload'
 import styles from './index.module.css'
 
 /** 저사양 판정일 때 권장되는 모델. 이보다 큰 모델을 고르면 안내만 한다 (references/distribution.md 4절) */

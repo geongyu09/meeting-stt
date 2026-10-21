@@ -6,7 +6,7 @@ import { PATHS } from '@renderer/shared/routes/paths'
 export default function MeetingDetail() {
   const { meetingId } = useParams()
 
-  if (!meetingId) return <Navigate to={PATHS.home} replace />
+  if (!meetingId) return <Navigate to={PATHS.meetings} replace />
 
   return (
     <TranscriptSection

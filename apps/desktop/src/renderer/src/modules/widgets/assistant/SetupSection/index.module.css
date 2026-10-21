@@ -1,0 +1,47 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  gap: var(--space-4);
+  width: 100%;
+  /* 채팅 섹션의 스크롤 여백(--space-4)과 같은 안쪽 폭 */
+  max-width: calc(var(--chat-width) + 2 * var(--space-4));
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4) 0;
+}
+
+.greeting,
+.readyText {
+  margin: 0;
+}
+
+.path {
+  font-family: var(--font-mono);
+}
+
+.muted {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.warning,
+.error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--font-sm);
+}
+
+.ready {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

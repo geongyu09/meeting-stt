@@ -1,0 +1,7 @@
+/* 시안의 시각 줄 ("오후 2:00 · 녹음을 시작했어요"). 말풍선이 아니라 가운데 흐린 글자다 */
+.line {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  text-align: center;
+}

@@ -1,0 +1,61 @@
+.card {
+  padding: var(--space-4) 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.step,
+.stepDone {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: var(--font-xs);
+  font-weight: 600;
+}
+
+.step {
+  background: var(--color-text);
+  color: var(--color-text-inverse);
+}
+
+.stepDone {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.title {
+  font-weight: 600;
+}
+
+.action {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0 32px;
+  font-size: var(--font-base);
+}

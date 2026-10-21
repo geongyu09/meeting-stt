@@ -1,11 +1,13 @@
+import { useState } from 'react'
 import type { ModelDownloadProgressEvent } from '@shared/ipc'
 import type { ModelKey } from '@shared/types'
+import Button from '@renderer/shared/components/primitives/ui/Button'
 import Icon from '@renderer/shared/components/primitives/ui/Icon'
 import ProgressBar from '@renderer/shared/components/primitives/ui/ProgressBar'
 import { formatBytes } from '@renderer/shared/utils/formatBytes'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
-import type { PlannedItem } from '../utils/downloadPlan'
+import type { PlannedItem } from '@renderer/shared/utils/planDownload'
 import styles from './DownloadItemList.module.css'
 
 const FULL_PERCENT = 100

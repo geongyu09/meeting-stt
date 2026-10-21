@@ -8,6 +8,7 @@ import {
   type RoutinesChangedEvent,
   type RunRoutineRequest,
   type SaveRoutineRequest,
+  type ListAssistantSkillsResponse,
   type ListWorkspaceFilesResponse,
   type ReadWorkspaceFileRequest,
   type ReadWorkspaceFileResponse,
@@ -211,7 +212,9 @@ const api = {
     readFile: (payload: ReadWorkspaceFileRequest): Promise<ReadWorkspaceFileResponse> =>
       ipcRenderer.invoke(IPC.assistant.readFile, payload),
     writeFile: (payload: WriteWorkspaceFileRequest): Promise<void> =>
-      ipcRenderer.invoke(IPC.assistant.writeFile, payload)
+      ipcRenderer.invoke(IPC.assistant.writeFile, payload),
+    listSkills: (): Promise<ListAssistantSkillsResponse> =>
+      ipcRenderer.invoke(IPC.assistant.listSkills)
   },
   routines: {
     list: (): Promise<GetRoutinesResponse> => ipcRenderer.invoke(IPC.routines.list),

@@ -31,6 +31,17 @@ export const transcriptKo = {
     titleLabel: '회의 제목',
     speakerCount: ({ count }: { count: number }) => `화자 ${count}명`
   },
+  // 대화 속 기록 카드 (references/features/recording.md "채팅 창의 녹음" > "기록 카드")
+  card: {
+    label: ({ title }: { title: string }) => `기록 ${title}`,
+    copyRecord: '기록 복사',
+    copied: '복사했습니다',
+    more: '더보기',
+    summaryLabel: ({ provider }: { provider: string }) => `요약 · ${provider}`,
+    copySummary: '요약 복사',
+    refinedCount: ({ count }: { count: number }) => `용어 ${count}곳 교정됨`,
+    openFull: '전체 기록 보기'
+  },
   actions: {
     copied: '복사했습니다',
     copyAll: '전체 복사',
@@ -131,6 +142,16 @@ export const transcriptEn: typeof transcriptKo = {
   header: {
     titleLabel: 'Meeting title',
     speakerCount: ({ count }) => `${count} ${count === 1 ? 'speaker' : 'speakers'}`
+  },
+  card: {
+    label: ({ title }) => `Record ${title}`,
+    copyRecord: 'Copy record',
+    copied: 'Copied',
+    more: 'More',
+    summaryLabel: ({ provider }) => `Summary · ${provider}`,
+    copySummary: 'Copy summary',
+    refinedCount: ({ count }) => `${count} ${count === 1 ? 'term' : 'terms'} corrected`,
+    openFull: 'Open full record'
   },
   actions: {
     copied: 'Copied',

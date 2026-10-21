@@ -5,46 +5,55 @@
   min-height: 0;
 }
 
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-5);
-  border-bottom: 1px solid var(--color-divider);
-}
-
-.providerField {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--color-text-muted);
-  font-size: var(--font-sm);
-}
-
 .scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--space-5);
+  padding: var(--space-4);
 }
 
-.empty {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-base);
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: var(--chat-width);
+  margin: 0 auto;
 }
 
 .footer {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-5) var(--space-5);
-  border-top: 1px solid var(--color-divider);
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--chat-width);
+  margin: 0 auto;
+  padding: var(--space-2) var(--space-4) var(--space-5);
 }
 
 .error {
   margin: 0;
   color: var(--color-danger);
   font-size: var(--font-sm);
+}
+
+/* 입력 도크 아래 녹음 안내 한 줄 (references/features/recording.md "채팅 창의 녹음" > "녹음 카드") */
+.recordingHint,
+.qualityNotice,
+.recordingError {
+  margin: calc(-1 * var(--space-2)) 0 0;
+  font-size: var(--font-xs);
+  text-align: center;
+}
+
+.recordingHint {
+  color: var(--color-text-muted);
+}
+
+/* 오류가 아니라 권고다. 빨강은 쓰지 않고 기본 안내보다 진하게만 한다 */
+.qualityNotice {
+  color: var(--color-text);
+}
+
+.recordingError {
+  color: var(--color-danger);
 }

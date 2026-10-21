@@ -1,0 +1,63 @@
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 0 20px 14px;
+}
+
+.labelRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.copyButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-left: auto;
+  padding: 0;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.copyButton:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+.text {
+  margin: 0;
+  font-size: var(--font-base);
+  line-height: 1.7;
+  white-space: pre-line;
+}
+
+.message {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.pending {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.link {
+  color: var(--color-accent);
+}
+
+.error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--font-sm);
+}

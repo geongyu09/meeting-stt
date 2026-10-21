@@ -1,42 +1,28 @@
 import { createHashRouter } from 'react-router'
 import Assistant from '@renderer/pages/Assistant'
-import Home from '@renderer/pages/Home'
-import MeetingDetail from '@renderer/pages/MeetingDetail'
-import Onboarding from '@renderer/pages/Onboarding'
-import Record from '@renderer/pages/Record'
 import Settings from '@renderer/pages/Settings'
 import SummaryTemplates from '@renderer/pages/SummaryTemplates'
 import Widget from '@renderer/pages/Widget'
 
-import { RequireModels } from './guards'
-import { AppShellLayout, MainWindowLayout } from './layout'
+import { MainWindowLayout } from './layout'
 import { PATHS } from './paths'
 
 /** file://에서도 동작해야 하므로 해시 라우터를 쓴다 (references/architecture.md) */
 export const router = createHashRouter([
-  // 위젯 창은 모델 가드 밖에 둔다. 가드 안에 두면 모델이 없을 때 패널에 온보딩 화면이 뜬다
   { path: PATHS.widget, element: <Widget /> },
-  { path: PATHS.onboarding, element: <Onboarding /> },
   {
     element: <MainWindowLayout />,
     children: [
+      // 채팅은 창 하나이고 모델 없이도 열린다 — 처음 실행 설정 카드가 그 안에 있고, 녹음·기록·문서도 그 안의 카드·옆 패널이다
+      // (references/features/ui.md "채팅창 리뉴얼")
       {
-        // 경로 없는 레이아웃 라우트. 필수 모델이 없으면 자식 대신 온보딩으로 보낸다
-        element: <RequireModels />,
-        children: [
-          {
-            element: <AppShellLayout />,
-            children: [
-              { path: PATHS.home, element: <Home /> },
-              { path: PATHS.record, element: <Record /> },
-              { path: PATHS.meetingDetail, element: <MeetingDetail /> },
-              { path: PATHS.settings, element: <Settings /> },
-              { path: PATHS.summaryTemplates, element: <SummaryTemplates /> },
-              { path: PATHS.assistant, element: <Assistant /> }
-            ]
-          }
-        ]
-      }
+        path: PATHS.assistant,
+        element: <Assistant />,
+        // 설정은 채팅 위에 뜨는 모달이라 채팅의 자식 라우트다 (references/features/ui.md "설정 모달")
+        children: [{ path: PATHS.settings, element: <Settings /> }]
+      },
+      // 설정에서 들어오는 전체 창 편집 화면. 돌아가기 버튼이 설정 모달을 다시 연다
+      { path: PATHS.summaryTemplates, element: <SummaryTemplates /> }
     ]
   }
 ])

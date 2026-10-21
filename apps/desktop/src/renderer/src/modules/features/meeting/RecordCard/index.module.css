@@ -1,0 +1,8 @@
+/* 시안 "녹음 후 · 기록 카드" (references/features/recording.md "채팅 창의 녹음" > "기록 카드") */
+.card {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+}

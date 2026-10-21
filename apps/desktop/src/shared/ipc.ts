@@ -4,6 +4,7 @@ import type {
   AssistantChatState,
   AssistantPermissionMode,
   AssistantProvider,
+  AssistantSkill,
   AssistantStatus,
   RoutineInput,
   RoutinesState,
@@ -110,7 +111,8 @@ export const IPC = {
     reset: 'assistant:reset',
     listFiles: 'assistant:listFiles',
     readFile: 'assistant:readFile',
-    writeFile: 'assistant:writeFile'
+    writeFile: 'assistant:writeFile',
+    listSkills: 'assistant:listSkills'
   },
   // 루틴 (references/features/assistant.md "루틴")
   routines: {
@@ -622,6 +624,9 @@ export interface SendAssistantMessageRequest {
 }
 
 export type ListWorkspaceFilesResponse = string[]
+
+/** `/` 명령 메뉴의 스킬 목록 (references/features/ui.md "채팅창 리뉴얼" > "IPC") */
+export type ListAssistantSkillsResponse = AssistantSkill[]
 
 export interface ReadWorkspaceFileRequest {
   /** 작업 폴더 기준 상대 경로 (.md) */

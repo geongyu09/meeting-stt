@@ -1,56 +1,24 @@
-/* 카드 본문을 채운다. 카드 크기는 화면이 정하므로 내용이 늘어도 바깥은 움직이지 않는다 */
-.container {
+/* 아래 정렬 + 넘침 숨김이라 새 줄이 올 때마다 위 줄이 밀려 올라간다. 위쪽은 마스크로 흐려진다 */
+.log {
   display: flex;
-  flex: 1;
   flex-direction: column;
-  gap: var(--space-2);
-  align-self: stretch;
-  min-height: 0;
-}
-
-.scroller {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: var(--space-2);
+  justify-content: flex-end;
+  gap: var(--space-1);
+  height: 100%;
+  overflow: hidden;
+  font-size: var(--font-base);
+  line-height: 1.6;
+  mask-image: linear-gradient(to bottom, transparent, #000 40%);
 }
 
 .line,
 .partial,
 .placeholder {
-  margin: 0;
-  font-size: var(--font-md);
-  line-height: 1.6;
-}
-
-.partial {
-  color: var(--color-text-muted);
-}
-
-.placeholder {
-  margin: auto;
-  color: var(--color-text-muted);
-  font-size: var(--font-sm);
-  text-align: center;
-}
-
-.hint,
-.error,
-.notice {
   flex-shrink: 0;
   margin: 0;
-  font-size: var(--font-xs);
-  text-align: center;
 }
 
-.hint,
-.notice {
+.partial,
+.placeholder {
   color: var(--color-text-muted);
-}
-
-.error {
-  color: var(--color-danger);
 }

@@ -35,7 +35,8 @@ vi.mock('@renderer/shared/api/llm', () => ({
 vi.mock('@renderer/shared/api/events', () => ({
   onPipelineProgress: vi.fn(() => () => {}),
   onSummaryProgress: vi.fn(() => () => {}),
-  onRefineProgress: vi.fn(() => () => {})
+  onRefineProgress: vi.fn(() => () => {}),
+  onMeetingsChanged: vi.fn(() => () => {})
 }))
 
 import { writeClipboardTextApi } from '@renderer/shared/api/clipboard'
@@ -72,6 +73,7 @@ const utteranceOf = (): Utterance => ({
 
 const detailOf = (overrides: Partial<MeetingDetail> = {}): MeetingDetail => ({
   meeting: meetingOf(),
+  note: '',
   utterances: [utteranceOf()],
   speakers: [{ meetingId: MEETING_ID, label: 'speaker_00', displayName: null }],
   refineResult: null,

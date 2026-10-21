@@ -1,28 +1,35 @@
+/* 시안 "녹음 위젯 패널 (창 밖)" (references/features/recording.md "채팅 창의 녹음" > "위젯 패널 외형") */
 .section {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 14px;
   height: 100vh;
   padding: 18px;
+  background: var(--color-sidebar);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
 }
 
 /* 제목 표시줄이 없는 창이라 이 영역을 잡아 끈다 */
 .header {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 10px;
   -webkit-app-region: drag;
 }
 
 .title,
 .recordingTitle {
   flex: 1;
-  font-size: var(--font-sm);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .recordingTitle {
-  color: var(--color-accent);
+  color: var(--color-text);
+}
+
+.title {
+  color: var(--color-text-muted);
 }
 
 .recordingDot,
@@ -42,31 +49,28 @@
   opacity: 0.6;
 }
 
+/* 헤더 오른쪽 아이콘 버튼(일시정지·숨기기). 테두리 없는 둥근 32px */
+.iconButton,
 .hideButton {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
   padding: 0;
   color: var(--color-text-muted);
-  background: none;
+  background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   cursor: pointer;
   -webkit-app-region: no-drag;
 }
 
+.iconButton:not(:disabled):hover,
 .hideButton:hover {
   color: var(--color-text);
   background: var(--color-surface-hover);
-}
-
-.clock {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: var(--space-3);
 }
 
 .elapsed,
@@ -75,8 +79,8 @@
   font-family: var(--font-mono);
   font-size: var(--font-hero);
   font-variant-numeric: tabular-nums;
-  font-weight: 500;
-  line-height: 1;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
 }
 
 .idleElapsed {
@@ -87,55 +91,32 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .speakerCountLabel {
-  color: var(--color-text-muted);
   font-size: var(--font-sm);
 }
 
 .controlButton,
 .stopButton {
+  gap: var(--space-2);
+  height: 44px;
   min-height: 44px;
-  gap: 10px;
-  font-size: var(--font-md);
-  font-weight: 600;
+  font-size: var(--font-base);
   border-radius: var(--radius-full);
 }
 
-.stopRow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.stopRow .stopButton {
-  flex: 1;
-}
-
-.pauseButton {
-  width: 44px;
-  min-height: 44px;
-}
-
 .stopButton {
-  color: var(--color-accent);
-  border: 1.5px solid var(--color-accent);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border-color: var(--color-text);
 }
 
-.stopIcon,
 .startIcon {
   width: 12px;
   height: 12px;
   background: currentColor;
-}
-
-.stopIcon {
-  border-radius: 3px;
-}
-
-.startIcon {
   border-radius: var(--radius-full);
 }
 

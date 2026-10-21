@@ -1,4 +1,4 @@
-import Button from '@renderer/shared/components/primitives/ui/Button'
+import Icon from '@renderer/shared/components/primitives/ui/Icon'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import styles from './EditorToolbar.module.css'
@@ -11,9 +11,10 @@ interface EditorToolbarProps {
   isSaving: boolean
   isJustSaved: boolean
   onSave: () => void
+  onClose: () => void
 }
 
-/** 문서 고르기와 저장. 저장 상태 문구는 저장하지 않은 변경 → 저장했습니다 순서로 바뀐다 */
+/** 패널 헤더 — 문서 고르기 · 저장(⌘S) · 닫기. 저장 상태 문구는 저장하지 않은 변경 → 저장했습니다 순서로 바뀐다 */
 export default function EditorToolbar({
   files,
   openPath,
@@ -21,7 +22,8 @@ export default function EditorToolbar({
   isDirty,
   isSaving,
   isJustSaved,
-  onSave
+  onSave,
+  onClose
 }: EditorToolbarProps) {
   const { t } = useLocale()
   const labels = t.assistant.editor
@@ -31,6 +33,7 @@ export default function EditorToolbar({
 
   return (
     <div className={styles.toolbar}>
+      <Icon name="file" />
       <select
         className={styles.select}
         aria-label={labels.fileList}
@@ -49,9 +52,25 @@ export default function EditorToolbar({
           {saveState}
         </span>
       ) : null}
-      <Button variant="secondary" size="sm" disabled={!isDirty || isSaving} onClick={onSave}>
+      <button
+        type="button"
+        className={styles.saveButton}
+        disabled={!isDirty || isSaving}
+        onClick={onSave}
+      >
         {labels.save}
-      </Button>
+        <span className={styles.key} aria-hidden="true">
+          {labels.saveKey}
+        </span>
+      </button>
+      <button
+        type="button"
+        className={styles.iconButton}
+        aria-label={labels.close}
+        onClick={onClose}
+      >
+        <Icon name="close" size={18} />
+      </button>
     </div>
   )
 }

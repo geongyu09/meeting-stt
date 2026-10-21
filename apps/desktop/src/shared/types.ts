@@ -302,6 +302,13 @@ export interface AssistantTurn {
   error: string | null
 }
 
+/** 작업 폴더·사용자 홈의 `.claude/skills/<이름>/SKILL.md` 하나 (references/features/ui.md "채팅창 리뉴얼" > "IPC") */
+export interface AssistantSkill {
+  name: string
+  /** 머리말 description. 없으면 빈 문자열 */
+  description: string
+}
+
 /** 진행 중 대화의 단일 출처는 main이다. 조회 `assistant:state`, push `assistant:stateChanged` */
 export interface AssistantChatState {
   /** 이 대화를 연 공급자. 비어 있으면 null — 세션 id는 공급자 사이에서 이어지지 않는다 */

@@ -50,6 +50,7 @@ export default function MeetingSidebarSection() {
       <div className={styles.footer}>
         <NavLink
           to={PATHS.assistant}
+          end
           className={({ isActive }) =>
             [styles.settingsLink, isActive ? styles.active : ''].join(' ')
           }
