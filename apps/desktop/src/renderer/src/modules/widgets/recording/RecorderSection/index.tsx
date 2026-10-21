@@ -6,6 +6,7 @@ import Button from '@renderer/shared/components/primitives/ui/Button'
 import Icon from '@renderer/shared/components/primitives/ui/Icon'
 import LevelWaveform from '@renderer/shared/components/primitives/ui/LevelWaveform'
 import Stepper from '@renderer/shared/components/primitives/ui/Stepper'
+import useRecordingNote from '@renderer/shared/hooks/domain/recording/useRecordingNote'
 import useRecordingState from '@renderer/shared/hooks/domain/recording/useRecordingState'
 import useSpeakerCount from '@renderer/shared/hooks/domain/recording/useSpeakerCount'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
@@ -17,6 +18,8 @@ import styles from './index.module.css'
 
 const WAVEFORM_BAR_COUNT = 40
 const STOP_ICON_SIZE = 16
+const NOTE_ICON_SIZE = 14
+const NOTE_ROWS = 4
 
 /**
  * 채팅 입력창 위에 붙는 녹음 카드. 녹음 중에만 그린다 (references/features/recording.md "채팅 창의 녹음" > "녹음 카드").
@@ -25,11 +28,21 @@ const STOP_ICON_SIZE = 16
 export default function RecorderSection() {
   const { t: messages } = useLocale()
   const t = messages.recording
-  const { isRecording, isPaused, level, elapsedSec, speakerCount, liveTranscript, systemAudio } =
-    useRecordingState()
+  const {
+    isRecording,
+    isPaused,
+    level,
+    elapsedSec,
+    speakerCount,
+    liveTranscript,
+    systemAudio,
+    note
+  } = useRecordingState()
   const { text, isValid, changeText } = useSpeakerCount({ speakerCount })
+  const noteField = useRecordingNote({ note })
   const [controlError, setControlError] = useState<string | null>(null)
   const [isStopping, setIsStopping] = useState(false)
+  const [isNoteOpen, setIsNoteOpen] = useState(false)
 
   if (!isRecording) return null
 
@@ -56,6 +69,7 @@ export default function RecorderSection() {
 
   const error =
     controlError ??
+    noteField.saveError ??
     liveTranscript.errorMessage ??
     (isValid ? null : t.speakerCount.invalid({ min: MIN_SPEAKER_COUNT, max: MAX_SPEAKER_COUNT }))
 
@@ -90,6 +104,16 @@ export default function RecorderSection() {
           placeholder={t.speakerCount.unknown}
           isInvalid={!isValid}
         />
+        <Button
+          variant="secondary"
+          size="sm"
+          className={styles.noteButton}
+          aria-expanded={isNoteOpen}
+          onClick={() => setIsNoteOpen((isOpen) => !isOpen)}
+        >
+          <Icon name="pencil" size={NOTE_ICON_SIZE} />
+          {t.note.toggle}
+        </Button>
         <span className={styles.spacer} />
         <PauseRecordingButton
           isPaused={isPaused}
@@ -101,6 +125,17 @@ export default function RecorderSection() {
           {t.recorder.stop}
         </Button>
       </div>
+      {isNoteOpen ? (
+        <textarea
+          className={styles.note}
+          rows={NOTE_ROWS}
+          value={noteField.text}
+          onChange={(event) => noteField.changeText(event.target.value)}
+          onBlur={noteField.release}
+          placeholder={t.note.placeholder}
+          aria-label={t.note.label}
+        />
+      ) : null}
       {error ? (
         <p className={styles.error} role="alert">
           {error}

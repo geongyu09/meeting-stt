@@ -9,7 +9,8 @@ vi.mock('@renderer/shared/api/recording', () => ({
   controlRecordingApi: vi.fn(),
   setSpeakerCountApi: vi.fn(),
   setLiveTranscriptApi: vi.fn(),
-  setRecordingPausedApi: vi.fn()
+  setRecordingPausedApi: vi.fn(),
+  setRecordingNoteApi: vi.fn()
 }))
 vi.mock('@renderer/shared/api/events', () => ({ onRecordingState: vi.fn() }))
 
@@ -18,6 +19,7 @@ import {
   controlRecordingApi,
   getRecordingStateApi,
   setLiveTranscriptApi,
+  setRecordingNoteApi,
   setRecordingPausedApi,
   setSpeakerCountApi
 } from '@renderer/shared/api/recording'
@@ -64,6 +66,7 @@ beforeEach(() => {
   vi.mocked(setSpeakerCountApi).mockResolvedValue(RECORDING_STATE)
   vi.mocked(setLiveTranscriptApi).mockResolvedValue(RECORDING_STATE)
   vi.mocked(setRecordingPausedApi).mockResolvedValue(RECORDING_STATE)
+  vi.mocked(setRecordingNoteApi).mockResolvedValue(RECORDING_STATE)
 })
 
 afterEach(() => {
@@ -161,6 +164,33 @@ describe('RecorderSection', () => {
     })
 
     expect(screen.getByRole('alert').textContent).toContain('인식이 잠시 멈췄습니다')
+  })
+
+  it('노트를 펼쳐 적으면 세션에 저장하고, 적는 동안은 늦게 온 세션 값으로 되돌리지 않는다', async () => {
+    await renderRecording()
+    expect(screen.queryByRole('textbox', { name: '녹음 노트' })).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: '노트' }))
+    const note = screen.getByRole('textbox', { name: '녹음 노트' }) as HTMLTextAreaElement
+    await userEvent.type(note, '안건')
+    expect(setRecordingNoteApi).toHaveBeenLastCalledWith({ note: '안건' })
+
+    pushState({ ...RECORDING_STATE, note: '안' })
+    expect(note.value).toBe('안건')
+
+    await userEvent.tab()
+    pushState({ ...RECORDING_STATE, note: '안건 · 배포 일정' })
+    expect(note.value).toBe('안건 · 배포 일정')
+  })
+
+  it('노트 저장에 실패하면 카드 안에 안내를 보여 준다', async () => {
+    vi.mocked(setRecordingNoteApi).mockRejectedValue(new Error('ipc'))
+    await renderRecording()
+
+    await userEvent.click(screen.getByRole('button', { name: '노트' }))
+    await userEvent.type(screen.getByRole('textbox', { name: '녹음 노트' }), '안')
+
+    expect((await screen.findByRole('alert')).textContent).toContain('노트를 저장하지 못했습니다')
   })
 
   it('명령 전달에 실패하면 카드 안에 안내를 보여 준다', async () => {

@@ -16,3 +16,6 @@ apps/desktop/resources/bin/
 docs/external/
 docs/browser-worker-service-design.md
 .vercel
+
+# tsc composite 빌드 정보 (typecheck가 만든다)
+*.tsbuildinfo

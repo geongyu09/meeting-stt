@@ -88,6 +88,7 @@ const useRecordingState = () => {
     liveTranscript: state.liveTranscript,
     systemAudio: state.systemAudio,
     qualityIssue: state.qualityIssue,
+    note: state.note,
     elapsedSec
   }
 }

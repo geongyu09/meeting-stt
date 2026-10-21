@@ -30,6 +30,12 @@ export const recordingKo = {
       `${time} · 녹음을 시작했어요. 멈추면 기록으로 정리할게요`,
     stoppedLine: ({ time }: { time: string }) => `${time} · 녹음을 멈췄어요`
   },
+  note: {
+    toggle: '노트',
+    label: '녹음 노트',
+    placeholder: '안건, 결정, 링크를 적어 두세요. 교정·요약·기록 정리에 함께 씁니다',
+    saveError: '노트를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요'
+  },
   live: {
     viewLabel: '보기',
     waveform: '파형',
@@ -139,6 +145,13 @@ export const recordingEn: typeof recordingKo = {
     keepsRunning: 'Recording continues even if you close this window',
     startedLine: ({ time }) => `${time} · Recording started. Stop to turn it into a record`,
     stoppedLine: ({ time }) => `${time} · Recording stopped`
+  },
+  note: {
+    toggle: 'Note',
+    label: 'Recording note',
+    placeholder:
+      'Jot down agenda items, decisions and links. Used for refinement, summary and record organizing',
+    saveError: 'Could not save the note. Please try again shortly'
   },
   live: {
     viewLabel: 'View',

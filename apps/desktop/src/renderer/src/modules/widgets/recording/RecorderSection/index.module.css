@@ -84,6 +84,27 @@
   margin-left: auto;
 }
 
+.noteButton {
+  gap: var(--space-1);
+}
+
+/* 펼친 노트. 카드가 아래로 늘어나고 긴 글은 칸 안에서 스크롤한다 */
+.note {
+  margin: 0 20px 12px;
+  padding: 10px 12px;
+  color: var(--color-text);
+  font-size: var(--font-sm);
+  line-height: 1.6;
+  background: var(--color-sidebar);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  resize: none;
+}
+
+.note::placeholder {
+  color: var(--color-text-muted);
+}
+
 .pauseButton {
   width: 40px;
   height: 40px;

@@ -354,14 +354,17 @@
 설계는 `features/recording.md` "녹음 노트", 저장은 `data-model.md` "녹음 노트 저장"(마이그레이션 8), 프롬프트는 `features/transcript.md` "문장 교정"·`features/llm.md` "로컬 LLM 요약", 뇌 정리 연결은 `features/assistant.md` "원문 파일"·"정리 에이전트". 문서를 먼저 고쳤다.
 "메모"는 녹음 종류 이름이라 이 기능은 "노트"(`note`)로 부른다.
 
-- [ ] 계약: `src/shared/note.ts`(`NOTE_MAX_CHARS`·`extractNoteLinks`·`clipNote`, vitest), `RecordingStateEvent.note`·`MeetingDetail.note`, IPC `recording:setNote`·`meetings:updateNote`와 요청/응답 타입
-- [ ] DB: 마이그레이션 8(`meetings.note`), 노트 읽기·쓰기, 상세 조회에 노트
-- [ ] main: 세션 노트(녹음 전 초안 → 시작 시 새 회의에 쓰기 → 녹음 중 바뀔 때마다 쓰기 → 정지 시 비우기), 핸들러 검증(문자열·상한·녹음 중 회의 거절)
+- [x] 계약: `src/shared/note.ts`(`NOTE_MAX_CHARS`·`extractNoteLinks`·`clipNote`, vitest), `RecordingStateEvent.note`·`MeetingDetail.note`, IPC `recording:setNote`·`meetings:updateNote`와 요청/응답 타입 (2026-10-22, `6b94710`)
+- [x] DB: 마이그레이션 8(`meetings.note`), 노트 읽기·쓰기, 상세 조회에 노트 (2026-10-22, `6b94710`)
+- [x] main: 세션 노트(녹음 전 초안 → 시작 시 새 회의에 쓰기 → 녹음 중 바뀔 때마다 쓰기 → 정지 시 비우기), 핸들러 검증(문자열·상한·녹음 중 회의 거절) (2026-10-22, `6b94710`)
 - [ ] 문장 교정 프롬프트의 참고 노트(`REFINE_NOTE_MAX_CHARS`), 요약 whole·reduce 프롬프트의 노트와 예산(청크 예산 4분의 1, 회의록 예산에서 뺌) — 순수 함수 테스트
-- [ ] preload + renderer api 래퍼, `useRecordingNote`(포커스 중 내 초안 우선)
-- [ ] 화면: 녹음 화면 옵션 패널 "노트" 그룹, 위젯 노트 보기(헤더 아이콘·돌아가기), 상세 레일 노트 카드(blur·⌘Enter 저장, Esc 되돌리기, 링크 목록)
-- [ ] 사전(`ko`·`en`) 문구
-- [ ] 테스트: `RecorderSection`(노트 입력이 `recording:setNote`로), `WidgetPanelSection`(노트 보기 전환·입력), `TranscriptSection`(노트 저장·링크 목록) 통합 테스트
+- [x] preload + renderer api 래퍼(`6b94710`), `useRecordingNote`(포커스 중 내 초안 우선, 2026-10-22)
+- [ ] 화면 — 채팅창 리뉴얼로 옛 녹음 화면·회의 상세는 없어졌다
+  - [x] 채팅 녹음 카드의 펼치는 노트 칸("노트" 버튼 → textarea, `features/recording.md` "채팅 창의 녹음" > "녹음 카드") (2026-10-22)
+  - [ ] 위젯 노트 보기(헤더 아이콘·돌아가기)
+  - [ ] 전체 기록 패널의 노트(옛 상세 레일 노트 카드 대신, blur·⌘Enter 저장, Esc 되돌리기, 링크 목록) — 자리는 시안을 고칠 때 정한다
+- [ ] 사전(`ko`·`en`) 문구 — 녹음 카드 몫(`recording.note`)은 넣었다 (2026-10-22)
+- [ ] 테스트: ~~`RecorderSection`(노트 입력이 `recording:setNote`로)~~ 완료(2026-10-22, 늦게 온 push 무시·저장 실패 안내 포함), `WidgetPanelSection`(노트 보기 전환·입력), `TranscriptSection`(노트 저장·링크 목록) 통합 테스트
 - [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과
 - [ ] 완료 기준(`pnpm dev`): 녹음 전 노트에 적고 녹음 시작 → 위젯 노트 보기에서 이어 적으면 메인 창에도 보인다 → 정지 후 상세 노트 카드에 그대로 있고 링크를 누르면 브라우저가 열린다. 외부 공급자 교정·요약 프롬프트에 노트가 들어간다(로그 또는 임시 파일로 확인). 위젯 패널에서 textarea에 키 입력이 들어간다(`type: 'panel'`)
 - [ ] 후속: 앱 안 마크다운 렌더링(채팅창 리뉴얼의 렌더러와 함께), 노트를 회의록 검색·복사에 포함, 로컬 용어 교정 후보에 노트 단어 쓰기
@@ -679,7 +682,7 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 
 - [x] 홈 화면부터 채팅 플로우 — 토큰 값 교체, `/` = 채팅(사이드바 밖)·옛 홈 `/meetings`, 도우미 6개 + 입력 도크, `/` 명령 메뉴(내장 명령 + 스킬, `assistant:listSkills`)·`@` 파일 선택, 턴(말풍선·도구 라벨·바뀐 파일 칩·작업 중), 문서 패널(옆 카드·닫기) + 통합 테스트·순수 함수 vitest (2026-10-22)
   — 같은 날 빌드된 앱을 별도 userData로 띄워(playwright-core, 폴더 대화상자만 대체) 확인: 홈 도우미·`/` 메뉴(내장 + 스킬)·`@` 파일 메뉴·실제 Claude Code 턴("고침 notes/hello.md" 줄과 칩)·칩으로 문서 패널 열기·닫기·다크 모드까지 시안과 같은 모양. **`pnpm dev`에서 사람이 실제 작업 폴더로 확인하는 것이 남았다**
-- [x] 녹음 카드(입력창 위에 붙는 녹음 중, 녹음 후 기록 카드) — `recording/RecorderSection`을 시안 카드로 재작성(녹음 중에만, 페이지가 `recorderSlot`으로 넘김), `features/meeting/RecordCard`(처리 중·실패·완료: 요약·복사·삭제 2단계·화자 범례·교정 수, "전체 기록 보기"는 아직 회의 상세로), 채팅의 "녹음을 시작했어요/멈췄어요" 줄(`location.state.stoppedMeetingId`)과 입력 도크 아래 단축키·품질·오류 안내, 정지 후 `/`로 이동, 도우미 "파일로 기록 만들기"가 `useAudioImport`(이동 없음), 위젯 패널 시안 외형·알약 `Stepper`, 시스템 오디오 스위치를 설정 "마이크"로, 옛 녹음 화면 `/record`는 시작 후 `/`로 보내는 shim + 통합 테스트(`RecorderSection`·`RecordCard`·채팅·설정) (2026-10-22, `features/recording.md` "채팅 창의 녹음"). 빌드된 앱을 가짜 마이크(`--use-fake-device-for-media-stream`)로 띄워 마이크 버튼 → 녹음 카드(파형·라이브·타이머·안내 줄) → 정지 → "녹음을 멈췄어요" 줄 + 기록 카드(처리 중 → 완료) → "전체 기록 보기" 패널 → 기록 찾기 결과 → 패널 열기까지 스크린샷으로 확인했다(2026-10-22). 실제 마이크·긴 녹음의 사람 확인은 평소 사용에서 한다. 노트 칸·회의/메모 종류 선택은 그 기능이 붙을 때 카드에 둔다
+- [x] 녹음 카드(입력창 위에 붙는 녹음 중, 녹음 후 기록 카드) — `recording/RecorderSection`을 시안 카드로 재작성(녹음 중에만, 페이지가 `recorderSlot`으로 넘김), `features/meeting/RecordCard`(처리 중·실패·완료: 요약·복사·삭제 2단계·화자 범례·교정 수, "전체 기록 보기"는 아직 회의 상세로), 채팅의 "녹음을 시작했어요/멈췄어요" 줄(`location.state.stoppedMeetingId`)과 입력 도크 아래 단축키·품질·오류 안내, 정지 후 `/`로 이동, 도우미 "파일로 기록 만들기"가 `useAudioImport`(이동 없음), 위젯 패널 시안 외형·알약 `Stepper`, 시스템 오디오 스위치를 설정 "마이크"로, 옛 녹음 화면 `/record`는 시작 후 `/`로 보내는 shim + 통합 테스트(`RecorderSection`·`RecordCard`·채팅·설정) (2026-10-22, `features/recording.md` "채팅 창의 녹음"). 빌드된 앱을 가짜 마이크(`--use-fake-device-for-media-stream`)로 띄워 마이크 버튼 → 녹음 카드(파형·라이브·타이머·안내 줄) → 정지 → "녹음을 멈췄어요" 줄 + 기록 카드(처리 중 → 완료) → "전체 기록 보기" 패널 → 기록 찾기 결과 → 패널 열기까지 스크린샷으로 확인했다(2026-10-22). 실제 마이크·긴 녹음의 사람 확인은 평소 사용에서 한다. 노트 칸은 2026-10-22 카드에 붙였다(아래 "녹음 노트" 절), 회의/메모 종류 선택은 그 기능이 붙을 때 헤더에 둔다
 - [x] 대화 중 도우미 줄 — 턴이 있으면 같은 도우미 6개를 입력 도크 아래 한 줄의 작은 상자로 둔다(`HelperGrid isCompact`) + 통합 테스트 (2026-10-22, `features/ui.md` "홈"). **`pnpm dev` 사람 확인이 남았다**
 - [x] 전체 기록 패널·기록 찾기(결과가 대화에) — `meeting/TranscriptSection`을 채팅 옆 600px 카드(헤더·화자 칩 줄·발화 목록·녹음본 줄·닫기)로 재작성해 기록 카드의 "전체 기록 보기"와 찾기 결과가 연다. 도우미·`/` 명령 "기록 찾기"는 도크의 찾기 모드(칩 + Enter → `meetings:search`) → 대화 속 결과 카드(`ui/SearchResultCard`, `shared/utils/highlightMatch`). 사이드바·`/meetings`·`/meetings/:id`·`/record`·`RequireModels`·`meeting/SummarySection`을 지웠다 + 통합 테스트 (2026-10-22, `features/recording.md` "전체 기록 패널"·"기록 찾기"·"옛 페이지 제거"). 남은 옛 화면은 `/summary-templates`(설정에서 들어오는 전체 창)뿐이다
 - [x] 설정 모달 (보드 "설정 · 큰 모달로 열림", 설계는 `features/ui.md` "설정 모달") — 문서를 먼저 고쳤다 (`features/ui.md` 새 절·라우트 표·공통 컴포넌트 표, `features/assistant.md` IPC·화면, `data-model.md` `assistant.provider`, `architecture.md` IPC 목록, `SKILL.md` 개인 비서 행). 경로는 `/settings` 그대로이고 설정으로 가는 링크는 바꾸지 않았다 (2026-10-22)
