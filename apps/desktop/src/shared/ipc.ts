@@ -39,7 +39,8 @@ export const IPC = {
     reportError: 'recording:reportError',
     setLiveTranscript: 'recording:setLiveTranscript',
     setSystemAudio: 'recording:setSystemAudio',
-    setPaused: 'recording:setPaused'
+    setPaused: 'recording:setPaused',
+    setNote: 'recording:setNote'
   },
   widget: { setVisible: 'widget:setVisible' },
   shortcuts: { setSuspended: 'shortcuts:setSuspended' },
@@ -61,7 +62,10 @@ export const IPC = {
     search: 'meetings:search',
     reprocess: 'meetings:reprocess',
     exportAudio: 'meetings:exportAudio',
-    import: 'meetings:import'
+    listAudio: 'meetings:listAudio',
+    deleteAudio: 'meetings:deleteAudio',
+    import: 'meetings:import',
+    updateNote: 'meetings:updateNote'
   },
   utterances: {
     updateText: 'utterances:updateText',
@@ -181,6 +185,11 @@ export interface RecordingStateEvent {
   level: number
   /** 세션에 보관 중인 참석자 수. 두 창의 입력란을 같은 값으로 맞춘다 */
   speakerCount?: number
+  /**
+   * 녹음 노트. 녹음 전에는 다음 녹음의 초안, 녹음 중에는 그 회의의 노트다. 정지하면 빈 문자열로 돌아간다
+   * (references/features/recording.md "녹음 노트")
+   */
+  note: string
   /** 정지가 끝난 순간 한 번만 실린다. 메인 창이 이 회의의 상세로 이동한다 */
   stoppedMeetingId?: string
   /** 시작·정지가 실패한 순간 한 번만 실린다. 위젯에서만 알 수 있는 실패를 메인 창도 보여준다 */
@@ -245,6 +254,11 @@ export type RecordingCommandEvent = ControlRecordingRequest
 /** 비우면(undefined) 임계값 폴백으로 돌아간다 */
 export interface SetSpeakerCountRequest {
   speakerCount?: number
+}
+
+/** 녹음 노트 바꾸기. 녹음 중이면 main이 그 회의 행에 바로 쓴다. 응답은 바뀐 녹음 상태다 */
+export interface SetRecordingNoteRequest {
+  note: string
 }
 
 /** 마이크 권한 거부처럼 위젯에서만 일어나는 실패를 세션에 모은다 */
@@ -340,6 +354,12 @@ export type MutateMeetingResponse = MeetingDetail
 export interface RenameMeetingRequest {
   meetingId: string
   title: string
+}
+
+/** 녹음이 끝난 회의의 노트 바꾸기. 녹음 중인 회의는 `recording:setNote`로만 바뀐다 */
+export interface UpdateMeetingNoteRequest {
+  meetingId: string
+  note: string
 }
 
 export interface DeleteMeetingRequest {

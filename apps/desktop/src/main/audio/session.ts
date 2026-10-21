@@ -9,6 +9,7 @@ import {
   findMeeting,
   insertMeeting,
   updateMeetingDuration,
+  updateMeetingNote,
   updateMeetingSpeakerCount,
   updateMeetingStatus
 } from '../db/meetings'
@@ -59,6 +60,12 @@ let session: RecordingSession | null = null
 let speakerCount: number | undefined
 
 /**
+ * 녹음 노트도 세션 밖에 둔다 — 녹음 전에 쓴 초안이 다음 녹음의 노트가 된다. 녹음 중에는 바뀔 때마다 회의 행에 쓰고
+ * 정지하면 비운다 (references/features/recording.md "녹음 노트")
+ */
+let note = ''
+
+/**
  * 온라인 회의 소리 함께 녹음 (Phase 5-2). 참석자 수처럼 세션 밖에 두고, DB(`audio.systemCapture`)에서 처음 한 번 읽어 캐시한다.
  * 실패 안내는 켜기(프로브)나 녹음 중 캡처가 끊겼을 때 실리고 다음 시도에서 지운다.
  */
@@ -97,6 +104,7 @@ export const getRecordingState = (): RecordingStateEvent => ({
   pausedAt: session?.pausedAt ?? null,
   level: session?.level ?? 0,
   speakerCount,
+  note,
   liveTranscript: getLiveTranscriptState(),
   systemAudio: {
     isEnabled: systemAudioEnabled(),
@@ -133,6 +141,7 @@ export const startRecording = async ({ sampleRate }: { sampleRate: number }) => 
   await mkdir(recordingsDir(), { recursive: true })
   const writer = await createWavWriter({ filePath: audioPath })
   insertMeeting({ id: meetingId, title: defaultTitle(createdAt), createdAt, audioPath })
+  if (note) updateMeetingNote({ meetingId, note })
   session = {
     meetingId,
     startedAt: createdAt,
@@ -231,6 +240,8 @@ export const stopRecording = async ({ meetingId }: { meetingId: string }) => {
   await closeSystemAudio(active)
   const { durationSec } = await active.writer.finalize()
   session = null
+  // 노트는 이미 회의 행에 있다. 다음 녹음은 빈 노트로 시작한다
+  note = ''
   resetLiveTranscript()
   updateMeetingDuration({ meetingId, durationSec })
   if (speakerCount) updateMeetingSpeakerCount({ meetingId, speakerCount })
@@ -260,6 +271,15 @@ export const stopRecording = async ({ meetingId }: { meetingId: string }) => {
 /** 값이 바뀌면 두 창의 입력란이 같은 값을 보도록 바로 알린다. 검증은 핸들러가 끝냈다 */
 export const setRecordingSpeakerCount = (next: number | undefined) => {
   speakerCount = next
+  publish()
+
+  return getRecordingState()
+}
+
+/** 녹음 중이면 바뀔 때마다 회의 행에 바로 쓴다 — 녹음 도중 앱이 죽어도 노트가 남는다. 검증은 핸들러가 끝냈다 */
+export const setRecordingNote = (next: string) => {
+  note = next
+  if (session) updateMeetingNote({ meetingId: session.meetingId, note })
   publish()
 
   return getRecordingState()

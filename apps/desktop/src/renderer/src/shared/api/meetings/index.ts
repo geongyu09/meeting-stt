@@ -1,10 +1,12 @@
 import type {
+  DeleteMeetingAudioRequest,
   DeleteMeetingRequest,
   ExportMeetingAudioRequest,
   GetMeetingRequest,
   RenameMeetingRequest,
   ReprocessMeetingRequest,
-  SearchMeetingsRequest
+  SearchMeetingsRequest,
+  UpdateMeetingNoteRequest
 } from '@shared/ipc'
 
 // Electron은 main에서 던진 에러를 "Error invoking remote method '<채널>': Error: <원문>"으로 감싼다
@@ -47,6 +49,22 @@ export const getMeetingApi = async ({ meetingId }: GetMeetingRequest) =>
  */
 export const renameMeetingApi = async ({ meetingId, title }: RenameMeetingRequest) =>
   window.api.meetings.rename({ meetingId, title })
+
+/**
+ * @description 녹음이 끝난 회의의 노트를 바꿉니다. 녹음 중인 회의는 `setRecordingNoteApi`로만 바뀝니다.
+ * @param meetingId - 회의 ID
+ * @param note - 노트 전체. 비우면 노트가 없어진다
+ * @returns 갱신된 회의 상세
+ * @example
+ * const detail = await updateMeetingNoteApi({ meetingId, note: '안건: 배포 일정' })
+ */
+export const updateMeetingNoteApi = async ({ meetingId, note }: UpdateMeetingNoteRequest) => {
+  try {
+    return await window.api.meetings.updateNote({ meetingId, note })
+  } catch (caught) {
+    throw toUserError(caught)
+  }
+}
 
 /**
  * @description 회의를 지웁니다. 발화·화자와 원본 녹음 파일도 함께 사라집니다.
@@ -109,6 +127,29 @@ export const exportMeetingAudioApi = async ({ meetingId }: ExportMeetingAudioReq
 export const importMeetingAudioApi = async () => {
   try {
     return await window.api.meetings.import()
+  } catch (caught) {
+    throw toUserError(caught)
+  }
+}
+
+/**
+ * @description 보관 중인 녹음 파일 목록을 최근 녹음부터 불러옵니다. 녹음 중인 회의는 빠집니다.
+ * @returns 회의별 녹음 파일(크기는 파일이 없으면 null)
+ * @example
+ * const files = await getMeetingAudioFilesApi()
+ */
+export const getMeetingAudioFilesApi = async () => window.api.meetings.listAudio()
+
+/**
+ * @description 녹음 파일만 지우고 회의록은 남깁니다. 녹음 중·처리 중인 회의는 건너뜁니다.
+ * @param meetingIds - 지울 회의 ID 목록
+ * @returns 지운 뒤의 목록과 지우지 못한 수
+ * @example
+ * const { files, failedCount } = await deleteMeetingAudioApi({ meetingIds: [meetingId] })
+ */
+export const deleteMeetingAudioApi = async ({ meetingIds }: DeleteMeetingAudioRequest) => {
+  try {
+    return await window.api.meetings.deleteAudio({ meetingIds })
   } catch (caught) {
     throw toUserError(caught)
   }

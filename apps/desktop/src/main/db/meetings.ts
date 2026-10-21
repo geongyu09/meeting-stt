@@ -1,6 +1,6 @@
 import { audioQualityIssueOf, type AudioQualityMetrics } from '@shared/audioQuality'
 import type { MeetingSearchResult } from '@shared/ipc'
-import type { Meeting, MeetingStatus } from '@shared/types'
+import type { Meeting, MeetingAudioFile, MeetingStatus } from '@shared/types'
 import { SEARCH_RESULT_LIMIT, toLikePattern } from '../searchQuery'
 import { getDb } from './connection'
 import { t } from '../locale'
@@ -99,6 +99,23 @@ export const searchMeetings = ({ query }: { query: string }) => {
     .map((row) => toSearchResult(row as SearchRow))
 }
 
+/** 녹음 파일이 남은 회의. 녹음 중인 회의는 파일이 확정되지 않아 뺀다 (references/data-model.md "녹음 파일 관리") */
+export const listMeetingsWithAudio = () =>
+  getDb()
+    .prepare(
+      `SELECT id, title, created_at, duration_sec, status, audio_path FROM meetings
+       WHERE audio_path IS NOT NULL AND status != 'recording' ORDER BY created_at DESC`
+    )
+    .all()
+    .map((row) => {
+      const { id, title, created_at, duration_sec, status, audio_path } = row as MeetingRow
+
+      return {
+        file: { meetingId: id, title, createdAt: created_at, durationSec: duration_sec, status },
+        audioPath: audio_path as string
+      }
+    }) as { file: Omit<MeetingAudioFile, 'sizeBytes'>; audioPath: string }[]
+
 export const findMeeting = ({ meetingId }: { meetingId: string }) => {
   const row = getDb().prepare('SELECT * FROM meetings WHERE id = ?').get(meetingId)
 
@@ -194,6 +211,19 @@ export const renameMeeting = ({ meetingId, title }: { meetingId: string; title: 
     meetingId,
     title
   }).changes
+
+/** 녹음 노트를 쓴다. 대상 회의가 없으면 0을 돌려준다 (references/data-model.md "녹음 노트 저장") */
+export const updateMeetingNote = ({ meetingId, note }: { meetingId: string; note: string }) =>
+  getDb().prepare('UPDATE meetings SET note = @note WHERE id = @meetingId').run({ meetingId, note })
+    .changes
+
+/** 녹음 노트. 회의가 없거나 노트가 없으면 빈 문자열이다 */
+export const findMeetingNote = ({ meetingId }: { meetingId: string }) => {
+  const row = getDb().prepare('SELECT note FROM meetings WHERE id = ?').get(meetingId) as
+    { note: string } | undefined
+
+  return row?.note ?? ''
+}
 
 /** 원본 WAV를 지운 뒤 경로를 비운다. 파일이 없는 회의는 재처리할 수 없다 */
 export const clearAudioPath = ({ meetingId }: { meetingId: string }) => {

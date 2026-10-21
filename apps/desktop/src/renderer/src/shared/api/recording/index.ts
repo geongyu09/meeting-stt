@@ -3,6 +3,7 @@ import type {
   ReportRecordingErrorRequest,
   SendRecordingChunkRequest,
   SetLiveTranscriptRequest,
+  SetRecordingNoteRequest,
   SetRecordingPausedRequest,
   SetSpeakerCountRequest,
   SetSystemAudioRequest,
@@ -96,6 +97,16 @@ export const controlRecordingApi = async ({ kind }: ControlRecordingRequest) => 
  */
 export const setSpeakerCountApi = async ({ speakerCount }: SetSpeakerCountRequest) =>
   window.api.recording.setSpeakerCount({ speakerCount })
+
+/**
+ * @description 녹음 노트를 main 세션에 저장합니다. 녹음 중이면 그 회의의 노트, 아니면 다음 녹음의 초안이 됩니다.
+ * @param note - 노트 전체
+ * @returns 저장 직후의 녹음 상태
+ * @example
+ * await setRecordingNoteApi({ note: '안건: 배포 일정' })
+ */
+export const setRecordingNoteApi = async ({ note }: SetRecordingNoteRequest) =>
+  invokeRecording(() => window.api.recording.setNote({ note }))
 
 /**
  * @description 위젯에서만 알 수 있는 녹음 실패(마이크 권한 등)를 main에 알립니다. 메인 창도 같은 안내를 봅니다.

@@ -74,6 +74,7 @@ import {
   type SearchMeetingsResponse,
   type SendRecordingChunkRequest,
   type SetLiveTranscriptRequest,
+  type SetRecordingNoteRequest,
   type SetRecordingPausedRequest,
   type SetSystemAudioRequest,
   type SetSpeakerCountRequest,
@@ -91,6 +92,7 @@ import {
   type UpdateGlossaryResponse,
   type UpdateSettingsRequest,
   type UpdateSettingsResponse,
+  type UpdateMeetingNoteRequest,
   type UpdateUtteranceTextRequest,
   type WriteClipboardTextRequest
 } from '@shared/ipc'
@@ -119,7 +121,9 @@ const api = {
     setSystemAudio: (payload: SetSystemAudioRequest): Promise<GetRecordingStateResponse> =>
       ipcRenderer.invoke(IPC.recording.setSystemAudio, payload),
     setPaused: (payload: SetRecordingPausedRequest): Promise<GetRecordingStateResponse> =>
-      ipcRenderer.invoke(IPC.recording.setPaused, payload)
+      ipcRenderer.invoke(IPC.recording.setPaused, payload),
+    setNote: (payload: SetRecordingNoteRequest): Promise<GetRecordingStateResponse> =>
+      ipcRenderer.invoke(IPC.recording.setNote, payload)
   },
   // 받아쓰기(음성 입력). 그래프 소유자인 위젯만 start·chunk·stop을 부른다 (references/architecture.md "받아쓰기")
   dictation: {
@@ -158,7 +162,12 @@ const api = {
       ipcRenderer.invoke(IPC.meetings.reprocess, payload),
     exportAudio: (payload: ExportMeetingAudioRequest): Promise<ExportMeetingAudioResponse> =>
       ipcRenderer.invoke(IPC.meetings.exportAudio, payload),
-    import: (): Promise<ImportMeetingAudioResponse> => ipcRenderer.invoke(IPC.meetings.import)
+    import: (): Promise<ImportMeetingAudioResponse> => ipcRenderer.invoke(IPC.meetings.import),
+    listAudio: (): Promise<ListMeetingAudioResponse> => ipcRenderer.invoke(IPC.meetings.listAudio),
+    deleteAudio: (payload: DeleteMeetingAudioRequest): Promise<DeleteMeetingAudioResponse> =>
+      ipcRenderer.invoke(IPC.meetings.deleteAudio, payload),
+    updateNote: (payload: UpdateMeetingNoteRequest): Promise<MutateMeetingResponse> =>
+      ipcRenderer.invoke(IPC.meetings.updateNote, payload)
   },
   utterances: {
     updateText: (payload: UpdateUtteranceTextRequest): Promise<MutateMeetingResponse> =>

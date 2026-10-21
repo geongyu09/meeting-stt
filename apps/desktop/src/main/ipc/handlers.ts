@@ -43,6 +43,7 @@ import {
   readCodexModelPayload
 } from '@shared/llm'
 import { isValidShortcut } from '@shared/shortcut'
+import { NOTE_MAX_CHARS } from '@shared/note'
 import { readSummaryTemplateDraft } from '@shared/summaryTemplate'
 import { isLocale } from '@shared/i18n'
 import { isThemePreference } from '@shared/theme'
@@ -59,12 +60,13 @@ import {
 import { exportRecording } from '../audio/exportRecording'
 import { registerAssistantHandlers } from './assistant'
 import { importRecording } from '../audio/importRecording'
-import { deleteMeetingWithRecording } from '../audio/recordings'
+import { deleteAudioFiles, deleteMeetingWithRecording, listAudioFiles } from '../audio/recordings'
 import {
   appendRecordingChunk,
   getRecordingState,
   reportRecordingError,
   setRecordingLiveTranscript,
+  setRecordingNote,
   setRecordingPaused,
   setRecordingSpeakerCount,
   setRecordingSystemAudio,
@@ -81,7 +83,14 @@ import {
   startDictation,
   stopDictation
 } from '../dictation/session'
-import { findMeeting, listMeetings, renameMeeting, searchMeetings } from '../db/meetings'
+import {
+  findMeeting,
+  findMeetingNote,
+  listMeetings,
+  renameMeeting,
+  searchMeetings,
+  updateMeetingNote
+} from '../db/meetings'
 import { getRefineResult, revertUtteranceRefine } from '../db/refine'
 import {
   getAppSettings,
@@ -158,6 +167,19 @@ const readText = ({ payload, key, maxLength, label }: ReadTextParams) => {
   }
 
   return text.trim()
+}
+
+/** 노트는 비워 둘 수 있고 사용자가 친 그대로 저장하므로 `readText`(빈 값 거절·trim)를 쓰지 않는다 */
+const readNote = (payload: unknown) => {
+  const label = t().main.fields.note
+  if (!isRecord(payload) || typeof payload.note !== 'string') {
+    throw new Error(t().main.errors.invalidRequest({ what: label }))
+  }
+  if (payload.note.length > NOTE_MAX_CHARS) {
+    throw new Error(t().main.errors.fieldTooLong({ label, maxLength: NOTE_MAX_CHARS }))
+  }
+
+  return payload.note
 }
 
 const readMeetingId = (payload: unknown) =>
@@ -364,7 +386,8 @@ const getMeetingDetail = ({ meetingId }: GetMeetingRequest): GetMeetingResponse 
     meeting,
     utterances: listUtterances({ meetingId }),
     speakers: listSpeakers({ meetingId }),
-    refineResult: getRefineResult({ meetingId })
+    refineResult: getRefineResult({ meetingId }),
+    note: findMeetingNote({ meetingId })
   }
 }
 
@@ -391,6 +414,19 @@ const handleRenameMeeting = (payload: unknown) => {
 
   if (!renameMeeting({ meetingId, title })) throw new Error(t().main.errors.meetingNotFound)
   notifyMeetingsChanged()
+
+  return requireMeetingDetail({ meetingId })
+}
+
+/** 녹음 중인 회의는 세션이 노트의 단일 출처라 여기서 쓰지 않는다 (references/features/recording.md "녹음 노트") */
+const handleUpdateMeetingNote = (payload: unknown) => {
+  const meetingId = readMeetingId(payload)
+  const note = readNote(payload)
+  const meeting = findMeeting({ meetingId })
+  if (!meeting) throw new Error(t().main.errors.meetingNotFound)
+  if (meeting.status === 'recording') throw new Error(t().main.recording.noteWhileRecording)
+
+  updateMeetingNote({ meetingId, note })
 
   return requireMeetingDetail({ meetingId })
 }
@@ -592,6 +628,10 @@ export const registerIpcHandlers = () => {
     setRecordingPaused(readBoolean({ payload, key: 'isPaused' }))
   )
 
+  ipcMain.handle(IPC.recording.setNote, (_event, payload): GetRecordingStateResponse =>
+    setRecordingNote(readNote(payload))
+  )
+
   ipcMain.handle(
     IPC.recording.setSystemAudio,
     (_event, payload): Promise<GetRecordingStateResponse> =>
@@ -650,6 +690,10 @@ export const registerIpcHandlers = () => {
 
   ipcMain.handle(IPC.meetings.rename, (_event, payload): MutateMeetingResponse =>
     handleRenameMeeting(payload)
+  )
+
+  ipcMain.handle(IPC.meetings.updateNote, (_event, payload): MutateMeetingResponse =>
+    handleUpdateMeetingNote(payload)
   )
 
   ipcMain.handle(IPC.meetings.delete, (_event, payload) => handleDeleteMeeting(payload))

@@ -35,6 +35,7 @@ export const mainKo = {
     unknownLlmProvider: '알 수 없는 LLM 공급자입니다',
     unknownOpenaiModel: '알 수 없는 GPT 모델입니다',
     unknownWhisperModel: '알 수 없는 음성 인식 모델입니다',
+    unknownModelKey: '알 수 없는 모델입니다',
     meetingNotFound: '회의를 찾을 수 없습니다',
     utteranceNotFound: '발화를 찾을 수 없습니다',
     speakerNotInMeeting: '이 회의에 없는 화자입니다',
@@ -57,7 +58,8 @@ export const mainKo = {
     pcmChunk: 'PCM 청크',
     settingValue: '설정 값',
     searchQuery: '검색어',
-    templateId: '요약 템플릿 ID'
+    templateId: '요약 템플릿 ID',
+    note: '노트'
   },
   recording: {
     defaultTitle: ({ date }: { date: string }) => `${date} 회의`,
@@ -68,6 +70,7 @@ export const mainKo = {
     tooShort: '녹음이 너무 짧아 회의록을 만들지 못했습니다',
     meetingInfoNotFound: '회의 정보를 찾을 수 없습니다',
     audioMissing: '원본 녹음이 남아 있지 않습니다',
+    noteWhileRecording: '녹음 중인 회의의 노트는 녹음 화면이나 위젯에서 고쳐 주세요',
     audioMissingForReprocess: '원본 녹음이 남아 있지 않아 다시 인식할 수 없습니다',
     alreadyProcessing: '이미 처리 중인 회의입니다',
     exportFailed: '녹음 파일을 저장하지 못했습니다. 원본이 지워졌거나 저장 위치에 쓸 수 없습니다',
@@ -206,6 +209,7 @@ export const mainEn: typeof mainKo = {
     unknownLlmProvider: 'Unknown LLM provider',
     unknownOpenaiModel: 'Unknown GPT model',
     unknownWhisperModel: 'Unknown speech recognition model',
+    unknownModelKey: 'Unknown model',
     meetingNotFound: 'Meeting not found',
     utteranceNotFound: 'Utterance not found',
     speakerNotInMeeting: 'This speaker is not in the meeting',
@@ -229,7 +233,8 @@ export const mainEn: typeof mainKo = {
     pcmChunk: 'PCM chunk',
     settingValue: 'setting value',
     searchQuery: 'search query',
-    templateId: 'summary template ID'
+    templateId: 'summary template ID',
+    note: 'Note'
   },
   recording: {
     defaultTitle: ({ date }) => `Meeting ${date}`,
@@ -240,6 +245,8 @@ export const mainEn: typeof mainKo = {
     tooShort: 'The recording was too short to create a transcript',
     meetingInfoNotFound: 'Meeting information not found',
     audioMissing: 'The original recording is no longer available',
+    noteWhileRecording:
+      'The note of a meeting being recorded can be edited on the recording screen or in the widget',
     audioMissingForReprocess:
       'The original recording is no longer available, so it cannot be transcribed again',
     alreadyProcessing: 'This meeting is already being processed',

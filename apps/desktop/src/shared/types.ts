@@ -168,6 +168,8 @@ export interface MeetingDetail {
   speakers: Speaker[]
   /** 마지막 자동 교정 결과 (Phase 5-4). 아직 교정하지 않았으면 null */
   refineResult: RefineResult | null
+  /** 녹음 노트. 빈 문자열이면 없다 (references/features/recording.md "녹음 노트") */
+  note: string
 }
 
 /**
