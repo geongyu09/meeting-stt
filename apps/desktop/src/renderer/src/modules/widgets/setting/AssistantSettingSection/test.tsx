@@ -2,18 +2,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { AssistantStatus } from '@shared/types'
+import type { AssistantChatState, AssistantStatus } from '@shared/types'
 
 vi.mock('@renderer/shared/api/assistant', () => ({
   getAssistantStatusApi: vi.fn(),
   chooseAssistantFolderApi: vi.fn(),
-  setAssistantPermissionModeApi: vi.fn()
+  setAssistantPermissionModeApi: vi.fn(),
+  setAssistantProviderApi: vi.fn(),
+  getAssistantStateApi: vi.fn(),
+  sendAssistantMessageApi: vi.fn(),
+  cancelAssistantApi: vi.fn(),
+  resetAssistantChatApi: vi.fn()
 }))
+vi.mock('@renderer/shared/api/events', () => ({ onAssistantState: vi.fn(() => () => {}) }))
 
 import {
   chooseAssistantFolderApi,
+  getAssistantStateApi,
   getAssistantStatusApi,
-  setAssistantPermissionModeApi
+  setAssistantPermissionModeApi,
+  setAssistantProviderApi
 } from '@renderer/shared/api/assistant'
 import AssistantSettingSection from './index'
 
@@ -22,11 +30,23 @@ const statusOf = (overrides: Partial<AssistantStatus> = {}): AssistantStatus => 
   folderProblem: null,
   isGitRepo: true,
   permissionMode: 'acceptEdits',
+  provider: 'claude-cli',
   ...overrides
 })
 
+const EMPTY_CHAT: AssistantChatState = {
+  provider: null,
+  sessionId: null,
+  turns: [],
+  isRunning: false
+}
+
+const providerSelect = () =>
+  screen.findByRole('combobox', { name: '에이전트' }) as Promise<HTMLSelectElement>
+
 beforeEach(() => {
   vi.mocked(getAssistantStatusApi).mockResolvedValue(statusOf())
+  vi.mocked(getAssistantStateApi).mockResolvedValue(EMPTY_CHAT)
 })
 
 afterEach(() => {
@@ -74,6 +94,38 @@ describe('AssistantSettingSection', () => {
     })
     expect((await screen.findByRole('status')).textContent).toContain('묻지 않고 실행합니다')
     expect(toggle.getAttribute('aria-checked')).toBe('true')
+  })
+
+  it('에이전트를 Codex로 바꾸면 저장하고 고른 값을 보여 준다', async () => {
+    vi.mocked(setAssistantProviderApi).mockResolvedValue(statusOf({ provider: 'codex-cli' }))
+    render(<AssistantSettingSection />)
+
+    const select = await providerSelect()
+    await vi.waitFor(() => expect(select.disabled).toBe(false))
+    expect(select.value).toBe('claude-cli')
+
+    await userEvent.selectOptions(select, 'codex-cli')
+
+    expect(setAssistantProviderApi).toHaveBeenCalledWith({ provider: 'codex-cli' })
+    await vi.waitFor(() => expect(select.value).toBe('codex-cli'))
+  })
+
+  it('대화 중에는 에이전트를 바꿀 수 없다', async () => {
+    vi.mocked(getAssistantStateApi).mockResolvedValue({
+      ...EMPTY_CHAT,
+      provider: 'claude-cli',
+      sessionId: 'session-1',
+      turns: [
+        { id: 'q', role: 'user', text: '요약해 줘', tools: [], changedFiles: [], error: null }
+      ]
+    })
+    render(<AssistantSettingSection />)
+
+    const select = await providerSelect()
+    await screen.findByText('/Users/me/notes')
+
+    expect(select.disabled).toBe(true)
+    expect(screen.getByText('대화 중에는 바꿀 수 없어요')).toBeTruthy()
   })
 
   it('폴더 바꾸기에 실패하면 오류를 알린다', async () => {

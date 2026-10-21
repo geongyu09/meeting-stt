@@ -1,7 +1,8 @@
 /** 설정 화면 문구 (SettingsSection·pages/Settings). ko가 타입을 정하고 en은 같은 키를 가져야 한다 (references/architecture.md "UI 언어") */
 export const settingsKo = {
   title: '설정',
-  toc: '설정 목차',
+  toc: '설정 카테고리',
+  close: '설정 닫기',
   loading: '설정을 불러오는 중입니다',
   loadError: '설정을 불러오지 못했습니다',
   saveError: '설정을 저장하지 못했습니다',
@@ -113,7 +114,8 @@ export const settingsKo = {
 
 export const settingsEn: typeof settingsKo = {
   title: 'Settings',
-  toc: 'Settings contents',
+  toc: 'Settings categories',
+  close: 'Close settings',
   loading: 'Loading settings',
   loadError: 'Could not load settings',
   saveError: 'Could not save settings',

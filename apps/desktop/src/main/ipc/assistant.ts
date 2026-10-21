@@ -9,12 +9,17 @@ import {
 } from '@shared/ipc'
 import {
   readAssistantMessagePayload,
+  readAssistantProviderPayload,
   readPermissionModePayload,
   readWorkspacePathPayload,
   readWorkspaceWritePayload
 } from '@shared/assistant'
-import { setAssistantFolder, setAssistantPermissionMode } from '../db/settings'
 import { readRoutineIdPayload, readRoutineInputPayload } from '@shared/routine'
+import {
+  setAssistantFolder,
+  setAssistantPermissionMode,
+  setAssistantProvider
+} from '../db/settings'
 import { t } from '../locale'
 import {
   listWorkspaceFiles,
@@ -75,6 +80,17 @@ export const registerAssistantHandlers = () => {
     (_event, payload): Promise<GetAssistantStatusResponse> => {
       setAssistantPermissionMode({
         permissionMode: readPermissionModePayload(payload, t().assistant.errors)
+      })
+
+      return getAssistantStatus()
+    }
+  )
+
+  ipcMain.handle(
+    IPC.assistant.setProvider,
+    (_event, payload): Promise<GetAssistantStatusResponse> => {
+      setAssistantProvider({
+        provider: readAssistantProviderPayload(payload, t().assistant.errors)
       })
 
       return getAssistantStatus()

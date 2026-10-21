@@ -3,9 +3,9 @@
   flex-direction: column;
 }
 
+/* 설정 모달에서 카테고리 제목 자리라 회색 소제목이 아니라 본문색이다 (references/features/ui.md "설정 모달") */
 .title {
   margin: 0 0 var(--space-3);
-  color: var(--color-text-muted);
-  font-size: var(--font-sm);
+  font-size: var(--font-md);
   font-weight: 600;
 }

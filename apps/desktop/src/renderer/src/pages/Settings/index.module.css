@@ -1,13 +1,74 @@
-.page {
+/* 창 안쪽 32px에 꽉 차는 모달. 닫힌 상태의 display:none은 UA 스타일에 맡기므로 [open]에만 flex를 준다 */
+.dialog[open] {
   display: flex;
   flex-direction: column;
-  gap: 36px;
-  max-width: 760px;
-  padding: var(--space-6) 48px 48px;
+}
+
+.dialog {
+  width: calc(100vw - 2 * var(--space-6));
+  height: calc(100vh - 2 * var(--space-6));
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-float);
+}
+
+.dialog::backdrop {
+  background: var(--color-backdrop);
+}
+
+.header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  padding: 0 var(--space-3) 0 var(--space-5);
+  border-bottom: 1px solid var(--color-divider);
 }
 
 .title {
   margin: 0;
-  font-size: var(--font-title);
-  font-weight: 700;
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.closeButton {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.closeButton:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.content {
+  min-height: 0;
+  padding: var(--space-6) 40px;
+  overflow: auto;
+}
+
+.inner {
+  max-width: 760px;
 }

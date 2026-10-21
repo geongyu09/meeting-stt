@@ -2,6 +2,7 @@ import type {
   ReadWorkspaceFileRequest,
   SendAssistantMessageRequest,
   SetAssistantPermissionModeRequest,
+  SetAssistantProviderRequest,
   WriteWorkspaceFileRequest
 } from '@shared/ipc'
 
@@ -31,6 +32,16 @@ export const chooseAssistantFolderApi = async () => window.api.assistant.chooseF
 export const setAssistantPermissionModeApi = async ({
   permissionMode
 }: SetAssistantPermissionModeRequest) => window.api.assistant.setPermissionMode({ permissionMode })
+
+/**
+ * @description 채팅이 쓸 에이전트 CLI를 저장합니다. 대화 중에는 화면이 바꾸지 못하게 막습니다.
+ * @param provider - `claude-cli` 또는 `codex-cli`
+ * @returns 갱신된 작업 폴더 상태
+ * @example
+ * await setAssistantProviderApi({ provider: 'codex-cli' })
+ */
+export const setAssistantProviderApi = async ({ provider }: SetAssistantProviderRequest) =>
+  window.api.assistant.setProvider({ provider })
 
 /**
  * @description 진행 중 대화를 조회합니다. 화면을 옮겼다 돌아와도 같은 대화를 이어 그립니다.

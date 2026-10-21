@@ -99,6 +99,7 @@ export const IPC = {
     status: 'assistant:status',
     chooseFolder: 'assistant:chooseFolder',
     setPermissionMode: 'assistant:setPermissionMode',
+    setProvider: 'assistant:setProvider',
     state: 'assistant:state',
     send: 'assistant:send',
     cancel: 'assistant:cancel',
@@ -586,6 +587,11 @@ export type GetAssistantStatusResponse = AssistantStatus
 
 export interface SetAssistantPermissionModeRequest {
   permissionMode: AssistantPermissionMode
+}
+
+/** 설정 모달 "에이전트" 행. 응답은 갱신된 상태 (references/features/ui.md "설정 모달") */
+export interface SetAssistantProviderRequest {
+  provider: AssistantProvider
 }
 
 export type GetAssistantStateResponse = AssistantChatState

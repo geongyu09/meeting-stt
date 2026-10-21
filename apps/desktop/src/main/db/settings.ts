@@ -1,6 +1,7 @@
 import type {
   AppSettings,
   AssistantPermissionMode,
+  AssistantProvider,
   GlossarySettings,
   LlmApiVendor,
   LlmProvider,
@@ -10,7 +11,11 @@ import type {
 } from '@shared/types'
 import { DEFAULT_WHISPER_MODEL_ID, isWhisperModelId } from '@meeting-stt/models/desktop'
 import { isAudioInputDevice } from '@shared/audio'
-import { DEFAULT_ASSISTANT_PERMISSION_MODE, isAssistantPermissionMode } from '@shared/assistant'
+import {
+  DEFAULT_ASSISTANT_PERMISSION_MODE,
+  isAssistantPermissionMode,
+  isAssistantProvider
+} from '@shared/assistant'
 import { parseStoredRoutines } from '@shared/routine'
 import {
   DEFAULT_LLM_PROVIDER,
@@ -55,6 +60,7 @@ const LLM_OPENAI_MODEL_KEY = 'llm.openaiModel'
 const LLM_CODEX_MODEL_KEY = 'llm.codexModel'
 const ASSISTANT_FOLDER_KEY = 'assistant.folder'
 const ASSISTANT_PERMISSION_MODE_KEY = 'assistant.permissionMode'
+const ASSISTANT_PROVIDER_KEY = 'assistant.provider'
 const ASSISTANT_ROUTINES_KEY = 'assistant.routines'
 /** 회사별 암호화 키의 settings 키. Anthropic은 OpenAI 추가 전 이름을 그대로 둬 저장된 키를 잃지 않는다 */
 const LLM_API_KEY_KEYS: Record<LlmApiVendor, string> = {
@@ -379,6 +385,15 @@ export const setAssistantPermissionMode = ({
   permissionMode: AssistantPermissionMode
 }) => writeValue({ key: ASSISTANT_PERMISSION_MODE_KEY, value: permissionMode })
 
+/** 저장한 적이 없거나 모르는 값이면 null — 설치된 첫 CLI로 채우는 것은 `assistant/folder.ts`가 한다 */
+export const getAssistantProvider = (): AssistantProvider | null => {
+  const value = readValue(ASSISTANT_PROVIDER_KEY)
+
+  return isAssistantProvider(value) ? value : null
+}
+
+export const setAssistantProvider = ({ provider }: { provider: AssistantProvider }) =>
+  writeValue({ key: ASSISTANT_PROVIDER_KEY, value: provider })
 /** 루틴 목록 (references/features/assistant.md "루틴"). 형식이 깨진 항목은 버리고 읽는다 */
 export const getRoutines = () => parseStoredRoutines(readValue(ASSISTANT_ROUTINES_KEY))
 

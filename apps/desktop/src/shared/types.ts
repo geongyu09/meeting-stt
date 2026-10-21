@@ -273,6 +273,8 @@ export interface AssistantStatus {
   /** 폴더나 상위 폴더에 .git이 있는지. 아니면 화면이 "되돌리기 어렵다"고 알린다 */
   isGitRepo: boolean
   permissionMode: AssistantPermissionMode
+  /** 채팅이 쓰는 에이전트. 저장값이 없으면 main이 설치된 첫 CLI로 채운다 (references/features/ui.md "설정 모달") */
+  provider: AssistantProvider
 }
 
 /** 에이전트를 돌리는 CLI. 로컬 모델은 도구 호출을 못 해 빠진다 (references/architecture.md "개인 비서 모드") */

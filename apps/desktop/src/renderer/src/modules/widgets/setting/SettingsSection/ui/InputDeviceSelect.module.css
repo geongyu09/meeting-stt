@@ -1,6 +1,6 @@
 .select {
   max-width: 280px;
-  height: 36px;
+  height: 34px;
   padding: 0 var(--space-3);
   font: inherit;
   font-size: var(--font-sm);

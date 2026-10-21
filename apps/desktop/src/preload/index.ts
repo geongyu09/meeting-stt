@@ -13,6 +13,7 @@ import {
   type ReadWorkspaceFileResponse,
   type SendAssistantMessageRequest,
   type SetAssistantPermissionModeRequest,
+  type SetAssistantProviderRequest,
   type WorkspaceFilesChangedEvent,
   type WriteWorkspaceFileRequest,
   type CheckLlmResponse,
@@ -189,6 +190,8 @@ const api = {
       payload: SetAssistantPermissionModeRequest
     ): Promise<GetAssistantStatusResponse> =>
       ipcRenderer.invoke(IPC.assistant.setPermissionMode, payload),
+    setProvider: (payload: SetAssistantProviderRequest): Promise<GetAssistantStatusResponse> =>
+      ipcRenderer.invoke(IPC.assistant.setProvider, payload),
     state: (): Promise<AssistantChatState> => ipcRenderer.invoke(IPC.assistant.state),
     send: (payload: SendAssistantMessageRequest): Promise<void> =>
       ipcRenderer.invoke(IPC.assistant.send, payload),

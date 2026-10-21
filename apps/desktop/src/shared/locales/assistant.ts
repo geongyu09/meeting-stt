@@ -66,6 +66,11 @@ export const assistantKo = {
       warning:
         '켜져 있습니다. 작업 폴더 밖의 파일과 모든 명령을 묻지 않고 실행합니다. 믿을 수 있는 폴더에서만 켜세요.',
       error: '권한 설정을 바꾸지 못했습니다'
+    },
+    provider: {
+      title: '에이전트',
+      description: '대화 중에는 바꿀 수 없어요',
+      error: '에이전트를 바꾸지 못했습니다'
     }
   },
   errors: {
@@ -157,6 +162,11 @@ export const assistantEn: typeof assistantKo = {
       warning:
         'On. Files outside the work folder and any command run without asking. Only turn this on for folders you trust.',
       error: 'Could not change the permission setting'
+    },
+    provider: {
+      title: 'Agent',
+      description: 'Cannot be changed during a chat',
+      error: 'Could not change the agent'
     }
   },
   errors: {

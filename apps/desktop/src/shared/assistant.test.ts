@@ -4,6 +4,7 @@ import {
   MAX_DOCUMENT_BYTES,
   MAX_QUESTION_CHARS,
   readAssistantMessagePayload,
+  readAssistantProviderPayload,
   readPermissionModePayload,
   readWorkspacePathPayload,
   readWorkspaceWritePayload
@@ -37,6 +38,16 @@ describe('readAssistantMessagePayload', () => {
     expect(() => readAssistantMessagePayload({ provider: 'claude-cli', text })).toThrow(
       '질문이 너무 깁니다'
     )
+  })
+})
+
+describe('readAssistantProviderPayload', () => {
+  it('아는 에이전트만 돌려주고 나머지는 거절한다', () => {
+    expect(readAssistantProviderPayload({ provider: 'codex-cli' })).toBe('codex-cli')
+    expect(() => readAssistantProviderPayload({ provider: 'local' })).toThrow(
+      '알 수 없는 에이전트입니다'
+    )
+    expect(() => readAssistantProviderPayload(null)).toThrow('알 수 없는 에이전트입니다')
   })
 })
 

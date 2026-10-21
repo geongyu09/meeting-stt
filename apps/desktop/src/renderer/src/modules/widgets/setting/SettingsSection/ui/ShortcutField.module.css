@@ -1,7 +1,7 @@
 .capture,
 .captureActive {
   min-width: 112px;
-  height: 36px;
+  height: 34px;
   padding: 0 14px;
   color: var(--color-text);
   font-family: var(--font-mono);

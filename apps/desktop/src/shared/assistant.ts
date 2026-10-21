@@ -60,6 +60,25 @@ export const readAssistantMessagePayload = (
 }
 
 /**
+ * @description `assistant:setProvider` payload를 검증합니다.
+ * @param payload - renderer가 보낸 값
+ * @param errors - 오류 문구 사전. 생략하면 한국어
+ * @returns 에이전트 CLI
+ * @example
+ * readAssistantProviderPayload({ provider: 'codex-cli' }) // 'codex-cli'
+ */
+export const readAssistantProviderPayload = (
+  payload: unknown,
+  errors: AssistantErrorMessages = assistantKo.errors
+) => {
+  if (!isRecord(payload) || !isAssistantProvider(payload.provider)) {
+    throw new Error(errors.invalidProvider)
+  }
+
+  return payload.provider
+}
+
+/**
  * @description `assistant:setPermissionMode` payload를 검증합니다.
  * @param payload - renderer가 보낸 값
  * @param errors - 오류 문구 사전. 생략하면 한국어

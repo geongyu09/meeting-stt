@@ -2,8 +2,14 @@ import { constants } from 'node:fs'
 import { access, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { dialog, type OpenDialogOptions } from 'electron'
-import type { AssistantFolderProblem, AssistantStatus } from '@shared/types'
-import { getAssistantFolder, getAssistantPermissionMode } from '../db/settings'
+import type { AssistantFolderProblem, AssistantProvider, AssistantStatus } from '@shared/types'
+import {
+  getAssistantFolder,
+  getAssistantPermissionMode,
+  getAssistantProvider
+} from '../db/settings'
+import { locateClaudeCli } from '../llm/claudeCli'
+import { locateCodexCli } from '../llm/codexCli'
 import { t } from '../locale'
 import { getMainWindow } from '../windows/main'
 
@@ -38,6 +44,15 @@ const isInsideGitRepo = async (folder: string): Promise<boolean> => {
   return parent === folder ? false : isInsideGitRepo(parent)
 }
 
+/** 고른 적이 없으면 설치된 첫 CLI(Claude Code → Codex). 둘 다 없으면 Claude Code로 두고 채팅이 설치를 안내한다 */
+export const resolveProvider = async (): Promise<AssistantProvider> => {
+  const saved = getAssistantProvider()
+  if (saved) return saved
+  if ((await locateClaudeCli()).path) return 'claude-cli'
+
+  return (await locateCodexCli()).path ? 'codex-cli' : 'claude-cli'
+}
+
 export const getAssistantStatus = async (): Promise<AssistantStatus> => {
   const folder = getAssistantFolder()
   const folderProblem = folder ? await checkFolder(folder) : null
@@ -46,7 +61,8 @@ export const getAssistantStatus = async (): Promise<AssistantStatus> => {
     folder,
     folderProblem,
     isGitRepo: folder && !folderProblem ? await isInsideGitRepo(folder) : false,
-    permissionMode: getAssistantPermissionMode()
+    permissionMode: getAssistantPermissionMode(),
+    provider: await resolveProvider()
   }
 }
 
