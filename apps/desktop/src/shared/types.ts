@@ -306,3 +306,43 @@ export interface AssistantChatState {
   turns: AssistantTurn[]
   isRunning: boolean
 }
+
+/** 루틴의 주기. 시각은 고른 요일(0 = 일 … 6 = 토)의 로컬 `HH:MM` (references/features/assistant.md "루틴") */
+export type RoutineSchedule =
+  { kind: 'time'; weekdays: number[]; time: string } | { kind: 'interval'; minutes: number }
+
+/** 루틴 한 번의 결과. 마지막 것만 남긴다 */
+export interface RoutineRun {
+  finishedAt: number
+  /** 답변 글. 앞 ROUTINE_RESULT_MAX_CHARS자까지 */
+  text: string
+  /** 에이전트가 쓰거나 고친 파일 (작업 폴더 기준 상대 경로) */
+  changedFiles: string[]
+  /** 실패 사유. 성공이면 null */
+  error: string | null
+}
+
+/** settings 키 `assistant.routines`의 항목 하나 */
+export interface Routine {
+  id: string
+  name: string
+  prompt: string
+  schedule: RoutineSchedule
+  isEnabled: boolean
+  /** 다음 실행을 계산하는 기준 시각(epoch ms) — 저장하거나 실행을 시작한 시각 */
+  anchorAt: number
+  lastRun: RoutineRun | null
+}
+
+/** 만들기·고치기 요청. id가 null이면 새로 만든다 */
+export type RoutineInput = Pick<Routine, 'name' | 'prompt' | 'schedule' | 'isEnabled'> & {
+  id: string | null
+}
+
+/** 조회 `routines:list`, push `routines:changed` */
+export interface RoutinesState {
+  routines: Routine[]
+  /** 도는 루틴. 없으면 null */
+  runningId: string | null
+  queuedIds: string[]
+}

@@ -39,6 +39,8 @@ interface BuildClaudeAgentArgsParams {
   permissionMode: AssistantPermissionMode
   /** 이어 갈 대화. 첫 질문이면 null */
   sessionId: string | null
+  /** 답할 사람이 없는 백그라운드 실행(루틴). 채팅용 "질문하고 기다리라"는 안내를 붙이지 않는다 */
+  isUnattended?: boolean
 }
 
 /**
@@ -46,7 +48,11 @@ interface BuildClaudeAgentArgsParams {
  * @example
  * runBinary({ command, args: buildClaudeAgentArgs({ permissionMode, sessionId }), input: text, cwd: folder })
  */
-export const buildClaudeAgentArgs = ({ permissionMode, sessionId }: BuildClaudeAgentArgsParams) => [
+export const buildClaudeAgentArgs = ({
+  permissionMode,
+  sessionId,
+  isUnattended = false
+}: BuildClaudeAgentArgsParams) => [
   '-p',
   '--output-format',
   'stream-json',
@@ -59,8 +65,7 @@ export const buildClaudeAgentArgs = ({ permissionMode, sessionId }: BuildClaudeA
   ...AGENT_ALLOWED_TOOLS,
   '--disallowedTools',
   ...AGENT_DISALLOWED_TOOLS,
-  '--append-system-prompt',
-  NO_DIALOG_PROMPT,
+  ...(isUnattended ? [] : ['--append-system-prompt', NO_DIALOG_PROMPT]),
   ...(sessionId ? ['--resume', sessionId] : [])
 ]
 

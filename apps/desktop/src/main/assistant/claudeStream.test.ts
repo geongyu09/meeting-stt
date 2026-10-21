@@ -38,6 +38,19 @@ describe('buildClaudeAgentArgs', () => {
     expect(args.slice(-2)).toEqual(['--resume', 'abc'])
     expect(args).toContain('bypassPermissions')
   })
+
+  it('채팅은 질문하고 기다리라는 안내를 붙이고, 루틴(isUnattended)은 붙이지 않는다', () => {
+    const chat = buildClaudeAgentArgs({ permissionMode: 'acceptEdits', sessionId: null })
+    const routine = buildClaudeAgentArgs({
+      permissionMode: 'acceptEdits',
+      sessionId: null,
+      isUnattended: true
+    })
+
+    expect(chat).toContain('--append-system-prompt')
+    expect(routine).not.toContain('--append-system-prompt')
+    expect(routine).toContain('AskUserQuestion')
+  })
 })
 
 describe('parseClaudeStreamLine', () => {

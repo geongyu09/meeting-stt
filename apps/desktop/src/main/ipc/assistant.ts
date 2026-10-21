@@ -3,6 +3,7 @@ import {
   IPC,
   type GetAssistantStateResponse,
   type GetAssistantStatusResponse,
+  type GetRoutinesResponse,
   type ListWorkspaceFilesResponse,
   type ReadWorkspaceFileResponse
 } from '@shared/ipc'
@@ -13,6 +14,7 @@ import {
   readWorkspaceWritePayload
 } from '@shared/assistant'
 import { setAssistantFolder, setAssistantPermissionMode } from '../db/settings'
+import { readRoutineIdPayload, readRoutineInputPayload } from '@shared/routine'
 import { t } from '../locale'
 import {
   listWorkspaceFiles,
@@ -25,6 +27,7 @@ import {
   pickWorkspaceFolder,
   requireWorkspaceFolder
 } from '../assistant/folder'
+import { deleteRoutine, getRoutinesState, runRoutineNow, saveRoutine } from '../assistant/routines'
 import {
   cancelAssistant,
   getAssistantChatState,
@@ -109,4 +112,19 @@ export const registerAssistantHandlers = () => {
       content
     })
   })
+
+  // 루틴 (references/features/assistant.md "루틴" > "IPC")
+  ipcMain.handle(IPC.routines.list, (): GetRoutinesResponse => getRoutinesState())
+
+  ipcMain.handle(IPC.routines.save, (_event, payload): GetRoutinesResponse =>
+    saveRoutine(readRoutineInputPayload(payload, t().routine.errors))
+  )
+
+  ipcMain.handle(IPC.routines.delete, (_event, payload): GetRoutinesResponse =>
+    deleteRoutine(readRoutineIdPayload(payload, t().routine.errors))
+  )
+
+  ipcMain.handle(IPC.routines.run, (_event, payload): GetRoutinesResponse =>
+    runRoutineNow(readRoutineIdPayload(payload, t().routine.errors))
+  )
 }

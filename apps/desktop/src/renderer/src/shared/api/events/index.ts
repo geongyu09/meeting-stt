@@ -7,6 +7,7 @@ import type {
   RecordingCommandEvent,
   RecordingStateEvent,
   RefineProgressEvent,
+  RoutinesChangedEvent,
   SettingsChangedEvent,
   SummaryProgressEvent,
   UpdateAvailableEvent,
@@ -151,3 +152,13 @@ export const onAssistantState = (listener: (event: AssistantChatState) => void) 
  */
 export const onWorkspaceFilesChanged = (listener: (event: WorkspaceFilesChangedEvent) => void) =>
   window.api.events.onWorkspaceFilesChanged(listener)
+
+/**
+ * @description 루틴 목록·실행 상태가 바뀐 것을 구독합니다. 저장·실행 시작·끝마다 옵니다.
+ * @param listener - 루틴 상태 콜백
+ * @returns 구독 해제 함수
+ * @example
+ * useEffect(() => onRoutinesChanged(setState), [])
+ */
+export const onRoutinesChanged = (listener: (event: RoutinesChangedEvent) => void) =>
+  window.api.events.onRoutinesChanged(listener)

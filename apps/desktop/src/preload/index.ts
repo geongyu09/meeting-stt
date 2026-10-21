@@ -2,7 +2,12 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type { AssistantChatState } from '@shared/types'
 import {
   IPC,
+  type DeleteRoutineRequest,
   type GetAssistantStatusResponse,
+  type GetRoutinesResponse,
+  type RoutinesChangedEvent,
+  type RunRoutineRequest,
+  type SaveRoutineRequest,
   type ListWorkspaceFilesResponse,
   type ReadWorkspaceFileRequest,
   type ReadWorkspaceFileResponse,
@@ -196,6 +201,15 @@ const api = {
     writeFile: (payload: WriteWorkspaceFileRequest): Promise<void> =>
       ipcRenderer.invoke(IPC.assistant.writeFile, payload)
   },
+  routines: {
+    list: (): Promise<GetRoutinesResponse> => ipcRenderer.invoke(IPC.routines.list),
+    save: (payload: SaveRoutineRequest): Promise<GetRoutinesResponse> =>
+      ipcRenderer.invoke(IPC.routines.save, payload),
+    delete: (payload: DeleteRoutineRequest): Promise<GetRoutinesResponse> =>
+      ipcRenderer.invoke(IPC.routines.delete, payload),
+    run: (payload: RunRoutineRequest): Promise<GetRoutinesResponse> =>
+      ipcRenderer.invoke(IPC.routines.run, payload)
+  },
   clipboard: {
     writeText: (payload: WriteClipboardTextRequest): Promise<void> =>
       ipcRenderer.invoke(IPC.clipboard.writeText, payload)
@@ -359,6 +373,14 @@ const api = {
 
       return () => {
         ipcRenderer.removeListener(IPC.events.assistantFilesChanged, handler)
+      }
+    },
+    onRoutinesChanged: (listener: (event: RoutinesChangedEvent) => void) => {
+      const handler = (_: IpcRendererEvent, payload: RoutinesChangedEvent) => listener(payload)
+      ipcRenderer.on(IPC.events.routinesChanged, handler)
+
+      return () => {
+        ipcRenderer.removeListener(IPC.events.routinesChanged, handler)
       }
     }
   }

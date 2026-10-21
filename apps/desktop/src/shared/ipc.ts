@@ -5,6 +5,8 @@ import type {
   AssistantPermissionMode,
   AssistantProvider,
   AssistantStatus,
+  RoutineInput,
+  RoutinesState,
   GlossarySettings,
   LlmApiVendor,
   LlmProvider,
@@ -105,6 +107,13 @@ export const IPC = {
     readFile: 'assistant:readFile',
     writeFile: 'assistant:writeFile'
   },
+  // 루틴 (references/features/assistant.md "루틴")
+  routines: {
+    list: 'routines:list',
+    save: 'routines:save',
+    delete: 'routines:delete',
+    run: 'routines:run'
+  },
   events: {
     progress: 'pipeline:progress',
     summary: 'summary:progress',
@@ -122,7 +131,8 @@ export const IPC = {
     dictationState: 'dictation:stateChanged',
     dictationCommand: 'dictation:command',
     assistantState: 'assistant:stateChanged',
-    assistantFilesChanged: 'assistant:filesChanged'
+    assistantFilesChanged: 'assistant:filesChanged',
+    routinesChanged: 'routines:changed'
   }
 } as const
 
@@ -606,3 +616,20 @@ export interface WriteWorkspaceFileRequest {
 export interface WorkspaceFilesChangedEvent {
   paths: string[]
 }
+
+export type GetRoutinesResponse = RoutinesState
+
+/** 만들기·고치기. id가 null이면 새로 만든다. 응답은 바뀐 목록이다 */
+export type SaveRoutineRequest = RoutineInput
+
+export interface DeleteRoutineRequest {
+  id: string
+}
+
+/** 주기와 무관하게 지금 큐에 넣는다 */
+export interface RunRoutineRequest {
+  id: string
+}
+
+/** 저장·실행 시작·끝마다 보낸다 */
+export type RoutinesChangedEvent = RoutinesState

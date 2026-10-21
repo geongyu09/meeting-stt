@@ -8,6 +8,7 @@ import { modelsEn, modelsKo } from './locales/models'
 import { pipelineEn, pipelineKo } from './locales/pipeline'
 import { recordingEn, recordingKo } from './locales/recording'
 import { refineEn, refineKo } from './locales/refine'
+import { routineEn, routineKo } from './locales/routine'
 import { settingsEn, settingsKo } from './locales/settings'
 import { sidebarEn, sidebarKo } from './locales/sidebar'
 import { summaryEn, summaryKo } from './locales/summary'
@@ -49,6 +50,7 @@ const ko = {
   glossary: glossaryKo,
   update: updateKo,
   assistant: assistantKo,
+  routine: routineKo,
   main: mainKo
 }
 
@@ -71,6 +73,7 @@ const en: Messages = {
   glossary: glossaryEn,
   update: updateEn,
   assistant: assistantEn,
+  routine: routineEn,
   main: mainEn
 }
 

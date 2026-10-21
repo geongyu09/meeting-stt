@@ -5,11 +5,13 @@ import type {
   LlmApiVendor,
   LlmProvider,
   OpenaiModelId,
+  Routine,
   WhisperModelId
 } from '@shared/types'
 import { DEFAULT_WHISPER_MODEL_ID, isWhisperModelId } from '@meeting-stt/models/desktop'
 import { isAudioInputDevice } from '@shared/audio'
 import { DEFAULT_ASSISTANT_PERMISSION_MODE, isAssistantPermissionMode } from '@shared/assistant'
+import { parseStoredRoutines } from '@shared/routine'
 import {
   DEFAULT_LLM_PROVIDER,
   DEFAULT_OPENAI_MODEL_ID,
@@ -53,6 +55,7 @@ const LLM_OPENAI_MODEL_KEY = 'llm.openaiModel'
 const LLM_CODEX_MODEL_KEY = 'llm.codexModel'
 const ASSISTANT_FOLDER_KEY = 'assistant.folder'
 const ASSISTANT_PERMISSION_MODE_KEY = 'assistant.permissionMode'
+const ASSISTANT_ROUTINES_KEY = 'assistant.routines'
 /** 회사별 암호화 키의 settings 키. Anthropic은 OpenAI 추가 전 이름을 그대로 둬 저장된 키를 잃지 않는다 */
 const LLM_API_KEY_KEYS: Record<LlmApiVendor, string> = {
   anthropic: 'llm.claudeApiKey',
@@ -375,3 +378,9 @@ export const setAssistantPermissionMode = ({
 }: {
   permissionMode: AssistantPermissionMode
 }) => writeValue({ key: ASSISTANT_PERMISSION_MODE_KEY, value: permissionMode })
+
+/** 루틴 목록 (references/features/assistant.md "루틴"). 형식이 깨진 항목은 버리고 읽는다 */
+export const getRoutines = () => parseStoredRoutines(readValue(ASSISTANT_ROUTINES_KEY))
+
+export const setRoutines = (routines: Routine[]) =>
+  writeValue({ key: ASSISTANT_ROUTINES_KEY, value: routines })

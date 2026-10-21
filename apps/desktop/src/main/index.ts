@@ -7,6 +7,7 @@ import type {
   RecordingStateEvent,
   RefineProgressEvent,
   SummaryProgressEvent,
+  RoutinesChangedEvent,
   UpdateAvailableEvent,
   WorkspaceFilesChangedEvent
 } from '@shared/ipc'
@@ -19,6 +20,7 @@ import {
 } from './audio/session'
 import { handleMeetingAudioProtocol, registerMeetingAudioScheme } from './audio/playback'
 import { setWorkspaceFilesListener, stopWatchingWorkspace } from './assistant/files'
+import { setRoutinesListener, startRoutineScheduler, stopRoutines } from './assistant/routines'
 import { cancelAssistant, setAssistantStateListener } from './assistant/session'
 import { closeDb } from './db/connection'
 import { failStaleMeetings } from './db/meetings'
@@ -153,6 +155,9 @@ app.whenReady().then(async () => {
   setWorkspaceFilesListener((event: WorkspaceFilesChangedEvent) =>
     broadcast({ channel: IPC.events.assistantFilesChanged, event })
   )
+  setRoutinesListener((event: RoutinesChangedEvent) =>
+    broadcast({ channel: IPC.events.routinesChanged, event })
+  )
   setMeetingsChangedListener(() => broadcast({ channel: IPC.events.meetingsChanged, event: null }))
   // 온보딩에서 고른 모델을 런타임 선택값으로 넣는다. 이후 파일명은 models/paths.ts만 정한다
   setSelectedWhisperModelId(getWhisperModelId())
@@ -166,6 +171,8 @@ app.whenReady().then(async () => {
   createWidgetWindow()
   createTray()
   registerGlobalShortcuts()
+  // 창이 뜬 뒤에 시작해야 알림을 눌렀을 때 보일 창이 있다. 꺼져 있던 동안 놓친 실행은 여기서 바로 돈다
+  startRoutineScheduler()
 
   mainWindow.once('ready-to-show', () => {
     void notifyUpdateIfAvailable()
@@ -199,6 +206,7 @@ app.on('before-quit', (event) => {
 app.on('will-quit', () => {
   // spawn한 에이전트는 앱이 끝나도 혼자 남아 파일을 고칠 수 있다
   cancelAssistant()
+  stopRoutines()
   stopWatchingWorkspace()
   unregisterGlobalShortcuts()
   destroyTray()

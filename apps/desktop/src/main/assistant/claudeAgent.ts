@@ -12,6 +12,8 @@ interface RunClaudeAgentParams {
   text: string
   sessionId: string | null
   permissionMode: AssistantPermissionMode
+  /** 루틴처럼 답할 사람이 없는 실행 */
+  isUnattended?: boolean
   signal: AbortSignal
   onEvent: (event: AgentStreamEvent) => void
 }
@@ -26,12 +28,13 @@ export const runClaudeAgent = async ({
   text,
   sessionId,
   permissionMode,
+  isUnattended,
   signal,
   onEvent
 }: RunClaudeAgentParams) => {
   await runBinary({
     command: cliPath,
-    args: buildClaudeAgentArgs({ permissionMode, sessionId }),
+    args: buildClaudeAgentArgs({ permissionMode, sessionId, isUnattended }),
     input: text,
     cwd: folder,
     env: await spawnEnv(),

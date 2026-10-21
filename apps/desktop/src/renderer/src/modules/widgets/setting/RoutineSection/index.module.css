@@ -1,0 +1,26 @@
+.line {
+  display: block;
+}
+
+/* 빨강은 오류 전용이라 경고는 굵은 본문색으로 둔다 (AssistantSettingSection과 같은 규칙) */
+.warning {
+  display: block;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.error {
+  display: block;
+  color: var(--color-danger);
+}
+
+.empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.editing {
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--color-divider);
+}

@@ -1,0 +1,28 @@
+import { Notification } from 'electron'
+import { info } from '../log'
+
+import { showMainWindow } from './main'
+
+/** 참조를 놓으면 알림 객체가 GC돼 클릭 핸들러가 사라진다. 누르거나 닫힐 때까지 쥐고 있는다 */
+const shownNotifications = new Set<Notification>()
+
+/**
+ * macOS 시스템 알림. 누르면 메인 창을 앞으로 가져온다 (references/features/assistant.md "루틴" > "알림").
+ * 알림 권한은 macOS가 처음 보낼 때 묻는다.
+ */
+export const showNotification = ({ title, body }: { title: string; body: string }) => {
+  if (!Notification.isSupported()) {
+    info(`알림을 지원하지 않아 건너뜁니다: ${title}`)
+    return
+  }
+
+  const notification = new Notification({ title, body })
+  const release = () => shownNotifications.delete(notification)
+  notification.on('click', () => {
+    release()
+    showMainWindow()
+  })
+  notification.on('close', release)
+  shownNotifications.add(notification)
+  notification.show()
+}
