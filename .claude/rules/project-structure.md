@@ -163,7 +163,7 @@ src/
 | `meeting` | 회의 목록·상세·제목·삭제·복사 |
 | `utterance` | 발화 텍스트 편집·화자 재배정 |
 | `speaker` | 화자 이름 지정·병합 |
-| `recording` | 마이크 녹음 시작/정지·레벨 |
+| `recording` | 마이크 녹음 시작/정지·레벨, 보관 중인 녹음 파일 관리(`recording/RecordingFileSection`, 페이지 `/recordings`) |
 | `pipeline` | 처리 진행률·상태·오류 |
 | `model` | 모델 존재 확인·다운로드(온보딩) |
 | `setting` | 앱 설정 조회·변경 (원본 WAV 보관, 업데이트 확인 등) |

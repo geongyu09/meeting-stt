@@ -1,7 +1,10 @@
-# meeting-stt
+# Gyeot (meeting-stt)
 
-서버 없이 로컬에서 동작하는 STT 회의록 데스크탑 앱 (Electron + whisper.cpp + sherpa-onnx).
-개발 방향성·아키텍처·로드맵은 `.claude/skills/meeting-stt-dev/SKILL.md`를 **먼저 로드**한다. 근거 문서는 `plan.md`.
+AI 개인 비서 데스크탑 앱 **Gyeot**(곁) (Electron + Claude Code·Codex CLI 에이전트). 앱 자체 서버는 없다.
+화면에 보이는 이름만 Gyeot이고 저장소·패키지·`appId`·데이터 폴더 등 내부 이름은 `meeting-stt`를 유지한다 (`SKILL.md` 1절 "제품 이름").
+**2026-10-21 회의록 앱에서 AI 비서로 피벗했다** — 주 기능은 작업 폴더를 다루는 비서(에이전트 하네스·문서 정리)이고, 녹음·전사(whisper.cpp + sherpa-onnx)·요약·받아쓰기는 보조 기능이다.
+녹음은 비서가 사용자를 알아가도록 회의·프로젝트·일상에서 생긴 일을 빠르게 글로 옮겨 저장하는 입력 수단이다.
+개발 방향성·아키텍처·로드맵은 `.claude/skills/meeting-stt-dev/SKILL.md`를 **먼저 로드**한다. 회의록 기능의 근거 문서는 `plan.md`.
 
 **SSOT 규칙**: 개발 방향·아키텍처·기술 결정의 단일 진실 공급원은 **스킬 문서**(`SKILL.md` + `references/*.md`)이고 코드는 그 부산물이다.
 기존 방향과 다른 구현·결정이 필요해지면 **무조건 문서를 먼저 수정**하고 사용자에게 알린 뒤 코드를 작성한다. 코드와 문서가 다르면 문서가 옳다.
@@ -10,7 +13,7 @@
 
 | 경로              | 패키지                | 무엇                                                                                            |
 | ----------------- | --------------------- | ----------------------------------------------------------------------------------------------- |
-| `apps/desktop`    | `meeting-stt`         | 제품 Electron 앱 (녹음 → 파이프라인 → SQLite → UI → 패키징)                                     |
+| `apps/desktop`    | `meeting-stt`         | 제품 Electron 앱 (개인 비서가 주 기능, 회의록·받아쓰기는 보조 기능)                              |
 | `apps/web`        | `@meeting-stt/web`    | 브라우저 추론 프로토타입 (`docs/browser-prototype-plan.md`)                                     |
 | `packages/core`   | `@meeting-stt/core`   | 두 앱 공용 순수 TS — 파이프라인 타입, 병합, 화자 재군집(k-means), 복사 포맷, 정규화 공식, 참석자 수 규칙, 오디오 형식, 용어 읽기 사전 |
 | `packages/models` | `@meeting-stt/models` | 모델 카탈로그 SSOT — 데스크탑 자산(URL·sha256), 웹 저장소 id·dtype                              |

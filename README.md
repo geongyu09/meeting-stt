@@ -1,7 +1,8 @@
-# meeting-stt
+# Gyeot
 
-서버 없이 로컬에서 동작하는 STT 회의록 데스크탑 앱.
-마이크 녹음 → whisper.cpp(STT) → sherpa-onnx(화자 분리) → 병합 → SQLite 저장.
+AI 개인 비서 데스크탑 앱 Gyeot(곁). 저장소·패키지 이름은 `meeting-stt`다. 사용자가 고른 작업 폴더를 대상으로 Claude Code·Codex CLI 에이전트에게 묻고 문서를 만들거나 고친다.
+보조 기능으로 로컬 회의록(마이크 녹음 → whisper.cpp(STT) → sherpa-onnx(화자 분리) → 병합 → SQLite 저장)과 받아쓰기가 있다.
+녹음은 비서가 사용자를 알아가도록 회의·프로젝트·일상에서 생긴 일을 빠르게 글로 옮겨 저장하는 수단이다.
 
 개발 방향성과 로드맵은 `plan.md` 및 `.claude/skills/meeting-stt-dev/`를 참고한다.
 
@@ -36,7 +37,7 @@ pnpm dev            # 데스크탑 앱
 pnpm dev:web        # 브라우저 프로토타입 (http://localhost:5180)
 ```
 
-## 파이프라인 검증 (Phase 1, macOS arm64)
+## 회의록 파이프라인 검증 (Phase 1, macOS arm64)
 
 앱 UI 없이 STT·화자 분리 파이프라인만 스크립트로 돌려 본다.
 바이너리와 모델은 용량이 커서 저장소에 없으므로 먼저 내려받는다.

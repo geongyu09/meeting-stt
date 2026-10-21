@@ -8,7 +8,7 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS meetings (
   id            TEXT PRIMARY KEY,           -- uuid
-  title         TEXT NOT NULL,              -- 기본값: "2026-08-25 회의"
+  title         TEXT NOT NULL,              -- 기본값: "2026-08-25 회의". 처리 뒤 기본값 그대로면 자동 제목 "2026-08-25 <주제>"로 바뀐다 (2026-10-21, 컬럼 추가 없음)
   created_at    INTEGER NOT NULL,           -- epoch ms
   duration_sec  REAL NOT NULL DEFAULT 0,
   status        TEXT NOT NULL,              -- 'recording' | 'processing' | 'done' | 'error'
@@ -18,7 +18,10 @@ CREATE TABLE IF NOT EXISTS meetings (
   speaker_count INTEGER,                    -- 녹음 정지 시 입력한 참석자 수 → diarization num-clusters (NULL이면 임계값 폴백). 마이그레이션 2
   refine_applied TEXT,                      -- Phase 5-4 마지막 자동 교정에서 본문에 반영한 쌍 (RefinePair[] JSON). 마이그레이션 3→4
   refined_at    INTEGER,                    -- 마지막 자동 교정 시각 (epoch ms). NULL이면 아직 교정하지 않음. 마이그레이션 4
-  audio_quality TEXT                        -- 원본 녹음의 품질 지표 ({ speechDb, noiseDb } JSON). NULL이면 재지 않은 회의. 마이그레이션 7
+  audio_quality TEXT,                       -- 원본 녹음의 품질 지표 ({ speechDb, noiseDb } JSON). NULL이면 재지 않은 회의. 마이그레이션 7
+  note          TEXT NOT NULL DEFAULT '',   -- 녹음 노트 (사용자가 녹음하며 적은 장문, 마크다운 그대로). 빈 문자열이면 노트 없음. 마이그레이션 8
+  record_type   TEXT NOT NULL DEFAULT 'meeting', -- 'meeting' | 'memo'. 메모는 화자 분리를 건너뛴다. 마이그레이션 9
+  brain_path    TEXT                        -- 비서의 뇌(작업 폴더)에 저장한 전사 원문의 절대 경로. NULL이면 보낸 적 없음. 마이그레이션 9
 );
 
 CREATE TABLE IF NOT EXISTS utterances (
@@ -63,6 +66,8 @@ CREATE TABLE IF NOT EXISTS summary_templates (  -- 마이그레이션 6 (2026-09
     5: `ALTER TABLE utterances ADD COLUMN original_text TEXT` (2026-09-28, 문장 교정과 발화별 되돌리기. 이전에 교정된 발화는 원문이 없어 NULL로 남는다).
     6: `CREATE TABLE summary_templates` (2026-09-29, 요약 템플릿. `architecture.md` "요약 템플릿" 절).
     7: `ALTER TABLE meetings ADD COLUMN audio_quality TEXT` (2026-10-02, 녹음 품질 안내. 아래 "녹음 품질 지표 저장" 절).
+    8: `ALTER TABLE meetings ADD COLUMN note TEXT NOT NULL DEFAULT ''` (2026-10-21, 녹음 노트. 아래 "녹음 노트 저장" 절. 자동 정리보다 먼저 구현해 8을 가져갔다).
+    9: `ALTER TABLE meetings ADD COLUMN record_type TEXT NOT NULL DEFAULT 'meeting'` + `ADD COLUMN brain_path TEXT` (2026-10-21, 녹음 기록 자동 정리. 이전 회의는 모두 화자 분리를 거쳤으므로 `'meeting'`이고, 뇌에 보낸 적 없으므로 `NULL`이다. `architecture.md` "녹음 기록 자동 정리" 절).
 
 ## 편집 동작 (Phase 3)
 
@@ -73,6 +78,7 @@ CREATE TABLE IF NOT EXISTS summary_templates (  -- 마이그레이션 6 (2026-09
 | 화자 이름 지정 | `UPDATE speakers SET display_name = ? WHERE meeting_id = ? AND label = ?` |
 | 화자 병합 A→B | 트랜잭션: `UPDATE utterances SET speaker_label = B …` + `DELETE FROM speakers WHERE label = A` |
 | 회의 제목 변경 | `UPDATE meetings SET title = ? WHERE id = ?` |
+| 자동 제목 저장 (2026-10-21) | `UPDATE meetings SET title = ? WHERE id = ? AND title = ?` — 마지막 `?`는 잡 시작 때 읽은 기본 제목. 그 사이 사용자가 고쳤으면 0행이고 그대로 둔다 (`references/features/transcript.md` "회의록 자동 제목") |
 | 회의 삭제 | `DELETE FROM meetings WHERE id = ?` (발화·화자는 `ON DELETE CASCADE`) + 원본 WAV 파일 삭제 |
 
 - `ord`는 편집으로 바뀌지 않는다. 발화 순서를 사용자가 바꾸는 기능은 범위에 없다.
@@ -131,6 +137,32 @@ CREATE TABLE IF NOT EXISTS summary_templates (  -- 마이그레이션 6 (2026-09
 - 화자 이름은 초기화된다. 새 군집 라벨(`SPEAKER_00` …)은 이전 군집과 대응하지 않아 이름을 옮기면 틀린 사람에게 붙는다.
 - `summary`는 건드리지 않는다. `duration_sec`·`title`·`created_at`도 그대로다.
 
+## 녹음 파일 관리 (2026-10-21)
+
+설정 "녹음 파일 관리하기" 화면이 보관 중인 녹음을 모아 보고 지운다 (`architecture.md` "녹음 파일 관리"). 스키마 변경은 없다.
+
+| 동작 | SQL |
+| --- | --- |
+| 목록 | `SELECT id, title, created_at, duration_sec, status, audio_path FROM meetings WHERE audio_path IS NOT NULL AND status != 'recording' ORDER BY created_at DESC` (+ 파일마다 `stat`으로 크기) |
+| 녹음 파일 삭제 | 파일 `rm` 성공 뒤 `UPDATE meetings SET audio_path = NULL WHERE id = ?` (기존 `clearAudioPath`) |
+
+- 회의 행·발화·화자·요약·교정 결과는 건드리지 않는다. `audio.keep`을 끈 채 처리된 회의와 같은 상태가 된다.
+- `status`가 `recording`·`processing`이면 지우지 않는다.
+
+## 녹음 노트 저장 (2026-10-21)
+
+녹음하며 적는 장문 노트 (`features/recording.md` "녹음 노트"). 회의마다 하나, `meetings.note`(마이그레이션 8).
+
+| 동작 | SQL |
+| --- | --- |
+| 녹음 시작 시 세션 초안 쓰기 | 새 회의 행을 만든 직후 `UPDATE meetings SET note = ? WHERE id = ?` (초안이 비어 있으면 건너뜀) |
+| 녹음 중 노트 바꾸기 (`recording:setNote`) | 세션 값을 바꾸고 녹음 중이면 같은 UPDATE |
+| 녹음이 끝난 회의 노트 바꾸기 (`meetings:updateNote`) | `status != 'recording'`일 때만 같은 UPDATE → 갱신된 `MeetingDetail` |
+
+- 빈 문자열이 "노트 없음"이다. NULL을 쓰지 않아 읽는 쪽이 분기하지 않는다. 앞뒤 공백은 저장할 때 다듬지 않는다(사용자가 친 그대로), 프롬프트에 넣을 때만 `trim`한다.
+- 길이 상한 `NOTE_MAX_CHARS`(100,000자, `src/shared/note.ts`)는 IPC 핸들러가 검사한다.
+- 다시 인식·교정·요약은 노트를 건드리지 않는다. 회의 삭제와 함께 사라진다.
+
 ## 자동 교정 결과 저장 (Phase 5-4)
 
 | 동작 | SQL |
@@ -164,15 +196,17 @@ CREATE TABLE IF NOT EXISTS summary_templates (  -- 마이그레이션 6 (2026-09
 | `widget.bounds` | `{ x, y }` | 없음 | 사용자가 옮긴 패널 위치 (Phase 5-3). 현재 디스플레이의 `workArea` 밖이면 버리고 기본 위치(우측 중앙)로 되돌린다 |
 | `widget.fade` | boolean | `true` | 위젯 패널이 포커스를 잃으면 반투명하게 할지 |
 | `widget.fadeOpacity` | number | `0.55` | 포커스가 없을 때의 불투명도. `0.2`~`0.95`, 0.05 단위. 범위를 벗어나면 기본값으로 읽고, 저장 요청은 거절한다 |
-| `shortcut.recording` | string | `'Alt+Command+R'` | 녹음 토글 전역 단축키 (Electron accelerator). 빈 문자열 `''`은 꺼짐(등록 안 함, 2026-10-17). 형식이 틀리면 기본값으로 읽는다. 세 `shortcut.*` 모두 같은 규칙 |
+| `shortcut.recording` | string | `'Alt+Command+R'` | 회의 녹음 토글 전역 단축키 (Electron accelerator). 빈 문자열 `''`은 꺼짐(등록 안 함, 2026-10-17). 형식이 틀리면 기본값으로 읽는다. 모든 `shortcut.*`가 같은 규칙이고 켜진 것끼리 서로 같을 수 없다 |
+| `shortcut.memo` | string | `'Alt+Command+M'` | 메모 녹음 토글 전역 단축키 (2026-10-21). 녹음 중이 아니면 종류를 메모로 바꾸고 시작, 녹음 중이면 정지 (`references/architecture.md` "녹음 기록 자동 정리" > "녹음 종류") |
 | `shortcut.widget` | string | `'Alt+Command+W'` | 위젯 표시/숨김 전역 단축키. 다른 단축키와 같을 수 없다 |
 | `shortcut.dictation` | string | `'Alt+Command+D'` | 받아쓰기(음성 입력) 토글 전역 단축키 (2026-10-11). 다른 두 단축키와 같을 수 없다. 받아쓰기 결과는 DB에 저장하지 않는다 (`references/architecture.md` "받아쓰기") |
 | `pipeline.quiet` | boolean | `false` | 조용히 처리. 켜면 화자 분리 스레드를 줄이고 STT와 화자 분리를 순차로 돌린다. 느려지는 대신 발열·팬 소음이 준다. 잡이 **시작할 때** 읽으므로 진행 중인 잡에는 적용되지 않는다 (`references/architecture.md` 가속·스레드 정책) |
 | `ui.theme` | `'system' \| 'light' \| 'dark'` | `'system'` | 화면 테마 (2026-09-28). main이 `nativeTheme.themeSource`에 넣는다. 모르는 값이면 `'system'`으로 읽고, 저장 요청은 거절한다 (`references/architecture.md` "다크 모드") |
-| `refine.autoExternal` | boolean | `false` | 외부 LLM 공급자일 때 회의록이 만들어지면 자동으로 문장 교정할지 (2026-09-28). 켜면 회의가 끝날 때마다 회의록이 그 회사 서버로 전송된다. 로컬 공급자의 자동 용어 교정과는 무관하다 (`references/architecture.md` "회의록 교정") |
+| `refine.autoExternal` | boolean | `false` | 외부 LLM 공급자일 때 회의록이 만들어지면 자동으로 문장 교정할지 (2026-09-28). 켜면 회의가 끝날 때마다 회의록이 그 회사 서버로 전송된다. 로컬 공급자의 자동 용어 교정과는 무관하다 (`references/architecture.md` "회의록 교정"). 외부 공급자의 자동 제목도 이 동의(또는 `assistant.autoOrganize`)를 따른다 (2026-10-21, `references/features/transcript.md` "회의록 자동 제목") |
 | `ui.locale` | `'ko' \| 'en'` | `'ko'` | 화면·메뉴바·main 오류 문구의 언어 (2026-09-25). 인식·요약 언어가 아니다. 모르는 값이면 `'ko'`로 읽고, 저장 요청은 거절한다 (`references/architecture.md` "UI 언어") |
 | `audio.inputDevice` | `{ deviceId, label } \| null` | `null` | 녹음에 쓸 마이크 (2026-09-25). `null`이면 시스템 기본 마이크. `deviceId`는 Chromium이 주는 origin별 해시(1~200자), `label`은 고를 당시의 장치 이름(0~200자)이며 장치를 뺀 뒤 설정 화면에 "연결되지 않음"으로 보여주기 위해 함께 둔다. 모양이 다르면 `null`로 읽고, 저장 요청은 거절한다. 녹음 그래프는 시작할 때 이 값을 읽어 `deviceId: { ideal }`로 요청하므로 장치가 없으면 기본 마이크로 폴백한다 (`references/architecture.md` "마이크 입력 장치와 테스트") |
 | `audio.systemCapture` | boolean | `false` | 온라인 회의 상대방 소리(스피커 출력)를 마이크와 함께 녹음할지 (2026-09-26, Phase 5-2). 녹음 화면의 스위치가 `recording:setSystemAudio`로 바꾸고 다음 녹음부터 적용된다. `AppSettings`에 넣지 않는다 — 켜는 행위가 값 저장이 아니라 동봉 도구 프로브(시스템 권한 창)를 동반하기 때문이다 (`references/architecture.md` "시스템 오디오 캡처") |
+| `recording.type` | `'meeting' \| 'memo'` | `'memo'` | 위젯·녹음 화면에서 마지막으로 고른 녹음 종류 (2026-10-21). 참석자 수처럼 녹음 세션 밖 값이고 `recording:setType`이 바꾼다. 모르는 값이면 `'memo'`로 읽는다. `AppSettings`에 넣지 않는다 — 녹음 상태(`RecordingStateEvent.recordingType`)로 두 창에 push되는 값이라 설정 화면이 다루지 않는다 |
 
 ```ts
 export interface AudioInputDevice {
@@ -260,6 +294,7 @@ export interface AppSettings {
   | --- | --- | --- | --- |
   | `assistant.folder` | string \| 없음 | 없음 | 작업 폴더의 절대 경로. 문자열이 아니면 없음으로 읽는다. 폴더가 사라져도 값은 지우지 않고 화면이 안내한다 |
   | `assistant.permissionMode` | `'acceptEdits' \| 'bypassPermissions'` | `'acceptEdits'` | 에이전트 권한 모드. 모르는 값은 `'acceptEdits'`로 읽는다. Codex는 `acceptEdits`를 `workspace-write` 샌드박스로, `bypassPermissions`를 샌드박스·승인 끄기로 옮긴다. Codex 에이전트의 모델은 새 키 없이 `llm.codexModel`을 쓴다 |
+  | `assistant.autoOrganize` | boolean | `true` | 녹음이 처리되면 정리 에이전트를 자동으로 돌릴지 (2026-10-21). 켜져 있으면 녹음 전사본이 공급자 서버로 전송된다. 꺼도 원문은 작업 폴더에 저장한다. `assistant:setAutoOrganize`로 바꾸고 `AssistantStatus.isAutoOrganizeEnabled`로 읽는다 (`references/architecture.md` "녹음 기록 자동 정리") |
 
   ```ts
   export type AssistantPermissionMode = 'acceptEdits' | 'bypassPermissions'
@@ -297,6 +332,13 @@ export interface Utterance {
 
 export interface Speaker { meetingId: string; label: string; displayName: string | null }
 
+/** 녹음 파일 관리 화면의 한 행 (2026-10-21) */
+export interface MeetingAudioFile {
+  meetingId: string; title: string; createdAt: number; durationSec: number
+  status: MeetingStatus
+  sizeBytes: number | null  // null이면 경로는 있는데 파일이 없다
+}
+
 export interface AppSettings { isAudioKept: boolean; isUpdateCheckEnabled: boolean; isQuietProcessing: boolean }
 
 /** 사용자가 고를 수 있는 음성 인식 모델 (Phase 4). 목록·체크섬은 @meeting-stt/models/desktop */
@@ -308,6 +350,8 @@ export type ModelKey = 'whisper' | 'vad' | 'segmentation' | 'embedding' | 'summa
 export interface MeetingDetail {
   meeting: Meeting; utterances: Utterance[]; speakers: Speaker[]
   refineResult: RefineResult | null
+  /** 녹음 노트 (2026-10-21). 빈 문자열이면 없음. 목록(Meeting)에는 싣지 않는다 — 장문이라 사이드바 조회가 무거워진다 */
+  note: string
 }
 
 // 교정 (Phase 5-4). RefinePair·RefineSource·RefineSuggestion은 src/shared/types.ts 참고

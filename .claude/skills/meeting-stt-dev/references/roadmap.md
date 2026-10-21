@@ -333,6 +333,39 @@
 - [ ] `pnpm dev` 실제 확인 — 보관 켠 뒤 녹음 → 재생·시킹·발화 시각 클릭, WAV 저장·취소, 참석자 수 바꿔 다시 인식, 실패 회의 다시 시도
 - [ ] 후속: 재생 중인 발화 강조
 
+## 녹음 파일 관리 (2026-10-21, Phase 번호 밖)
+
+사용자 요청으로 설정에서 보관 중인 녹음 파일만 모아 보고, 하나씩 또는 골라서 지운다. 녹음 파일만 지우고 회의록은 남긴다.
+설계는 `architecture.md` "녹음 파일 관리", 저장 규칙은 `data-model.md` "녹음 파일 관리", 결정 표는 `SKILL.md` 1절 녹음본 행. 문서를 먼저 고쳤다. 스키마 변경은 없다.
+
+- [ ] 계약: `MeetingAudioFile`(`src/shared/types.ts`), IPC `meetings:listAudio`·`meetings:deleteAudio`와 요청/응답 타입
+- [ ] main: 목록 조회(`stat`으로 크기, 없는 파일은 `null`), 삭제(회의마다 `discardRecording`, 녹음 중·처리 중 거절, 실패 수 집계·로그)
+- [ ] preload + renderer api 래퍼
+- [ ] 설정 "녹음·처리"에 "녹음 파일 관리하기" 행("관리" → `/recordings`), 경로 상수·라우트·`pages/Recordings`(상단 바 "설정으로")
+- [ ] `recording/RecordingFileSection`: 합계 줄, 전체 선택·선택 삭제, 행(제목 → 상세, 날짜·길이·크기·상태, 삭제), 2단계 인라인 확인, 실패 문구, 빈 상태
+- [ ] 사전(`ko`·`en`) 문구
+- [ ] 테스트: `RecordingFileSection` 통합 테스트(전체 선택·선택 삭제 확인/취소, 한 행 삭제, 처리 중 행 비활성, 실패 문구, 빈 상태)
+- [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과
+- [ ] `pnpm dev` 실제 확인 — 보관 켜고 녹음 두세 개 → 목록·용량, 하나 삭제, 여러 개 골라 삭제, 지운 회의 상세에서 회의록은 남고 재생 바가 "원본 없음"으로 바뀌는지
+
+## 녹음 노트 (2026-10-21, Phase 번호 밖)
+
+사용자 요청으로 녹음하며 장문 노트를 적고(녹음 화면·위젯·회의 상세), 노트를 교정 힌트·요약 재료·뇌 정리 재료로 쓴다. 노트의 링크는 상세에서 눌러 열고, 정리 에이전트가 열어 읽는다.
+설계는 `features/recording.md` "녹음 노트", 저장은 `data-model.md` "녹음 노트 저장"(마이그레이션 8), 프롬프트는 `features/transcript.md` "문장 교정"·`features/llm.md` "로컬 LLM 요약", 뇌 정리 연결은 `features/assistant.md` "원문 파일"·"정리 에이전트". 문서를 먼저 고쳤다.
+"메모"는 녹음 종류 이름이라 이 기능은 "노트"(`note`)로 부른다.
+
+- [ ] 계약: `src/shared/note.ts`(`NOTE_MAX_CHARS`·`extractNoteLinks`·`clipNote`, vitest), `RecordingStateEvent.note`·`MeetingDetail.note`, IPC `recording:setNote`·`meetings:updateNote`와 요청/응답 타입
+- [ ] DB: 마이그레이션 8(`meetings.note`), 노트 읽기·쓰기, 상세 조회에 노트
+- [ ] main: 세션 노트(녹음 전 초안 → 시작 시 새 회의에 쓰기 → 녹음 중 바뀔 때마다 쓰기 → 정지 시 비우기), 핸들러 검증(문자열·상한·녹음 중 회의 거절)
+- [ ] 문장 교정 프롬프트의 참고 노트(`REFINE_NOTE_MAX_CHARS`), 요약 whole·reduce 프롬프트의 노트와 예산(청크 예산 4분의 1, 회의록 예산에서 뺌) — 순수 함수 테스트
+- [ ] preload + renderer api 래퍼, `useRecordingNote`(포커스 중 내 초안 우선)
+- [ ] 화면: 녹음 화면 옵션 패널 "노트" 그룹, 위젯 노트 보기(헤더 아이콘·돌아가기), 상세 레일 노트 카드(blur·⌘Enter 저장, Esc 되돌리기, 링크 목록)
+- [ ] 사전(`ko`·`en`) 문구
+- [ ] 테스트: `RecorderSection`(노트 입력이 `recording:setNote`로), `WidgetPanelSection`(노트 보기 전환·입력), `TranscriptSection`(노트 저장·링크 목록) 통합 테스트
+- [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과
+- [ ] 완료 기준(`pnpm dev`): 녹음 전 노트에 적고 녹음 시작 → 위젯 노트 보기에서 이어 적으면 메인 창에도 보인다 → 정지 후 상세 노트 카드에 그대로 있고 링크를 누르면 브라우저가 열린다. 외부 공급자 교정·요약 프롬프트에 노트가 들어간다(로그 또는 임시 파일로 확인). 위젯 패널에서 textarea에 키 입력이 들어간다(`type: 'panel'`)
+- [ ] 후속: 앱 안 마크다운 렌더링(채팅창 리뉴얼의 렌더러와 함께), 노트를 회의록 검색·복사에 포함, 로컬 용어 교정 후보에 노트 단어 쓰기
+
 ## 마이크 입력 장치·테스트 (2026-09-25, Phase 번호 밖)
 
 사용자 요청으로 설정 화면에 입력 장치 선택과 마이크 테스트를 둔다. 설계는 `architecture.md` "마이크 입력 장치와 테스트", 저장 규칙은 `data-model.md`의 `audio.inputDevice`. 문서를 먼저 고쳤다.
@@ -599,9 +632,12 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 - [x] 완료 기준: `pnpm dev`에서 메모 앱에 커서를 두고 `⌥⌘D` → 두 문장을 말하고 1초 쉬면 첫 문장이 2초 안에 들어가고, 다시 `⌥⌘D`로 끝내면 나머지가 들어간다. 클립보드에 있던 이미지가 원복된다. 접근성 권한을 끄면 같은 흐름이 "복사됐습니다. ⌘V로 붙여 넣으세요"로 동작한다. 녹음 중 `⌥⌘D`는 안내만 뜬다
   — 2026-10-11 빌드된 앱을 별도 userData로 띄워 확인: toggle 경로로 마이크 그래프가 뜨고, Zeroth 낭독 두 문장을 청크 경로로 흘리면 첫 문장이 1초 침묵 뒤 **1.2~1.3초**에 TextEdit에 들어가고 정지하면 나머지가 들어간다(CER 0%). 텍스트 클립보드 원복, 녹음 중 안내, 받아쓰기 중 녹음 거절 확인. **사람 목소리·이미지 클립보드·접근성 권한 끈 흐름은 사용자 확인** (`docs/dictation-results.md` 3절)
 
-## Phase 6: 개인 비서 모드 (2026-10-20 착수)
+## Phase 6: 개인 비서 모드 (2026-10-20 착수, 2026-10-21부터 본선)
 
 회의록 앱을 개인 비서로 넓힌다 — 사용자가 고른 작업 폴더를 대상으로 앱 안에서 에이전트(Claude Code·Codex CLI)에게 질문하고 마크다운 문서를 만들거나 고친다.
+**2026-10-21 사용자 결정으로 앱이 AI 비서로 피벗했다** — 이 Phase가 주 기능이고 개발의 본선이다. 위 Phase 1~5와 Phase 번호 밖의 회의록·받아쓰기 항목은 보조 기능의 유지보수다 (`SKILL.md` "제품 방향").
+비서가 "진짜 비서처럼 돌아다니는" 방향(2026-10-21 사용자 발언)의 구체 형태는 아직 정하지 않았다 — 정하면 아래 "다음 단계"에 항목으로 먼저 적는다.
+녹음 기록을 비서에게 잇는 연결은 2026-10-21 사용자가 정했다 — 아래 "녹음 기록 자동 정리" 절, 설계는 `architecture.md` 같은 이름의 절.
 출처는 GitHub 이슈 geongyu09/meeting-stt#1 (2026-10-20 사용자 작성). 설계는 `architecture.md` "개인 비서 모드", 결정 표는 `SKILL.md` 1절.
 이슈의 "정할 것" 세 가지(화면 나누기·대화 기록 저장·기본 권한 모드)는 착수하며 1차로 정했고 사용자 확인을 기다린다 (`architecture.md` 같은 절의 표).
 피처 브랜치 `feat/assistant-mode`(main 기준)에서 진행한다.
@@ -638,3 +674,34 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 - [x] Codex CLI 에이전트 실행 — `codex exec --help`(0.163.0)로 `exec resume`·`--json`을 확인해 `architecture.md`에 인자·이벤트를 적고, `assistant/codexStream.ts`(+ 실측 픽스처 `fixtures/codexStreamV0_163_0.jsonl` vitest)·`assistant/codexAgent.ts`, 세션의 공급자 분기, 채팅의 에이전트 선택(설치된 첫 CLI 기본)을 붙였다 (2026-10-20)
   — 빌드된 앱에서 Codex로 파일 생성(`Add notes/codex.md`, workspace-write 샌드박스) → 바뀐 파일을 에디터로 열기 → `exec resume`으로 이어 묻기를 확인. 이 기기에는 codex가 설치돼 있지 않아 npx 캐시의 0.163.0을 로그인 셸 조회 대신 넘겨 확인했다. **실제 설치(Homebrew·npm 전역·ChatGPT 앱 동봉) 경로에서의 사용자 확인이 남았다**
 - [ ] 빠른 질문 모드 (로컬 모델 포함) — 키워드로 문서를 먼저 찾아 한 턴 호출
+
+### 녹음 기록 자동 정리 (2026-10-21)
+
+녹음을 멈추면 STT → 화자 분리(회의만) → 작업 폴더 `기록/`에 원문 저장 → 정리 에이전트 → 알림이 자동으로 이어진다. 결정 10가지는 2026-10-21 사용자가 골랐다 (`architecture.md` "녹음 기록 자동 정리" 표).
+문서를 먼저 고쳤다 (`SKILL.md` "제품 방향", `architecture.md` 같은 이름의 절·"전역 단축키", `data-model.md` 마이그레이션 9(녹음 노트가 8을 먼저 가져감)·`recording.type`·`shortcut.memo`·`assistant.autoOrganize`).
+
+- [ ] 계약: `RecordingType`·`RecordingStateEvent.recordingType`·`OrganizeStatus`·`AssistantStatus.isAutoOrganizeEnabled`·`AppSettings.memoShortcut`, IPC `recording.setType`·`assistant.setAutoOrganize`·`organize.status`·`organize.send`·`events.organize`·`events.assistantOpenFile`
+- [ ] DB: 마이그레이션 9(`record_type`·`brain_path`), 설정 키 `recording.type`·`shortcut.memo`·`assistant.autoOrganize`
+- [ ] 녹음 종류: 세션의 종류 값·`recording:setType`, 정지 시 `record_type`·메모 기본 제목·참석자 수 미저장, 메모 단축키(녹음 중이면 정지)와 네 단축키 중복 검사, Tray "회의 녹음 시작"·"메모 녹음 시작"
+- [ ] 파이프라인: 메모는 화자 분리를 spawn하지 않고 화자 구간 하나로 병합, `diarize` 진행률 100% 한 번
+- [ ] 원문 파일 `assistant/recordNote.ts` — 경로(`기록/YYYY-MM-DD-HHmm[ 주제][-n].md`, `wx`, 주제는 제목에서 날짜를 뗀 것)·머리말·본문 조립(순수 함수 + vitest: 회의·메모·이름 충돌·화자 이름)
+- [ ] 정리 `assistant/organize.ts` — 정리 큐(동시성 1, GPU 큐와 별개), 자동 제목 잡 뒤 트리거·처음 처리만 자동, 설치된 첫 CLI·고정 지시·새 세션·10분 제한·앱 종료 시 중단, 상태 Map + `organize:progress`
+- [ ] 녹음 노트 잇기(아래 "녹음 노트" 절이 먼저 끝나 있으면): 원문의 `## 노트`·`## 전사`(노트가 있을 때만), 정리 지시의 노트 두 문단, Claude 정리 턴에 노트 링크 호스트만 `WebFetch(domain:…)` 허용 (`features/assistant.md` "원문 파일"·"정리 에이전트")
+- [ ] 알림 `windows/notify.ts` — 완료·실패 알림, 누르면 메인 창 `/assistant`에서 원문 열기(`assistant:openFile`)
+- [ ] 화면: 위젯·녹음 화면 회의/메모 선택(메모면 참석자 수 숨김), 목록·상세의 메모 표시, 상세 "비서의 뇌" 줄(상태·비서에서 열기·보내기/다시 보내기 2단계 확인), 설정 "개인 비서" 자동 정리 스위치·"단축키" 메모 행
+- [ ] 사전(`ko`·`en`) 문구, 통합 테스트(상세 "비서의 뇌" 줄, 위젯 종류 선택, 설정 스위치)
+- [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과
+- [ ] 완료 기준: `pnpm dev`에서 작업 폴더를 고른 상태로 `⌥⌘M` → 말하고 → `⌥⌘M`으로 정지하면 화자 분리 없이 처리되고, `기록/<시각> <주제>.md`가 생긴 뒤 에이전트가 폴더 규칙대로(규칙이 없으면 원문 위에 `## 요약`) 정리하고 macOS 알림이 뜬다. 알림을 누르면 비서 화면에 원문이 열린다. `⌥⌘R` 회의는 화자 분리가 돈다. 자동 정리를 끄면 원문만 생기고 알림이 없다. CLI가 없거나 폴더가 사라지면 실패 알림이 뜨고 회의록은 앱에 남는다
+
+### 회의록 자동 제목 (2026-10-21)
+
+녹음 중에 제목을 입력하는 대신, 처리가 끝나면 `YYYY-MM-DD <주제>`로 제목을 붙인다. 외부 공급자는 이미 자동 전송에 동의한 경우에만 쓴다 (2026-10-21 사용자 결정, `features/transcript.md` "회의록 자동 제목").
+문서를 먼저 고쳤다 (`SKILL.md` 1절 표, `features/transcript.md` 새 절, `features/assistant.md` 흐름·원문 파일 이름·알림·스위치 설명, `data-model.md` `meetings.title`·자동 제목 저장 쿼리). 스키마·IPC 변경은 없다.
+
+- [ ] 사전: 메모 기본 제목(`main.recording`, `ko`·`en`), 외부 자동 교정·녹음 기록 자동 정리 스위치 설명에 제목 전송 한 줄
+- [ ] 순수 함수 `src/shared/autoTitle.ts` + vitest — 입력 자르기(처음·가운데·끝), `cleanTitleTopic`(따옴표·`#`·`제목:`·마침표·여러 줄·30자·빈 답), `isDefaultTitle`(회의·메모 × `ko`·`en`, 다른 날짜), 최종 제목 조립
+- [ ] 잡: GPU 큐 `{ kind: 'title' }`, `autoTitleSkipReason`(기본 제목 아님·발화 없음·LLM 미준비·외부인데 동의 없음), 자동 교정 끝 → 제목 → 정리 잡 연결, 조건부 UPDATE + `meetings:changed`, 실패는 경고 로그만
+- [ ] 로컬 한 줄 GBNF·`TITLE_MAX_TOKENS`, 외부는 첫 줄만
+- [ ] 측정 — 실제 회의·메모 녹음 몇 개(71분 회의, 짧은 메모)로 로컬 4B와 외부 공급자의 제목을 보고 `TITLE_INPUT_MAX_CHARS`(잠정 4,000)를 확정
+- [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과
+- [ ] 완료 기준: `pnpm dev`에서 로컬 요약 모델이 있는 상태로 메모를 녹음하면 처리 뒤 사이드바 제목이 `오늘 날짜 + 주제`로 바뀌고, 처리 중에 제목을 고쳐 두면 바뀌지 않는다. 외부 공급자에서 두 동의가 모두 꺼져 있으면 기본 제목이 그대로다. 작업 폴더가 있으면 `기록/<시각> <주제>.md`와 머리말 제목이 같은 제목으로 생긴다

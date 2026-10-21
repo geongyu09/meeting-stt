@@ -126,6 +126,10 @@
 - 바이너리는 `asarUnpack` 대상이어야 실행 가능하고, macOS에서는 실행 권한(`chmod +x`)과 quarantine 해제가 필요하다. notarization 시 동봉 바이너리와 dylib까지 모두 서명(`hardenedRuntime`, entitlements에 `com.apple.security.cs.allow-unsigned-executable-memory` 등 필요 여부 확인).
 - 모델 파일은 절대 리포지토리나 설치 파일에 포함하지 않는다. `userData/models`에 다운로드하고 `.gitignore`로 차단.
 - `electron-builder.yml`의 `publish.url`, `appId`, `NSMicrophoneUsageDescription`은 스캐폴드 기본값이므로 배포 전 반드시 교체.
+- **앱 이름을 바꿀 때 `package.json`의 `name`은 건드리지 않는다.** Electron은 시작할 때 이 값(`productName`이 있으면 그것)으로 `userData` 폴더와
+  `safeStorage` 키체인 항목(`<이름> Safe Storage`)을 정한다. electron-builder의 `productName`은 패키징된 `package.json`에 들어가지 않아 번들 이름만 바꾼다.
+  `app.setName()`은 `userData`를 옮기지 않지만 **ready 전에 부르면 키체인 항목 이름을 바꿔** 저장된 API 키를 복호화하지 못한다. ready 뒤에 부르면 키체인은 그대로지만
+  기본 앱 메뉴는 이미 만들어져 있어 메뉴를 다시 만들어야 이름이 반영된다 (2026-10-21 Electron 39.8 실측, `SKILL.md` 1절 "제품 이름").
 - **`autoUpdater.checkForUpdates()`가 버전을 돌려줬다고 업데이트가 있는 것이 아니다.** 업데이트가 없어도 결과 객체가 오고
   `updateInfo.version`은 **서버의 최신 버전**이다. 판단은 `result.isUpdateAvailable`로만 한다. 이걸 빠뜨리면 자기 버전을 "새 버전"으로 알리게 되고,
   그 상태에서 누른 "받기"는 `Error: Please check update first`로 실패한다 — electron-updater가 업데이트가 있을 때만
