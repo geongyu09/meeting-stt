@@ -7,6 +7,7 @@ import type { AssistantChatState, AssistantStatus } from '@shared/types'
 vi.mock('@renderer/shared/api/assistant', () => ({
   getAssistantStatusApi: vi.fn(),
   chooseAssistantFolderApi: vi.fn(),
+  installHarnessApi: vi.fn(),
   setAssistantPermissionModeApi: vi.fn(),
   setAssistantProviderApi: vi.fn(),
   getAssistantStateApi: vi.fn(),
@@ -20,6 +21,7 @@ import {
   chooseAssistantFolderApi,
   getAssistantStateApi,
   getAssistantStatusApi,
+  installHarnessApi,
   setAssistantPermissionModeApi,
   setAssistantProviderApi
 } from '@renderer/shared/api/assistant'
@@ -135,5 +137,54 @@ describe('AssistantSettingSection', () => {
     await userEvent.click(await screen.findByRole('button', { name: '폴더 고르기' }))
 
     expect((await screen.findByRole('alert')).textContent).toBe('작업 폴더를 바꾸지 못했습니다')
+  })
+
+  it('기본 설정 추가하기를 누르면 넣었는지, 이미 있어 건너뛰었는지 알린다', async () => {
+    vi.mocked(installHarnessApi).mockResolvedValueOnce({ isInstalled: true })
+    render(<AssistantSettingSection />)
+    const button = await screen.findByRole('button', { name: '기본 설정 추가하기' })
+    await vi.waitFor(() => expect(button.hasAttribute('disabled')).toBe(false))
+
+    await userEvent.click(button)
+
+    expect((await screen.findByRole('status')).textContent).toBe('기본 설정을 추가했습니다.')
+
+    vi.mocked(installHarnessApi).mockResolvedValueOnce({ isInstalled: false })
+    await userEvent.click(button)
+
+    expect(await screen.findByText(/CLAUDE.md나 AGENTS.md가 이미 있어/)).toBeTruthy()
+    expect(installHarnessApi).toHaveBeenCalledTimes(2)
+  })
+
+  it('기본 설정 추가에 실패하면 오류를 알린다', async () => {
+    vi.mocked(installHarnessApi).mockRejectedValue(new Error('EACCES'))
+    render(<AssistantSettingSection />)
+    const button = await screen.findByRole('button', { name: '기본 설정 추가하기' })
+    await vi.waitFor(() => expect(button.hasAttribute('disabled')).toBe(false))
+
+    await userEvent.click(button)
+
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      '기본 설정을 추가하지 못했습니다'
+    )
+  })
+
+  it('작업 폴더가 없거나 문제가 있으면 기본 설정을 추가할 수 없다', async () => {
+    vi.mocked(getAssistantStatusApi).mockResolvedValue(statusOf({ folder: null }))
+    const { unmount } = render(<AssistantSettingSection />)
+    await screen.findByText('아직 고르지 않았습니다')
+
+    expect(
+      screen.getByRole('button', { name: '기본 설정 추가하기' }).hasAttribute('disabled')
+    ).toBe(true)
+    unmount()
+
+    vi.mocked(getAssistantStatusApi).mockResolvedValue(statusOf({ folderProblem: 'missing' }))
+    render(<AssistantSettingSection />)
+    await screen.findByText('/Users/me/notes')
+
+    expect(
+      screen.getByRole('button', { name: '기본 설정 추가하기' }).hasAttribute('disabled')
+    ).toBe(true)
   })
 })

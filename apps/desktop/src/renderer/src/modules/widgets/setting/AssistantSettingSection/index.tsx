@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ASSISTANT_PROVIDERS, isAssistantProvider } from '@shared/assistant'
 import {
   chooseAssistantFolderApi,
+  installHarnessApi,
   setAssistantPermissionModeApi,
   setAssistantProviderApi
 } from '@renderer/shared/api/assistant'
@@ -28,13 +29,28 @@ export default function AssistantSettingSection() {
   const { status, applyStatus } = useAssistantStatus()
   const { state: chat } = useAssistantChat()
   const [actionError, setActionError] = useState<string | null>(null)
+  const [harnessResult, setHarnessResult] = useState<'installed' | 'skipped' | 'error' | null>(null)
+  const [isInstallingHarness, setIsInstallingHarness] = useState(false)
 
   const handleChooseFolder = async () => {
     try {
       applyStatus(await chooseAssistantFolderApi())
       setActionError(null)
+      setHarnessResult(null)
     } catch {
       setActionError(labels.folder.chooseError)
+    }
+  }
+
+  const handleInstallHarness = async () => {
+    setIsInstallingHarness(true)
+    try {
+      const { isInstalled } = await installHarnessApi()
+      setHarnessResult(isInstalled ? 'installed' : 'skipped')
+    } catch {
+      setHarnessResult('error')
+    } finally {
+      setIsInstallingHarness(false)
     }
   }
 
@@ -98,6 +114,33 @@ export default function AssistantSettingSection() {
         control={
           <Button variant="secondary" size="sm" onClick={handleChooseFolder} disabled={!status}>
             {labels.folder.choose}
+          </Button>
+        }
+      />
+      <SettingRow
+        title={labels.harness.title}
+        description={
+          <>
+            <span>{labels.harness.description}</span>
+            {harnessResult === 'error' ? (
+              <span className={styles.error} role="alert">
+                {labels.harness.error}
+              </span>
+            ) : harnessResult ? (
+              <span className={styles.result} role="status">
+                {labels.harness[harnessResult]}
+              </span>
+            ) : null}
+          </>
+        }
+        control={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleInstallHarness}
+            disabled={!status?.folder || Boolean(status.folderProblem) || isInstallingHarness}
+          >
+            {labels.harness.install}
           </Button>
         }
       />

@@ -4,6 +4,7 @@ import {
   type GetAssistantStateResponse,
   type GetAssistantStatusResponse,
   type GetRoutinesResponse,
+  type InstallHarnessResponse,
   type ListAssistantSkillsResponse,
   type ListWorkspaceFilesResponse,
   type ReadWorkspaceFileResponse
@@ -33,6 +34,7 @@ import {
   pickWorkspaceFolder,
   requireWorkspaceFolder
 } from '../assistant/folder'
+import { installHarness } from '../assistant/harness'
 import { listAssistantSkills } from '../assistant/skills'
 import { deleteRoutine, getRoutinesState, runRoutineNow, saveRoutine } from '../assistant/routines'
 import {
@@ -76,6 +78,12 @@ export const registerAssistantHandlers = () => {
   )
 
   ipcMain.handle(IPC.assistant.chooseFolder, () => handleChooseFolder())
+
+  ipcMain.handle(IPC.assistant.installHarness, async (): Promise<InstallHarnessResponse> => {
+    const folder = await requireWorkspaceFolder()
+
+    return { isInstalled: await installHarness({ folder }) }
+  })
 
   ipcMain.handle(
     IPC.assistant.setPermissionMode,

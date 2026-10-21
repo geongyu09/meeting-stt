@@ -79,11 +79,21 @@ export const assistantKo = {
     folder: {
       title: '작업 폴더',
       description:
-        '에이전트가 이 폴더의 CLAUDE.md·AGENTS.md·스킬·훅을 읽고 문서를 만들거나 고칩니다. CLAUDE.md와 AGENTS.md가 없는 폴더를 고르면 문서 위치와 요청별 규칙을 정한 기본 규칙 파일·폴더·스킬을 넣습니다(이미 있는 파일은 덮지 않습니다). 질문과 에이전트가 읽은 파일 내용은 고른 에이전트의 회사(Anthropic·OpenAI) 서버로 전송됩니다.',
+        '에이전트가 이 폴더의 CLAUDE.md·AGENTS.md·스킬·훅을 읽고 문서를 만들거나 고칩니다. 질문과 에이전트가 읽은 파일 내용은 고른 에이전트의 회사(Anthropic·OpenAI) 서버로 전송됩니다.',
       none: '아직 고르지 않았습니다',
       choose: '폴더 고르기',
       notGitRepo: 'git 저장소가 아니라 에이전트가 고친 내용을 되돌리기 어렵습니다',
       chooseError: '작업 폴더를 바꾸지 못했습니다'
+    },
+    harness: {
+      title: '기본 설정',
+      description:
+        '문서를 어디에 둘지, 할 일·회고·위키 같은 요청을 어떻게 처리할지 정한 기본 규칙 파일(CLAUDE.md·AGENTS.md)과 폴더, 스킬을 작업 폴더에 넣습니다. 이미 있는 파일은 덮지 않습니다.',
+      install: '기본 설정 추가하기',
+      installed: '기본 설정을 추가했습니다.',
+      skipped: '작업 폴더에 CLAUDE.md나 AGENTS.md가 이미 있어 추가하지 않았습니다.',
+      error:
+        '기본 설정을 추가하지 못했습니다. 만들어진 CLAUDE.md·AGENTS.md를 지우고 다시 시도하세요.'
     },
     permission: {
       title: '모든 권한 허용',
@@ -207,11 +217,21 @@ export const assistantEn: typeof assistantKo = {
     folder: {
       title: 'Work folder',
       description:
-        "The agent reads this folder's CLAUDE.md, AGENTS.md, skills, and hooks, and creates or edits documents. If the folder has neither CLAUDE.md nor AGENTS.md, Gyeot adds default rule files, folders, and skills for where documents go and how to handle requests (existing files are never overwritten). Your questions and the files the agent reads are sent to the servers of the agent's company (Anthropic or OpenAI).",
+        "The agent reads this folder's CLAUDE.md, AGENTS.md, skills, and hooks, and creates or edits documents. Your questions and the files the agent reads are sent to the servers of the agent's company (Anthropic or OpenAI).",
       none: 'Not chosen yet',
       choose: 'Choose folder',
       notGitRepo: 'Not a git repository, so changes made by the agent are hard to undo',
       chooseError: 'Could not change the work folder'
+    },
+    harness: {
+      title: 'Default setup',
+      description:
+        'Adds default rule files (CLAUDE.md and AGENTS.md), folders, and skills to the work folder that set where documents go and how requests like to-dos, retrospectives, and wiki notes are handled. Existing files are never overwritten.',
+      install: 'Add default setup',
+      installed: 'Added the default setup.',
+      skipped: 'The work folder already has CLAUDE.md or AGENTS.md, so nothing was added.',
+      error:
+        'Could not add the default setup. Delete any CLAUDE.md or AGENTS.md it created and try again.'
     },
     permission: {
       title: 'Allow all permissions',

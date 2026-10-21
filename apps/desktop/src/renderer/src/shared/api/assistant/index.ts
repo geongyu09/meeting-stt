@@ -118,3 +118,11 @@ export const writeWorkspaceFileApi = async ({ path, content }: WriteWorkspaceFil
  * const skills = await listAssistantSkillsApi()
  */
 export const listAssistantSkillsApi = async () => window.api.assistant.listSkills()
+
+/**
+ * @description 지금 작업 폴더에 기본 규칙 파일(CLAUDE.md·AGENTS.md)·폴더·스킬을 넣습니다. 이미 있는 파일은 덮지 않습니다.
+ * @returns `isInstalled` — 넣었으면 true, CLAUDE.md나 AGENTS.md가 이미 있어 건너뛰었으면 false
+ * @example
+ * const { isInstalled } = await installHarnessApi()
+ */
+export const installHarnessApi = async () => window.api.assistant.installHarness()

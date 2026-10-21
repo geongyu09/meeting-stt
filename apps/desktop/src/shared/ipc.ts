@@ -114,7 +114,8 @@ export const IPC = {
     listFiles: 'assistant:listFiles',
     readFile: 'assistant:readFile',
     writeFile: 'assistant:writeFile',
-    listSkills: 'assistant:listSkills'
+    listSkills: 'assistant:listSkills',
+    installHarness: 'assistant:installHarness'
   },
   // 루틴 (references/features/assistant.md "루틴")
   routines: {
@@ -638,6 +639,12 @@ export interface SetAssistantPermissionModeRequest {
 /** 설정 모달 "에이전트" 행. 응답은 갱신된 상태 (references/features/ui.md "설정 모달") */
 export interface SetAssistantProviderRequest {
   provider: AssistantProvider
+}
+
+/** 설정 "기본 설정 추가하기" (references/features/assistant.md "기본 하네스") */
+export interface InstallHarnessResponse {
+  /** 넣었으면 true. 작업 폴더에 CLAUDE.md나 AGENTS.md가 이미 있어 건너뛰었으면 false */
+  isInstalled: boolean
 }
 
 export type GetAssistantStateResponse = AssistantChatState

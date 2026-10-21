@@ -21,6 +21,11 @@
   color: var(--color-danger);
 }
 
+.result {
+  display: block;
+  color: var(--color-text);
+}
+
 .select {
   max-width: 280px;
   height: 34px;
