@@ -164,9 +164,6 @@ const api = {
     exportAudio: (payload: ExportMeetingAudioRequest): Promise<ExportMeetingAudioResponse> =>
       ipcRenderer.invoke(IPC.meetings.exportAudio, payload),
     import: (): Promise<ImportMeetingAudioResponse> => ipcRenderer.invoke(IPC.meetings.import),
-    listAudio: (): Promise<ListMeetingAudioResponse> => ipcRenderer.invoke(IPC.meetings.listAudio),
-    deleteAudio: (payload: DeleteMeetingAudioRequest): Promise<DeleteMeetingAudioResponse> =>
-      ipcRenderer.invoke(IPC.meetings.deleteAudio, payload),
     updateNote: (payload: UpdateMeetingNoteRequest): Promise<MutateMeetingResponse> =>
       ipcRenderer.invoke(IPC.meetings.updateNote, payload)
   },

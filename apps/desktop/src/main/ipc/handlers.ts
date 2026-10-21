@@ -60,7 +60,7 @@ import {
 import { exportRecording } from '../audio/exportRecording'
 import { registerAssistantHandlers } from './assistant'
 import { importRecording } from '../audio/importRecording'
-import { deleteAudioFiles, deleteMeetingWithRecording, listAudioFiles } from '../audio/recordings'
+import { deleteMeetingWithRecording } from '../audio/recordings'
 import {
   appendRecordingChunk,
   getRecordingState,
