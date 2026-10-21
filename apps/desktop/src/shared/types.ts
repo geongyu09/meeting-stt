@@ -288,6 +288,8 @@ export interface AssistantStatus {
   permissionMode: AssistantPermissionMode
   /** 채팅이 쓰는 에이전트. 저장값이 없으면 main이 설치된 첫 CLI로 채운다 (references/features/ui.md "설정 모달") */
   provider: AssistantProvider
+  /** 녹음이 처리되면 정리 에이전트를 자동으로 돌릴지 (references/features/assistant.md "녹음 기록 자동 정리") */
+  isAutoOrganizeEnabled: boolean
 }
 
 /** 에이전트를 돌리는 CLI. 로컬 모델은 도구 호출을 못 해 빠진다 (references/architecture.md "개인 비서 모드") */

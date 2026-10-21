@@ -35,6 +35,7 @@ const folderStatusOf = (overrides: Partial<AssistantStatus> = {}): AssistantStat
   isGitRepo: true,
   permissionMode: 'acceptEdits',
   provider: 'claude-cli',
+  isAutoOrganizeEnabled: true,
   ...overrides
 })
 

@@ -225,6 +225,26 @@ export const findMeetingNote = ({ meetingId }: { meetingId: string }) => {
   return row?.note ?? ''
 }
 
+/** 비서의 뇌에 저장한 원문의 절대 경로. 보낸 적 없으면 null (references/features/assistant.md "녹음 기록 자동 정리") */
+export const findBrainPath = ({ meetingId }: { meetingId: string }) => {
+  const row = getDb().prepare('SELECT brain_path FROM meetings WHERE id = ?').get(meetingId) as
+    { brain_path: string | null } | undefined
+
+  return row?.brain_path ?? null
+}
+
+export const updateMeetingBrainPath = ({
+  meetingId,
+  brainPath
+}: {
+  meetingId: string
+  brainPath: string
+}) => {
+  getDb()
+    .prepare('UPDATE meetings SET brain_path = @brainPath WHERE id = @meetingId')
+    .run({ meetingId, brainPath })
+}
+
 /** 원본 WAV를 지운 뒤 경로를 비운다. 파일이 없는 회의는 재처리할 수 없다 */
 export const clearAudioPath = ({ meetingId }: { meetingId: string }) => {
   getDb().prepare('UPDATE meetings SET audio_path = NULL WHERE id = ?').run(meetingId)

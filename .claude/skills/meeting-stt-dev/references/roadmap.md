@@ -707,16 +707,22 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 녹음을 멈추면 STT → 화자 분리(회의만) → 작업 폴더 `raw/recordings/`에 원문 저장 → 정리 에이전트 → 알림이 자동으로 이어진다. 결정 10가지는 2026-10-21 사용자가 골랐다 (`architecture.md` "녹음 기록 자동 정리" 표).
 문서를 먼저 고쳤다 (`SKILL.md` "제품 방향", `architecture.md` 같은 이름의 절·"전역 단축키", `data-model.md` 마이그레이션 9(녹음 노트가 8을 먼저 가져감)·`recording.type`·`shortcut.memo`·`assistant.autoOrganize`).
 
-- [ ] 계약: `RecordingType`·`RecordingStateEvent.recordingType`·`OrganizeStatus`·`AssistantStatus.isAutoOrganizeEnabled`·`AppSettings.memoShortcut`, IPC `recording.setType`·`assistant.setAutoOrganize`·`organize.status`·`organize.send`·`events.organize`·`events.assistantOpenFile`
-- [ ] DB: 마이그레이션 9(`record_type`·`brain_path`), 설정 키 `recording.type`·`shortcut.memo`·`assistant.autoOrganize`
+1차(2026-10-22, 사용자 지시 "다 자동이야")는 원문 저장 → 정리 → 알림 사슬과 설정 스위치만 붙였고, 녹음 종류·자동 제목·상세 줄은 남겼다 (`features/assistant.md` 같은 절 "구현 상태").
+
+- [x] 계약(1차): `AssistantStatus.isAutoOrganizeEnabled`, IPC `assistant.setAutoOrganize`·`events.assistantOpenFile`
+- [ ] 계약(남음): `RecordingType`·`RecordingStateEvent.recordingType`·`OrganizeStatus`·`AppSettings.memoShortcut`, IPC `recording.setType`·`organize.status`·`organize.send`·`events.organize`
+- [x] DB(1차): 마이그레이션 9(`brain_path`), 설정 키 `assistant.autoOrganize`
+- [ ] DB(남음): 마이그레이션 10(`record_type`), 설정 키 `recording.type`·`shortcut.memo`
 - [ ] 녹음 종류: 세션의 종류 값·`recording:setType`, 정지 시 `record_type`·메모 기본 제목·참석자 수 미저장, 메모 단축키(녹음 중이면 정지)와 네 단축키 중복 검사, Tray "회의 녹음 시작"·"메모 녹음 시작"
 - [ ] 파이프라인: 메모는 화자 분리를 spawn하지 않고 화자 구간 하나로 병합, `diarize` 진행률 100% 한 번
-- [ ] 원문 파일 `assistant/recordNote.ts` — 경로(`raw/recordings/YYYY-MM-DD-HHmm[ 주제][-n].md`, `wx`, 주제는 제목에서 날짜를 뗀 것)·머리말·본문 조립(순수 함수 + vitest: 회의·메모·이름 충돌·화자 이름)
-- [ ] 정리 `assistant/organize.ts` — 정리 큐(동시성 1, GPU 큐와 별개), 자동 제목 잡 뒤 트리거·처음 처리만 자동, 설치된 첫 CLI·고정 지시·새 세션·10분 제한·앱 종료 시 중단, 상태 Map + `organize:progress`
-- [ ] 녹음 노트 잇기(아래 "녹음 노트" 절이 먼저 끝나 있으면): 원문의 `## 노트`·`## 전사`(노트가 있을 때만), 정리 지시의 노트 두 문단, Claude 정리 턴에 노트 링크 호스트만 `WebFetch(domain:…)` 허용 (`features/assistant.md` "원문 파일"·"정리 에이전트")
-- [ ] 알림 `windows/notify.ts` — 완료·실패 알림, 누르면 메인 창 `/assistant`에서 원문 열기(`assistant:openFile`)
-- [ ] 화면: 위젯·녹음 화면 회의/메모 선택(메모면 참석자 수 숨김), 목록·상세의 메모 표시, 상세 "비서의 뇌" 줄(상태·비서에서 열기·보내기/다시 보내기 2단계 확인), 설정 "개인 비서" 자동 정리 스위치·"단축키" 메모 행
-- [ ] 사전(`ko`·`en`) 문구, 통합 테스트(상세 "비서의 뇌" 줄, 위젯 종류 선택, 설정 스위치)
+- [x] 원문 파일 `assistant/recordNote.ts` — 경로(`raw/recordings/YYYY-MM-DD-HHmm[ 주제][-n].md`, `wx`, 주제는 제목에서 날짜를 뗀 것)·머리말·본문 조립(순수 함수 + vitest: 회의·이름 충돌·화자 이름·노트). 메모 본문 형식은 녹음 종류와 함께
+- [x] 정리 `assistant/organize.ts` — 정리 큐(동시성 1, GPU 큐와 별개), 자동 교정 잡 뒤 트리거·처음 처리만 자동(`brain_path`), 설치된 첫 CLI·고정 지시·새 세션·10분 제한·앱 종료 시 중단. 상태 Map + `organize:progress`는 상세 줄과 함께 남음
+- [x] 녹음 노트 잇기: 원문의 `## 노트`·`## 전사`(노트가 있을 때만), 정리 지시의 노트 두 문단, Claude 정리 턴에 노트 링크 호스트만 `WebFetch(domain:…)` 허용
+- [x] 알림 `windows/notify.ts` — 완료·실패 알림, 누르면 메인 창 `/assistant`에서 원문 열기(`assistant:openFile`)
+- [x] 화면(1차): 설정 "개인 비서" 자동 정리 스위치
+- [ ] 화면(남음): 위젯·녹음 화면 회의/메모 선택(메모면 참석자 수 숨김), 목록·상세의 메모 표시, 상세 "비서의 뇌" 줄(상태·비서에서 열기·보내기/다시 보내기 2단계 확인), 설정 "단축키" 메모 행
+- [x] 사전(`ko`·`en`) 문구(1차: 스위치·알림·오류), 통합 테스트(설정 스위치)
+- [ ] 통합 테스트(남음): 상세 "비서의 뇌" 줄, 위젯 종류 선택
 - [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과
 - [ ] 완료 기준: `pnpm dev`에서 작업 폴더를 고른 상태로 `⌥⌘M` → 말하고 → `⌥⌘M`으로 정지하면 화자 분리 없이 처리되고, `raw/recordings/<시각> <주제>.md`가 생긴 뒤 에이전트가 폴더 규칙대로(규칙이 없으면 원문 위에 `## 요약`) 정리하고 macOS 알림이 뜬다. 알림을 누르면 비서 화면에 원문이 열린다. `⌥⌘R` 회의는 화자 분리가 돈다. 자동 정리를 끄면 원문만 생기고 알림이 없다. CLI가 없거나 폴더가 사라지면 실패 알림이 뜨고 회의록은 앱에 남는다
 

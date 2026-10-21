@@ -41,6 +41,8 @@ interface BuildClaudeAgentArgsParams {
   sessionId: string | null
   /** 답할 사람이 없는 백그라운드 실행(루틴). 채팅용 "질문하고 기다리라"는 안내를 붙이지 않는다 */
   isUnattended?: boolean
+  /** 이 턴에만 더 허용할 도구 (정리 잡의 노트 링크 `WebFetch(domain:…)`) */
+  extraAllowedTools?: string[]
 }
 
 /**
@@ -51,7 +53,8 @@ interface BuildClaudeAgentArgsParams {
 export const buildClaudeAgentArgs = ({
   permissionMode,
   sessionId,
-  isUnattended = false
+  isUnattended = false,
+  extraAllowedTools = []
 }: BuildClaudeAgentArgsParams) => [
   '-p',
   '--output-format',
@@ -63,6 +66,7 @@ export const buildClaudeAgentArgs = ({
   permissionMode,
   '--allowedTools',
   ...AGENT_ALLOWED_TOOLS,
+  ...extraAllowedTools,
   '--disallowedTools',
   ...AGENT_DISALLOWED_TOOLS,
   ...(isUnattended ? [] : ['--append-system-prompt', NO_DIALOG_PROMPT]),

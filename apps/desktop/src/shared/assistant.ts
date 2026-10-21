@@ -142,3 +142,22 @@ export const readWorkspaceWritePayload = (
 
   return { path, content }
 }
+
+/**
+ * @description `assistant:setAutoOrganize` payload를 검증합니다.
+ * @param payload - renderer가 보낸 값
+ * @param errors - 오류 문구 사전. 생략하면 한국어
+ * @returns 켜짐 여부
+ * @example
+ * readAutoOrganizePayload({ isEnabled: false }) // false
+ */
+export const readAutoOrganizePayload = (
+  payload: unknown,
+  errors: AssistantErrorMessages = assistantKo.errors
+) => {
+  if (!isRecord(payload) || typeof payload.isEnabled !== 'boolean') {
+    throw new Error(errors.invalidAutoOrganize)
+  }
+
+  return payload.isEnabled
+}

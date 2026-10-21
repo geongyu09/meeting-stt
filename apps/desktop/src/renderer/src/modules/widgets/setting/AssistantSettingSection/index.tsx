@@ -3,6 +3,7 @@ import { ASSISTANT_PROVIDERS, isAssistantProvider } from '@shared/assistant'
 import {
   chooseAssistantFolderApi,
   installHarnessApi,
+  setAssistantAutoOrganizeApi,
   setAssistantPermissionModeApi,
   setAssistantProviderApi
 } from '@renderer/shared/api/assistant'
@@ -18,6 +19,7 @@ import styles from './index.module.css'
 
 const PERMISSION_TITLE_ID = 'assistant-permission-title'
 const PROVIDER_TITLE_ID = 'assistant-provider-title'
+const AUTO_ORGANIZE_TITLE_ID = 'assistant-auto-organize-title'
 
 /**
  * 설정의 "개인 비서" 카테고리 — 작업 폴더·에이전트·권한 모드 (references/features/ui.md "설정 모달").
@@ -64,6 +66,15 @@ export default function AssistantSettingSection() {
       setActionError(null)
     } catch {
       setActionError(labels.permission.error)
+    }
+  }
+
+  const handleToggleAutoOrganize = async (isEnabled: boolean) => {
+    try {
+      applyStatus(await setAssistantAutoOrganizeApi({ isEnabled }))
+      setActionError(null)
+    } catch {
+      setActionError(labels.autoOrganize.error)
     }
   }
 
@@ -181,6 +192,19 @@ export default function AssistantSettingSection() {
             isChecked={isBypass}
             onChange={handleTogglePermission}
             ariaLabelledBy={PERMISSION_TITLE_ID}
+            disabled={!status}
+          />
+        }
+      />
+      <SettingRow
+        title={labels.autoOrganize.title}
+        titleId={AUTO_ORGANIZE_TITLE_ID}
+        description={labels.autoOrganize.description}
+        control={
+          <Switch
+            isChecked={status?.isAutoOrganizeEnabled ?? true}
+            onChange={handleToggleAutoOrganize}
+            ariaLabelledBy={AUTO_ORGANIZE_TITLE_ID}
             disabled={!status}
           />
         }

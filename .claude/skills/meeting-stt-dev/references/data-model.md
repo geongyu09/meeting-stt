@@ -20,8 +20,8 @@ CREATE TABLE IF NOT EXISTS meetings (
   refined_at    INTEGER,                    -- 마지막 자동 교정 시각 (epoch ms). NULL이면 아직 교정하지 않음. 마이그레이션 4
   audio_quality TEXT,                       -- 원본 녹음의 품질 지표 ({ speechDb, noiseDb } JSON). NULL이면 재지 않은 회의. 마이그레이션 7
   note          TEXT NOT NULL DEFAULT '',   -- 녹음 노트 (사용자가 녹음하며 적은 장문, 마크다운 그대로). 빈 문자열이면 노트 없음. 마이그레이션 8
-  record_type   TEXT NOT NULL DEFAULT 'meeting', -- 'meeting' | 'memo'. 메모는 화자 분리를 건너뛴다. 마이그레이션 9
-  brain_path    TEXT                        -- 비서의 뇌(작업 폴더)에 저장한 전사 원문의 절대 경로. NULL이면 보낸 적 없음. 마이그레이션 9
+  brain_path    TEXT,                       -- 비서의 뇌(작업 폴더)에 저장한 전사 원문의 절대 경로. NULL이면 보낸 적 없음. 마이그레이션 9
+  record_type   TEXT NOT NULL DEFAULT 'meeting' -- 'meeting' | 'memo'. 메모는 화자 분리를 건너뛴다. 마이그레이션 10 (예정, 녹음 종류 구현 때)
 );
 
 CREATE TABLE IF NOT EXISTS utterances (
@@ -67,7 +67,8 @@ CREATE TABLE IF NOT EXISTS summary_templates (  -- 마이그레이션 6 (2026-09
     6: `CREATE TABLE summary_templates` (2026-09-29, 요약 템플릿. `architecture.md` "요약 템플릿" 절).
     7: `ALTER TABLE meetings ADD COLUMN audio_quality TEXT` (2026-10-02, 녹음 품질 안내. 아래 "녹음 품질 지표 저장" 절).
     8: `ALTER TABLE meetings ADD COLUMN note TEXT NOT NULL DEFAULT ''` (2026-10-21, 녹음 노트. 아래 "녹음 노트 저장" 절. 자동 정리보다 먼저 구현해 8을 가져갔다).
-    9: `ALTER TABLE meetings ADD COLUMN record_type TEXT NOT NULL DEFAULT 'meeting'` + `ADD COLUMN brain_path TEXT` (2026-10-21, 녹음 기록 자동 정리. 이전 회의는 모두 화자 분리를 거쳤으므로 `'meeting'`이고, 뇌에 보낸 적 없으므로 `NULL`이다. `architecture.md` "녹음 기록 자동 정리" 절).
+    9: `ALTER TABLE meetings ADD COLUMN brain_path TEXT` (2026-10-22, 녹음 기록 자동 정리 1차. 뇌에 보낸 적 없으므로 `NULL`이다. `features/assistant.md` "녹음 기록 자동 정리" 절).
+    10 (예정): `ALTER TABLE meetings ADD COLUMN record_type TEXT NOT NULL DEFAULT 'meeting'` (녹음 종류 구현 때. 이전 회의는 모두 화자 분리를 거쳤으므로 `'meeting'`이다). 2026-10-21 문서는 둘을 9에 함께 두었지만 자동 정리 1차가 `brain_path`만 먼저 붙였다.
 
 ## 편집 동작 (Phase 3)
 
@@ -200,6 +201,7 @@ CREATE TABLE IF NOT EXISTS summary_templates (  -- 마이그레이션 6 (2026-09
 | `shortcut.memo` | string | `'Alt+Command+M'` | 메모 녹음 토글 전역 단축키 (2026-10-21). 녹음 중이 아니면 종류를 메모로 바꾸고 시작, 녹음 중이면 정지 (`references/architecture.md` "녹음 기록 자동 정리" > "녹음 종류") |
 | `shortcut.widget` | string | `'Alt+Command+W'` | 위젯 표시/숨김 전역 단축키. 다른 단축키와 같을 수 없다 |
 | `shortcut.dictation` | string | `'Alt+Command+D'` | 받아쓰기(음성 입력) 토글 전역 단축키 (2026-10-11). 다른 두 단축키와 같을 수 없다. 받아쓰기 결과는 DB에 저장하지 않는다 (`references/architecture.md` "받아쓰기") |
+| `shortcut.newChat` | string | `'Command+N'` | 채팅 창의 새 대화 단축키 (2026-10-22). 전역 단축키가 아니라 메인 창의 `keydown`으로 듣지만, 전역 단축키가 먼저 가로채므로 켜진 다른 `shortcut.*`와 같을 수 없다 (`references/features/ui.md` "채팅창 리뉴얼") |
 | `pipeline.quiet` | boolean | `false` | 조용히 처리. 켜면 화자 분리 스레드를 줄이고 STT와 화자 분리를 순차로 돌린다. 느려지는 대신 발열·팬 소음이 준다. 잡이 **시작할 때** 읽으므로 진행 중인 잡에는 적용되지 않는다 (`references/architecture.md` 가속·스레드 정책) |
 | `ui.theme` | `'system' \| 'light' \| 'dark'` | `'system'` | 화면 테마 (2026-09-28). main이 `nativeTheme.themeSource`에 넣는다. 모르는 값이면 `'system'`으로 읽고, 저장 요청은 거절한다 (`references/architecture.md` "다크 모드") |
 | `refine.autoExternal` | boolean | `false` | 외부 LLM 공급자일 때 회의록이 만들어지면 자동으로 문장 교정할지 (2026-09-28). 켜면 회의가 끝날 때마다 회의록이 그 회사 서버로 전송된다. 로컬 공급자의 자동 용어 교정과는 무관하다 (`references/architecture.md` "회의록 교정"). 외부 공급자의 자동 제목도 이 동의(또는 `assistant.autoOrganize`)를 따른다 (2026-10-21, `references/features/transcript.md` "회의록 자동 제목") |

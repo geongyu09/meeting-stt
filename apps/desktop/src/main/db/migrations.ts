@@ -73,7 +73,9 @@ const MIGRATIONS = [
   //    임계값을 바꿔도 지난 회의를 다시 처리하지 않는다 (references/data-model.md "녹음 품질 지표 저장")
   'ALTER TABLE meetings ADD COLUMN audio_quality TEXT;',
   // 8: 녹음 노트 (2026-10-21). 빈 문자열이 "없음"이라 NULL을 쓰지 않는다 (references/data-model.md "녹음 노트 저장")
-  "ALTER TABLE meetings ADD COLUMN note TEXT NOT NULL DEFAULT '';"
+  "ALTER TABLE meetings ADD COLUMN note TEXT NOT NULL DEFAULT '';",
+  // 9: 비서의 뇌에 저장한 전사 원문의 절대 경로 (2026-10-22, 녹음 기록 자동 정리). NULL이면 보낸 적 없음
+  'ALTER TABLE meetings ADD COLUMN brain_path TEXT;'
 ]
 
 export const migrate = (db: Database) => {

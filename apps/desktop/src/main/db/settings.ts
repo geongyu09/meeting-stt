@@ -62,6 +62,7 @@ const ASSISTANT_FOLDER_KEY = 'assistant.folder'
 const ASSISTANT_PERMISSION_MODE_KEY = 'assistant.permissionMode'
 const ASSISTANT_PROVIDER_KEY = 'assistant.provider'
 const ASSISTANT_ROUTINES_KEY = 'assistant.routines'
+const ASSISTANT_AUTO_ORGANIZE_KEY = 'assistant.autoOrganize'
 /** 회사별 암호화 키의 settings 키. Anthropic은 OpenAI 추가 전 이름을 그대로 둬 저장된 키를 잃지 않는다 */
 const LLM_API_KEY_KEYS: Record<LlmApiVendor, string> = {
   anthropic: 'llm.claudeApiKey',
@@ -394,6 +395,13 @@ export const getAssistantProvider = (): AssistantProvider | null => {
 
 export const setAssistantProvider = ({ provider }: { provider: AssistantProvider }) =>
   writeValue({ key: ASSISTANT_PROVIDER_KEY, value: provider })
+
+/** 녹음이 처리되면 정리 에이전트를 자동으로 돌릴지. 기본 켜짐 (references/features/assistant.md "녹음 기록 자동 정리") */
+export const getAssistantAutoOrganize = () =>
+  readBoolean({ key: ASSISTANT_AUTO_ORGANIZE_KEY, fallback: true })
+
+export const setAssistantAutoOrganize = ({ isEnabled }: { isEnabled: boolean }) =>
+  writeValue({ key: ASSISTANT_AUTO_ORGANIZE_KEY, value: isEnabled })
 
 /** 루틴 목록 (references/features/assistant.md "루틴"). 형식이 깨진 항목은 버리고 읽는다 */
 export const getRoutines = () => parseStoredRoutines(readValue(ASSISTANT_ROUTINES_KEY))

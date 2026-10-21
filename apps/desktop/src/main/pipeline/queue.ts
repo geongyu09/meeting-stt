@@ -10,8 +10,10 @@ import type {
   SummaryStage
 } from '@shared/types'
 import { discardRecording } from '../audio/recordings'
+import { enqueueOrganize } from '../assistant/organize'
 import {
   findAudioPath,
+  findBrainPath,
   findMeeting,
   updateMeetingAudioQuality,
   updateMeetingStatus,
@@ -40,6 +42,8 @@ type MeetingJob = {
   kind: 'pipeline' | 'summary' | 'refine'
   meetingId: string
   templateId?: string
+  /** 자동 교정 잡만 — 끝나면(실패해도) 뇌 정리 잡을 넣는다 (references/features/assistant.md "녹음 기록 자동 정리") */
+  isThenOrganize?: boolean
 }
 
 /** 용어 초안은 회의에 묶이지 않고 결과를 invoke로 돌려줘야 해서, 성공·실패 처리를 `run`이 스스로 한다 */
@@ -132,7 +136,18 @@ const processMeeting = async (meetingId: string) => {
   info(`회의 ${meetingId} 처리 완료 (발화 ${utterances.length}개)`)
 
   await applyAudioRetention({ meetingId })
-  await scheduleAutoRefine({ meetingId })
+  // 교정된 본문이 뇌에 들어가야 하므로 교정이 돌면 그 뒤에, 아니면 바로 정리한다
+  if (!(await scheduleAutoRefine({ meetingId }))) scheduleOrganize({ meetingId })
+}
+
+/** 처음 처리할 때만 자동으로 보낸다 — 다시 인식한 회의의 원문을 두 번 만들지 않는다 */
+const scheduleOrganize = ({ meetingId }: { meetingId: string }) => {
+  if (findBrainPath({ meetingId })) {
+    info(`회의 ${meetingId} 뇌 저장 건너뜀: 이미 보낸 회의`)
+    return
+  }
+
+  enqueueOrganize({ meetingId })
 }
 
 const summarizeMeeting = async ({ meetingId, templateId }: MeetingJob) => {
@@ -230,14 +245,15 @@ const scheduleAutoRefine = async ({ meetingId }: { meetingId: string }) => {
     const reason = await autoRefineSkipReason()
     if (reason) {
       info(`회의 ${meetingId} 자동 교정 건너뜀: ${reason}`)
-      return
+      return false
     }
   } catch (caught) {
     warn(`회의 ${meetingId} 자동 교정 건너뜀: LLM 상태 확인 실패 (${messageOf(caught)})`)
-    return
+    return false
   }
 
-  enqueueRefineJob({ meetingId })
+  enqueue({ kind: 'refine', meetingId, isThenOrganize: true })
+  return true
 }
 
 /**
@@ -288,6 +304,7 @@ const drain = async () => {
     } catch (caught) {
       failJob(job, messageOf(caught))
     }
+    if (job.isThenOrganize) scheduleOrganize({ meetingId: job.meetingId })
   }
 
   isRunning = false

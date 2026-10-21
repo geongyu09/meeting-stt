@@ -5,15 +5,17 @@ const FILE_NAME_MAX_LENGTH = 120
 const FALLBACK_NAME = '회의 녹음'
 const WAV_EXTENSION = '.wav'
 
-/** 저장 대화상자의 기본 파일명. 회의 제목에서 파일명에 못 쓰는 문자를 `_`로 바꾼다 */
-export const toExportFileName = (title: string) => {
-  const base = title
+/** 파일명에 못 쓰는 문자를 `_`로 바꾼다. 뇌 원문 파일 이름도 같은 규칙이다 (assistant/recordNote.ts) */
+export const toSafeFileName = (name: string) =>
+  name
     .replace(UNSAFE_CHARS_PATTERN, '_')
     .trim()
     // 점으로 시작하면 Finder에서 숨김 파일이 된다
     .replace(/^\.+/, '')
-    .slice(0, FILE_NAME_MAX_LENGTH)
-    .trim()
+
+/** 저장 대화상자의 기본 파일명 */
+export const toExportFileName = (title: string) => {
+  const base = toSafeFileName(title).slice(0, FILE_NAME_MAX_LENGTH).trim()
 
   return `${base || FALLBACK_NAME}${WAV_EXTENSION}`
 }

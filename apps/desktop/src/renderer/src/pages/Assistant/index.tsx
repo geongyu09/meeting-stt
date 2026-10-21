@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Outlet } from 'react-router'
+import { onAssistantOpenFile } from '@renderer/shared/api/events'
 import UpdateBanner from '@renderer/modules/features/update/UpdateBanner'
 import AssistantChatSection from '@renderer/modules/widgets/assistant/AssistantChatSection'
 import DocumentEditorSection from '@renderer/modules/widgets/assistant/DocumentEditorSection'
@@ -23,6 +24,16 @@ export default function Assistant() {
   const { t } = useLocale()
   const [openPath, setOpenPath] = useState<string | null>(null)
   const [panel, setPanel] = useState<SidePanel>(null)
+
+  // 정리 알림을 누르면 main이 보낸 원문을 연다. shortcut: 이 페이지가 떠 있을 때만 받는다, 다른 화면에서도 열려야 하면 라우터로 올린다
+  useEffect(
+    () =>
+      onAssistantOpenFile(({ path }) => {
+        setOpenPath(path)
+        setPanel({ kind: 'document' })
+      }),
+    []
+  )
 
   const openDocument = (path: string | null) => {
     setOpenPath(path)

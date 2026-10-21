@@ -118,7 +118,9 @@ export const registerAssistantHandlers = () => {
   ipcMain.handle(
     IPC.assistant.setAutoOrganize,
     (_event, payload): Promise<GetAssistantStatusResponse> => {
-      setAssistantAutoOrganize({ isEnabled: readAutoOrganizePayload(payload, t().assistant.errors) })
+      setAssistantAutoOrganize({
+        isEnabled: readAutoOrganizePayload(payload, t().assistant.errors)
+      })
 
       return getAssistantStatus()
     }

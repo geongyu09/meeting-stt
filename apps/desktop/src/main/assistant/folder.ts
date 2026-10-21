@@ -4,6 +4,7 @@ import path from 'node:path'
 import { dialog, type OpenDialogOptions } from 'electron'
 import type { AssistantFolderProblem, AssistantProvider, AssistantStatus } from '@shared/types'
 import {
+  getAssistantAutoOrganize,
   getAssistantFolder,
   getAssistantPermissionMode,
   getAssistantProvider
@@ -62,7 +63,8 @@ export const getAssistantStatus = async (): Promise<AssistantStatus> => {
     folderProblem,
     isGitRepo: folder && !folderProblem ? await isInsideGitRepo(folder) : false,
     permissionMode: getAssistantPermissionMode(),
-    provider: await resolveProvider()
+    provider: await resolveProvider(),
+    isAutoOrganizeEnabled: getAssistantAutoOrganize()
   }
 }
 

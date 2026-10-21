@@ -93,6 +93,7 @@ const statusOf = (overrides: Partial<AssistantStatus> = {}): AssistantStatus => 
   isGitRepo: true,
   permissionMode: 'acceptEdits',
   provider: 'claude-cli',
+  isAutoOrganizeEnabled: true,
   ...overrides
 })
 

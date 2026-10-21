@@ -10,7 +10,16 @@ const shownNotifications = new Set<Notification>()
  * macOS 시스템 알림. 누르면 메인 창을 앞으로 가져온다 (references/features/assistant.md "루틴" > "알림").
  * 알림 권한은 macOS가 처음 보낼 때 묻는다.
  */
-export const showNotification = ({ title, body }: { title: string; body: string }) => {
+export const showNotification = ({
+  title,
+  body,
+  onClick
+}: {
+  title: string
+  body: string
+  /** 창을 띄운 뒤 할 일 (정리 알림은 원문을 연다) */
+  onClick?: () => void
+}) => {
   if (!Notification.isSupported()) {
     info(`알림을 지원하지 않아 건너뜁니다: ${title}`)
     return
@@ -21,6 +30,7 @@ export const showNotification = ({ title, body }: { title: string; body: string 
   notification.on('click', () => {
     release()
     showMainWindow()
+    onClick?.()
   })
   notification.on('close', release)
   shownNotifications.add(notification)

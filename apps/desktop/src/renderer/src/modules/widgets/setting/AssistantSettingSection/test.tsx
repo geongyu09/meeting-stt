@@ -8,6 +8,7 @@ vi.mock('@renderer/shared/api/assistant', () => ({
   getAssistantStatusApi: vi.fn(),
   chooseAssistantFolderApi: vi.fn(),
   installHarnessApi: vi.fn(),
+  setAssistantAutoOrganizeApi: vi.fn(),
   setAssistantPermissionModeApi: vi.fn(),
   setAssistantProviderApi: vi.fn(),
   getAssistantStateApi: vi.fn(),
@@ -22,6 +23,7 @@ import {
   getAssistantStateApi,
   getAssistantStatusApi,
   installHarnessApi,
+  setAssistantAutoOrganizeApi,
   setAssistantPermissionModeApi,
   setAssistantProviderApi
 } from '@renderer/shared/api/assistant'
@@ -33,6 +35,7 @@ const statusOf = (overrides: Partial<AssistantStatus> = {}): AssistantStatus => 
   isGitRepo: true,
   permissionMode: 'acceptEdits',
   provider: 'claude-cli',
+  isAutoOrganizeEnabled: true,
   ...overrides
 })
 
@@ -96,6 +99,20 @@ describe('AssistantSettingSection', () => {
     })
     expect((await screen.findByRole('status')).textContent).toContain('묻지 않고 실행합니다')
     expect(toggle.getAttribute('aria-checked')).toBe('true')
+  })
+
+  it('녹음 기록 자동 정리는 기본 켜짐이고 끄면 저장한다', async () => {
+    vi.mocked(setAssistantAutoOrganizeApi).mockResolvedValue(
+      statusOf({ isAutoOrganizeEnabled: false })
+    )
+    render(<AssistantSettingSection />)
+
+    const toggle = await screen.findByRole('switch', { name: '녹음 기록 자동 정리' })
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+    await userEvent.click(toggle)
+
+    expect(setAssistantAutoOrganizeApi).toHaveBeenCalledWith({ isEnabled: false })
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
   })
 
   it('에이전트를 Codex로 바꾸면 저장하고 고른 값을 보여 준다', async () => {

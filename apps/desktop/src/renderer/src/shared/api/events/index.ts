@@ -1,5 +1,6 @@
 import type { AssistantChatState } from '@shared/types'
 import type {
+  AssistantOpenFileEvent,
   DictationCommandEvent,
   DictationStateEvent,
   ModelDownloadProgressEvent,
@@ -162,3 +163,13 @@ export const onWorkspaceFilesChanged = (listener: (event: WorkspaceFilesChangedE
  */
 export const onRoutinesChanged = (listener: (event: RoutinesChangedEvent) => void) =>
   window.api.events.onRoutinesChanged(listener)
+
+/**
+ * @description 정리 알림을 눌러 비서 화면에서 열 문서를 구독합니다.
+ * @param listener - 작업 폴더 기준 상대 경로 콜백
+ * @returns 구독 해제 함수
+ * @example
+ * useEffect(() => onAssistantOpenFile(({ path }) => openDocument(path)), [])
+ */
+export const onAssistantOpenFile = (listener: (event: AssistantOpenFileEvent) => void) =>
+  window.api.events.onAssistantOpenFile(listener)

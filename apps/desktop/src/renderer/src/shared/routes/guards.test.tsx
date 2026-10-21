@@ -23,7 +23,8 @@ const statusOf = (folder: string | null): AssistantStatus => ({
   folderProblem: null,
   isGitRepo: true,
   permissionMode: 'acceptEdits',
-  provider: 'claude-cli'
+  provider: 'claude-cli',
+  isAutoOrganizeEnabled: true
 })
 
 const renderGuard = async (status: AssistantStatus) => {

@@ -1,19 +1,13 @@
 import { randomUUID } from 'node:crypto'
-import { realpath } from 'node:fs/promises'
 import type { Routine, RoutineInput, RoutineRun, RoutinesState } from '@shared/types'
 import { isRoutineDue, ROUTINE_RESULT_MAX_CHARS } from '@shared/routine'
-import { getAssistantPermissionMode, getCodexModel, getRoutines, setRoutines } from '../db/settings'
-import { locateClaudeCli } from '../llm/claudeCli'
-import { locateCodexCli } from '../llm/codexCli'
+import { getRoutines, setRoutines } from '../db/settings'
 import { t } from '../locale'
 import { info, messageOf, warn } from '../log'
 import { showNotification } from '../windows/notify'
 
-import { runClaudeAgent } from './claudeAgent'
-import { runCodexAgent } from './codexAgent'
-import { requireWorkspaceFolder, resolveProvider } from './folder'
-import type { AgentStreamEvent } from './types/agentStream'
-import { toWorkspaceRelative } from './workspacePath'
+import { requireWorkspaceFolder } from './folder'
+import { runUnattendedTurn } from './unattendedTurn'
 
 /**
  * 루틴 스케줄러와 실행 큐 (references/features/assistant.md "루틴" > "스케줄러와 실행").
@@ -55,36 +49,6 @@ const pushState = () => changeListener?.(getRoutinesState())
 const updateRoutine = ({ id, change }: { id: string; change: (routine: Routine) => Routine }) =>
   setRoutines(getRoutines().map((routine) => (routine.id === id ? change(routine) : routine)))
 
-interface RunAgentParams {
-  folder: string
-  text: string
-  signal: AbortSignal
-  onEvent: (event: AgentStreamEvent) => void
-}
-
-/** 채팅과 같은 에이전트(설정에서 고른 것, 없으면 설치된 첫 CLI)로 새 세션 한 턴을 돈다 */
-const runAgent = async ({ folder, text, signal, onEvent }: RunAgentParams) => {
-  const turn = {
-    folder,
-    text,
-    sessionId: null,
-    permissionMode: getAssistantPermissionMode(),
-    signal,
-    onEvent
-  }
-
-  const provider = await resolveProvider()
-  const cli = provider === 'codex-cli' ? await locateCodexCli() : await locateClaudeCli()
-  if (!cli.path) {
-    throw new Error(t().assistant.errors.cliMissing({ label: t().assistant.providers[provider] }))
-  }
-
-  if (provider === 'codex-cli') {
-    return runCodexAgent({ ...turn, cliPath: cli.path, model: getCodexModel() })
-  }
-  return runClaudeAgent({ ...turn, cliPath: cli.path, isUnattended: true })
-}
-
 const runOf = ({ text, changedFiles, error }: Omit<RoutineRun, 'finishedAt'>): RoutineRun => ({
   finishedAt: Date.now(),
   text: text.slice(0, ROUTINE_RESULT_MAX_CHARS),
@@ -102,47 +66,23 @@ const executeRoutine = async ({
   routine,
   controller
 }: ExecuteRoutineParams): Promise<RoutineRun | null> => {
-  let text = ''
-  let changedFiles: string[] = []
-  let resultError: string | null = null
-  let isTimedOut = false
-  const timer = setTimeout(() => {
-    isTimedOut = true
-    controller.abort()
-  }, ROUTINE_TIMEOUT_MS)
-
-  const handleEvent = ({ roots, event }: { roots: string[]; event: AgentStreamEvent }) => {
-    if (event.kind === 'text') text += event.text
-    if (event.kind === 'message') text = text ? `${text}\n\n${event.text}` : event.text
-    if (event.kind === 'tool' && event.filePath) {
-      const changed = toWorkspaceRelative({ roots, filePath: event.filePath })
-      if (!changedFiles.includes(changed)) changedFiles = [...changedFiles, changed]
-    }
-    if (event.kind !== 'result') return
-    // 글 조각 없이 끝난 턴도 최종 글은 남긴다
-    if (event.isError) resultError = event.text || t().assistant.errors.unknownReason
-    else if (!text) text = event.text
-  }
-
   try {
-    const folder = await requireWorkspaceFolder()
-    const roots = [folder, await realpath(folder).catch(() => folder)]
-    await runAgent({
-      folder,
+    const run = await runUnattendedTurn({
+      folder: await requireWorkspaceFolder(),
       text: `${ROUTINE_PREAMBLE}\n\n${routine.prompt}`,
-      signal: controller.signal,
-      onEvent: (event) => handleEvent({ roots, event })
+      controller,
+      timeoutMs: ROUTINE_TIMEOUT_MS,
+      timeoutMessage: t().routine.errors.timeout
     })
+    if (run.error) warn(`루틴 실패 (${routine.name}): ${run.error}`)
 
-    return runOf({ text, changedFiles, error: resultError })
+    return runOf(run)
   } catch (caught) {
-    if (controller.signal.aborted && !isTimedOut) return null
+    if (controller.signal.aborted) return null
 
-    const reason = isTimedOut ? t().routine.errors.timeout : (resultError ?? messageOf(caught))
+    const reason = messageOf(caught)
     warn(`루틴 실패 (${routine.name}): ${reason}`)
-    return runOf({ text, changedFiles, error: reason })
-  } finally {
-    clearTimeout(timer)
+    return runOf({ text: '', changedFiles: [], error: reason })
   }
 }
 

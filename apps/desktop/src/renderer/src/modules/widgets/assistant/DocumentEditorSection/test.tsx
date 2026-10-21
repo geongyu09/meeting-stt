@@ -30,7 +30,8 @@ const STATUS: AssistantStatus = {
   folderProblem: null,
   isGitRepo: true,
   permissionMode: 'acceptEdits',
-  provider: 'claude-cli'
+  provider: 'claude-cli',
+  isAutoOrganizeEnabled: true
 }
 
 /** 디스크 역할. 읽기·쓰기 목이 이 객체를 본다 */
