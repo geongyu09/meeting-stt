@@ -1,6 +1,9 @@
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
+import Icon from '../Icon'
 import styles from './index.module.css'
+
+const STEP_ICON_SIZE = 16
 
 interface StepperProps {
   /** 입력 중인 문자열. 비어 있거나 잘못된 값도 그대로 들고 검증은 부모가 한다 */
@@ -68,7 +71,7 @@ export default function Stepper({
         disabled={isDecrementDisabled}
         onClick={() => onChange(decrement({ value, min, max }))}
       >
-        −
+        <Icon name="minus" size={STEP_ICON_SIZE} />
       </button>
       <input
         id={id}
@@ -88,7 +91,7 @@ export default function Stepper({
         disabled={isIncrementDisabled}
         onClick={() => onChange(increment({ value, min, max }))}
       >
-        +
+        <Icon name="plus" size={STEP_ICON_SIZE} />
       </button>
     </div>
   )

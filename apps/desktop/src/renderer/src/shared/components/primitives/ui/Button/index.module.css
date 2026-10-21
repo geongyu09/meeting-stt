@@ -4,7 +4,8 @@
   justify-content: center;
   gap: var(--space-2);
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  /* 리뉴얼 시안의 버튼은 모든 보드에서 알약형이다 (references/features/ui.md "채팅창 리뉴얼") */
+  border-radius: var(--radius-full);
   font-weight: 500;
   line-height: 1.4;
   white-space: nowrap;
@@ -16,7 +17,7 @@
 }
 
 .md {
-  min-height: 36px;
+  min-height: 34px;
   padding: 0 var(--space-4);
   font-size: var(--font-sm);
 }

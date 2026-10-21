@@ -1,24 +1,24 @@
 /*
  * 데스크탑 앱과 브라우저 프로토타입이 함께 쓰는 디자인 토큰.
- * 값의 근거는 .claude/skills/meeting-stt-dev/references/architecture.md "화면 디자인" 절
+ * 값의 근거는 .claude/skills/meeting-stt-dev/references/features/ui.md "채팅창 리뉴얼" 토큰 표 (2026-10-21 시안)
  */
 :root {
   color-scheme: light dark;
 
   --color-bg: #ffffff;
-  --color-sidebar: #f7f7f8;
+  --color-sidebar: #f6f7f8;
   --color-surface: #ffffff;
-  --color-surface-hover: #f7f7f8;
-  --color-border: #e7e7ea;
-  --color-border-strong: #dcdce0;
-  --color-divider: #ededf0;
-  --color-disabled: #d4d4d9;
-  --color-text: #111113;
-  --color-text-muted: #6b6b73;
+  --color-surface-hover: #f1f2f4;
+  --color-border: #e2e4e8;
+  --color-border-strong: #d3d6db;
+  --color-divider: #eceef1;
+  --color-disabled: #cdd0d6;
+  --color-text: #14161a;
+  --color-text-muted: #6b717b;
   --color-text-inverse: #ffffff;
-  --color-accent: #4338ca;
+  --color-accent: #2f5bd3;
   --color-accent-text: #ffffff;
-  --color-accent-soft: #e0e7ff;
+  --color-accent-soft: #e6ecfb;
   /* 빨강은 오류 전용이고 녹음 상태에 쓰지 않는다 */
   --color-danger: #b4232a;
   --color-danger-soft: #fdecec;
@@ -46,7 +46,14 @@
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 12px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
   --radius-full: 999px;
+
+  /* 입력 도크·옆 패널처럼 바탕 위에 떠 있는 카드 */
+  --shadow-float: 0 1px 2px rgba(20, 22, 26, 0.04), 0 12px 40px rgba(20, 22, 26, 0.07);
+  /* 설정 모달 뒤를 흐리는 배경 */
+  --color-backdrop: rgba(20, 22, 26, 0.36);
 
   /* Google Sans에는 한글 글리프가 없어 한글은 Pretendard로 떨어진다 */
   --font-sans: 'Google Sans', 'Pretendard', -apple-system, sans-serif;
@@ -67,26 +74,27 @@
 /* 변수 이름은 그대로 두고 값만 바꾼다. 강조·주요 버튼 글자는 어두운 잉크로 뒤집힌다 */
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg: #121214;
-    --color-sidebar: #18181b;
-    --color-surface: #1c1c20;
-    --color-surface-hover: #232328;
-    --color-border: #2a2a30;
-    --color-border-strong: #3a3a41;
-    --color-divider: #222226;
-    --color-disabled: #45454c;
-    --color-text: #ececef;
-    --color-text-muted: #9b9ba5;
-    --color-text-inverse: #111113;
-    --color-accent: #8b8ff7;
-    --color-accent-text: #111113;
-    --color-accent-soft: #26264a;
+    --color-bg: #111315;
+    --color-sidebar: #16181b;
+    --color-surface: #1b1e22;
+    --color-surface-hover: #23262b;
+    --color-border: #2a2e34;
+    --color-border-strong: #3a3f47;
+    --color-divider: #212429;
+    --color-disabled: #454a52;
+    --color-text: #eceef1;
+    --color-text-muted: #9aa0aa;
+    --color-text-inverse: #14161a;
+    --color-accent: #7fa0f5;
+    --color-accent-text: #14161a;
+    --color-accent-soft: #1e2a47;
     --color-danger: #f47a74;
     --color-danger-soft: #3a1c1d;
     --color-success: #4cc97a;
     --color-success-soft: #173323;
-    --color-thumb: #ececef;
+    --color-thumb: #eceef1;
     --color-disabled-text: #8a8a93;
+    --color-backdrop: rgba(0, 0, 0, 0.6);
 
     --color-speaker-1: #2dc4b0;
     --color-speaker-2: #f08a4b;

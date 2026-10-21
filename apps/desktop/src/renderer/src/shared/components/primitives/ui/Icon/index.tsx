@@ -14,6 +14,16 @@ export type IconName =
   | 'pause'
   | 'download'
   | 'chat'
+  | 'arrowUp'
+  | 'stop'
+  | 'file'
+  | 'folder'
+  | 'pencil'
+  | 'read'
+  | 'upload'
+  | 'bolt'
+  | 'plus'
+  | 'minus'
 
 interface IconProps {
   name: IconName
@@ -82,7 +92,23 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="m7 10 5 5 5-5" />
       <path d="M4 19h16" />
     </>
-  )
+  ),
+  arrowUp: <path d="M12 19V5M5 12l7-7 7 7" />,
+  stop: <rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" stroke="none" />,
+  file: (
+    <>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M14 3v5h5" />
+    </>
+  ),
+  folder: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />,
+  pencil: <path d="M4 20h4L19 9l-4-4L4 16z" />,
+  // 터미널 프롬프트 모양. 에이전트가 읽거나 실행한 도구 줄에 쓴다
+  read: <path d="M4 17l6-6-6-6M12 19h8" />,
+  upload: <path d="M12 20V8M6 14l6-6 6 6M5 4h14" />,
+  bolt: <path d="M13 2L4 14h7l-1 8 9-12h-7z" />,
+  plus: <path d="M12 5v14M5 12h14" />,
+  minus: <path d="M5 12h14" />
 }
 
 /** 장식용이다. 아이콘만 있는 버튼은 버튼 쪽에 aria-label을 붙인다 */

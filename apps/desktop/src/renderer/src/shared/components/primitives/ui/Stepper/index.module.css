@@ -1,10 +1,11 @@
+/* 알약형 스테퍼 (references/features/recording.md "채팅 창의 녹음" > "위젯 패널 외형") */
 .container {
   display: inline-flex;
-  align-items: stretch;
-  overflow: hidden;
+  align-items: center;
+  height: 32px;
   background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
 }
 
 .container:has(.input[aria-invalid='true']) {
@@ -12,19 +13,22 @@
 }
 
 .stepButton {
-  width: 36px;
-  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
   padding: 0;
-  color: var(--color-text);
-  font-size: var(--font-lg);
-  line-height: 1;
-  background: var(--color-sidebar);
+  color: var(--color-text-muted);
+  background: transparent;
   border: none;
+  border-radius: var(--radius-full);
   cursor: pointer;
 }
 
 .stepButton:not(:disabled):hover {
-  background: var(--color-divider);
+  color: var(--color-text);
+  background: var(--color-surface-hover);
 }
 
 .stepButton:disabled {
@@ -33,24 +37,24 @@
 }
 
 .input {
-  width: 56px;
-  padding: var(--space-2);
+  width: 36px;
+  padding: 0;
   color: var(--color-text);
   font-family: var(--font-mono);
+  font-size: var(--font-base);
   font-variant-numeric: tabular-nums;
   text-align: center;
-  background: var(--color-surface);
+  background: transparent;
   border: none;
-  border-inline: 1px solid var(--color-border-strong);
 }
 
 .input::placeholder {
   color: var(--color-text-muted);
 }
 
-/* 컨테이너가 overflow를 자르므로 포커스 외곽선은 컨테이너에 그린다 */
+/* 포커스 외곽선은 알약 전체에 그린다 */
 .container:has(:focus-visible) {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-text);
   outline-offset: 2px;
 }
 
