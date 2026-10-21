@@ -42,7 +42,7 @@ main 프로세스의 온보딩 다운로더와 `scripts/setupModels.ts`(Phase 1 
 ## 3. 다운로드 IPC 계약 (Phase 4에 추가하는 채널)
 
 ```ts
-models:   { status: 'models:status', download: 'models:download', downloadSummary: 'models:downloadSummary' }
+models:   { status: 'models:status', download: 'models:download', downloadSummary: 'models:downloadSummary', remove: 'models:remove' }
 events:   { modelDownload: 'models:downloadProgress', modelsChanged: 'models:changed' }
 ```
 
@@ -51,6 +51,7 @@ events:   { modelDownload: 'models:downloadProgress', modelsChanged: 'models:cha
 | `models:status` | 없음 | `ModelStatusResponse` |
 | `models:download` | `{ whisperModelId }` | 완료 후 `ModelStatusResponse`. 고른 모델을 `settings.stt.model`에 저장하고 런타임 선택값도 바꾼다 |
 | `models:downloadSummary` | 없음 | 완료 후 `ModelStatusResponse` (요약 모델만 받는다) |
+| `models:remove` | `{ key }` | 그 모델 파일을 지운 뒤 `ModelStatusResponse` (2026-10-22 사용자 요청, 설정 전용) |
 | `models:downloadProgress` (push) | — | `{ key, receivedBytes, totalBytes, percent }` |
 | `models:changed` (push) | — | 없음. `models:download`·`models:downloadSummary`가 성공한 뒤 모든 창에 보낸다 |
 
@@ -83,6 +84,10 @@ interface ModelStatusResponse {
 - `models:download`는 **이미 설치된 모델을 고르기만 해도** 부른다(선택 저장이 이 채널의 몫이라서). 파일이 있으면 즉시 완료 이벤트만 보낸다.
 - 다운로드 **동시성은 1**이다. 이미 받는 중에 새 요청이 오면 한국어 오류로 거절한다 (파이프라인 잡 큐와 같은 이유).
   `models:download`와 `models:downloadSummary`가 같은 잠금을 쓴다.
+- **`models:remove`** (2026-10-22 사용자 요청)는 `userData/models`에 있는 그 key의 파일 하나만 지운다 — `whisper`는 **현재 선택된** 모델 파일이고, 개발 모드 픽스처(`scripts/fixtures/models`)는 건드리지 않는다.
+  다운로드와 같은 잠금을 써 받는 중에는 거절하고, 성공하면 `models:changed`를 보낸다. 지운 모델은 같은 화면의 다운로드로 다시 받으면 되므로 선택(`stt.model`)은 바꾸지 않는다.
+  화면은 설정의 "모델 바꾸기" 목록과 "로컬 요약 모델 파일" 행의 "제거"(2단계 인라인 확인)이고, 처음 실행 설정 카드에는 두지 않는다.
+  예전에 골랐다가 바꾼 다른 whisper 모델 파일은 `items`에 없어 목록에 뜨지 않는다 — 지우려면 그 모델을 다시 골라 "이 모델 사용"한 뒤 지운다.
 - 진행률은 `invoke`가 끝날 때까지 push로 온다. `invoke`는 마지막 파일까지 받고 나서야 resolve된다 — 수백 MB라 수 분이 걸리지만
   요약과 달리 사용자가 이 화면에서 기다리는 것이 전제이므로 잡 큐에 넣지 않는다.
 - 검증은 SHA256. 불일치하면 파일을 지우고 "다시 시도해 주세요" 안내를 남긴다. 부분 파일은 남겨 두어야 이어받기가 된다.

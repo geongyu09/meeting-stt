@@ -10,6 +10,7 @@
 | 파일 | 절 | 하위 절 |
 | --- | --- | --- |
 | `features/assistant.md` | 개인 비서 모드 (Phase 6, 2026-10-20) | 이슈의 "정할 것" — 1차 결정 (2026-10-20, 사용자 확인 대기) · 작업 폴더 (`src/main/assistant/folder.ts`) · 에이전트 실행 경로 (요약 경로와 분리) · 대화 상태 (`src/main/assistant/session.ts`) · 문서 에디터 (`src/main/assistant/files.ts`) · IPC · 화면 · 빠른 질문 모드 (후순위, 미착수) |
+| `features/assistant.md` | 기본 하네스 (2026-10-22) | 넣는 것과 빼는 것 · 폴더 구조 · 스킬 · 넣는 시점과 방법 (`src/main/assistant/harness.ts`) · IPC와 화면 · 검증 |
 | `features/assistant.md` | 녹음 기록 자동 정리 (2026-10-21) | 흐름 · 녹음 종류 (회의 / 메모) · 원문 파일 (`src/main/assistant/recordNote.ts`) · 정리 에이전트 (`src/main/assistant/organize.ts`) · 알림 (`src/main/windows/notify.ts`) · IPC · 화면 |
 | `features/assistant.md` | 루틴 (2026-10-22) | 루틴과 저장 (`src/shared/routine.ts`, 순수 함수 + vitest) · 다음 실행 계산 · 스케줄러와 실행 (`src/main/assistant/routines.ts`) · 알림 (`src/main/windows/notify.ts`) · IPC · 화면 (`setting/RoutineSection`) |
 | `features/recording.md` | 녹음본 재생·내보내기·다시 인식 (2026-09-25) |  |
@@ -108,7 +109,7 @@ src/
     summary/{llama,run,paths,transcript}.ts        # 요약 (Phase 5). LLM 호출은 llm/*을 거친다
     glossary/draft.ts, refine/{run,paths}.ts       # 용어 초안·회의록 자동 교정 (Phase 5-4). LLM 호출은 llm/*을 거친다
     llm/{provider,local,claudeApi,claudeCli,codexCli,cliEnv,openaiApi,apiKey,check}.ts  # LLM 공급자 추상화 (`references/features/llm.md` "LLM 공급자" 절)
-    assistant/{folder,files,session,claudeAgent,claudeStream,workspacePath}.ts  # 개인 비서 — 작업 폴더·문서 읽기/쓰기·감시·에이전트 대화 (Phase 6, `references/features/assistant.md` "개인 비서 모드" 절)
+    assistant/{folder,files,session,claudeAgent,claudeStream,workspacePath,harness}.ts  # 개인 비서 — 작업 폴더·문서 읽기/쓰기·감시·에이전트 대화·기본 하네스(템플릿은 assistant/harness/) (Phase 6, `references/features/assistant.md` "개인 비서 모드" 절)
     updater.ts                # electron-updater, 기본 꺼짐 (references/distribution.md)
     bin/{paths,spawn}.ts
     ipc/handlers.ts, ipc/assistant.ts   # assistant.ts는 개인 비서 채널 (handlers.ts가 400줄을 넘어 나눴다)
