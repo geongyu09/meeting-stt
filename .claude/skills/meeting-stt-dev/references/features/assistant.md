@@ -139,6 +139,7 @@ interface AssistantChatState {
 | 키 | 채널 | 방향 | 요청 → 응답 |
 | --- | --- | --- | --- |
 | `assistant.status` | `assistant:status` | invoke | 없음 → `AssistantStatus` (폴더·폴더 문제·git 여부·권한 모드·에이전트) |
+| `assistant.folder` | `assistant:folder` | invoke | 없음 → `{ folder }` 경로만. `status`는 저장된 에이전트가 없으면 CLI 탐색(로그인 셸, 2026-10-22 실측 2.2초)을 기다리므로 첫 화면 가드가 이것을 먼저 읽는다 (`features/ui.md` "첫 화면") |
 | `assistant.chooseFolder` | `assistant:chooseFolder` | invoke | 없음 → `AssistantStatus`. 대화상자를 취소하면 그대로, 바꾸면 대화를 비운다 |
 | `assistant.setPermissionMode` | `assistant:setPermissionMode` | invoke | `{ permissionMode }` → `AssistantStatus` |
 | `assistant.setProvider` | `assistant:setProvider` | invoke | `{ provider }` → `AssistantStatus` (2026-10-22, 설정 모달 "에이전트" 행. `assistant.provider`에 저장) |

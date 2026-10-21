@@ -101,8 +101,8 @@
 - **원본 파일은 건드리지 않는다.** 앱이 관리하는 것은 변환한 WAV뿐이고 `audio.keep` 보관 정책도 그 WAV에만 적용된다.
 - 녹음 중에도 가져올 수 있다 — 변환은 짧고, 파이프라인은 큐가 순서대로 처리한다. 다만 UI는 녹음 중에 버튼을 비활성으로 둔다(아래).
 - **IPC**: `meetings:import`(invoke, payload 없음) → `ImportMeetingAudioResponse = { meeting: Meeting | null }`.
-- **UI**: ~~녹음 화면의 옵션 패널 행(`features/meeting/ImportAudioButton`)~~ → **2026-10-22 채팅창 리뉴얼부터** 채팅의 `/` 도우미 "파일로 기록 만들기"와 처음 실행의 칩이 `shared/hooks/domain/meeting/useAudioImport`의 `importAudio`를 부른다 (아래 "채팅 창의 녹음").
-  녹음 중에는 비활성(`useRecordingState`로 판단). 변환 중에는 "가져오는 중…", 성공하면 이동 없이 대화에 기록 카드(처리 중)가 생기고, 실패 문구는 도우미 아래 안내 줄에 빨간 글자로 쓴다.
+- **UI**: ~~녹음 화면의 옵션 패널 행(`features/meeting/ImportAudioButton`)~~ → **2026-10-22 채팅창 리뉴얼부터** 채팅의 `/` 명령 "파일로 기록 만들기"와 처음 실행의 칩이 `shared/hooks/domain/meeting/useAudioImport`의 `importAudio`를 부른다 (아래 "채팅 창의 녹음").
+  녹음 중에는 비활성(`useRecordingState`로 판단). 변환 중에는 "가져오는 중…", 성공하면 이동 없이 대화에 기록 카드(처리 중)가 생기고, 실패 문구는 입력 도크 위 안내 줄에 빨간 글자로 쓴다.
 - **범위 밖**: 창에 파일을 끌어다 놓기, 여러 파일 한 번에 가져오기. 필요해지면 같은 `importRecording`에 경로를 넘기는 채널을 더한다.
 
 ## 녹음 (renderer)
@@ -455,7 +455,7 @@ export interface RecordingStateEvent {
 - **이름은 "노트"(코드 `note`)다.** 사용자는 "메모"라고 불렀지만 "메모"는 이미 녹음 종류(회의 / 메모, `features/assistant.md` "녹음 종류")의 이름이라 "메모 녹음 중 메모"가 되지 않게 나눈다.
 - **형식은 자유 장문 텍스트 하나**(2026-10-21 사용자 결정 — "textarea 느낌으로 장문, md 포맷이면 더 좋음"). 시각이 붙는 줄 메모는 만들지 않는다. 사용자는 마크다운으로 적어도 되고 앱은 그대로 저장한다.
   - **앱 안에서는 마크다운을 그리지 않는다** — 쓰는 곳도 보는 곳도 textarea다(문서 에디터와 같은 규칙, 1절 "편집"의 에디터 라이브러리 금지). 마크다운은 뇌의 원문 파일(`.md`)에 그대로 들어가 그곳에서 서식이 산다.
-    앱 안 렌더링은 채팅창 리뉴얼이 비서 답변용 마크다운 렌더러를 들일 때 같은 렌더러로 붙인다(후속).
+    앱 안 렌더링은 비서 답변의 렌더러 `shared/components/primitives/ui/Markdown`(`features/ui.md` "대화", 2026-10-22)을 그대로 붙인다(후속).
   - **링크**: 노트의 `https://` 링크(맨 URL과 `[글](https://…)` 모두)를 `extractNoteLinks`(`src/shared/note.ts`, 순수 함수 + vitest)가 뽑는다. 회의 상세의 노트 카드는 textarea 아래에 링크 목록을 두고 누르면 기본 브라우저로 연다 —
     `<a target="_blank">`를 메인 창의 `setWindowOpenHandler`가 받아 `openExternalUrl`(https만)로 넘기므로 새 IPC가 없다. `http:`·`file:` 같은 링크는 목록에 넣지 않는다(열지 않는 스킴).
   - 길이 상한 `NOTE_MAX_CHARS`(100,000자). main이 저장할 때 검사해 넘으면 거절한다(신뢰 경계). 넘을 일이 없는 크기라 화면은 따로 세지 않는다.
@@ -513,7 +513,7 @@ export interface RecordingStateEvent {
 ### 시작·정지 입구
 
 - **입력 도크의 마이크 버튼**: 대기 중 "녹음 시작"(`recording:control start`), 녹음 중에는 `aria-pressed` + 강조 연한 바탕(시안 "녹음 중")이고 누르면 정지(`toggle`). 모델 준비는 위젯이 검사해 실패를 세션에 모으므로(`errorMessage`) 버튼은 막지 않는다.
-- **`/` 도우미** "녹음 시작 ⌥⌘R"(설정의 단축키를 읽어 표기) → start, "파일로 기록 만들기" → `useAudioImport().importAudio`(`shared/hooks/domain/meeting/useAudioImport`, 이동 없음). `features/meeting/ImportAudioButton`은 없앴다.
+- **`/` 명령** "녹음 시작 ⌥⌘R"(설정의 단축키를 읽어 표기) → start, "파일로 기록 만들기" → `useAudioImport().importAudio`(`shared/hooks/domain/meeting/useAudioImport`, 이동 없음). `features/meeting/ImportAudioButton`은 없앴다.
 - 아직 남아 있는 옛 구조(사이드바)의 "새 녹음"은 채팅(`/`)으로 가며 녹음을 시작한다. 위젯·메뉴바·전역 단축키는 그대로다.
 - **정지하면 채팅으로 간다.** `MainWindowLayout`이 `stoppedMeetingId`를 받으면 회의 상세가 아니라 `navigate(PATHS.assistant, { state: { stoppedMeetingId } })`. 채팅이 `location.state.stoppedMeetingId`를 읽어 그 회의의 기록 카드 위에 "오후 2:48 · 녹음을 멈췄어요" 줄(시각은 `createdAt + durationSec`)을 붙인다. 파일 가져오기는 이 줄이 없다.
 
@@ -552,7 +552,7 @@ export interface RecordingStateEvent {
 
 ### 기록 찾기 (대화 속)
 
-시안 "기록 찾기 · 결과가 대화에". `/` 명령·도우미 "기록 찾기"는 옛 목록 화면으로 가지 않고 **입력 도크를 찾기 모드로 바꾼다** — 도크 앞에 "기록 찾기" 칩이 붙고 placeholder가 "찾을 말을 적고 Enter"가 된다. Esc나 빈 입력에서 Backspace로 모드를 끈다.
+시안 "기록 찾기 · 결과가 대화에". `/` 명령 "기록 찾기"는 옛 목록 화면으로 가지 않고 **입력 도크를 찾기 모드로 바꾼다** — 도크 앞에 "기록 찾기" 칩이 붙고 placeholder가 "찾을 말을 적고 Enter"가 된다. Esc나 빈 입력에서 Backspace로 모드를 끈다.
 - Enter로 보내면 에이전트가 아니라 `meetings:search`(제목·발화, 최신순 50개)를 부르고, 결과는 대화 속 카드다: 오른쪽 말풍선(칩 "기록 찾기" + 찾은 말) → "'토큰'이 나온 기록이 3개 있어요." → 결과 목록(제목 · "10월 20일 · 32분" · 첫 일치 발화의 시각 + 조각, 일치 부분은 `<mark>`) → "누르면 그 기록이 대화 옆에 열려요". 없으면 "…기록이 없어요".
 - 결과를 누르면 **전체 기록 패널**이 그 회의로 열린다. 해당 발화로 스크롤하는 것은 후속이다.
 - 찾기 카드는 기록 카드와 함께 시각 순으로 턴 목록 뒤에 놓이는 **renderer 로컬 상태**다(대화 기록처럼 저장하지 않는다). 조각 자르기·강조는 `shared/utils/highlightMatch`(옛 사이드바 유틸을 올렸다).
