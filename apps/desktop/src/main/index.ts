@@ -37,6 +37,7 @@ import {
 } from './pipeline/queue'
 import { removeStalePipelineArtifacts } from './pipeline/run'
 import { checkForUpdates } from './updater'
+import { applyAppDisplayName } from './windows/appName'
 import { createMainWindow, showMainWindow } from './windows/main'
 import { registerGlobalShortcuts, unregisterGlobalShortcuts } from './windows/shortcuts'
 import { createTray, destroyTray, refreshTray } from './windows/tray'
@@ -130,6 +131,7 @@ app.whenReady().then(async () => {
   // quit()은 비동기라 ready가 먼저 올 수 있다. 두 번째 인스턴스는 DB를 열지 않는다
   if (!isPrimaryInstance) return
 
+  applyAppDisplayName()
   electronApp.setAppUserModelId('com.meetingstt.app')
 
   app.on('browser-window-created', (_, window) => {

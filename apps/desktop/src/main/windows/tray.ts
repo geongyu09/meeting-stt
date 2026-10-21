@@ -5,6 +5,7 @@ import { getRecordingState } from '../audio/session'
 import { controlDictation, copyLastDictation, getDictationState } from '../dictation/session'
 import { getLocale, t } from '../locale'
 import { messageOf, warn } from '../log'
+import { APP_DISPLAY_NAME } from './appName'
 import { showMainWindow } from './main'
 import { requestRecordingCommand, toggleWidgetVisible } from './widget'
 
@@ -167,7 +168,7 @@ export const createTray = () => {
 
     icon.setTemplateImage(true)
     tray = new Tray(icon)
-    tray.setToolTip('meeting-stt')
+    tray.setToolTip(APP_DISPLAY_NAME)
     refreshTray()
   } catch (caught) {
     warn(`메뉴바 아이콘을 만들지 못했습니다: ${messageOf(caught)}`)

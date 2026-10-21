@@ -1,5 +1,5 @@
 appId: com.meetingstt.app
-productName: meeting-stt
+productName: Gyeot
 directories:
   buildResources: build
 # 수집 기준은 이 앱 워크스페이스(apps/desktop) 디렉터리다. 루트의 docs/·plan.md·.github/·설정 파일은
@@ -40,7 +40,7 @@ mac:
   # (APPLE_ID·APPLE_APP_SPECIFIC_PASSWORD·APPLE_TEAM_ID 필요, references/distribution.md)
   notarize: false
 dmg:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: ${productName}-${version}.${ext}
 npmRebuild: false
 # electron-updater가 이 저장소의 게시된 릴리스를 본다 (references/distribution.md 6절)
 publish:
