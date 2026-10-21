@@ -1,9 +1,11 @@
 import type { AssistantTurn } from '@shared/types'
 import Icon, { type IconName } from '@renderer/shared/components/primitives/ui/Icon'
+import Markdown from '@renderer/shared/components/primitives/ui/Markdown'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import { isOpenableFile } from '../utils/isOpenableFile'
 import { toolLabelOf, type ToolLabel } from '../utils/toolLabel'
+import CopyAnswerButton from './CopyAnswerButton'
 import styles from './TurnList.module.css'
 
 const TOOL_ICONS: Record<ToolLabel, IconName> = {
@@ -23,7 +25,7 @@ interface TurnListProps {
 
 /**
  * 대화 턴 목록 (references/features/ui.md "채팅창 리뉴얼" > "대화").
- * 사용자 말풍선, 에이전트는 도구 줄 → 평문 답변 → 바뀐 파일 칩 → 오류 순서다.
+ * 사용자 말풍선, 에이전트는 도구 줄 → 마크다운 답변 → 바뀐 파일 칩 → 오류 순서다.
  */
 export default function TurnList({ turns, isRunning, openPath, onOpenFile }: TurnListProps) {
   const { t } = useLocale()
@@ -34,7 +36,7 @@ export default function TurnList({ turns, isRunning, openPath, onOpenFile }: Tur
     <ol className={styles.list}>
       {turns.map((turn) =>
         turn.role === 'user' ? (
-          <li key={turn.id} className={styles.user}>
+          <li key={turn.id} className={styles.user} data-user-turn>
             {turn.text}
           </li>
         ) : (
@@ -53,7 +55,7 @@ export default function TurnList({ turns, isRunning, openPath, onOpenFile }: Tur
                 })}
               </ul>
             ) : null}
-            {turn.text ? <p className={styles.text}>{turn.text}</p> : null}
+            {turn.text ? <Markdown text={turn.text} /> : null}
             {turn.changedFiles.length ? (
               <div className={styles.files}>
                 {turn.changedFiles.map((path) =>
@@ -82,6 +84,9 @@ export default function TurnList({ turns, isRunning, openPath, onOpenFile }: Tur
               <p className={styles.error} role="alert">
                 {turn.error}
               </p>
+            ) : null}
+            {turn.text && !(isRunning && turn.id === lastTurnId) ? (
+              <CopyAnswerButton text={turn.text} />
             ) : null}
             {isRunning && turn.id === lastTurnId ? (
               <p className={styles.working} role="status">

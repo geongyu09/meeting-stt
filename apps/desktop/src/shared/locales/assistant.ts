@@ -20,6 +20,8 @@ export const assistantKo = {
     stop: '중지',
     record: '녹음 시작',
     working: '작업하는 중',
+    copyAnswer: '답변 복사',
+    copied: '복사했습니다',
     openFile: ({ name }: { name: string }) => `${name} 열기`,
     openedFile: ({ name }: { name: string }) => `${name} 열림`,
     tools: {
@@ -105,9 +107,29 @@ export const assistantKo = {
       title: '에이전트',
       description: '대화 중에는 바꿀 수 없어요',
       error: '에이전트를 바꾸지 못했습니다'
+    },
+    autoOrganize: {
+      title: '녹음 기록 자동 정리',
+      description:
+        '녹음이 끝나면 전사 원문을 작업 폴더의 raw/recordings/에 저장하고 에이전트가 정리합니다. 켜져 있으면 녹음 내용이 Anthropic·OpenAI 서버로 전송됩니다. 꺼도 원문은 저장합니다.',
+      error: '자동 정리 설정을 바꾸지 못했습니다'
+    }
+  },
+  organize: {
+    notification: {
+      doneTitle: '기록 정리 완료',
+      failedTitle: '기록 정리 실패',
+      done: ({ title, count }: { title: string; count: number }) =>
+        `${title} · 파일 ${count}개 변경`,
+      failed: ({ title, reason }: { title: string; reason: string }) =>
+        `${title} · ${reason} (원문은 저장했습니다)`
+    },
+    errors: {
+      timeout: '10분 안에 끝나지 않아 중지했습니다'
     }
   },
   errors: {
+    invalidAutoOrganize: '자동 정리 값이 올바르지 않습니다',
     invalidProvider: '알 수 없는 에이전트입니다',
     emptyQuestion: '질문이 비어 있습니다',
     questionTooLong: '질문이 너무 깁니다',
@@ -149,6 +171,8 @@ export const assistantEn: typeof assistantKo = {
     stop: 'Stop',
     record: 'Start recording',
     working: 'Working',
+    copyAnswer: 'Copy answer',
+    copied: 'Copied',
     openFile: ({ name }) => `Open ${name}`,
     openedFile: ({ name }) => `${name} is open`,
     tools: {
@@ -241,9 +265,27 @@ export const assistantEn: typeof assistantKo = {
       title: 'Agent',
       description: 'Cannot be changed during a chat',
       error: 'Could not change the agent'
+    },
+    autoOrganize: {
+      title: 'Auto-organize recordings',
+      description:
+        'When a recording finishes, the transcript is saved to raw/recordings/ in the work folder and the agent organizes it. While on, recording contents are sent to Anthropic or OpenAI servers. The transcript is saved even when off.',
+      error: 'Could not change the auto-organize setting'
+    }
+  },
+  organize: {
+    notification: {
+      doneTitle: 'Recording organized',
+      failedTitle: 'Organizing failed',
+      done: ({ title, count }) => `${title} · ${count} file(s) changed`,
+      failed: ({ title, reason }) => `${title} · ${reason} (transcript was saved)`
+    },
+    errors: {
+      timeout: 'Stopped because it did not finish within 10 minutes'
     }
   },
   errors: {
+    invalidAutoOrganize: 'Invalid auto-organize value',
     invalidProvider: 'Unknown agent',
     emptyQuestion: 'The question is empty',
     questionTooLong: 'The question is too long',

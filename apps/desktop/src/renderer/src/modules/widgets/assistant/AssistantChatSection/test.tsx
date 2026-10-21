@@ -63,6 +63,7 @@ import {
   listWorkspaceFilesApi,
   sendAssistantMessageApi
 } from '@renderer/shared/api/assistant'
+import { writeClipboardTextApi } from '@renderer/shared/api/clipboard'
 import { onAssistantState, onRecordingState } from '@renderer/shared/api/events'
 import { getLlmStatusApi } from '@renderer/shared/api/llm'
 import {
@@ -323,6 +324,17 @@ describe('AssistantChatSection', () => {
     expect(onOpenDocument).toHaveBeenCalledWith('notes/template.md')
     expect(screen.queryByRole('button', { name: /outside\.md/ })).toBeNull()
     expect(screen.getByText('/tmp/outside.md')).toBeTruthy()
+  })
+
+  it('답변 복사 버튼은 답변 원문을 한 번에 클립보드에 넣는다', async () => {
+    renderChat()
+    await readyInput()
+    pushState({ ...answeringChat, isRunning: false })
+
+    await userEvent.click(screen.getByRole('button', { name: '답변 복사' }))
+
+    expect(writeClipboardTextApi).toHaveBeenCalledWith({ text: '만들었습니다.' })
+    expect(screen.getByRole('button', { name: '복사했습니다' })).toBeTruthy()
   })
 
   it('열린 문서의 칩은 열림으로 보이고, 보낼 글 앞에 그 문서를 붙인다', async () => {
