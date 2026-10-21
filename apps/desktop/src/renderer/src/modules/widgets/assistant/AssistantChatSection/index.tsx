@@ -1,8 +1,8 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import type { AssistantProvider, LlmStatus } from '@shared/types'
 import { ASSISTANT_PROVIDERS } from '@shared/assistant'
-import { formatAccelerator } from '@shared/shortcut'
+import { acceleratorFromKeyInput, formatAccelerator } from '@shared/shortcut'
 import { controlRecordingApi } from '@renderer/shared/api/recording'
 import useAssistantChat from '@renderer/shared/hooks/domain/assistant/useAssistantChat'
 import useAssistantStatus from '@renderer/shared/hooks/domain/assistant/useAssistantStatus'
@@ -140,6 +140,20 @@ export default function AssistantChatSection({
 
     return navigate(COMMAND_PATHS[id])
   }
+
+  // 새 대화 단축키 (references/features/ui.md "채팅창 리뉴얼"). 설정 화면이 새 키를 입력받는 중(preventDefault)이면 건너뛴다
+  const handleNewChatKey = useEffectEvent((event: KeyboardEvent) => {
+    const shortcut = settings?.newChatShortcut
+    if (event.defaultPrevented || !shortcut || acceleratorFromKeyInput(event) !== shortcut) return
+    event.preventDefault()
+    void handleCommand('newChat')
+  })
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => handleNewChatKey(event)
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   const groupsOf = (query: MenuQuery | null): MenuGroup[] => {
     if (!query) return []

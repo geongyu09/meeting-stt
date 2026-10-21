@@ -16,7 +16,8 @@ vi.mock('@renderer/shared/api/update', () => ({
 }))
 vi.mock('@renderer/shared/api/events', () => ({
   onUpdateAvailable: vi.fn(() => () => {}),
-  onRecordingState: vi.fn(() => () => {})
+  onRecordingState: vi.fn(() => () => {}),
+  onSettingsChanged: vi.fn(() => () => {})
 }))
 vi.mock('@renderer/shared/api/recording', () => ({
   requestMicrophonePermissionApi: vi.fn().mockResolvedValue(true),
@@ -71,6 +72,7 @@ const DEFAULT_SETTINGS = {
   recordingShortcut: 'Alt+Command+R',
   widgetShortcut: 'Alt+Command+W',
   dictationShortcut: 'Alt+Command+D',
+  newChatShortcut: 'Command+N',
   inputDevice: null,
   locale: 'ko' as const,
   theme: 'system' as const,

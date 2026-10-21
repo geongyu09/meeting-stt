@@ -96,6 +96,8 @@ export interface AppSettings {
   widgetShortcut: string
   /** 받아쓰기(음성 입력) 토글 전역 단축키. 다른 단축키와 같을 수 없다 (references/architecture.md "받아쓰기") */
   dictationShortcut: string
+  /** 채팅 창의 새 대화 단축키. 메인 창 안에서만 듣지만 전역 단축키가 먼저 가로채므로 그것들과 같을 수 없다 (references/features/ui.md "채팅창 리뉴얼") */
+  newChatShortcut: string
   /** 녹음에 쓸 마이크. null이면 시스템 기본 마이크. 장치가 빠져 있으면 녹음은 기본 마이크로 폴백한다 */
   inputDevice: AudioInputDevice | null
   /** UI 언어 (기본 'ko'). 인식·요약 언어가 아니라 화면·메뉴바·오류 문구의 언어다 (`src/shared/i18n.ts`) */

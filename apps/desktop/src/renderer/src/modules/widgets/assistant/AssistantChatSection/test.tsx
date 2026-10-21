@@ -52,7 +52,8 @@ vi.mock('@renderer/shared/api/events', () => ({
   onMeetingsChanged: vi.fn(() => () => {}),
   onPipelineProgress: vi.fn(() => () => {}),
   onRefineProgress: vi.fn(() => () => {}),
-  onSummaryProgress: vi.fn(() => () => {})
+  onSummaryProgress: vi.fn(() => () => {}),
+  onSettingsChanged: vi.fn(() => () => {})
 }))
 
 import {
@@ -61,6 +62,7 @@ import {
   getAssistantStatusApi,
   listAssistantSkillsApi,
   listWorkspaceFilesApi,
+  resetAssistantChatApi,
   sendAssistantMessageApi
 } from '@renderer/shared/api/assistant'
 import { writeClipboardTextApi } from '@renderer/shared/api/clipboard'
@@ -177,7 +179,10 @@ beforeEach(() => {
   vi.mocked(getAssistantStateApi).mockResolvedValue(EMPTY_CHAT)
   vi.mocked(getLlmStatusApi).mockResolvedValue(llmStatusOf('/Users/me/.local/bin/claude'))
   vi.mocked(getRecordingStateApi).mockResolvedValue(IDLE_RECORDING)
-  vi.mocked(getSettingsApi).mockResolvedValue({ recordingShortcut: 'Alt+Command+R' } as AppSettings)
+  vi.mocked(getSettingsApi).mockResolvedValue({
+    recordingShortcut: 'Alt+Command+R',
+    newChatShortcut: 'Command+N'
+  } as AppSettings)
   vi.mocked(listWorkspaceFilesApi).mockResolvedValue(['a.md', 'notes/b.md'])
   vi.mocked(listAssistantSkillsApi).mockResolvedValue([
     { name: 'wiki-review', description: '복습할 위키 페이지를 고른다' }
@@ -298,6 +303,17 @@ describe('AssistantChatSection', () => {
 
     expect(onOpenDocument).toHaveBeenCalledWith(null)
     expect(input.value).toBe('')
+  })
+
+  it('새 대화 단축키 ⌘N을 누르면 대화를 비운다', async () => {
+    vi.mocked(resetAssistantChatApi).mockResolvedValue(EMPTY_CHAT)
+    renderChat()
+    await readyInput()
+    pushState(answeringChat)
+
+    await userEvent.keyboard('{Meta>}n{/Meta}')
+
+    await vi.waitFor(() => expect(resetAssistantChatApi).toHaveBeenCalled())
   })
 
   it('@ 로 작업 폴더의 파일과 폴더를 고른다', async () => {

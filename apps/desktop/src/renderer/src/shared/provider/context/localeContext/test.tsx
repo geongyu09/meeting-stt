@@ -25,6 +25,7 @@ const SETTINGS: AppSettings = {
   recordingShortcut: 'Alt+Command+R',
   widgetShortcut: 'Alt+Command+W',
   dictationShortcut: 'Alt+Command+D',
+  newChatShortcut: 'Command+N',
   inputDevice: null,
   locale: 'ko',
   theme: 'system',

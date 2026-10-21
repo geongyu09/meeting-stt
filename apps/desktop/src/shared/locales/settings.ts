@@ -83,6 +83,11 @@ export const settingsKo = {
     description:
       '다른 앱에서 이 키를 누르고 말하면 커서 자리에 글이 들어갑니다. 다시 누르면 끝납니다.'
   },
+  newChatShortcut: {
+    title: '새 대화',
+    description:
+      '채팅 창에서 이 키를 누르면 지금 대화를 끝내고 새로 시작합니다. 다른 앱에서는 동작하지 않습니다.'
+  },
   shortcutField: {
     changeLabel: ({ title }: { title: string }) => `${title} 변경`,
     pressKeys: '키를 누르세요…',
@@ -202,6 +207,11 @@ export const settingsEn: typeof settingsKo = {
     title: 'Start/stop dictation',
     description:
       'Press this key in another app and speak to insert text at the cursor. Press it again to finish.'
+  },
+  newChatShortcut: {
+    title: 'New chat',
+    description:
+      'Press this key in the chat window to end the current chat and start over. It does nothing in other apps.'
   },
   shortcutField: {
     changeLabel: ({ title }: { title: string }) => `Change ${title}`,

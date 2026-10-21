@@ -10,6 +10,8 @@ interface ShortcutAccelerators {
   recordingShortcut: string
   widgetShortcut: string
   dictationShortcut: string
+  /** 창 안 keydown이라 등록하지 않지만, 전역 단축키가 먼저 가로채므로 겹치면 거절한다 */
+  newChatShortcut: string
 }
 
 const bindings = ({
@@ -65,9 +67,12 @@ export const replaceGlobalShortcuts = ({
   next: ShortcutAccelerators
   previous: ShortcutAccelerators
 }) => {
-  const accelerators = [next.recordingShortcut, next.widgetShortcut, next.dictationShortcut].filter(
-    (accelerator) => accelerator !== SHORTCUT_OFF
-  )
+  const accelerators = [
+    next.recordingShortcut,
+    next.widgetShortcut,
+    next.dictationShortcut,
+    next.newChatShortcut
+  ].filter((accelerator) => accelerator !== SHORTCUT_OFF)
   if (new Set(accelerators).size !== accelerators.length) {
     throw new Error(t().main.errors.shortcutsMustDiffer)
   }

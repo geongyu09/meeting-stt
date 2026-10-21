@@ -310,7 +310,7 @@ export interface RecordingStateEvent {
 | 2 | 마이크 | 입력 장치(`inputDevice`), 마이크 테스트 (2026-09-25, 위 "마이크 입력 장치와 테스트" 절) | `SettingsSection` |
 | 3 | 녹음·처리 | 원본 녹음 파일 보관(`isAudioKept`), 녹음 파일 관리하기("관리" 버튼 → `/recordings`, 2026-10-21, 위 "녹음 파일 관리" 절), 조용히 처리(`isQuietProcessing`) | `SettingsSection` |
 | 4 | 녹음 위젯 | 위젯 패널(`isWidgetEnabled`), 위젯 반투명(`isWidgetFadeEnabled`), 비활성 불투명도(`widgetFadeOpacity`) | `SettingsSection` |
-| 5 | 단축키 | 녹음 시작·정지(`recordingShortcut`), 위젯 표시·숨김(`widgetShortcut`), 받아쓰기 시작·정지(`dictationShortcut`, 2026-10-11) | `SettingsSection` |
+| 5 | 단축키 | 녹음 시작·정지(`recordingShortcut`), 위젯 표시·숨김(`widgetShortcut`), 받아쓰기 시작·정지(`dictationShortcut`, 2026-10-11), 새 대화(`newChatShortcut`, 2026-10-22 — 전역이 아니라 채팅 창 안, `features/ui.md` "채팅창 리뉴얼") | `SettingsSection` |
 | 6 | 받아쓰기 | 사용법 한 줄(현재 단축키 표기), 접근성 권한 상태와 시스템 설정 열기 (2026-10-11, `references/features/dictation.md` "받아쓰기" 절) | `setting/DictationSection` (자기 채널 `dictation:state`로 읽는다. 용어 사전처럼 `children`으로 끼운다) |
 | 7 | 음성 인식 모델 | 음성 인식 모델 변경 | `ModelDownloadSection` (온보딩과 공유) |
 | 8 | 요약 · 용어 초안 | 실행 방식(로컬 / Claude API 키 / Claude Code / OpenAI API 키), 로컬을 골랐을 때만 **로컬 요약 모델 파일** 다운로드, API 키(공급자별), GPT 모델 선택, CLI 상태, 연결 확인 | `setting/LlmSection` — 파일 다운로드 행 `model/SummaryModelSection`은 페이지가 `localModelSlot`으로 끼운다 (`references/features/llm.md` "LLM 공급자" 절). 2026-09-24까지는 "모델" 카테고리에 음성 인식 모델과 나란히 있었는데, 로컬 실행 방식의 부속품이 별개 설정처럼 보여 옮겼다 |

@@ -26,6 +26,7 @@ import {
 } from '@shared/llm'
 import {
   DEFAULT_DICTATION_SHORTCUT,
+  DEFAULT_NEW_CHAT_SHORTCUT,
   DEFAULT_RECORDING_SHORTCUT,
   DEFAULT_WIDGET_SHORTCUT,
   isValidShortcut
@@ -51,6 +52,7 @@ const WIDGET_FADE_OPACITY_KEY = 'widget.fadeOpacity'
 const RECORDING_SHORTCUT_KEY = 'shortcut.recording'
 const WIDGET_SHORTCUT_KEY = 'shortcut.widget'
 const DICTATION_SHORTCUT_KEY = 'shortcut.dictation'
+const NEW_CHAT_SHORTCUT_KEY = 'shortcut.newChat'
 const GLOSSARY_TEAM_KEY = 'glossary.team'
 const GLOSSARY_TERMS_KEY = 'glossary.terms'
 const GLOSSARY_CORRECTIONS_KEY = 'glossary.corrections'
@@ -79,6 +81,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   recordingShortcut: DEFAULT_RECORDING_SHORTCUT,
   widgetShortcut: DEFAULT_WIDGET_SHORTCUT,
   dictationShortcut: DEFAULT_DICTATION_SHORTCUT,
+  newChatShortcut: DEFAULT_NEW_CHAT_SHORTCUT,
   inputDevice: null,
   locale: DEFAULT_LOCALE,
   theme: DEFAULT_THEME,
@@ -184,6 +187,10 @@ export const getAppSettings = (): AppSettings => ({
     key: DICTATION_SHORTCUT_KEY,
     fallback: DEFAULT_SETTINGS.dictationShortcut
   }),
+  newChatShortcut: readShortcut({
+    key: NEW_CHAT_SHORTCUT_KEY,
+    fallback: DEFAULT_SETTINGS.newChatShortcut
+  }),
   inputDevice: readInputDevice({ key: AUDIO_INPUT_DEVICE_KEY }),
   locale: readLocale({ key: UI_LOCALE_KEY }),
   theme: readTheme({ key: UI_THEME_KEY }),
@@ -203,6 +210,7 @@ export const updateAppSettings = ({
   recordingShortcut,
   widgetShortcut,
   dictationShortcut,
+  newChatShortcut,
   inputDevice,
   locale,
   theme,
@@ -217,6 +225,7 @@ export const updateAppSettings = ({
   writeValue({ key: RECORDING_SHORTCUT_KEY, value: recordingShortcut })
   writeValue({ key: WIDGET_SHORTCUT_KEY, value: widgetShortcut })
   writeValue({ key: DICTATION_SHORTCUT_KEY, value: dictationShortcut })
+  writeValue({ key: NEW_CHAT_SHORTCUT_KEY, value: newChatShortcut })
   writeValue({ key: AUDIO_INPUT_DEVICE_KEY, value: inputDevice })
   writeValue({ key: UI_LOCALE_KEY, value: locale })
   writeValue({ key: UI_THEME_KEY, value: theme })

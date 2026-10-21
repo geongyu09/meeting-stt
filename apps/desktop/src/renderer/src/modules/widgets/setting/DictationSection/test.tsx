@@ -14,7 +14,8 @@ vi.mock('@renderer/shared/api/dictation', () => ({
   openAccessibilitySettingsApi: vi.fn()
 }))
 vi.mock('@renderer/shared/api/events', () => ({
-  onDictationState: vi.fn(() => () => {})
+  onDictationState: vi.fn(() => () => {}),
+  onSettingsChanged: vi.fn(() => () => {})
 }))
 
 import { getDictationStateApi, openAccessibilitySettingsApi } from '@renderer/shared/api/dictation'

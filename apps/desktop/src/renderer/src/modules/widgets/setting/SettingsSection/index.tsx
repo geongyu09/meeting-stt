@@ -3,6 +3,7 @@ import FeedbackButton from '@renderer/modules/features/feedback/FeedbackButton'
 import UpdateCheck from '@renderer/modules/features/update/UpdateCheck'
 import {
   DEFAULT_DICTATION_SHORTCUT,
+  DEFAULT_NEW_CHAT_SHORTCUT,
   DEFAULT_RECORDING_SHORTCUT,
   DEFAULT_WIDGET_SHORTCUT
 } from '@shared/shortcut'
@@ -165,6 +166,14 @@ export default function SettingsSection({ category }: SettingsSectionProps) {
             onChange={(dictationShortcut) => updateSettings({ dictationShortcut })}
           >
             {t.settings.dictationShortcut.description}
+          </ShortcutField>
+          <ShortcutField
+            title={t.settings.newChatShortcut.title}
+            accelerator={settings.newChatShortcut}
+            defaultAccelerator={DEFAULT_NEW_CHAT_SHORTCUT}
+            onChange={(newChatShortcut) => updateSettings({ newChatShortcut })}
+          >
+            {t.settings.newChatShortcut.description}
           </ShortcutField>
         </SettingGroup>
       )}

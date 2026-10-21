@@ -8,6 +8,7 @@ vi.mock('@renderer/shared/api/settings', () => ({
   getSettingsApi: vi.fn(),
   updateSettingsApi: vi.fn()
 }))
+vi.mock('@renderer/shared/api/events', () => ({ onSettingsChanged: vi.fn(() => () => {}) }))
 
 import { getSettingsApi, updateSettingsApi } from '@renderer/shared/api/settings'
 import AutoRefineToggle from './index'
@@ -22,6 +23,7 @@ const SETTINGS: AppSettings = {
   recordingShortcut: 'Alt+Command+R',
   widgetShortcut: 'Alt+Command+W',
   dictationShortcut: 'Alt+Command+D',
+  newChatShortcut: 'Command+N',
   inputDevice: null,
   locale: 'ko',
   theme: 'system',

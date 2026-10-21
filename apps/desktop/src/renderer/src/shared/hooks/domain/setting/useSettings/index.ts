@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { AppSettings } from '@shared/types'
+import { onSettingsChanged } from '@renderer/shared/api/events'
 import { getSettingsApi, updateSettingsApi } from '@renderer/shared/api/settings'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
@@ -27,6 +28,9 @@ const useSettings = () => {
   useEffect(() => {
     fetchSettings()
   }, [fetchSettings])
+
+  // 설정 모달은 채팅 위에 떠 있어 아래 화면이 언마운트되지 않는다 — 다른 인스턴스가 저장한 값은 main의 push로 받는다
+  useEffect(() => onSettingsChanged(setSettings), [])
 
   /**
    * 설정은 전체를 한 번에 저장한다. 바뀐 항목만 넘기면 나머지는 현재 값을 유지한다.

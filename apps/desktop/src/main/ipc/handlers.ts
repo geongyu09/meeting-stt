@@ -320,6 +320,7 @@ const readSettings = (payload: unknown) => ({
   recordingShortcut: readShortcut({ payload, key: 'recordingShortcut' }),
   widgetShortcut: readShortcut({ payload, key: 'widgetShortcut' }),
   dictationShortcut: readShortcut({ payload, key: 'dictationShortcut' }),
+  newChatShortcut: readShortcut({ payload, key: 'newChatShortcut' }),
   inputDevice: readInputDevice(payload),
   locale: readLocale(payload),
   theme: readTheme(payload),
@@ -774,7 +775,8 @@ export const registerIpcHandlers = () => {
     const isShortcutChanged =
       next.recordingShortcut !== previous.recordingShortcut ||
       next.widgetShortcut !== previous.widgetShortcut ||
-      next.dictationShortcut !== previous.dictationShortcut
+      next.dictationShortcut !== previous.dictationShortcut ||
+      next.newChatShortcut !== previous.newChatShortcut
     if (isShortcutChanged) replaceGlobalShortcuts({ next, previous })
 
     const settings = updateAppSettings(next)
