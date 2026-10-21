@@ -394,6 +394,7 @@ export const getAssistantProvider = (): AssistantProvider | null => {
 
 export const setAssistantProvider = ({ provider }: { provider: AssistantProvider }) =>
   writeValue({ key: ASSISTANT_PROVIDER_KEY, value: provider })
+
 /** 루틴 목록 (references/features/assistant.md "루틴"). 형식이 깨진 항목은 버리고 읽는다 */
 export const getRoutines = () => parseStoredRoutines(readValue(ASSISTANT_ROUTINES_KEY))
 
