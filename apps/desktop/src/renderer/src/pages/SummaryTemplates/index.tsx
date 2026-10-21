@@ -16,7 +16,12 @@ export default function SummaryTemplates() {
   return (
     <>
       <TopBar title={title}>
-        <Button variant="secondary" size="sm" onClick={() => navigate(PATHS.settings)}>
+        <Button
+          variant="secondary"
+          size="sm"
+          // 설정 모달이 "요약 템플릿" 카테고리로 열리게 한다 (pages/Settings가 state.category를 읽는다)
+          onClick={() => navigate(PATHS.settings, { state: { category: 'summaryTemplate' } })}
+        >
           {t.summaryTemplate.page.backToSettings}
         </Button>
       </TopBar>

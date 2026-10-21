@@ -22,6 +22,7 @@ vi.mock('@renderer/shared/api/recording', () => ({
 }))
 vi.mock('@renderer/shared/api/meetings', () => ({
   importMeetingAudioApi: vi.fn(),
+  searchMeetingsApi: vi.fn(),
   getMeetingsApi: vi.fn(),
   getMeetingApi: vi.fn(),
   renameMeetingApi: vi.fn(),
@@ -64,7 +65,12 @@ import {
 } from '@renderer/shared/api/assistant'
 import { onAssistantState, onRecordingState } from '@renderer/shared/api/events'
 import { getLlmStatusApi } from '@renderer/shared/api/llm'
-import { getMeetingApi, getMeetingsApi, importMeetingAudioApi } from '@renderer/shared/api/meetings'
+import {
+  getMeetingApi,
+  getMeetingsApi,
+  importMeetingAudioApi,
+  searchMeetingsApi
+} from '@renderer/shared/api/meetings'
 import { controlRecordingApi, getRecordingStateApi } from '@renderer/shared/api/recording'
 import { getSettingsApi } from '@renderer/shared/api/settings'
 import { getSummaryTemplatesApi } from '@renderer/shared/api/summaryTemplate'
@@ -131,13 +137,18 @@ const renderChat = ({
   stoppedMeetingId
 }: { openPath?: string | null; stoppedMeetingId?: string } = {}) => {
   const onOpenDocument = vi.fn()
+  const onOpenRecord = vi.fn()
   render(
     <MemoryRouter initialEntries={[{ pathname: '/', state: { stoppedMeetingId } }]}>
-      <AssistantChatSection openPath={openPath} onOpenDocument={onOpenDocument} />
+      <AssistantChatSection
+        openPath={openPath}
+        onOpenDocument={onOpenDocument}
+        onOpenRecord={onOpenRecord}
+      />
     </MemoryRouter>
   )
 
-  return { onOpenDocument }
+  return { onOpenDocument, onOpenRecord }
 }
 
 const inputOf = () => screen.getByRole('textbox', { name: '질문' }) as HTMLTextAreaElement
@@ -157,6 +168,7 @@ beforeEach(() => {
     return () => {}
   })
   vi.mocked(getMeetingsApi).mockResolvedValue([])
+  vi.mocked(searchMeetingsApi).mockResolvedValue([])
   vi.mocked(getSummaryTemplatesApi).mockResolvedValue([])
   vi.mocked(importMeetingAudioApi).mockResolvedValue({ meeting: null })
   vi.mocked(getAssistantStatusApi).mockResolvedValue(statusOf())
@@ -406,6 +418,52 @@ describe('AssistantChatSection', () => {
     pushRecording({ ...IDLE_RECORDING, errorMessage: '마이크 사용 권한이 없습니다' })
 
     expect(screen.getByRole('alert').textContent).toBe('마이크 사용 권한이 없습니다')
+  })
+
+  it('도우미 기록 찾기는 도크를 찾기 모드로 바꾸고, Enter로 찾은 결과를 누르면 전체 기록을 연다', async () => {
+    const found = {
+      id: 'meeting-9',
+      title: '디자인 리뷰',
+      createdAt: new Date(2026, 9, 20, 11, 0).getTime(),
+      durationSec: 32 * 60,
+      status: 'done' as const,
+      hasAudio: false
+    }
+    vi.mocked(searchMeetingsApi).mockResolvedValue([
+      {
+        meeting: found,
+        match: { utteranceId: 'u1', text: '색은 디자인 토큰으로만 쓴다', startSec: 842 }
+      }
+    ])
+    const { onOpenRecord } = renderChat()
+    const input = await readyInput()
+
+    await userEvent.click(screen.getByRole('button', { name: /기록 찾기/ }))
+    expect(input.previousElementSibling?.textContent).toBe('기록 찾기')
+    expect(input.placeholder).toBe('찾을 말을 적고 Enter')
+
+    await userEvent.type(input, '토큰{Enter}')
+
+    expect(sendAssistantMessageApi).not.toHaveBeenCalled()
+    await vi.waitFor(() => expect(searchMeetingsApi).toHaveBeenCalledWith({ query: '토큰' }))
+    expect(await screen.findByText("'토큰'이(가) 나온 기록이 1개 있어요.")).toBeTruthy()
+    const hit = screen.getByRole('listitem')
+    expect(hit.textContent).toContain('디자인 리뷰')
+    expect(hit.textContent).toContain('14:02')
+    expect(hit.querySelector('mark')?.textContent).toBe('토큰')
+
+    await userEvent.click(hit)
+    expect(onOpenRecord).toHaveBeenCalledWith('meeting-9')
+  })
+
+  it('찾기 모드는 Esc로 끈다', async () => {
+    renderChat()
+    const input = await readyInput()
+
+    await userEvent.click(screen.getByRole('button', { name: /기록 찾기/ }))
+    await userEvent.type(input, '{Escape}')
+
+    expect(input.placeholder).toBe('무엇을 도와드릴까요?')
   })
 
   it('앱을 켠 뒤 만든 기록은 카드로 보이고, 막 멈춘 기록 위에는 멈췄어요 줄이 붙는다', async () => {

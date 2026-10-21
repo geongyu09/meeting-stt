@@ -1,7 +1,32 @@
+.header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 14px 10px 0;
+}
+
+.closeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.closeButton:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
 .message,
 .error {
   margin: 0;
-  padding: 28px var(--space-6);
+  padding: var(--space-3) 20px var(--space-5);
   font-size: var(--font-base);
 }
 

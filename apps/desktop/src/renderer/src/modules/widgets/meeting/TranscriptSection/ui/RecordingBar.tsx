@@ -26,9 +26,9 @@ interface RecordingBarProps {
 }
 
 /**
- * 상세 본문 최하단에 고정된 원본 녹음 바 — 커스텀 플레이어(재생·시킹)·WAV 저장·다시 인식.
- * 스크롤 영역 밖의 형제라 회의록을 내려도 창 바닥에 붙어 있다. 원본을 보관하지 않은 회의는 안내만 보인다
- * (references/architecture.md "녹음본 재생·내보내기·다시 인식"). 다시 인식은 회의록을 새로 만들므로 2단계 인라인 확인을 거친다.
+ * 패널 최하단에 고정된 녹음본 줄 — 커스텀 플레이어(재생·시킹)·내보내기(WAV)·다시 인식.
+ * 스크롤 영역 밖의 형제라 발화를 내려도 패널 바닥에 붙어 있다. 원본을 보관하지 않은 회의는 안내만 보인다
+ * (references/features/recording.md "녹음본 재생·내보내기·다시 인식"). 다시 인식은 회의록을 새로 만들므로 2단계 인라인 확인을 거친다.
  */
 export default function RecordingBar({ meeting, audioRef, onReprocess }: RecordingBarProps) {
   const { t } = useLocale()
@@ -138,16 +138,9 @@ export default function RecordingBar({ meeting, audioRef, onReprocess }: Recordi
         {/* 확인 중에는 같은 이름의 "다시 인식" 버튼이 둘이 되지 않도록 기본 동작 버튼을 숨긴다 */}
         {isConfirming ? null : (
           <div className={styles.actions}>
-            <button
-              type="button"
-              className={styles.iconButton}
-              aria-label={isSaved ? labels.exported : labels.exportWav}
-              title={isSaved ? labels.exported : labels.exportWav}
-              disabled={isExporting}
-              onClick={exportRecording}
-            >
-              <Icon name={isSaved ? 'check' : 'download'} size={14} />
-            </button>
+            <Button variant="secondary" size="sm" disabled={isExporting} onClick={exportRecording}>
+              {isSaved ? labels.exported : labels.exportWav}
+            </Button>
             <Button variant="secondary" size="sm" onClick={handleOpenConfirm}>
               {labels.reprocess}
             </Button>

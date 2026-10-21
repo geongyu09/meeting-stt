@@ -8,13 +8,15 @@ import styles from './index.module.css'
 
 interface RecordCardProps {
   meetingId: string
+  /** "전체 기록 보기" — 채팅이 그 회의의 전체 기록 패널을 연다 */
+  onOpenFull: (meetingId: string) => void
 }
 
 /**
  * 대화 속 기록 카드 (references/features/recording.md "채팅 창의 녹음" > "기록 카드").
  * 회의 상태에 따라 처리 중 · 실패 · 완료 모양이고, 상태 전환은 `useMeeting`이 진행률·목록 변경 이벤트로 따라간다.
  */
-export default function RecordCard({ meetingId }: RecordCardProps) {
+export default function RecordCard({ meetingId, onOpenFull }: RecordCardProps) {
   const { t } = useLocale()
   const {
     meeting,
@@ -49,6 +51,7 @@ export default function RecordCard({ meetingId }: RecordCardProps) {
         refineResult={refineResult}
         saveError={saveError}
         onDelete={removeMeeting}
+        onOpenFull={() => onOpenFull(meetingId)}
       />
     )
   }

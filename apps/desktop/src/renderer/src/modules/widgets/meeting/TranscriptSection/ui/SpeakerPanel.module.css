@@ -1,50 +1,29 @@
-.panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: 18px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: var(--space-2);
-}
-
-.title {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 700;
-}
-
-.list {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
+/* 시안의 화자 칩 줄. 헤더 아래 한 줄이고 넘치면 줄을 바꾼다 */
 .row {
   display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 6px;
   align-items: center;
-  gap: 10px;
-  min-height: 40px;
+  padding: 0 20px 12px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.chip {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  font-size: var(--font-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
 }
 
 .dot {
   flex-shrink: 0;
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: var(--radius-full);
 }
 
@@ -81,37 +60,38 @@
 }
 
 .name {
-  flex: 1;
-  min-width: 0;
-  font-size: var(--font-base);
+  font-size: var(--font-sm);
   font-weight: 500;
 }
 
-.count {
-  flex-shrink: 0;
-  color: var(--color-text-muted);
+.mergeButton {
+  padding: 0 6px;
+  color: var(--color-accent);
   font-size: var(--font-xs);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.toggle {
+  height: 28px;
+  min-height: 28px;
+  margin-left: auto;
 }
 
 .targets {
   display: flex;
+  flex-basis: 100%;
   flex-wrap: wrap;
-  align-items: center;
   gap: var(--space-2);
-  margin-bottom: var(--space-2);
+  align-items: center;
   padding: var(--space-3);
   background: var(--color-sidebar);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 .targetsLabel {
   width: 100%;
-  color: var(--color-text-muted);
-  font-size: var(--font-xs);
-}
-
-.hint {
-  margin: var(--space-1) 0 0;
   color: var(--color-text-muted);
   font-size: var(--font-xs);
 }

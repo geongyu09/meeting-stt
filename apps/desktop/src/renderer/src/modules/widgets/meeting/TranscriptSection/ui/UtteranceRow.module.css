@@ -1,8 +1,8 @@
 .row {
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr) 30px;
-  gap: 14px;
-  padding: var(--space-3) var(--space-4);
+  grid-template-columns: 44px minmax(0, 1fr) 30px;
+  gap: 10px;
+  padding: var(--space-2) 10px;
   border-radius: var(--radius-md);
 }
 
@@ -12,7 +12,7 @@
 }
 
 .time {
-  padding-top: 3px;
+  padding-top: 2px;
   color: var(--color-text-muted);
   font-family: var(--font-mono);
   font-size: var(--font-xs);
@@ -113,8 +113,8 @@
 
 .text {
   margin-left: calc(var(--space-2) * -1);
-  font-size: var(--font-md);
-  line-height: 1.75;
+  font-size: var(--font-base);
+  line-height: 1.6;
 }
 
 .copy {

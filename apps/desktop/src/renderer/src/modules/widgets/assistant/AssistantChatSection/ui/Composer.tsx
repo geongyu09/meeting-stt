@@ -13,6 +13,8 @@ const MAX_INPUT_HEIGHT_PX = 200
 
 interface ComposerProps {
   placeholder: string
+  /** 도크 앞에 붙는 모드 칩("기록 찾기"). Esc나 빈 입력의 Backspace로 뗀다 */
+  prefixChip?: string | null
   isRunning: boolean
   /** 녹음 중이면 마이크 버튼이 눌린 상태다. 누르면 정지한다 */
   isRecording: boolean
@@ -24,6 +26,7 @@ interface ComposerProps {
   onStop: () => void
   onRecord: () => void
   onCommand: (id: CommandId) => void
+  onClearPrefix?: () => void
 }
 
 /**
@@ -32,6 +35,7 @@ interface ComposerProps {
  */
 export default function Composer({
   placeholder,
+  prefixChip = null,
   isRunning,
   isRecording,
   isDisabled,
@@ -39,7 +43,8 @@ export default function Composer({
   onSend,
   onStop,
   onRecord,
-  onCommand
+  onCommand,
+  onClearPrefix
 }: ComposerProps) {
   const { t } = useLocale()
   const labels = t.assistant.chat
@@ -105,6 +110,12 @@ export default function Composer({
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.nativeEvent.isComposing) return
 
+    if (prefixChip && (event.key === 'Escape' || (event.key === 'Backspace' && text === ''))) {
+      event.preventDefault()
+      onClearPrefix?.()
+      return
+    }
+
     if (selected) {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         event.preventDefault()
@@ -151,6 +162,7 @@ export default function Composer({
         aria-label={labels.title}
         onSubmit={handleSubmit}
       >
+        {prefixChip ? <span className={styles.prefixChip}>{prefixChip}</span> : null}
         <textarea
           ref={inputRef}
           className={styles.input}

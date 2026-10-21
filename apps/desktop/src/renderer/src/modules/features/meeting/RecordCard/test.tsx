@@ -97,12 +97,16 @@ const READY_LLM = { provider: 'claude-cli', claudeCliPath: '/usr/local/bin/claud
 
 let pushProgress: (event: PipelineProgressEvent) => void = () => {}
 
-const renderCard = () =>
-  render(
+const renderCard = () => {
+  const onOpenFull = vi.fn()
+  const rendered = render(
     <MemoryRouter>
-      <RecordCard meetingId={MEETING_ID} />
+      <RecordCard meetingId={MEETING_ID} onOpenFull={onOpenFull} />
     </MemoryRouter>
   )
+
+  return { ...rendered, onOpenFull }
+}
 
 beforeEach(() => {
   vi.mocked(onPipelineProgress).mockImplementation((listener) => {
@@ -127,8 +131,8 @@ afterEach(() => {
 })
 
 describe('RecordCard', () => {
-  it('끝난 기록은 제목·메타·요약·화자·교정 수와 전체 기록 보기 링크를 보여 준다', async () => {
-    renderCard()
+  it('끝난 기록은 제목·메타·요약·화자·교정 수를 보여 주고, 전체 기록 보기는 패널을 연다', async () => {
+    const { onOpenFull } = renderCard()
     const card = await screen.findByRole('article', { name: '기록 주간 제품 회의' })
 
     expect(card.textContent).toContain('10월 21일 오후 2:00 · 48분 · 화자 2명')
@@ -137,9 +141,8 @@ describe('RecordCard', () => {
     expect(card.textContent).toContain('진행자')
     expect(card.textContent).toContain('화자 2')
     expect(card.textContent).toContain('용어 2곳 교정됨')
-    expect(screen.getByRole('link', { name: '전체 기록 보기' }).getAttribute('href')).toBe(
-      '/meetings/meeting-1'
-    )
+    await userEvent.click(screen.getByRole('button', { name: '전체 기록 보기' }))
+    expect(onOpenFull).toHaveBeenCalledWith(MEETING_ID)
   })
 
   it('기록 복사는 화자 이름이 붙은 전체 평문을 클립보드에 쓰고, 요약 복사는 요약만 쓴다', async () => {
@@ -195,7 +198,7 @@ describe('RecordCard', () => {
 
     expect(screen.getByText('화자 구분 중')).toBeTruthy()
     expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('30')
-    expect(screen.queryByRole('link', { name: '전체 기록 보기' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '전체 기록 보기' })).toBeNull()
   })
 
   it('실패한 기록은 오류와 다시 시도를 보여 주고, 저장된 참석자 수로 다시 돌린다', async () => {

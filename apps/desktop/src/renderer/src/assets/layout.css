@@ -5,5 +5,6 @@
   --rail-width: 300px;
   /* 채팅 옆 문서 패널 (references/features/ui.md "채팅창 리뉴얼") */
   --document-panel-width: 520px;
+  --record-panel-width: 600px;
   --chat-width: 680px;
 }

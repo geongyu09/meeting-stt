@@ -24,6 +24,7 @@ interface DoneCardProps {
   refineResult: RefineResult | null
   saveError: Error | null
   onDelete: () => Promise<boolean>
+  onOpenFull: () => void
 }
 
 /** 회의록이 만들어진 카드: 헤더 · 요약 · 화자 범례와 교정 수 · 푸터 */
@@ -33,7 +34,8 @@ export default function DoneCard({
   speakers,
   refineResult,
   saveError,
-  onDelete
+  onDelete,
+  onOpenFull
 }: DoneCardProps) {
   const { t, locale } = useLocale()
   const { now } = useNow({ intervalMs: NOW_REFRESH_MS })
@@ -95,7 +97,7 @@ export default function DoneCard({
           </span>
         ) : null}
       </div>
-      <CardFooter meetingId={meeting.id} summary={summary} />
+      <CardFooter summary={summary} onOpenFull={onOpenFull} />
     </>
   )
 }

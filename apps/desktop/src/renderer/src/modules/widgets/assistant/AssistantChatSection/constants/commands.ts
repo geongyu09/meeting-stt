@@ -13,9 +13,8 @@ export const COMMANDS: { id: CommandId; icon: IconName }[] = [
   { id: 'settings', icon: 'settings' }
 ]
 
-// shortcut: 아직 채팅으로 옮기지 않은 기능은 옛 화면으로 보낸다, 기록 패널·설정 모달이 붙으면 지운다
-export const COMMAND_PATHS: Record<Extract<CommandId, 'findRecords' | 'settings'>, string> = {
-  findRecords: PATHS.meetings,
+/** 라우트로 여는 명령. 설정은 채팅 위의 모달 라우트다 (references/features/ui.md "설정 모달") */
+export const COMMAND_PATHS: Record<Extract<CommandId, 'settings'>, string> = {
   settings: PATHS.settings
 }
 

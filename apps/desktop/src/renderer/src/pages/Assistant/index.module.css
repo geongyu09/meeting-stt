@@ -20,3 +20,7 @@
 .withDocument .columns {
   grid-template-columns: minmax(0, 1fr) var(--document-panel-width);
 }
+
+.withRecord .columns {
+  grid-template-columns: minmax(0, 1fr) var(--record-panel-width);
+}

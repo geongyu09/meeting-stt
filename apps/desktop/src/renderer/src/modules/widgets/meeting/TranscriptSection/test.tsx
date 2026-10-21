@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router'
+import { MemoryRouter } from 'react-router'
 import type { PipelineProgressEvent } from '@shared/ipc'
 import type { LlmStatus, Meeting, MeetingDetail, Speaker, Utterance } from '@shared/types'
 
@@ -52,8 +52,6 @@ import {
 import TranscriptSection from './index'
 
 const MEETING_ID = 'meeting-1'
-const HOME_MARKER = '회의 목록 화면'
-
 const meetingOf = (overrides: Partial<Meeting> = {}): Meeting => ({
   id: MEETING_ID,
   title: '2026-08-26 회의',
@@ -110,13 +108,13 @@ const twoSpeakerDetail = () =>
     speakers: [speakerOf({ displayName: '김팀장' }), speakerOf({ label: 'speaker_01' })]
   })
 
+/** 패널은 채팅 옆에 열린다. 닫기·삭제 뒤의 이동은 부모(onClose)가 맡는다 */
+const onClose = vi.fn()
+
 const renderSection = () =>
   render(
-    <MemoryRouter initialEntries={[`/meetings/${MEETING_ID}`]}>
-      <Routes>
-        <Route path="/meetings" element={<p>{HOME_MARKER}</p>} />
-        <Route path="/meetings/:meetingId" element={<TranscriptSection meetingId={MEETING_ID} />} />
-      </Routes>
+    <MemoryRouter>
+      <TranscriptSection meetingId={MEETING_ID} onClose={onClose} />
     </MemoryRouter>
   )
 
@@ -560,7 +558,7 @@ describe('TranscriptSection 복사와 삭제', () => {
     })
   })
 
-  it('회의 삭제는 확인 단계를 거친 뒤 목록으로 돌아간다', async () => {
+  it('회의 삭제는 확인 단계를 거친 뒤 패널을 닫는다', async () => {
     const user = userEvent.setup()
     vi.mocked(getMeetingApi).mockResolvedValue(detailOf())
     vi.mocked(deleteMeetingApi).mockResolvedValue(undefined)
@@ -574,7 +572,19 @@ describe('TranscriptSection 복사와 삭제', () => {
     await user.click(screen.getByRole('button', { name: '삭제' }))
 
     expect(deleteMeetingApi).toHaveBeenCalledWith({ meetingId: MEETING_ID })
-    expect(await screen.findByText(HOME_MARKER)).toBeTruthy()
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalled())
+  })
+
+  it('닫기 버튼은 패널을 닫는다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getMeetingApi).mockResolvedValue(detailOf())
+    renderSection()
+
+    // 불러오는 동안의 닫기 버튼은 회의가 오면 새 버튼으로 바뀐다. 헤더가 그려진 뒤의 버튼을 누른다
+    await screen.findByRole('button', { name: '회의 더보기' })
+    await user.click(screen.getByRole('button', { name: '기록 닫기' }))
+
+    expect(onClose).toHaveBeenCalled()
   })
 
   it('삭제 확인을 취소하면 아무 일도 일어나지 않는다', async () => {
@@ -589,46 +599,6 @@ describe('TranscriptSection 복사와 삭제', () => {
     expect(deleteMeetingApi).not.toHaveBeenCalled()
     expect(screen.queryByRole('button', { name: '삭제' })).toBeNull()
     expect(screen.getByRole('button', { name: '회의 더보기' })).toBeTruthy()
-  })
-})
-
-describe('TranscriptSection 레일 폭 조절', () => {
-  afterEach(() => localStorage.clear())
-
-  const findResizer = () => screen.findByRole('separator', { name: '오른쪽 패널 폭 조절' })
-
-  it('키보드로 폭을 바꾸면 저장하고 다시 열어도 유지한다', async () => {
-    vi.mocked(getMeetingApi).mockResolvedValue(detailOf())
-    const user = userEvent.setup()
-    const { unmount } = renderSection()
-
-    const resizer = await findResizer()
-    expect(resizer.getAttribute('aria-valuenow')).toBe('300')
-
-    resizer.focus()
-    await user.keyboard('{ArrowLeft}{ArrowLeft}')
-    expect(resizer.getAttribute('aria-valuenow')).toBe('332')
-    await user.keyboard('{ArrowRight}')
-    expect(resizer.getAttribute('aria-valuenow')).toBe('316')
-
-    unmount()
-    renderSection()
-    expect((await findResizer()).getAttribute('aria-valuenow')).toBe('316')
-  })
-
-  it('최소 폭 아래로 줄지 않고, 더블클릭하면 기본 폭으로 돌아간다', async () => {
-    localStorage.setItem('meetingDetail.railWidthPx', '250')
-    vi.mocked(getMeetingApi).mockResolvedValue(detailOf())
-    const user = userEvent.setup()
-    renderSection()
-
-    const resizer = await findResizer()
-    resizer.focus()
-    await user.keyboard('{ArrowRight}')
-    expect(resizer.getAttribute('aria-valuenow')).toBe('240')
-
-    await user.dblClick(resizer)
-    expect(resizer.getAttribute('aria-valuenow')).toBe('300')
   })
 })
 
@@ -697,7 +667,7 @@ describe('TranscriptSection 원본 녹음', () => {
     vi.mocked(exportMeetingAudioApi).mockResolvedValue({ isSaved: true })
     renderSection()
 
-    await user.click(await screen.findByRole('button', { name: 'WAV로 저장' }))
+    await user.click(await screen.findByRole('button', { name: '내보내기' }))
 
     expect(exportMeetingAudioApi).toHaveBeenCalledWith({ meetingId: MEETING_ID })
     expect(await screen.findByRole('button', { name: '저장했습니다' })).toBeTruthy()

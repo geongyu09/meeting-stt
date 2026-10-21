@@ -1,48 +1,46 @@
-.content {
-  --content-padding-top: 28px;
+/* 시안 "전체 기록 패널 · 대화 옆에 열림" — 오른쪽에 떠 있는 카드 (references/features/recording.md "채팅 창의 녹음" > "전체 기록 패널") */
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  margin: var(--space-3) var(--space-3) var(--space-3) 0;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-float);
+}
 
-  display: grid;
+.closeButton {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.closeButton:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+/* 앱에서 스크롤되는 곳은 이 목록뿐이다. 헤더·칩 줄·녹음본 줄은 고정이다 */
+.scroll {
+  display: flex;
   flex: 1;
-  /* 가운데 칸은 폭 조절 핸들. 양옆 gap과 핸들 폭을 합쳐 예전 36px 간격을 유지한다.
-     레일 폭은 사용자가 끈 값이 인라인 --rail-width로 덮어쓰고, 50% 상한은 useRailResize와 같다 */
-  grid-template-columns: minmax(0, 1fr) var(--space-3) min(var(--rail-width), 50%);
-  gap: var(--space-5) var(--space-3);
-  align-items: start;
+  flex-direction: column;
+  gap: var(--space-3);
   min-height: 0;
   overflow-y: auto;
-  padding: var(--content-padding-top) var(--space-6) var(--space-6);
-  /* 레일 높이 상한을 이 스크롤 영역의 높이(cqh)로 잡기 위한 컨테이너. 하단 녹음 바가 차지하는 높이는 창마다 달라 100vh로는 못 뺀다 */
-  container-type: size;
-}
-
-/* 끄는 중에 포인터가 글자 위를 지나며 선택이 생기지 않게 한다 */
-.content[data-resizing='true'] {
-  cursor: col-resize;
-  user-select: none;
-}
-
-/* 헤더(제목·복사 버튼)는 세 칸 전체 폭을 쓰고, 회의록·핸들·레일은 그 아래 줄에서 시작한다 */
-.header {
-  grid-column: 1 / -1;
-}
-
-.transcript {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  min-width: 0;
-}
-
-/* 회의록을 스크롤해도 레일은 위 패딩 높이에 붙어 있고, 스크롤 영역보다 길어지면 회의록과 별개로 스스로 스크롤한다.
-   높이 상한은 스크롤 영역 높이에서 위아래 패딩을 뺀 값이라 레일 아래쪽이 하단 녹음 바 뒤로 잘리지 않는다 */
-.rail {
-  position: sticky;
-  top: var(--content-padding-top);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  max-height: calc(100cqh - var(--content-padding-top) - var(--space-6));
-  overflow-y: auto;
+  padding: var(--space-2) 10px;
 }
 
 .list {
@@ -57,7 +55,7 @@
 .message,
 .error {
   margin: 0;
-  padding: 0 var(--space-4);
+  padding: 0 10px;
   font-size: var(--font-base);
 }
 
@@ -73,7 +71,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  margin: 0 var(--space-4);
+  margin: 0 10px;
   padding: var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -86,10 +84,10 @@
 .failed {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
   gap: var(--space-3);
+  align-items: flex-start;
 }
 
 .retry {
-  margin: 0 var(--space-4);
+  margin: 0 10px;
 }

@@ -31,6 +31,22 @@ export const transcriptKo = {
     titleLabel: '회의 제목',
     speakerCount: ({ count }: { count: number }) => `화자 ${count}명`
   },
+  // 대화 옆 전체 기록 패널 (references/features/recording.md "채팅 창의 녹음" > "전체 기록 패널")
+  panel: {
+    label: '전체 기록',
+    close: '기록 닫기'
+  },
+  // 대화 속 기록 찾기 (references/features/recording.md "채팅 창의 녹음" > "기록 찾기")
+  search: {
+    chip: '기록 찾기',
+    placeholder: '찾을 말을 적고 Enter',
+    searching: '찾는 중…',
+    count: ({ query, count }: { query: string; count: number }) =>
+      `'${query}'이(가) 나온 기록이 ${count}개 있어요.`,
+    none: ({ query }: { query: string }) => `'${query}'이(가) 나온 기록이 없어요.`,
+    listLabel: '찾은 기록',
+    hint: '누르면 그 기록이 대화 옆에 열려요'
+  },
   // 대화 속 기록 카드 (references/features/recording.md "채팅 창의 녹음" > "기록 카드")
   card: {
     label: ({ title }: { title: string }) => `기록 ${title}`,
@@ -71,7 +87,7 @@ export const transcriptKo = {
     cancel: '취소',
     reprocess: '다시 인식',
     exported: '저장했습니다',
-    exportWav: 'WAV로 저장'
+    exportWav: '내보내기'
   },
   speakerPanel: {
     sectionLabel: '화자',
@@ -143,6 +159,20 @@ export const transcriptEn: typeof transcriptKo = {
     titleLabel: 'Meeting title',
     speakerCount: ({ count }) => `${count} ${count === 1 ? 'speaker' : 'speakers'}`
   },
+  panel: {
+    label: 'Full record',
+    close: 'Close record'
+  },
+  search: {
+    chip: 'Find records',
+    placeholder: 'Type what to find and press Enter',
+    searching: 'Searching…',
+    count: ({ query, count }) =>
+      `${count} ${count === 1 ? 'record mentions' : 'records mention'} '${query}'.`,
+    none: ({ query }) => `No record mentions '${query}'.`,
+    listLabel: 'Found records',
+    hint: 'Click one to open it next to the chat'
+  },
   card: {
     label: ({ title }) => `Record ${title}`,
     copyRecord: 'Copy record',
@@ -183,7 +213,7 @@ export const transcriptEn: typeof transcriptKo = {
     cancel: 'Cancel',
     reprocess: 'Re-transcribe',
     exported: 'Saved',
-    exportWav: 'Save as WAV'
+    exportWav: 'Export'
   },
   speakerPanel: {
     sectionLabel: 'Speakers',

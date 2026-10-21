@@ -1,29 +1,25 @@
-import { Link } from 'react-router'
 import Button from '@renderer/shared/components/primitives/ui/Button'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
-import { meetingDetailPath } from '@renderer/shared/routes/paths'
 
 import type useRecordSummary from '../model/useRecordSummary'
 import styles from './CardFooter.module.css'
 
 interface CardFooterProps {
-  meetingId: string
   summary: ReturnType<typeof useRecordSummary>
+  /** 전체 기록 패널을 대화 옆에 연다 */
+  onOpenFull: () => void
 }
 
-/**
- * "전체 기록 보기" · 요약 템플릿 · 다시 요약.
- * shortcut: 전체 기록은 아직 회의 상세 화면으로 간다, 전체 기록 패널(시안 "전체 기록 패널 · 대화 옆에 열림")이 생기면 옆 패널로 바꾼다
- */
-export default function CardFooter({ meetingId, summary }: CardFooterProps) {
+/** "전체 기록 보기" · 요약 템플릿 · 다시 요약 */
+export default function CardFooter({ summary, onOpenFull }: CardFooterProps) {
   const { t } = useLocale()
   const isPickerVisible = summary.templates.length > 1
 
   return (
     <footer className={styles.footer}>
-      <Link className={styles.openFull} to={meetingDetailPath({ meetingId })}>
+      <button type="button" className={styles.openFull} onClick={onOpenFull}>
         {t.transcript.card.openFull}
-      </Link>
+      </button>
       <span className={styles.spacer} />
       {isPickerVisible ? (
         <select

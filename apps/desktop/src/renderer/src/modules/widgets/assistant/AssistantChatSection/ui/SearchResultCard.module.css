@@ -1,0 +1,93 @@
+/* 사용자 말풍선은 턴 목록(`TurnList`)과 같은 모양이다 */
+.me {
+  align-self: flex-end;
+  max-width: 80%;
+  margin: 0;
+  padding: 10px var(--space-4);
+  background: var(--color-surface-hover);
+  border-radius: var(--radius-xl);
+  overflow-wrap: anywhere;
+}
+
+.chip {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  margin-right: 6px;
+  padding: 0 var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+}
+
+.text,
+.hint,
+.error {
+  margin: 0;
+}
+
+.hint {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.error {
+  color: var(--color-danger);
+  font-size: var(--font-sm);
+}
+
+.hits {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+/* 시안의 결과 한 줄: 제목 · 날짜와 길이 · 일치한 발화 조각 */
+.hit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 10px;
+  padding: 10px 14px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: var(--color-surface);
+  border: none;
+  border-bottom: 1px solid var(--color-divider);
+  cursor: pointer;
+}
+
+.hit:last-child {
+  border-bottom: none;
+}
+
+.hit:hover {
+  background: var(--color-sidebar);
+}
+
+.title {
+  font-size: var(--font-base);
+  font-weight: 500;
+}
+
+.meta {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
+.snippet {
+  grid-column: 1 / -1;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  quotes: none;
+}
+
+.time {
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  font-variant-numeric: tabular-nums;
+}

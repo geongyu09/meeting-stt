@@ -17,6 +17,7 @@ import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import { COMMAND_PATHS, COMMANDS, MAX_MENU_ITEMS } from './constants/commands'
 import type { CommandId, MenuGroup, MenuItem } from './types/menu'
+import type { RecordSearch } from './types/recordSearch'
 import { folderPathsOf, matchesQuery, type MenuQuery } from './utils/menuQuery'
 import ChatNotice from './ui/ChatNotice'
 import Composer from './ui/Composer'
@@ -47,6 +48,8 @@ interface AssistantChatSectionProps {
   onOpenDocument: (path: string | null) => void
   /** 입력 도크 바로 위에 붙는 녹음 카드. 페이지가 `recording/RecorderSection`을 넘긴다 */
   recorderSlot?: ReactNode
+  /** 기록 카드의 "전체 기록 보기"·기록 찾기 결과 — 페이지가 그 회의의 전체 기록 패널을 연다 */
+  onOpenRecord: (meetingId: string) => void
 }
 
 /**
@@ -56,7 +59,8 @@ interface AssistantChatSectionProps {
 export default function AssistantChatSection({
   openPath,
   onOpenDocument,
-  recorderSlot
+  recorderSlot,
+  onOpenRecord
 }: AssistantChatSectionProps) {
   const { t } = useLocale()
   const labels = t.assistant.chat
@@ -81,13 +85,16 @@ export default function AssistantChatSection({
   const { files } = useWorkspaceFiles({ folder })
   const { skills } = useWorkspaceSkills({ folder })
   const [actionError, setActionError] = useState<string | null>(null)
+  // 기록 찾기: 도크가 찾기 모드면 Enter가 에이전트 대신 검색을 부르고 결과는 대화 속 카드다
+  const [isSearchMode, setIsSearchMode] = useState(false)
+  const [searches, setSearches] = useState<RecordSearch[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
   const isAtBottomRef = useRef(true)
 
   useEffect(() => {
     const scroller = scrollRef.current
     if (scroller && isAtBottomRef.current) scroller.scrollTop = scroller.scrollHeight
-  }, [state.turns, meetings, isRecording])
+  }, [state.turns, meetings, isRecording, searches])
 
   const handleScroll = () => {
     const scroller = scrollRef.current
@@ -110,6 +117,7 @@ export default function AssistantChatSection({
   const handleCommand = (id: CommandId) => {
     if (id === 'record') return runSafely(controlRecordingApi({ kind: 'start' }))
     if (id === 'importAudio') return importAudio()
+    if (id === 'findRecords') return setIsSearchMode(true)
     if (id === 'newChat') return state.turns.length ? runSafely(reset()) : undefined
     if (id === 'openDocument') return onOpenDocument(null)
 
@@ -191,11 +199,13 @@ export default function AssistantChatSection({
         : null
   const isCliMissing = llmStatus !== null && !cliPathOf({ provider, llmStatus })
   const isReady = status !== null && folderNotice === null && llmStatus !== null && !isCliMissing
-  const placeholder = openPath
-    ? labels.placeholderDocument
-    : state.turns.length
-      ? labels.placeholderContinue
-      : labels.placeholder
+  const placeholder = isSearchMode
+    ? t.transcript.search.placeholder
+    : openPath
+      ? labels.placeholderDocument
+      : state.turns.length
+        ? labels.placeholderContinue
+        : labels.placeholder
   const sessionMeetings = meetings
     .filter((meeting) => meeting.createdAt >= SESSION_STARTED_AT)
     .toSorted((a, b) => a.createdAt - b.createdAt)
@@ -208,11 +218,17 @@ export default function AssistantChatSection({
     : null
 
   // 열린 문서에 대해 묻는 것이라 에이전트에게 어느 문서인지 알린다. 말풍선에도 그대로 보인다
-  const handleSend = (text: string) =>
-    send({
+  const handleSend = async (text: string) => {
+    if (isSearchMode) {
+      setSearches((previous) => [...previous, { at: Date.now(), query: text.trim() }])
+      setIsSearchMode(false)
+      return
+    }
+    await send({
       provider,
       text: openPath && !text.includes(`@${openPath}`) ? `@${openPath} ${text}` : text
     })
+  }
 
   return (
     <section className={styles.section} aria-label={labels.title}>
@@ -228,9 +244,11 @@ export default function AssistantChatSection({
           ) : null}
           <RecordTimeline
             meetings={sessionMeetings}
+            searches={searches}
             recordingMeetingId={recordingMeetingId}
             recordingStartedAt={recordingStartedAt ?? 0}
             stoppedMeetingId={stoppedMeetingId}
+            onOpenRecord={onOpenRecord}
           />
         </div>
       </div>
@@ -254,14 +272,17 @@ export default function AssistantChatSection({
         {recorderSlot}
         <Composer
           placeholder={placeholder}
+          prefixChip={isSearchMode ? t.transcript.search.chip : null}
           isRunning={state.isRunning}
           isRecording={isRecording}
-          isDisabled={!isReady}
+          // 기록 찾기는 에이전트가 없어도 된다
+          isDisabled={!isReady && !isSearchMode}
           groupsOf={groupsOf}
           onSend={handleSend}
           onStop={() => void cancel()}
           onRecord={() => void runSafely(controlRecordingApi({ kind: 'toggle' }))}
           onCommand={(id) => void handleCommand(id)}
+          onClearPrefix={() => setIsSearchMode(false)}
         />
         {/* 녹음 안내 한 줄. 세션 오류(마이크 권한·모델 없음)는 녹음이 아니어도 보인다 */}
         {recordingError ? (

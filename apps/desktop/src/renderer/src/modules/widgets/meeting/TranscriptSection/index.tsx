@@ -1,22 +1,14 @@
-import { useRef } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
-import { useNavigate } from 'react-router'
 import PipelineProgress from '@renderer/modules/features/pipeline/PipelineProgress'
 import RefinePanel from '@renderer/modules/features/refine/RefinePanel'
-import TopBar from '@renderer/shared/components/primitives/layout/TopBar'
 import Button from '@renderer/shared/components/primitives/ui/Button'
-import useNow from '@renderer/shared/hooks/common/useNow'
+import Icon from '@renderer/shared/components/primitives/ui/Icon'
 import useMeeting from '@renderer/shared/hooks/domain/meeting/useMeeting'
-import { PATHS } from '@renderer/shared/routes/paths'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
-import { meetingDateGroupLabel, meetingDateGroupOf } from '@renderer/shared/utils/meetingDateGroup'
 
 import useAudioSeek from './model/useAudioSeek'
-import useRailResize from './model/useRailResize'
 import useTranscriptCopy from './model/useTranscriptCopy'
 import AudioQualityNotice from './ui/AudioQualityNotice'
 import Placeholder from './ui/Placeholder'
-import RailResizer from './ui/RailResizer'
 import RecordingBar from './ui/RecordingBar'
 import SpeakerPanel from './ui/SpeakerPanel'
 import TranscriptActions from './ui/TranscriptActions'
@@ -26,22 +18,20 @@ import UtteranceRow from './ui/UtteranceRow'
 import { toSpeakerOptions } from './utils/toSpeakerOptions'
 import styles from './index.module.css'
 
-const NOW_REFRESH_MS = 60_000
+const CLOSE_ICON_SIZE = 18
 
 interface TranscriptSectionProps {
   meetingId: string
-  /** 오른쪽 레일 위쪽에 끼울 내용. 상세 화면은 요약을 넣는다 */
-  aside?: ReactNode
+  /** 패널을 닫는다. 삭제가 끝났을 때도 부른다 */
+  onClose: () => void
 }
 
 /**
- * 회의 상세의 본문 전체(상단 바 + 회의록 + 오른쪽 레일 + 하단 녹음 바). 화자 목록이 회의록과 같은 `useMeeting` 상태를 써야 해서
- * 레일까지 여기서 그린다 (references/architecture.md "화면별 구성").
+ * 대화 옆에 열리는 전체 기록 패널 (references/features/recording.md "채팅 창의 녹음" > "전체 기록 패널").
+ * 헤더(제목·복사·더보기·닫기) · 화자 칩 줄 · 발화 목록 · 하단 녹음본 줄. 화자 칩이 발화와 같은 `useMeeting` 상태를 써야 해서 여기서 함께 그린다.
  */
-export default function TranscriptSection({ meetingId, aside }: TranscriptSectionProps) {
-  const navigate = useNavigate()
-  const { t, locale } = useLocale()
-  const { now } = useNow({ intervalMs: NOW_REFRESH_MS })
+export default function TranscriptSection({ meetingId, onClose }: TranscriptSectionProps) {
+  const { t } = useLocale()
   const {
     meeting,
     utterances,
@@ -74,26 +64,27 @@ export default function TranscriptSection({ meetingId, aside }: TranscriptSectio
     speakerNames
   })
   const { audioRef, seekTo } = useAudioSeek()
-  const contentRef = useRef<HTMLDivElement>(null)
-  const { railWidth, isResizing, startResize, moveResize, endResize, resizeByKey, resetWidth } =
-    useRailResize({ containerRef: contentRef })
-
-  const topBarTitle = t.transcript.topBarTitle
+  const panelLabel = t.transcript.panel.label
 
   if (isLoading && !meeting) {
-    return <Placeholder title={topBarTitle} message={t.transcript.loading} />
+    return (
+      <section className={styles.panel} aria-label={panelLabel}>
+        <Placeholder message={t.transcript.loading} onClose={onClose} />
+      </section>
+    )
   }
-  if (error) return <Placeholder title={topBarTitle} message={error.message} isError />
-  if (!meeting) return <Placeholder title={topBarTitle} message={t.transcript.notFound} />
+  if (error || !meeting) {
+    return (
+      <section className={styles.panel} aria-label={panelLabel}>
+        <Placeholder message={error?.message ?? t.transcript.notFound} isError onClose={onClose} />
+      </section>
+    )
+  }
 
   const actionError = saveError ?? copyError
-  const groupLabel = meetingDateGroupLabel({
-    group: meetingDateGroupOf({ epochMs: meeting.createdAt, now }),
-    locale
-  })
 
   const handleDelete = async () => {
-    if (await removeMeeting()) navigate(PATHS.meetings)
+    if (await removeMeeting()) onClose()
   }
 
   const renderBody = () => {
@@ -152,69 +143,54 @@ export default function TranscriptSection({ meetingId, aside }: TranscriptSectio
   }
 
   return (
-    <>
-      <TopBar title={`${topBarTitle} · ${groupLabel}`} />
-      <div
-        ref={contentRef}
-        className={styles.content}
-        data-resizing={isResizing}
-        // 끈 폭은 런타임 값이라 CSS 변수 기본값(assets/layout.css)을 인라인으로 덮어쓴다
-        style={{ '--rail-width': `${railWidth}px` } as CSSProperties}
-      >
-        <TranscriptHeader
-          className={styles.header}
-          meeting={meeting}
-          speakerCount={speakerOptions.length}
-          onRenameTitle={(title) => renameMeeting({ title })}
-          actions={
-            <>
-              <TranscriptCopyActions
-                isCopyEnabled={utterances.length > 0}
-                copiedKey={copiedKey}
-                onCopy={copyAll}
-              />
-              <TranscriptActions onDelete={handleDelete} />
-            </>
-          }
-        />
-        <section className={styles.transcript} aria-label={t.transcript.sectionLabel}>
-          {actionError ? (
-            <p className={styles.error} role="alert">
-              {actionError.message}
-            </p>
-          ) : null}
-          {meeting.status === 'done' && meeting.audioQualityIssue ? (
-            <AudioQualityNotice issue={meeting.audioQualityIssue} />
-          ) : null}
-          {renderBody()}
-        </section>
-        <RailResizer
-          railWidth={railWidth}
-          isResizing={isResizing}
-          onPointerDown={startResize}
-          onPointerMove={moveResize}
-          onPointerEnd={endResize}
-          onKeyDown={resizeByKey}
-          onReset={resetWidth}
-        />
-        <aside className={styles.rail}>
-          {aside}
-          {meeting.status === 'done' && utterances.length ? (
-            <RefinePanel meetingId={meetingId} refineResult={refineResult} />
-          ) : null}
-          {utterances.length ? (
-            <SpeakerPanel
-              speakerOptions={speakerOptions}
-              utterances={utterances}
-              onRenameSpeaker={renameSpeaker}
-              onMergeSpeakers={mergeSpeakers}
+    <section className={styles.panel} aria-label={panelLabel}>
+      <TranscriptHeader
+        meeting={meeting}
+        speakerCount={speakerOptions.length}
+        onRenameTitle={(title) => renameMeeting({ title })}
+        actions={
+          <>
+            <TranscriptCopyActions
+              isCopyEnabled={utterances.length > 0}
+              copiedKey={copiedKey}
+              onCopy={copyAll}
             />
-          ) : null}
-        </aside>
+            <TranscriptActions onDelete={handleDelete} />
+            <button
+              type="button"
+              className={styles.closeButton}
+              aria-label={t.transcript.panel.close}
+              onClick={onClose}
+            >
+              <Icon name="close" size={CLOSE_ICON_SIZE} />
+            </button>
+          </>
+        }
+      />
+      {utterances.length ? (
+        <SpeakerPanel
+          speakerOptions={speakerOptions}
+          onRenameSpeaker={renameSpeaker}
+          onMergeSpeakers={mergeSpeakers}
+        />
+      ) : null}
+      <div className={styles.scroll}>
+        {actionError ? (
+          <p className={styles.error} role="alert">
+            {actionError.message}
+          </p>
+        ) : null}
+        {meeting.status === 'done' && meeting.audioQualityIssue ? (
+          <AudioQualityNotice issue={meeting.audioQualityIssue} />
+        ) : null}
+        {renderBody()}
+        {meeting.status === 'done' && utterances.length ? (
+          <RefinePanel meetingId={meetingId} refineResult={refineResult} />
+        ) : null}
       </div>
       {meeting.status === 'done' || meeting.status === 'error' ? (
         <RecordingBar meeting={meeting} audioRef={audioRef} onReprocess={reprocessMeeting} />
       ) : null}
-    </>
+    </section>
   )
 }
