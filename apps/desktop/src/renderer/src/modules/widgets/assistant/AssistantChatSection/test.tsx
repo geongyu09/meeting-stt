@@ -244,34 +244,21 @@ describe('AssistantChatSection', () => {
     expect(sendAssistantMessageApi).not.toHaveBeenCalled()
   })
 
-  it('빈 대화에는 도우미가 있고, 문서 열기는 패널만 열며 녹음 시작은 녹음을 시작한다', async () => {
+  it('도크 밖에는 기능 상자가 없고, / 명령으로 문서 열기·녹음 시작을 한다', async () => {
     const { onOpenDocument } = renderChat()
-    await readyInput()
-    const helpers = screen.getByRole('navigation', { name: '도우미' })
-    expect(helpers.querySelectorAll('button')).toHaveLength(6)
-    expect(helpers.textContent).toContain('⌥⌘R')
+    const input = await readyInput()
+    expect(screen.queryByRole('button', { name: /문서 열기/ })).toBeNull()
 
-    await userEvent.click(screen.getByRole('button', { name: /문서 열기/ }))
+    await userEvent.type(input, '/')
+    await userEvent.click(screen.getByRole('option', { name: /문서 열기/ }))
     expect(onOpenDocument).toHaveBeenCalledWith(null)
 
-    await userEvent.click(screen.getByRole('button', { name: /녹음 시작 ⌥⌘R/ }))
+    await userEvent.type(input, '/')
+    await userEvent.click(screen.getByRole('option', { name: /녹음 시작/ }))
     expect(controlRecordingApi).toHaveBeenCalledWith({ kind: 'start' })
-  })
 
-  it('대화가 시작되면 같은 도우미 6개가 입력 도크 아래 한 줄로 남는다', async () => {
-    const { onOpenDocument } = renderChat()
-    await readyInput()
     pushState({ ...answeringChat, isRunning: false })
-
-    const helpers = screen.getByRole('navigation', { name: '도우미' })
-    expect(helpers.querySelectorAll('button')).toHaveLength(6)
-    expect(helpers.textContent).not.toContain('⌥⌘R')
-    expect(
-      helpers.compareDocumentPosition(inputOf()) & Node.DOCUMENT_POSITION_PRECEDING
-    ).toBeTruthy()
-
-    await userEvent.click(screen.getByRole('button', { name: '문서 열기' }))
-    expect(onOpenDocument).toHaveBeenCalledWith(null)
+    expect(screen.queryByRole('button', { name: /문서 열기/ })).toBeNull()
   })
 
   it('입력 도크의 마이크 버튼은 녹음을 켜고 끈다', async () => {
@@ -420,7 +407,7 @@ describe('AssistantChatSection', () => {
     expect(screen.getByRole('alert').textContent).toBe('마이크 사용 권한이 없습니다')
   })
 
-  it('도우미 기록 찾기는 도크를 찾기 모드로 바꾸고, Enter로 찾은 결과를 누르면 전체 기록을 연다', async () => {
+  it('/ 명령 기록 찾기는 도크를 찾기 모드로 바꾸고, Enter로 찾은 결과를 누르면 전체 기록을 연다', async () => {
     const found = {
       id: 'meeting-9',
       title: '디자인 리뷰',
@@ -438,7 +425,8 @@ describe('AssistantChatSection', () => {
     const { onOpenRecord } = renderChat()
     const input = await readyInput()
 
-    await userEvent.click(screen.getByRole('button', { name: /기록 찾기/ }))
+    await userEvent.type(input, '/')
+    await userEvent.click(screen.getByRole('option', { name: /기록 찾기/ }))
     expect(input.previousElementSibling?.textContent).toBe('기록 찾기')
     expect(input.placeholder).toBe('찾을 말을 적고 Enter')
 
@@ -460,7 +448,8 @@ describe('AssistantChatSection', () => {
     renderChat()
     const input = await readyInput()
 
-    await userEvent.click(screen.getByRole('button', { name: /기록 찾기/ }))
+    await userEvent.type(input, '/')
+    await userEvent.click(screen.getByRole('option', { name: /기록 찾기/ }))
     await userEvent.type(input, '{Escape}')
 
     expect(input.placeholder).toBe('무엇을 도와드릴까요?')
@@ -494,12 +483,13 @@ describe('AssistantChatSection', () => {
     expect(screen.queryByText('지난 회의')).toBeNull()
   })
 
-  it('도우미 파일로 기록 만들기는 파일을 고르게 하고 실패를 도크 위에 알린다', async () => {
+  it('/ 명령 파일로 기록 만들기는 파일을 고르게 하고 실패를 도크 위에 알린다', async () => {
     vi.mocked(importMeetingAudioApi).mockRejectedValue(new Error('지원하지 않는 형식입니다'))
     renderChat()
-    await readyInput()
+    const input = await readyInput()
 
-    await userEvent.click(screen.getByRole('button', { name: /파일로 기록 만들기/ }))
+    await userEvent.type(input, '/')
+    await userEvent.click(screen.getByRole('option', { name: /파일로 기록 만들기/ }))
 
     expect(importMeetingAudioApi).toHaveBeenCalled()
     expect((await screen.findByRole('alert')).textContent).toBe('지원하지 않는 형식입니다')

@@ -3,7 +3,7 @@ import { PATHS } from '@renderer/shared/routes/paths'
 
 import type { CommandId } from '../types/menu'
 
-/** 시안의 도우미 순서 그대로 (references/features/ui.md "채팅창 리뉴얼" > "홈") */
+/** `/` 명령 메뉴의 내장 명령 순서 (references/features/ui.md "채팅창 리뉴얼" > "입력 도크") */
 export const COMMANDS: { id: CommandId; icon: IconName }[] = [
   { id: 'record', icon: 'mic' },
   { id: 'importAudio', icon: 'upload' },

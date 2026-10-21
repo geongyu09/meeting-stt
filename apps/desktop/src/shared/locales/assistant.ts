@@ -40,7 +40,6 @@ export const assistantKo = {
       settings: { label: '설정', description: '작업 폴더, 모델, 단축키, 용어 사전' }
     },
     menu: {
-      helpers: '도우미',
       commands: '명령',
       skills: '스킬 · 작업 폴더와 내 스킬',
       files: '파일 · 작업 폴더',
@@ -176,7 +175,6 @@ export const assistantEn: typeof assistantKo = {
       settings: { label: 'Settings', description: 'Work folder, models, shortcuts, glossary' }
     },
     menu: {
-      helpers: 'Helpers',
       commands: 'Commands',
       skills: 'Skills · work folder and yours',
       files: 'Files · work folder',

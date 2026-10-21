@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import type { AssistantProvider, LlmStatus } from '@shared/types'
 import { ASSISTANT_PROVIDERS } from '@shared/assistant'
@@ -21,7 +21,6 @@ import type { RecordSearch } from './types/recordSearch'
 import { folderPathsOf, matchesQuery, type MenuQuery } from './utils/menuQuery'
 import ChatNotice from './ui/ChatNotice'
 import Composer from './ui/Composer'
-import HelperGrid from './ui/HelperGrid'
 import RecordTimeline from './ui/RecordTimeline'
 import TurnList from './ui/TurnList'
 import styles from './index.module.css'
@@ -89,12 +88,30 @@ export default function AssistantChatSection({
   const [isSearchMode, setIsSearchMode] = useState(false)
   const [searches, setSearches] = useState<RecordSearch[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
+  const spacerRef = useRef<HTMLDivElement>(null)
   const isAtBottomRef = useRef(true)
+  const userTurnCount = state.turns.filter((turn) => turn.role === 'user').length
+  const userTurnCountRef = useRef(userTurnCount)
 
-  useEffect(() => {
+  // 그리기 전에 여백을 맞춰야 보낸 말풍선이 튀지 않고 한 번에 맨 위로 간다
+  useLayoutEffect(() => {
     const scroller = scrollRef.current
-    if (scroller && isAtBottomRef.current) scroller.scrollTop = scroller.scrollHeight
-  }, [state.turns, meetings, isRecording, searches])
+    const spacer = spacerRef.current
+    if (!scroller || !spacer) return
+
+    // 마지막 말풍선부터 끝까지가 화면보다 짧은 만큼 여백을 둬, 맨 아래로 내리면 그 말풍선이 맨 위에 온다
+    const lastUserTurn = Array.from(scroller.querySelectorAll('[data-user-turn]')).at(-1)
+    const { paddingTop, paddingBottom } = getComputedStyle(scroller)
+    const visibleHeight = scroller.clientHeight - parseFloat(paddingTop) - parseFloat(paddingBottom)
+    const contentHeight = lastUserTurn
+      ? spacer.getBoundingClientRect().top - lastUserTurn.getBoundingClientRect().top
+      : visibleHeight
+    spacer.style.height = `${Math.max(0, visibleHeight - contentHeight)}px`
+
+    const isNewQuestion = userTurnCount > userTurnCountRef.current
+    userTurnCountRef.current = userTurnCount
+    if (isNewQuestion || isAtBottomRef.current) scroller.scrollTop = scroller.scrollHeight
+  }, [state.turns, meetings, isRecording, searches, userTurnCount])
 
   const handleScroll = () => {
     const scroller = scrollRef.current
@@ -251,14 +268,9 @@ export default function AssistantChatSection({
             onOpenRecord={onOpenRecord}
           />
         </div>
+        <div ref={spacerRef} aria-hidden="true" />
       </div>
       <div className={styles.footer}>
-        {state.turns.length ? null : (
-          <HelperGrid
-            recordShortcut={settings ? formatAccelerator(settings.recordingShortcut) : null}
-            onCommand={(id) => void handleCommand(id)}
-          />
-        )}
         <ChatNotice
           folderNotice={folderNotice}
           missingCliLabel={isCliMissing ? t.assistant.providers[provider] : null}
@@ -293,9 +305,6 @@ export default function AssistantChatSection({
           <p className={qualityNotice ? styles.qualityNotice : styles.recordingHint} role="status">
             {qualityNotice ?? recordingHint}
           </p>
-        ) : null}
-        {state.turns.length ? (
-          <HelperGrid isCompact recordShortcut={null} onCommand={(id) => void handleCommand(id)} />
         ) : null}
       </div>
     </section>

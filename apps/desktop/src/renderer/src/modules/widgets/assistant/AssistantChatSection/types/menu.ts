@@ -1,6 +1,6 @@
 import type { IconName } from '@renderer/shared/components/primitives/ui/Icon'
 
-/** 도우미 그리드와 `/` 명령 메뉴에 같이 나오는 내장 명령 */
+/** `/` 명령 메뉴의 내장 명령 */
 export type CommandId =
   'record' | 'importAudio' | 'findRecords' | 'openDocument' | 'newChat' | 'settings'
 
