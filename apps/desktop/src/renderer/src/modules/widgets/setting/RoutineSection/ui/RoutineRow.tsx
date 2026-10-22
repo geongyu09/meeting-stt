@@ -6,9 +6,9 @@ import Button from '@renderer/shared/components/primitives/ui/Button'
 import Switch from '@renderer/shared/components/primitives/ui/Switch'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
 import { formatMeetingDay, formatMeetingTime } from '@renderer/shared/utils/formatMeetingDate'
+import { summarizeSchedule } from '@renderer/shared/utils/summarizeSchedule'
 
 import type { RoutineRunState } from '../types/routineForm'
-import { summarizeSchedule } from '../utils/routineSchedule'
 import styles from './RoutineRow.module.css'
 
 interface RoutineRowProps {

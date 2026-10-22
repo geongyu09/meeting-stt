@@ -40,7 +40,7 @@ claude -p --output-format stream-json --verbose --include-partial-messages
   --permission-mode <acceptEdits | bypassPermissions>
   --allowedTools "Bash(git status:*)" "Bash(git diff:*)" "Bash(git log:*)"
   --disallowedTools AskUserQuestion
-  --append-system-prompt <선택 창 대신 답변 글로 묻도록 하는 안내>
+  --append-system-prompt <채팅 시스템 지시 CHAT_SYSTEM_PROMPT — 선택 창 대신 글로 묻는 안내 + 루틴 제안 형식>
   [--resume <session_id>]
   (cwd = 작업 폴더, 질문은 stdin으로)
 ```
@@ -62,8 +62,9 @@ claude -p --output-format stream-json --verbose --include-partial-messages
 **Codex CLI** (`src/main/assistant/codexAgent.ts`, 인자·이벤트 해석은 `src/main/assistant/codexStream.ts` 순수 함수 + vitest, 2026-10-20 codex-cli 0.163.0 실측)
 
 ```
-첫 질문:   codex exec        --json --skip-git-repo-check <권한> [--model <모델>] -
-이어 묻기: codex exec resume --json --skip-git-repo-check <권한> [--model <모델>] <thread_id> -
+첫 질문:   codex exec        --json --skip-git-repo-check <권한> [--model <모델>] -c developer_instructions=<지시> -
+이어 묻기: codex exec resume --json --skip-git-repo-check <권한> [--model <모델>] -c developer_instructions=<지시> <thread_id> -
+  지시 = 채팅 시스템 지시 CHAT_SYSTEM_PROMPT의 JSON 문자열 (백그라운드 실행에는 넘기지 않는다, "루틴" > "대화로 만들기")
   권한 = acceptEdits → -c sandbox_mode="workspace-write"  |  bypassPermissions → --dangerously-bypass-approvals-and-sandbox
   (cwd = 작업 폴더, 질문은 stdin으로)
 ```
@@ -514,3 +515,22 @@ interface RoutinesState {
 - 루틴 행: 이름 · 주기 요약("매일 09:00", "월·수·금 09:00", "30분마다", "3시간마다") · 다음 실행(켜져 있을 때) · 마지막 실행(시각 · 완료 또는 실패와 이유) · 켜기 스위치 · "지금 실행"(돌면 "실행 중", 큐에 있으면 "대기 중"으로 비활성) · "고치기" · "삭제"(2단계 인라인 확인).
   마지막 답은 `<details>`로 펼친다(줄바꿈만 살린 평문, 바뀐 파일 목록).
 - "루틴 추가"·"고치기"는 그 자리의 인라인 폼: 이름 · 프롬프트(textarea) · 주기 종류(라디오 "시각"/"간격") · 시각이면 요일 토글 7개(`aria-pressed`) + `<input type="time">`, 간격이면 숫자 + 단위(분/시간) · 저장/취소. 저장 실패는 폼 아래에 보인다. 새 루틴의 기본값은 평일 09:00이다.
+
+### 대화로 만들기 (2026-10-22)
+
+설정 폼을 채우는 대신 **채팅에서 비서와 이야기하며 루틴을 만든다** (2026-10-22 사용자 요청 — "루틴 설정을 AI와 이야기하면서 진행").
+채팅이 앱의 주 화면이라(`features/ui.md` "채팅창 리뉴얼") 루틴도 대화에서 시작한다. 설정 "루틴" 묶음은 목록·고치기·지우기로 그대로 둔다.
+
+| 갈림길 | 결정 | 이유 |
+| --- | --- | --- |
+| 누가 저장하나 | 에이전트는 **제안만** 하고, 저장은 사용자가 채팅의 제안 카드에서 "루틴 추가"를 누를 때 앱이 한다(`routines.save`) | 루틴은 사람 없이 돌며 구독 한도를 쓴다. 에이전트가 앱 설정을 직접 바꾸는 통로(파일·MCP)를 새로 열지 않는다 |
+| 제안 형식 | 답변 글 안의 **` ```routine ` 코드 블록 하나**에 JSON `{ "name", "prompt", "schedule" }` (`schedule`은 `RoutineSchedule` 그대로) | 두 CLI(Claude Code·Codex)가 같은 글 스트림으로 보낸다. 별도 이벤트·도구가 필요 없다 |
+| 에이전트가 형식을 아는 방법 | **채팅 전용 시스템 지시** `CHAT_SYSTEM_PROMPT`(`src/main/assistant/chatPrompt.ts` — 선택 창 대신 글로 묻는 안내 `NO_DIALOG_PROMPT` + 루틴 안내 `ROUTINE_CHAT_GUIDE`, 한국어 프롬프트). Claude는 기존 `--append-system-prompt`, Codex는 `-c developer_instructions=<JSON 문자열>`(`features/llm.md`와 같은 방식)로 매 턴 넘긴다. 백그라운드 실행(루틴·정리, `isUnattended`)에는 둘 다 붙이지 않는다 | stdin 앞에 붙이면 `claude -p`가 맨 앞의 `/스킬`을 풀지 못한다. 말풍선·세션 맥락에도 섞이지 않는다 |
+| 시작 | `/` 명령 **"루틴 만들기"** — 정해진 첫 메시지("루틴을 만들고 싶어. …")를 보낸다. 명령 없이 "매일 아침 브리핑해 줘" 같은 말로 시작해도 된다 | 명령을 몰라도 대화로 된다 |
+
+- 안내(`ROUTINE_CHAT_GUIDE`) 요지: 사용자가 정해진 주기마다 자동으로 할 일을 원하면 **이 앱의 루틴으로** 만든다(CLI 자체의 예약·cron·클라우드 루틴·launchd를 쓰지 않는다 — 안내가 없으면 Claude Code가 그것들을 권했다, 2026-10-22 실측). 이름·할 일·주기를 대화로 정하고, 정해지면 답 끝에 ` ```routine ` 블록 하나를 붙인다. 프롬프트는 답할 사람 없이 혼자 끝낼 수 있게 구체적으로 쓴다. 주기는 시각(`weekdays` 0 = 일 … 6 = 토, `time` `HH:MM`) 또는 간격(`minutes` 10~1440). 블록만으로는 저장되지 않고 사용자가 카드에서 누른다. 앱이 켜져 있을 때만 돌고 놓친 실행은 켜진 뒤 한 번 돈다. 루틴 이야기가 아니면 블록을 쓰지 않는다.
+- 해석은 순수 함수 `splitRoutineProposal(text)`(`src/shared/routine.ts`) — 첫 ` ```routine ` 블록을 글에서 떼어 내고, 블록 JSON을 `readRoutineInputPayload`(`id: null`, `isEnabled: true`)로 검증한다. 닫히지 않은 블록(스트리밍 중)도 글에서 숨기고 카드는 아직 그리지 않는다.
+- 제안 카드(`AssistantChatSection/ui/RoutineProposalCard`, 그 턴의 답변 글 아래): 이름 · 주기 요약(`summarizeSchedule` — 설정 목록과 같이 쓰려고 `renderer/src/shared/utils/summarizeSchedule`로 옮겼다) · 할 일(프롬프트) · **"루틴 추가"** 버튼. 답변 복사는 블록을 뺀 글만 복사한다.
+  같은 이름·프롬프트·주기의 루틴이 이미 있으면 버튼 대신 "추가했어요. 설정 > 루틴에서 바꾸거나 끌 수 있어요." — 채팅을 다시 그려도 두 번 추가되지 않는다.
+  JSON이 틀리면 카드에 검증 오류 문구를 보여 준다(사용자가 고쳐 달라고 말하면 된다). 저장 실패도 카드 안에 보인다.
+- 이미 있는 루틴을 대화로 고치거나 지우는 것은 아직 없다 — 에이전트가 루틴 목록을 모른다. 설정에서 한다.

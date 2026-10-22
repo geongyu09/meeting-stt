@@ -15,6 +15,8 @@ interface RunCodexAgentParams {
   sessionId: string | null
   permissionMode: AssistantPermissionMode
   model: string | null
+  /** 루틴처럼 답할 사람이 없는 실행 */
+  isUnattended?: boolean
   signal: AbortSignal
   onEvent: (event: AgentStreamEvent) => void
 }
@@ -31,6 +33,7 @@ export const runCodexAgent = async ({
   sessionId,
   permissionMode,
   model,
+  isUnattended,
   signal,
   onEvent
 }: RunCodexAgentParams) => {
@@ -38,7 +41,7 @@ export const runCodexAgent = async ({
 
   await runBinary({
     command: cliPath,
-    args: buildCodexAgentArgs({ permissionMode, sessionId, model }),
+    args: buildCodexAgentArgs({ permissionMode, sessionId, model, isUnattended }),
     input: text,
     cwd: folder,
     env: await spawnEnv(),

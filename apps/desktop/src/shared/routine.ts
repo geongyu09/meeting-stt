@@ -193,3 +193,62 @@ export const parseStoredRoutines = (value: unknown) =>
         return routine ? [routine] : []
       })
     : []
+
+/** 대화로 만들기에서 에이전트가 답 끝에 붙이는 제안 블록. 닫는 펜스가 아직 없으면(스트리밍 중) 글 끝까지다 */
+const PROPOSAL_PATTERN = /```routine[ \t]*\n([\s\S]*?)(```|$)/
+
+/** 제안 블록 해석 결과. 블록이 닫히지 않았으면 둘 다 null이다 */
+export interface RoutineProposal {
+  input: RoutineInput | null
+  /** 검증 오류 문구 */
+  error: string | null
+}
+
+interface ReadProposalParams {
+  body: string
+  errors: RoutineErrorMessages
+}
+
+const readProposal = ({ body, errors }: ReadProposalParams): RoutineProposal => {
+  try {
+    const parsed: unknown = JSON.parse(body)
+    const fields = isRecord(parsed) ? parsed : {}
+
+    return {
+      input: readRoutineInputPayload({ ...fields, id: null, isEnabled: true }, errors),
+      error: null
+    }
+  } catch (caught) {
+    // JSON 문법 오류는 SyntaxError라 사용자에게 보일 문구로 바꾼다
+    const isValidationError = caught instanceof Error && !(caught instanceof SyntaxError)
+    return { input: null, error: isValidationError ? caught.message : errors.invalidRoutine }
+  }
+}
+
+/**
+ * @description 에이전트 답변에서 첫 ```routine 제안 블록을 떼어 냅니다 (references/features/assistant.md "루틴" > "대화로 만들기").
+ * @param text - 답변 글
+ * @param errors - 오류 문구 사전. 생략하면 한국어
+ * @returns 블록을 뺀 글과 제안. 블록이 없으면 proposal이 null
+ * @example
+ * const { text, proposal } = splitRoutineProposal({ text: turn.text, errors: t.routine.errors })
+ */
+interface SplitRoutineProposalParams {
+  text: string
+  errors?: RoutineErrorMessages
+}
+
+export const splitRoutineProposal = ({
+  text,
+  errors = routineKo.errors
+}: SplitRoutineProposalParams) => {
+  const match = PROPOSAL_PATTERN.exec(text)
+  if (!match) return { text, proposal: null }
+
+  const rest = `${text.slice(0, match.index)}${text.slice(match.index + match[0].length)}`.trim()
+  const proposal: RoutineProposal = match[2]
+    ? readProposal({ body: match[1], errors })
+    : { input: null, error: null }
+
+  return { text: rest, proposal }
+}

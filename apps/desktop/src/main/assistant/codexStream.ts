@@ -1,5 +1,6 @@
 import type { AssistantPermissionMode } from '@shared/types'
 
+import { CHAT_SYSTEM_PROMPT } from './chatPrompt'
 import { shortTarget } from './claudeStream'
 import type { AgentStreamEvent } from './types/agentStream'
 
@@ -14,6 +15,8 @@ interface BuildCodexAgentArgsParams {
   sessionId: string | null
   /** null이면 사용자 config의 기본 모델 */
   model: string | null
+  /** 답할 사람이 없는 백그라운드 실행(루틴·정리). 채팅용 시스템 지시를 붙이지 않는다 */
+  isUnattended?: boolean
 }
 
 /**
@@ -25,7 +28,8 @@ interface BuildCodexAgentArgsParams {
 export const buildCodexAgentArgs = ({
   permissionMode,
   sessionId,
-  model
+  model,
+  isUnattended = false
 }: BuildCodexAgentArgsParams) => [
   'exec',
   ...(sessionId ? ['resume'] : []),
@@ -36,6 +40,8 @@ export const buildCodexAgentArgs = ({
     ? ['--dangerously-bypass-approvals-and-sandbox']
     : ['-c', 'sandbox_mode="workspace-write"']),
   ...(model ? ['--model', model] : []),
+  // 값은 TOML로 읽힌다. JSON 문자열은 TOML 기본 문자열과 호환된다 (features/llm.md)
+  ...(isUnattended ? [] : ['-c', `developer_instructions=${JSON.stringify(CHAT_SYSTEM_PROMPT)}`]),
   ...(sessionId ? [sessionId] : []),
   '-'
 ]

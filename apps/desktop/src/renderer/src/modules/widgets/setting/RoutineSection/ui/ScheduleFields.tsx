@@ -1,8 +1,8 @@
 import { useId } from 'react'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
+import { WEEKDAY_DISPLAY_ORDER } from '@renderer/shared/utils/summarizeSchedule'
 
 import type { IntervalUnit, RoutineFormValues } from '../types/routineForm'
-import { WEEKDAY_DISPLAY_ORDER } from '../utils/routineSchedule'
 import styles from './ScheduleFields.module.css'
 
 type ScheduleValues = Pick<

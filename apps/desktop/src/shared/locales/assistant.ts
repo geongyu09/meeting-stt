@@ -38,6 +38,10 @@ export const assistantKo = {
       },
       findRecords: { label: '기록 찾기', description: '지난 기록을 제목과 내용으로 찾아요' },
       openDocument: { label: '문서 열기', description: '작업 폴더의 문서를 열고 고쳐요' },
+      routine: {
+        label: '루틴 만들기',
+        description: '정해진 주기에 비서가 할 일을 이야기하며 정해요'
+      },
       newChat: { label: '새 대화', description: '지금 대화를 끝내고 새로 시작해요' },
       settings: { label: '설정', description: '작업 폴더, 모델, 단축키, 용어 사전' }
     },
@@ -55,6 +59,7 @@ export const assistantKo = {
     notGitRepo: '작업 폴더가 git 저장소가 아니라 에이전트가 고친 내용을 되돌리기 어렵습니다.',
     openSettings: '설정 열기',
     sendError: '질문을 보내지 못했습니다',
+    routineStarter: '루틴을 만들고 싶어. 무엇을 언제 자동으로 할지 물어보면서 같이 정해 줘.',
     loading: '불러오는 중'
   },
   editor: {
@@ -195,6 +200,10 @@ export const assistantEn: typeof assistantKo = {
         label: 'Open a document',
         description: 'Open and edit a work folder document'
       },
+      routine: {
+        label: 'Create a routine',
+        description: 'Talk through a task for the assistant to do on a schedule'
+      },
       newChat: { label: 'New chat', description: 'End this chat and start over' },
       settings: { label: 'Settings', description: 'Work folder, models, shortcuts, glossary' }
     },
@@ -213,6 +222,8 @@ export const assistantEn: typeof assistantKo = {
       'The work folder is not a git repository, so changes made by the agent are hard to undo.',
     openSettings: 'Open Settings',
     sendError: 'Could not send the question',
+    routineStarter:
+      "I'd like to set up a routine. Ask me what to do automatically and when, and let's decide together.",
     loading: 'Loading'
   },
   editor: {

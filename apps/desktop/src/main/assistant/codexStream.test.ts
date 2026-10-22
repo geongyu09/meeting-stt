@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+import { CHAT_SYSTEM_PROMPT } from './chatPrompt'
 import { buildCodexAgentArgs, parseCodexStreamLine } from './codexStream'
 import type { AgentStreamEvent } from './types/agentStream'
 
@@ -25,7 +26,12 @@ const ofKind = <K extends AgentStreamEvent['kind']>(events: AgentStreamEvent[], 
 describe('buildCodexAgentArgs', () => {
   it('첫 질문은 exec에 workspace-write 샌드박스를 config로 넘긴다', () => {
     expect(
-      buildCodexAgentArgs({ permissionMode: 'acceptEdits', sessionId: null, model: null })
+      buildCodexAgentArgs({
+        permissionMode: 'acceptEdits',
+        sessionId: null,
+        model: null,
+        isUnattended: true
+      })
     ).toEqual([
       'exec',
       '--json',
@@ -51,9 +57,29 @@ describe('buildCodexAgentArgs', () => {
       '--dangerously-bypass-approvals-and-sandbox',
       '--model',
       'gpt-6-luna',
+      '-c',
+      `developer_instructions=${JSON.stringify(CHAT_SYSTEM_PROMPT)}`,
       'thread-1',
       '-'
     ])
+  })
+
+  it('채팅에만 루틴 제안 형식을 담은 시스템 지시를 붙인다', () => {
+    const chat = buildCodexAgentArgs({
+      permissionMode: 'acceptEdits',
+      sessionId: null,
+      model: null
+    })
+    const routine = buildCodexAgentArgs({
+      permissionMode: 'acceptEdits',
+      sessionId: null,
+      model: null,
+      isUnattended: true
+    })
+    const instructions = chat.find((arg) => arg.startsWith('developer_instructions='))
+
+    expect(instructions).toContain('```routine')
+    expect(routine.some((arg) => arg.startsWith('developer_instructions='))).toBe(false)
   })
 
   it('요약 경로의 설정 무시·세션 미보관 옵션을 넣지 않는다', () => {

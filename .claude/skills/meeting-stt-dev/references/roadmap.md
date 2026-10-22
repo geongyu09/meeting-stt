@@ -755,6 +755,9 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 - [x] 루틴 코드의 test·typecheck·lint·`electron-vite build` 통과 (2026-10-22). 전체 `pnpm typecheck`·`RecorderSection/test.tsx`는 같은 시각 다른 세션이 고치던 녹음 노트·녹음 카드 쪽 오류로 실패 중이었다
 - [ ] 완료 기준: `pnpm dev`에서 작업 폴더를 고른 상태로 "10분마다 · 오늘 날짜를 notes/today.md에 적어 줘" 루틴을 만들고 "지금 실행"을 누르면 "실행 중"이 보이고, 끝나면 macOS 알림이 뜨고 목록에 마지막 답과 바뀐 파일이 보인다. 앱을 끄고 10분 넘게 지난 뒤 켜면 한 번만 다시 돈다. 스위치를 끄면 돌지 않는다
   — 2026-10-22 빌드된 앱을 별도 userData로 띄워(playwright-core, 폴더 대화상자·알림 표시만 대체) 확인: 10분 간격 루틴 저장 → "지금 실행" → "실행 중" → Claude Code 2.1.306이 12~25초 만에 `notes/today.md`를 쓰고 "완료"·마지막 답·바뀐 파일·알림 1건. **앱을 껐다 켠 뒤 놓친 실행 한 번과 스위치 끄기는 `pnpm dev`에서 사람이 확인할 것이 남았다**
+- [x] 대화로 만들기 (2026-10-22 사용자 요청, `features/assistant.md` "루틴" > "대화로 만들기") — 채팅 시스템 지시 `CHAT_SYSTEM_PROMPT`(Claude `--append-system-prompt`, Codex `-c developer_instructions`), `splitRoutineProposal` + vitest, 채팅 제안 카드 + 통합 테스트, `/` 명령 "루틴 만들기", `summarizeSchedule`을 `shared/utils`로 이동. desktop test·typecheck·lint·`electron-vite build` 통과 (2026-10-22)
+  - 2026-10-22 Claude Code CLI로 같은 시스템 지시를 넣고 2턴 실측: 첫 턴은 번호 목록으로 묻고, 답하자 ` ```routine ` 블록(평일 09:00, 636자 프롬프트)을 냈고 `splitRoutineProposal`이 그대로 읽었다. Codex는 설치돼 있지 않아 `developer_instructions`(특히 `exec resume`)를 확인하지 못했다
+  - [ ] 완료 기준: `pnpm dev`에서 "/루틴 만들기"로 시작해 "평일 아침 9시에 오늘 할 일 정리해 줘"라고 답하면 에이전트가 몇 번 묻고 제안 카드를 띄우고, "루틴 추가"를 누르면 설정 "루틴" 목록에 그대로 생기며 카드가 "추가했어요"로 바뀐다
 
 ### 기본 하네스 (2026-10-22)
 

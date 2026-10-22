@@ -9,6 +9,7 @@ export const COMMANDS: { id: CommandId; icon: IconName }[] = [
   { id: 'importAudio', icon: 'upload' },
   { id: 'findRecords', icon: 'search' },
   { id: 'openDocument', icon: 'file' },
+  { id: 'routine', icon: 'bolt' },
   { id: 'newChat', icon: 'pencil' },
   { id: 'settings', icon: 'settings' }
 ]

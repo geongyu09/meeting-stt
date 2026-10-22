@@ -58,6 +58,16 @@ export const routineKo = {
     cancel: '취소',
     saveError: '루틴을 저장하지 못했습니다'
   },
+  proposal: {
+    title: '루틴 제안',
+    prompt: '할 일',
+    add: '루틴 추가',
+    adding: '추가하는 중',
+    added: '추가했어요. 설정 > 루틴에서 바꾸거나 끌 수 있어요.',
+    invalid: ({ reason }: { reason: string }) =>
+      `이 제안은 추가할 수 없어요 (${reason}). 고쳐 달라고 말해 주세요.`,
+    saveError: '루틴을 추가하지 못했습니다'
+  },
   notification: {
     failed: ({ reason }: { reason: string }) => `실패: ${reason}`,
     noAnswer: '끝났습니다'
@@ -131,6 +141,15 @@ export const routineEn: typeof routineKo = {
     save: 'Save',
     cancel: 'Cancel',
     saveError: 'Could not save the routine'
+  },
+  proposal: {
+    title: 'Routine proposal',
+    prompt: 'Task',
+    add: 'Add routine',
+    adding: 'Adding',
+    added: 'Added. Change or turn it off in Settings > Routines.',
+    invalid: ({ reason }) => `This proposal can't be added (${reason}). Ask to fix it.`,
+    saveError: 'Could not add the routine'
   },
   notification: {
     failed: ({ reason }) => `Failed: ${reason}`,

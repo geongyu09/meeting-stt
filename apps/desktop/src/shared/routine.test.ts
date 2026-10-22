@@ -5,7 +5,8 @@ import {
   nextRoutineRunAt,
   parseStoredRoutines,
   readRoutineIdPayload,
-  readRoutineInputPayload
+  readRoutineInputPayload,
+  splitRoutineProposal
 } from './routine'
 import type { Routine } from './types'
 
@@ -147,5 +148,67 @@ describe('parseStoredRoutines', () => {
   it('배열이 아니면 빈 목록이다', () => {
     expect(parseStoredRoutines(undefined)).toEqual([])
     expect(parseStoredRoutines({})).toEqual([])
+  })
+})
+
+describe('splitRoutineProposal', () => {
+  const block = (body: string) => `이렇게 만들까요?\n\n\`\`\`routine\n${body}\n\`\`\`\n`
+  const body = JSON.stringify({
+    name: ' 아침 브리핑 ',
+    prompt: '오늘 할 일 정리',
+    schedule: { kind: 'time', weekdays: [5, 1, 1], time: '09:00' }
+  })
+
+  it('블록을 글에서 떼고 정리한 루틴 입력으로 읽는다', () => {
+    expect(splitRoutineProposal({ text: block(body) })).toEqual({
+      text: '이렇게 만들까요?',
+      proposal: {
+        input: {
+          id: null,
+          name: '아침 브리핑',
+          prompt: '오늘 할 일 정리',
+          schedule: { kind: 'time', weekdays: [1, 5], time: '09:00' },
+          isEnabled: true
+        },
+        error: null
+      }
+    })
+  })
+
+  it('블록이 없으면 글을 그대로 두고 제안이 없다', () => {
+    expect(splitRoutineProposal({ text: '안녕하세요' })).toEqual({
+      text: '안녕하세요',
+      proposal: null
+    })
+  })
+
+  it('스트리밍 중 닫히지 않은 블록은 숨기고 아직 해석하지 않는다', () => {
+    const text = '이렇게 만들까요?\n\n```routine\n{"name": "아침'
+
+    expect(splitRoutineProposal({ text })).toEqual({
+      text: '이렇게 만들까요?',
+      proposal: { input: null, error: null }
+    })
+  })
+
+  it('JSON이 깨졌거나 주기가 범위 밖이면 오류 문구를 돌려준다', () => {
+    const broken = splitRoutineProposal({ text: block('{"name": ') })
+    const tooShort = splitRoutineProposal({
+      text: block(
+        JSON.stringify({ name: '확인', prompt: '확인', schedule: { kind: 'interval', minutes: 5 } })
+      )
+    })
+
+    expect(broken.proposal).toEqual({ input: null, error: '루틴 형식이 올바르지 않습니다' })
+    expect(tooShort.proposal?.error).toContain('주기가 올바르지 않습니다')
+  })
+
+  it('id·isEnabled는 에이전트가 적어도 새 루틴·켜짐으로 덮는다', () => {
+    const text = block(JSON.stringify({ ...JSON.parse(body), id: 'other', isEnabled: false }))
+
+    expect(splitRoutineProposal({ text }).proposal?.input).toMatchObject({
+      id: null,
+      isEnabled: true
+    })
   })
 })

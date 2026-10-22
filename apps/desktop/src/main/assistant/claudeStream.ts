@@ -1,5 +1,6 @@
 import type { AssistantPermissionMode } from '@shared/types'
 
+import { CHAT_SYSTEM_PROMPT } from './chatPrompt'
 import type { AgentStreamEvent } from './types/agentStream'
 
 /**
@@ -13,10 +14,6 @@ export const AGENT_ALLOWED_TOOLS = ['Bash(git status:*)', 'Bash(git diff:*)', 'B
 
 /** `-p`에는 선택 창이 없어 이 도구가 불리면 질문이 사라진다 (references/pitfalls.md "개인 비서 모드") */
 const AGENT_DISALLOWED_TOOLS = ['AskUserQuestion']
-
-const NO_DIALOG_PROMPT =
-  '이 대화는 데스크탑 앱의 채팅 창에서 이어집니다. 선택 창을 띄울 수 없으니, 사용자에게 물을 것이 있으면 ' +
-  '답변 글에 번호 목록으로 질문을 쓰고 사용자의 다음 메시지를 기다리세요.'
 
 /** 파일을 쓰거나 고치는 도구. 이 도구의 대상 파일이 "바뀐 파일" 목록이 된다 */
 const EDIT_TOOL_NAMES = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit']
@@ -69,7 +66,7 @@ export const buildClaudeAgentArgs = ({
   ...extraAllowedTools,
   '--disallowedTools',
   ...AGENT_DISALLOWED_TOOLS,
-  ...(isUnattended ? [] : ['--append-system-prompt', NO_DIALOG_PROMPT]),
+  ...(isUnattended ? [] : ['--append-system-prompt', CHAT_SYSTEM_PROMPT]),
   ...(sessionId ? ['--resume', sessionId] : [])
 ]
 

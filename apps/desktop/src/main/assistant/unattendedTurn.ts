@@ -60,7 +60,12 @@ const runAgent = async ({ folder, text, signal, extraAllowedTools, onEvent }: Ru
   }
 
   if (provider === 'codex-cli') {
-    return runCodexAgent({ ...turn, cliPath: cli.path, model: getCodexModel() })
+    return runCodexAgent({
+      ...turn,
+      cliPath: cli.path,
+      model: getCodexModel(),
+      isUnattended: true
+    })
   }
   return runClaudeAgent({ ...turn, cliPath: cli.path, isUnattended: true, extraAllowedTools })
 }

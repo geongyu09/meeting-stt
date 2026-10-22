@@ -121,6 +121,9 @@ export default function AssistantChatSection({
       scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < STICK_TO_BOTTOM_PX
   }
 
+  // 대화 중이면 그 대화의 에이전트, 아니면 설정의 에이전트(저장값이 없으면 main이 설치된 첫 CLI로 채운다)
+  const provider = state.provider ?? status?.provider ?? ASSISTANT_PROVIDERS[0]
+
   /** 실패는 입력 도크 위의 한 줄로 알린다 */
   const runSafely = async (task: Promise<unknown>) => {
     try {
@@ -137,6 +140,8 @@ export default function AssistantChatSection({
     if (id === 'findRecords') return setIsSearchMode(true)
     if (id === 'newChat') return state.turns.length ? runSafely(reset()) : undefined
     if (id === 'openDocument') return onOpenDocument(null)
+    // 루틴은 대화로 정한다 (references/features/assistant.md "루틴" > "대화로 만들기")
+    if (id === 'routine') return runSafely(send({ provider, text: labels.routineStarter }))
 
     return navigate(COMMAND_PATHS[id])
   }
@@ -219,8 +224,6 @@ export default function AssistantChatSection({
     return items.length ? [{ id: 'files', title: labels.menu.files, items }] : []
   }
 
-  // 대화 중이면 그 대화의 에이전트, 아니면 설정의 에이전트(저장값이 없으면 main이 설치된 첫 CLI로 채운다)
-  const provider = state.provider ?? status?.provider ?? ASSISTANT_PROVIDERS[0]
   const folderNotice = !status
     ? null
     : !status.folder

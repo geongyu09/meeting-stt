@@ -4,7 +4,13 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import type { RecordingStateEvent } from '@shared/ipc'
-import type { AppSettings, AssistantChatState, AssistantStatus, LlmStatus } from '@shared/types'
+import type {
+  AppSettings,
+  AssistantChatState,
+  AssistantStatus,
+  LlmStatus,
+  RoutinesState
+} from '@shared/types'
 
 vi.mock('@renderer/shared/api/assistant', () => ({
   getAssistantStatusApi: vi.fn(),
@@ -41,6 +47,10 @@ vi.mock('@renderer/shared/api/utterances', () => ({
 vi.mock('@renderer/shared/api/summary', () => ({ createSummaryApi: vi.fn() }))
 vi.mock('@renderer/shared/api/summaryTemplate', () => ({ getSummaryTemplatesApi: vi.fn() }))
 vi.mock('@renderer/shared/api/clipboard', () => ({ writeClipboardTextApi: vi.fn() }))
+vi.mock('@renderer/shared/api/routine', () => ({
+  getRoutinesApi: vi.fn(),
+  saveRoutineApi: vi.fn()
+}))
 vi.mock('@renderer/shared/api/settings', () => ({
   getSettingsApi: vi.fn(),
   updateSettingsApi: vi.fn()
@@ -53,7 +63,8 @@ vi.mock('@renderer/shared/api/events', () => ({
   onPipelineProgress: vi.fn(() => () => {}),
   onRefineProgress: vi.fn(() => () => {}),
   onSummaryProgress: vi.fn(() => () => {}),
-  onSettingsChanged: vi.fn(() => () => {})
+  onSettingsChanged: vi.fn(() => () => {}),
+  onRoutinesChanged: vi.fn(() => () => {})
 }))
 
 import {
@@ -66,7 +77,7 @@ import {
   sendAssistantMessageApi
 } from '@renderer/shared/api/assistant'
 import { writeClipboardTextApi } from '@renderer/shared/api/clipboard'
-import { onAssistantState, onRecordingState } from '@renderer/shared/api/events'
+import { onAssistantState, onRecordingState, onRoutinesChanged } from '@renderer/shared/api/events'
 import { getLlmStatusApi } from '@renderer/shared/api/llm'
 import {
   getMeetingApi,
@@ -75,6 +86,7 @@ import {
   searchMeetingsApi
 } from '@renderer/shared/api/meetings'
 import { controlRecordingApi, getRecordingStateApi } from '@renderer/shared/api/recording'
+import { getRoutinesApi, saveRoutineApi } from '@renderer/shared/api/routine'
 import { getSettingsApi } from '@renderer/shared/api/settings'
 import { getSummaryTemplatesApi } from '@renderer/shared/api/summaryTemplate'
 import AssistantChatSection from './index'
@@ -125,6 +137,31 @@ const answeringChat: AssistantChatState = {
     }
   ]
 }
+
+const NO_ROUTINES: RoutinesState = { routines: [], runningId: null, queuedIds: [] }
+
+const ROUTINE_BLOCK = [
+  '평일 아침 9시에 이렇게 돌릴게요.',
+  '',
+  '```routine',
+  JSON.stringify({
+    name: '아침 브리핑',
+    prompt: 'tasks.md에서 오늘 할 일을 골라 notes/today.md에 정리해 줘',
+    schedule: { kind: 'time', weekdays: [1, 2, 3, 4, 5], time: '09:00' }
+  }),
+  '```'
+].join('\n')
+
+const chatAnswering = (text: string): AssistantChatState => ({
+  ...answeringChat,
+  isRunning: false,
+  turns: answeringChat.turns.with(1, {
+    ...answeringChat.turns[1],
+    text,
+    tools: [],
+    changedFiles: []
+  })
+})
 
 const pushState = (state: AssistantChatState) => {
   const listener = vi.mocked(onAssistantState).mock.calls.at(-1)?.[0]
@@ -190,6 +227,7 @@ beforeEach(() => {
   vi.mocked(sendAssistantMessageApi).mockResolvedValue(undefined)
   vi.mocked(cancelAssistantApi).mockResolvedValue(undefined)
   vi.mocked(controlRecordingApi).mockResolvedValue(undefined)
+  vi.mocked(getRoutinesApi).mockResolvedValue(NO_ROUTINES)
 })
 
 afterEach(() => {
@@ -522,5 +560,80 @@ describe('AssistantChatSection', () => {
 
     expect(importMeetingAudioApi).toHaveBeenCalled()
     expect((await screen.findByRole('alert')).textContent).toBe('지원하지 않는 형식입니다')
+  })
+
+  it('/ 명령 루틴 만들기는 정해진 첫 메시지를 에이전트에게 보낸다', async () => {
+    renderChat()
+    const input = await readyInput()
+
+    await userEvent.type(input, '/')
+    await userEvent.click(screen.getByRole('option', { name: /루틴 만들기/ }))
+
+    expect(sendAssistantMessageApi).toHaveBeenCalledWith({
+      provider: 'claude-cli',
+      text: '루틴을 만들고 싶어. 무엇을 언제 자동으로 할지 물어보면서 같이 정해 줘.'
+    })
+    expect(input.value).toBe('')
+  })
+
+  it('답변의 루틴 제안은 카드로 보이고, 루틴 추가를 누르면 저장한 뒤 추가했어요로 바뀐다', async () => {
+    vi.mocked(saveRoutineApi).mockResolvedValue(NO_ROUTINES)
+    renderChat()
+    await readyInput()
+    pushState(chatAnswering(ROUTINE_BLOCK))
+
+    const card = await screen.findByRole('region', { name: '루틴 제안' })
+    expect(card.textContent).toContain('아침 브리핑')
+    expect(card.textContent).toContain('평일 09:00')
+    expect(screen.getByText('평일 아침 9시에 이렇게 돌릴게요.')).toBeTruthy()
+    expect(screen.queryByText(/```routine/)).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: '루틴 추가' }))
+    expect(saveRoutineApi).toHaveBeenCalledWith({
+      id: null,
+      name: '아침 브리핑',
+      prompt: 'tasks.md에서 오늘 할 일을 골라 notes/today.md에 정리해 줘',
+      schedule: { kind: 'time', weekdays: [1, 2, 3, 4, 5], time: '09:00' },
+      isEnabled: true
+    })
+
+    // main이 저장 뒤 routines:changed로 새 목록을 보낸다
+    const listener = vi.mocked(onRoutinesChanged).mock.calls.at(-1)?.[0]
+    act(() =>
+      listener?.({
+        ...NO_ROUTINES,
+        routines: [
+          {
+            id: 'r1',
+            name: '아침 브리핑',
+            prompt: 'tasks.md에서 오늘 할 일을 골라 notes/today.md에 정리해 줘',
+            schedule: { kind: 'time', weekdays: [1, 2, 3, 4, 5], time: '09:00' },
+            isEnabled: true,
+            anchorAt: 0,
+            lastRun: null
+          }
+        ]
+      })
+    )
+    expect(screen.queryByRole('button', { name: '루틴 추가' })).toBeNull()
+    expect(card.textContent).toContain('추가했어요')
+  })
+
+  it('형식이 틀린 루틴 제안은 추가 버튼 대신 이유를 보여 주고, 닫히지 않은 블록은 숨긴다', async () => {
+    renderChat()
+    await readyInput()
+
+    pushState(chatAnswering('이렇게요.\n\n```routine\n{"name": "아침'))
+    expect(screen.getByText('이렇게요.')).toBeTruthy()
+    expect(screen.queryByText(/아침/)).toBeNull()
+
+    const tooOften = JSON.stringify({
+      name: '확인',
+      prompt: '메일 확인',
+      schedule: { kind: 'interval', minutes: 5 }
+    })
+    pushState(chatAnswering(`이렇게요.\n\n\`\`\`routine\n${tooOften}\n\`\`\``))
+    expect(screen.getByRole('alert').textContent).toContain('주기가 올바르지 않습니다')
+    expect(screen.queryByRole('button', { name: '루틴 추가' })).toBeNull()
   })
 })
