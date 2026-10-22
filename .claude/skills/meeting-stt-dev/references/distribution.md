@@ -281,6 +281,12 @@ electron-builder가 두 파일을 동시에 올리면서 드래프트를 둘로 
 - 공증 포함 빌드 약 6분, 동봉 19개 서명·하드닝 확인, `spctl` Notarized Developer ID·`stapler` 통과.
   업로드는 `curl -4 --http1.1`로 zip 160MB 12초·dmg 160MB 11초, 재시도 0회. 내려받아 sha512 대조 후 게시했다.
 
+#### v0.3.3 실측 (2026-10-22) — 절차대로 한 번에 끝났다
+
+- v0.3.2 이후 `native/`·`pnpm-lock.yaml`이 바뀌지 않아 릴리스 워크트리의 바이너리(v0.3.2에서 다시 빌드한 것)를 그대로 썼다.
+- 공증 포함 빌드 약 8분, 동봉 19개 서명·하드닝 확인, `spctl` Notarized Developer ID·`stapler` 통과.
+  업로드는 `curl -4 --http1.1`로 zip 160MB 65초·dmg 160MB 64초, 재시도 0회. 내려받아 sha512 대조 후 게시했다.
+
 ## 7. 자동 업데이트 — 기본은 꺼 둔다
 
 `electron-updater`를 넣되 **기본값은 꺼짐**이고, 설정의 `update.check`(기본 `false`)가 켜져 있을 때만 확인한다.
