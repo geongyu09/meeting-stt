@@ -515,7 +515,7 @@ export interface RecordingStateEvent {
 - **입력 도크의 마이크 버튼**: 대기 중 "녹음 시작"(`recording:control start`), 녹음 중에는 `aria-pressed` + 강조 연한 바탕(시안 "녹음 중")이고 누르면 정지(`toggle`). 모델 준비는 위젯이 검사해 실패를 세션에 모으므로(`errorMessage`) 버튼은 막지 않는다.
 - **`/` 명령** "녹음 시작 ⌥⌘R"(설정의 단축키를 읽어 표기) → start, "파일로 기록 만들기" → `useAudioImport().importAudio`(`shared/hooks/domain/meeting/useAudioImport`, 이동 없음). `features/meeting/ImportAudioButton`은 없앴다.
 - 아직 남아 있는 옛 구조(사이드바)의 "새 녹음"은 채팅(`/`)으로 가며 녹음을 시작한다. 위젯·메뉴바·전역 단축키는 그대로다.
-- **정지하면 채팅으로 간다.** `MainWindowLayout`이 `stoppedMeetingId`를 받으면 회의 상세가 아니라 `navigate(PATHS.assistant, { state: { stoppedMeetingId } })`. 채팅이 `location.state.stoppedMeetingId`를 읽어 그 회의의 기록 카드 위에 "오후 2:48 · 녹음을 멈췄어요" 줄(시각은 `createdAt + durationSec`)을 붙인다. 파일 가져오기는 이 줄이 없다.
+- **정지하면 채팅으로 간다.** `MainWindowLayout`이 `stoppedMeetingId`를 받으면 회의 상세가 아니라 `navigate(PATHS.assistant, { state: { stoppedMeetingId } })`. 채팅이 `location.state.stoppedMeetingId`를 읽어 그 회의의 기록 카드 위에 "오후 2:48 · 녹음을 멈췄어요" 줄(시각은 `createdAt + durationSec`)을 붙인다. 파일 가져오기는 이 줄이 없다. 이 카드는 입력창 위에 붙고 접을 수 있다(아래 "기록 카드").
 
 ### 녹음 카드 (`recording/RecorderSection`, 입력창 위)
 
@@ -530,6 +530,7 @@ export interface RecordingStateEvent {
 ### 기록 카드 (`features/meeting/RecordCard`, 대화 속)
 
 - 채팅이 `useMeetings`로 **앱을 켠 뒤 만들어진 회의**(`createdAt >= 모듈 로드 시각`, 녹음·파일 가져오기 모두)마다 턴 목록 뒤에 하나씩 그린다(만든 순). 녹음 중인 회의는 카드 대신 "오후 2:00 · 녹음을 시작했어요. 멈추면 기록으로 정리할게요" 줄이다(시각은 회의의 `createdAt`). 지난 날의 기록은 "기록 찾기"·"전체 기록 패널" 보드 몫이다.
+- **막 멈춘 녹음의 카드는 대화 끝이 아니라 입력창 위에 붙는다**(2026-10-22 사용자 요청, `AssistantChatSection/ui/StoppedRecordDock`). 녹음 카드가 있던 자리를 이어받아, 정지 직후 대화를 스크롤하지 않아도 처리 진행·결과가 보인다. 카드 위 "오후 2:48 · 녹음을 멈췄어요" 줄이 **접기/펼치기 버튼**(`aria-expanded`, 오른쪽 끝 chevron)이고, 접으면 "<제목> · 오후 2:48 · 녹음을 멈췄어요" 한 줄만 남는다. 정지 직후엔 펼친 채로 시작하고 접힘 상태는 로컬이라 저장하지 않는다. 펼친 카드는 창 높이의 절반을 넘으면 카드 안에서 스크롤한다(대화가 가려지지 않게). 다음 녹음을 시작하면 녹음 카드에 자리를 내주고 그 회의는 대화 속 기록 카드(멈춘 줄 포함)로 돌아간다. 파일 가져오기 카드는 그대로 대화 속이다.
 - 카드는 `meetingId`만 받아 `useMeeting`으로 스스로 읽는다. **`useMeeting`은 `meetings:changed`에도 다시 읽는다** — 녹음 → 처리 중 전환은 진행률 이벤트로 알 수 없다.
 - **처리 중**: 제목 · 길이 · 단계 문구 + 퍼센트(mono) · 진행 막대(`usePipelineProgress`). **실패**: 제목 · 오류 문구 · 원본이 있으면 "다시 시도"(저장된 참석자 수로 `meetings:reprocess`).
 - **끝남**: 헤더(제목, "10월 21일 오후 2:00 · 48분 · 화자 N명", 기록 복사 아이콘 — 전체 평문 복사, 더보기 아이콘 — 펼치면 "회의 삭제" 2단계 인라인 확인) · 요약 블록("요약 · <공급자>" + 요약 복사 아이콘, 본문은 요약 / 진행률 / 안내 — 옛 요약 카드와 같은 규칙. 옛 `meeting/SummarySection`은 없앴다) · 화자 범례(색 점 `--color-speaker-N` + 이름, 등장 순) + 오른쪽 "용어 N곳 교정됨"(`refineResult.appliedPairs` 수, 0이면 없음) · 푸터("전체 기록 보기" → 아래 **전체 기록 패널**을 연다 · 템플릿 `<select>`(사용자 템플릿이 있을 때만) · "다시 요약"/"요약 만들기").

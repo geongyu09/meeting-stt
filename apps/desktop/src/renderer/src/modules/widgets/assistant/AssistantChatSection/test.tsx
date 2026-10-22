@@ -522,7 +522,7 @@ describe('AssistantChatSection', () => {
     expect(input.placeholder).toBe('무엇을 도와드릴까요?')
   })
 
-  it('앱을 켠 뒤 만든 기록은 카드로 보이고, 막 멈춘 기록 위에는 멈췄어요 줄이 붙는다', async () => {
+  it('앱을 켠 뒤 만든 기록은 카드로 보이고, 막 멈춘 기록은 멈췄어요 줄을 눌러 접고 펼친다', async () => {
     const createdAt = new Date(2026, 9, 21, 14, 0).getTime()
     const meeting = {
       id: 'meeting-1',
@@ -546,8 +546,17 @@ describe('AssistantChatSection', () => {
     renderChat({ stoppedMeetingId: 'meeting-1' })
 
     expect(await screen.findByRole('article', { name: '기록 주간 제품 회의' })).toBeTruthy()
-    expect(screen.getByText(/녹음을 멈췄어요/)).toBeTruthy()
     expect(screen.queryByText('지난 회의')).toBeNull()
+
+    const toggle = screen.getByRole('button', { name: /녹음을 멈췄어요/ })
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    await userEvent.click(toggle)
+
+    expect(screen.queryByRole('article', { name: '기록 주간 제품 회의' })).toBeNull()
+    expect(toggle.textContent).toContain('주간 제품 회의')
+    await userEvent.click(toggle)
+
+    expect(await screen.findByRole('article', { name: '기록 주간 제품 회의' })).toBeTruthy()
   })
 
   it('/ 명령 파일로 기록 만들기는 파일을 고르게 하고 실패를 도크 위에 알린다', async () => {

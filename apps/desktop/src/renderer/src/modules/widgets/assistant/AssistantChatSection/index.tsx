@@ -22,6 +22,7 @@ import { folderPathsOf, matchesQuery, type MenuQuery } from './utils/menuQuery'
 import ChatNotice from './ui/ChatNotice'
 import Composer from './ui/Composer'
 import RecordTimeline from './ui/RecordTimeline'
+import StoppedRecordDock from './ui/StoppedRecordDock'
 import TurnList from './ui/TurnList'
 import styles from './index.module.css'
 
@@ -243,6 +244,10 @@ export default function AssistantChatSection({
   const sessionMeetings = meetings
     .filter((meeting) => meeting.createdAt >= SESSION_STARTED_AT)
     .toSorted((a, b) => a.createdAt - b.createdAt)
+  // 막 멈춘 녹음은 입력창 위에 붙는다. 다음 녹음이 시작되면 녹음 카드에 자리를 내주고 대화로 돌아간다
+  const dockedMeeting = isRecording
+    ? undefined
+    : sessionMeetings.find((meeting) => meeting.id === stoppedMeetingId)
   const recordingLabels = t.recording.recorder
   const recordingHint = settings?.recordingShortcut
     ? `${recordingLabels.keepsRunning} · ${formatAccelerator(settings.recordingShortcut)}`
@@ -277,7 +282,7 @@ export default function AssistantChatSection({
             />
           ) : null}
           <RecordTimeline
-            meetings={sessionMeetings}
+            meetings={sessionMeetings.filter((meeting) => meeting !== dockedMeeting)}
             searches={searches}
             recordingMeetingId={recordingMeetingId}
             recordingStartedAt={recordingStartedAt ?? 0}
@@ -299,6 +304,13 @@ export default function AssistantChatSection({
           </p>
         ) : null}
         {recorderSlot}
+        {dockedMeeting ? (
+          <StoppedRecordDock
+            key={dockedMeeting.id}
+            meeting={dockedMeeting}
+            onOpenRecord={onOpenRecord}
+          />
+        ) : null}
         <Composer
           placeholder={placeholder}
           prefixChip={isSearchMode ? t.transcript.search.chip : null}
