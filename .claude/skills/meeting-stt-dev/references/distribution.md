@@ -208,7 +208,7 @@ CLI가 쓰는 `resources/bin/darwin-arm64/libonnxruntime.dylib`과 별개 복사
    동봉 바이너리는 `--deep`이 보지 않으므로 `resources/bin/darwin-arm64/*`를 따로 검증한다 (6절).
 5. `gh release create v<version> --draft`로 빈 드래프트를 만들고, 자산을 **하나씩 순서대로** 올린다.
    작은 파일(`*.blockmap`, `latest-mac.yml`)은 `gh release upload`로 되지만, 140MB짜리 `dmg`·`zip`은
-   `curl -4 -X POST -T <파일>`(스트리밍)로 올린다. `zip`과 `latest-mac.yml`이 없으면 `electron-updater`가 업데이트를 찾지 못한다.
+   `curl -4 --http1.1 -X POST -T <파일>`(스트리밍)로 올린다 (`--http1.1`이 없으면 v0.3.0에서 바로 실패했다, 아래). `zip`과 `latest-mac.yml`이 없으면 `electron-updater`가 업데이트를 찾지 못한다.
 6. 올린 자산을 다시 내려받아 `latest-mac.yml`의 sha512와 대조한 뒤 드래프트를 게시한다.
    `electron-updater`는 **게시된** 릴리스만 본다.
 
@@ -265,6 +265,14 @@ electron-builder가 두 파일을 동시에 올리면서 드래프트를 둘로 
   이제 두 Swift 도구 모두 바이너리가 소스보다 새롭다.
 - 공증 포함 빌드 약 9분, 동봉 19개 서명·하드닝 확인, `spctl` Notarized Developer ID·`stapler` 통과. 드래프트 id는 5초 뒤 `--paginate`로 바로 보였다.
   업로드는 zip 160MB 73초·dmg 160MB 82초(약 2MB/s), 재시도 0회. 내려받아 sha512 대조 후 게시했다.
+
+#### v0.3.0 실측 (2026-10-22) — `curl -T`가 HTTP/2에서 바로 죽었다
+
+- 제품 이름 변경(Gyeot)으로 산출물 이름이 `Gyeot-<version>.dmg`·`Gyeot-<version>-arm64-mac.zip`이 됐다. `latest-mac.yml`도 이 이름을 가리킨다.
+- `curl -4 -X POST -T`가 1초 만에 `curl: (55) Send failure: Result too large`로 실패하고 `starter` 껍데기를 남겼다 (macOS 기본 curl 8.7.1, SecureTransport, HTTP/2로 협상).
+  껍데기를 지우고 `--http1.1`을 붙이니 zip 160MB 74초·dmg 160MB 77초에 `201`로 끝났다.
+- 공증 포함 빌드 약 8분, 동봉 19개 서명·하드닝 확인, `spctl` Notarized Developer ID·`stapler` 통과. 내려받아 sha512 대조 후 게시했다.
+  `main` 푸시로 PR #2(`feat/assistant-mode`)가 병합 처리됐다.
 
 ## 7. 자동 업데이트 — 기본은 꺼 둔다
 
