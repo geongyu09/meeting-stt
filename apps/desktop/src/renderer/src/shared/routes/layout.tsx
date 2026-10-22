@@ -1,5 +1,6 @@
-import { useEffect } from 'react'
-import { Outlet, useNavigate } from 'react-router'
+import { useEffect, useEffectEvent } from 'react'
+import { Outlet, useLocation, useNavigate } from 'react-router'
+import { acceleratorFromKeyInput, SETTINGS_SHORTCUT } from '@shared/shortcut'
 import { onRecordingState } from '@renderer/shared/api/events'
 
 import { PATHS } from './paths'
@@ -11,6 +12,7 @@ import { PATHS } from './paths'
  */
 export function MainWindowLayout() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
 
   useEffect(
     () =>
@@ -19,6 +21,21 @@ export function MainWindowLayout() {
       }),
     [navigate]
   )
+
+  // ⌘,로 설정 (references/features/ui.md "설정 모달"). 하위 화면은 설정과 기록 한 칸을 나눠 쓰므로 replace
+  const handleSettingsKey = useEffectEvent((event: KeyboardEvent) => {
+    if (event.defaultPrevented || acceleratorFromKeyInput(event) !== SETTINGS_SHORTCUT) return
+    event.preventDefault()
+    if (pathname !== PATHS.settings) {
+      navigate(PATHS.settings, { replace: pathname !== PATHS.assistant })
+    }
+  })
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => handleSettingsKey(event)
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   return <Outlet />
 }
