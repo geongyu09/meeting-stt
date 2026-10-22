@@ -28,7 +28,8 @@ export const recordingKo = {
     keepsRunning: '창을 닫아도 녹음은 계속돼요',
     startedLine: ({ time }: { time: string }) =>
       `${time} · 녹음을 시작했어요. 멈추면 기록으로 정리할게요`,
-    stoppedLine: ({ time }: { time: string }) => `${time} · 녹음을 멈췄어요`
+    recentLabel: '최근 녹음',
+    dismissRecent: ({ title }: { title: string }) => `${title} 목록에서 빼기`
   },
   note: {
     toggle: '노트',
@@ -144,7 +145,8 @@ export const recordingEn: typeof recordingKo = {
     controlError: 'Could not send the recording command. Please try again shortly',
     keepsRunning: 'Recording continues even if you close this window',
     startedLine: ({ time }) => `${time} · Recording started. Stop to turn it into a record`,
-    stoppedLine: ({ time }) => `${time} · Recording stopped`
+    recentLabel: 'Recent recordings',
+    dismissRecent: ({ title }) => `Remove ${title} from the list`
   },
   note: {
     toggle: 'Note',

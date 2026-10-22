@@ -1,0 +1,99 @@
+.dock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* 요약이 긴 카드가 대화를 밀어내지 않게 창 높이 절반에서 카드 안 스크롤로 넘긴다 */
+.card {
+  max-height: 50vh;
+  overflow-y: auto;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-float);
+}
+
+/* 입력창 폭을 넘는 만큼 좌우로 스크롤한다. 스크롤바는 한 줄 높이를 늘리므로 숨긴다 */
+.list {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  list-style: none;
+  scrollbar-width: none;
+}
+
+.item {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.open {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 180px;
+  padding: var(--space-2) 28px var(--space-2) var(--space-3);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+}
+
+.open:hover {
+  background: var(--color-sidebar);
+}
+
+.open[aria-pressed='true'] {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+}
+
+.title,
+.meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.title {
+  font-size: var(--font-sm);
+  font-weight: 500;
+}
+
+.meta {
+  color: var(--color-text-muted);
+  font-size: var(--font-xs);
+}
+
+/* 마우스를 올리거나 키보드로 들어왔을 때만 보인다 */
+.dismiss {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.item:hover .dismiss,
+.dismiss:focus-visible {
+  opacity: 1;
+}
+
+.dismiss:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}

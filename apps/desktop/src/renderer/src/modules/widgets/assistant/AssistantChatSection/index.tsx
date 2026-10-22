@@ -21,15 +21,13 @@ import type { RecordSearch } from './types/recordSearch'
 import { folderPathsOf, matchesQuery, type MenuQuery } from './utils/menuQuery'
 import ChatNotice from './ui/ChatNotice'
 import Composer from './ui/Composer'
+import RecentRecordStrip from './ui/RecentRecordStrip'
 import RecordTimeline from './ui/RecordTimeline'
-import StoppedRecordDock from './ui/StoppedRecordDock'
 import TurnList from './ui/TurnList'
 import styles from './index.module.css'
 
 /** 아래에서 이만큼 안이면 새 글이 올 때 따라 내려간다. 위로 올려 읽는 중이면 그대로 둔다 */
 const STICK_TO_BOTTOM_PX = 80
-/** 이 시각 뒤에 만들어진 회의만 대화에 기록 카드로 보인다 (references/features/recording.md "채팅 창의 녹음" > "기록 카드") */
-const SESSION_STARTED_AT = Date.now()
 
 const cliPathOf = ({
   provider,
@@ -241,13 +239,6 @@ export default function AssistantChatSection({
       : state.turns.length
         ? labels.placeholderContinue
         : labels.placeholder
-  const sessionMeetings = meetings
-    .filter((meeting) => meeting.createdAt >= SESSION_STARTED_AT)
-    .toSorted((a, b) => a.createdAt - b.createdAt)
-  // 막 멈춘 녹음은 입력창 위에 붙는다. 다음 녹음이 시작되면 녹음 카드에 자리를 내주고 대화로 돌아간다
-  const dockedMeeting = isRecording
-    ? undefined
-    : sessionMeetings.find((meeting) => meeting.id === stoppedMeetingId)
   const recordingLabels = t.recording.recorder
   const recordingHint = settings?.recordingShortcut
     ? `${recordingLabels.keepsRunning} · ${formatAccelerator(settings.recordingShortcut)}`
@@ -282,11 +273,10 @@ export default function AssistantChatSection({
             />
           ) : null}
           <RecordTimeline
-            meetings={sessionMeetings.filter((meeting) => meeting !== dockedMeeting)}
+            meetings={meetings}
             searches={searches}
             recordingMeetingId={recordingMeetingId}
             recordingStartedAt={recordingStartedAt ?? 0}
-            stoppedMeetingId={stoppedMeetingId}
             onOpenRecord={onOpenRecord}
           />
         </div>
@@ -304,13 +294,15 @@ export default function AssistantChatSection({
           </p>
         ) : null}
         {recorderSlot}
-        {dockedMeeting ? (
-          <StoppedRecordDock
-            key={dockedMeeting.id}
-            meeting={dockedMeeting}
+        {/* 녹음 중에는 녹음 카드가 이 자리를 쓴다. 막 멈춘 녹음이 바뀌면 그 카드를 펼친 채로 다시 시작한다 */}
+        {isRecording ? null : (
+          <RecentRecordStrip
+            key={stoppedMeetingId}
+            meetings={meetings}
+            stoppedMeetingId={stoppedMeetingId}
             onOpenRecord={onOpenRecord}
           />
-        ) : null}
+        )}
         <Composer
           placeholder={placeholder}
           prefixChip={isSearchMode ? t.transcript.search.chip : null}

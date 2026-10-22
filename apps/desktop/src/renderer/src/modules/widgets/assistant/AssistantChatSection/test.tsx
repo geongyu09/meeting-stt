@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import type { RecordingStateEvent } from '@shared/ipc'
@@ -80,6 +80,7 @@ import { writeClipboardTextApi } from '@renderer/shared/api/clipboard'
 import { onAssistantState, onRecordingState, onRoutinesChanged } from '@renderer/shared/api/events'
 import { getLlmStatusApi } from '@renderer/shared/api/llm'
 import {
+  deleteMeetingApi,
   getMeetingApi,
   getMeetingsApi,
   importMeetingAudioApi,
@@ -233,6 +234,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  localStorage.clear()
 })
 
 describe('AssistantChatSection', () => {
@@ -522,41 +524,78 @@ describe('AssistantChatSection', () => {
     expect(input.placeholder).toBe('무엇을 도와드릴까요?')
   })
 
-  it('앱을 켠 뒤 만든 기록은 카드로 보이고, 막 멈춘 기록은 멈췄어요 줄을 눌러 접고 펼친다', async () => {
-    const createdAt = new Date(2026, 9, 21, 14, 0).getTime()
+  it('기록은 입력창 위 최근 녹음 줄에 최신순으로 모이고, 누른 기록의 카드가 줄 위에 펼쳐진다', async () => {
     const meeting = {
       id: 'meeting-1',
       title: '주간 제품 회의',
-      createdAt: Date.now(),
+      createdAt: new Date(2026, 9, 21, 14, 0).getTime(),
       durationSec: 48 * 60,
       status: 'done' as const,
       hasAudio: false
     }
-    vi.mocked(getMeetingsApi).mockResolvedValue([
-      meeting,
-      { ...meeting, id: 'old', title: '지난 회의', createdAt: createdAt - 86_400_000 }
-    ])
-    vi.mocked(getMeetingApi).mockResolvedValue({
-      meeting,
+    const older = {
+      ...meeting,
+      id: 'old',
+      title: '지난 회의',
+      createdAt: meeting.createdAt - 86_400_000
+    }
+    vi.mocked(getMeetingsApi).mockResolvedValue([older, meeting])
+    vi.mocked(getMeetingApi).mockImplementation(async ({ meetingId }) => ({
+      meeting: meetingId === older.id ? older : meeting,
       utterances: [],
       speakers: [],
       refineResult: null,
       note: ''
-    })
+    }))
     renderChat({ stoppedMeetingId: 'meeting-1' })
 
+    const list = await screen.findByRole('list', { name: '최근 녹음' })
+    const items = within(list).getAllByRole('listitem')
+    expect(items[0].textContent).toContain('주간 제품 회의')
+    expect(items[1].textContent).toContain('지난 회의')
+    // 막 멈춘 녹음은 펼친 채로 시작한다
     expect(await screen.findByRole('article', { name: '기록 주간 제품 회의' })).toBeTruthy()
-    expect(screen.queryByText('지난 회의')).toBeNull()
 
-    const toggle = screen.getByRole('button', { name: /녹음을 멈췄어요/ })
-    expect(toggle.getAttribute('aria-expanded')).toBe('true')
-    await userEvent.click(toggle)
+    const olderButton = within(list).getByRole('button', { name: /지난 회의/, pressed: false })
+    await userEvent.click(olderButton)
 
+    expect(await screen.findByRole('article', { name: '기록 지난 회의' })).toBeTruthy()
     expect(screen.queryByRole('article', { name: '기록 주간 제품 회의' })).toBeNull()
-    expect(toggle.textContent).toContain('주간 제품 회의')
-    await userEvent.click(toggle)
+    await userEvent.click(olderButton)
 
-    expect(await screen.findByRole('article', { name: '기록 주간 제품 회의' })).toBeTruthy()
+    expect(screen.queryByRole('article')).toBeNull()
+  })
+
+  it('x는 기록을 지우지 않고 최근 녹음 줄에서만 빼며, 다시 열어도 빠져 있다', async () => {
+    const meeting = {
+      id: 'meeting-1',
+      title: '주간 제품 회의',
+      createdAt: Date.now(),
+      durationSec: 60,
+      status: 'processing' as const,
+      hasAudio: true
+    }
+    vi.mocked(getMeetingsApi).mockResolvedValue([
+      meeting,
+      { ...meeting, id: 'meeting-2', title: '메모' }
+    ])
+    renderChat()
+
+    const list = await screen.findByRole('list', { name: '최근 녹음' })
+    expect(list.textContent).toContain('처리 중')
+    await userEvent.click(
+      within(list).getByRole('button', { name: '주간 제품 회의 목록에서 빼기' })
+    )
+
+    expect(list.textContent).not.toContain('주간 제품 회의')
+    expect(deleteMeetingApi).not.toHaveBeenCalled()
+
+    cleanup()
+    renderChat()
+
+    const reopened = await screen.findByRole('list', { name: '최근 녹음' })
+    expect(reopened.textContent).toContain('메모')
+    expect(reopened.textContent).not.toContain('주간 제품 회의')
   })
 
   it('/ 명령 파일로 기록 만들기는 파일을 고르게 하고 실패를 도크 위에 알린다', async () => {
