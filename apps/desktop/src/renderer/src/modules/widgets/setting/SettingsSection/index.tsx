@@ -101,7 +101,11 @@ export default function SettingsSection({ category }: SettingsSectionProps) {
             title={t.settings.audioFiles.title}
             description={t.settings.audioFiles.description}
             control={
-              <Button variant="secondary" size="sm" onClick={() => navigate(PATHS.recordings)}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => navigate(PATHS.recordings, { replace: true })}
+              >
                 {t.settings.audioFiles.manage}
               </Button>
             }

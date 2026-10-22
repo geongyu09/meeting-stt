@@ -19,8 +19,10 @@ export default function Recordings() {
         <Button
           variant="secondary"
           size="sm"
-          // 설정 모달이 "녹음·처리" 카테고리로 열리게 한다 (pages/Settings가 state.category를 읽는다)
-          onClick={() => navigate(PATHS.settings, { state: { category: 'recording' } })}
+          // 설정 모달이 "녹음·처리" 카테고리로 열리게 한다. replace라야 설정을 닫을 때 이 화면으로 돌아오지 않는다 (references/features/ui.md "설정 모달")
+          onClick={() =>
+            navigate(PATHS.settings, { replace: true, state: { category: 'recording' } })
+          }
         >
           {t.recording.files.backToSettings}
         </Button>

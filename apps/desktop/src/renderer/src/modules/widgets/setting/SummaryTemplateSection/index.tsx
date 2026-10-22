@@ -25,7 +25,11 @@ export default function SummaryTemplateSection() {
           isLoading ? t.summaryTemplate.section.loading : labels.description({ count: customCount })
         }
         control={
-          <Button variant="secondary" size="sm" onClick={() => navigate(PATHS.summaryTemplates)}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate(PATHS.summaryTemplates, { replace: true })}
+          >
             {labels.manage}
           </Button>
         }
