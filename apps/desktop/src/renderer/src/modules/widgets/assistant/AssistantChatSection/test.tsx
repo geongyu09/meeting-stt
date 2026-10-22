@@ -308,6 +308,17 @@ describe('AssistantChatSection', () => {
     expect(screen.queryByRole('button', { name: /문서 열기/ })).toBeNull()
   })
 
+  it('빈 대화에는 도크 아래 팁 한 줄이 보이고, 대화가 시작되면 사라진다', async () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderChat()
+    await readyInput()
+    expect(await screen.findByText(/루틴으로 만들어 드려요/)).toBeTruthy()
+
+    pushState({ ...answeringChat, isRunning: false })
+    expect(screen.queryByText(/루틴으로 만들어 드려요/)).toBeNull()
+    random.mockRestore()
+  })
+
   it('입력 도크의 마이크 버튼은 녹음을 켜고 끈다', async () => {
     renderChat()
     await readyInput()

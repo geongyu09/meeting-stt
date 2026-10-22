@@ -14,6 +14,7 @@ interface UseWorkspaceSkillsParams {
 const useWorkspaceSkills = ({ folder }: UseWorkspaceSkillsParams) => {
   const [skills, setSkills] = useState<AssistantSkill[]>([])
   const [error, setError] = useState<Error | null>(null)
+  const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
     if (!folder) return
@@ -24,9 +25,10 @@ const useWorkspaceSkills = ({ folder }: UseWorkspaceSkillsParams) => {
         setError(null)
       })
       .catch((caught: unknown) => setError(caught instanceof Error ? caught : new Error('skills')))
+      .finally(() => setIsLoaded(true))
   }, [folder])
 
-  return { skills, error }
+  return { skills, error, isLoaded }
 }
 
 export default useWorkspaceSkills

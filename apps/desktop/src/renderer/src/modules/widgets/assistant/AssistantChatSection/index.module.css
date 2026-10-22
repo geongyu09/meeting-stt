@@ -39,14 +39,21 @@
 /* 입력 도크 아래 녹음 안내 한 줄 (references/features/recording.md "채팅 창의 녹음" > "녹음 카드") */
 .recordingHint,
 .qualityNotice,
-.recordingError {
+.recordingError,
+.tip {
   margin: calc(-1 * var(--space-2)) 0 0;
   font-size: var(--font-xs);
   text-align: center;
 }
 
-.recordingHint {
+/* 빈 대화의 팁 한 줄이 녹음 안내와 같은 자리를 쓴다 (references/features/ui.md "채팅창 리뉴얼" > "홈") */
+.recordingHint,
+.tip {
   color: var(--color-text-muted);
+}
+
+.tipLabel {
+  font-weight: 500;
 }
 
 /* 오류가 아니라 권고다. 빨강은 쓰지 않고 기본 안내보다 진하게만 한다 */

@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
+import type { Messages } from '@shared/i18n'
 import type { AssistantProvider, LlmStatus } from '@shared/types'
 import { ASSISTANT_PROVIDERS } from '@shared/assistant'
 import { acceleratorFromKeyInput, formatAccelerator } from '@shared/shortcut'
@@ -15,9 +16,11 @@ import useRecordingState from '@renderer/shared/hooks/domain/recording/useRecord
 import useSettings from '@renderer/shared/hooks/domain/setting/useSettings'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
+import { CHAT_TIPS } from './constants/chatTips'
 import { COMMAND_PATHS, COMMANDS, MAX_MENU_ITEMS } from './constants/commands'
 import type { CommandId, MenuGroup, MenuItem } from './types/menu'
 import type { RecordSearch } from './types/recordSearch'
+import { chatTipOf } from './utils/chatTip'
 import { folderPathsOf, matchesQuery, type MenuQuery } from './utils/menuQuery'
 import ChatNotice from './ui/ChatNotice'
 import Composer from './ui/Composer'
@@ -38,6 +41,21 @@ const cliPathOf = ({
 }) => (provider === 'codex-cli' ? llmStatus.codexCliPath : llmStatus.claudeCliPath)
 
 const parentFolderOf = (path: string) => path.split('/').slice(0, -1).join('/')
+
+const tipTextOf = ({
+  tip,
+  labels
+}: {
+  tip: ReturnType<typeof chatTipOf>
+  labels: Messages['chatTip']
+}) => {
+  if (tip.kind === 'missingSkill') {
+    return labels.missingSkill({ feature: labels.features[tip.skill], skill: tip.skill })
+  }
+  const text = labels.tips[tip.id]
+
+  return typeof text === 'function' ? text({ key: formatAccelerator(tip.accelerator ?? '') }) : text
+}
 
 interface AssistantChatSectionProps {
   /** 문서 패널에 열린 파일. 패널이 닫혀 있으면 null */
@@ -81,8 +99,10 @@ export default function AssistantChatSection({
   const { state, send, cancel, reset } = useAssistantChat()
   const folder = status && !status.folderProblem ? status.folder : null
   const { files } = useWorkspaceFiles({ folder })
-  const { skills } = useWorkspaceSkills({ folder })
+  const { skills, isLoaded: isSkillsLoaded } = useWorkspaceSkills({ folder })
   const [actionError, setActionError] = useState<string | null>(null)
+  // 빈 대화의 팁 한 줄. 앱을 열 때와 새 대화마다 다시 고른다 (references/features/ui.md "채팅창 리뉴얼" > "홈")
+  const [tipSeed, setTipSeed] = useState(Math.random)
   // 기록 찾기: 도크가 찾기 모드면 Enter가 에이전트 대신 검색을 부르고 결과는 대화 속 카드다
   const [isSearchMode, setIsSearchMode] = useState(false)
   const [searches, setSearches] = useState<RecordSearch[]>([])
@@ -137,7 +157,10 @@ export default function AssistantChatSection({
     if (id === 'record') return runSafely(controlRecordingApi({ kind: 'start' }))
     if (id === 'importAudio') return importAudio()
     if (id === 'findRecords') return setIsSearchMode(true)
-    if (id === 'newChat') return state.turns.length ? runSafely(reset()) : undefined
+    if (id === 'newChat') {
+      setTipSeed(Math.random())
+      return state.turns.length ? runSafely(reset()) : undefined
+    }
     if (id === 'openDocument') return onOpenDocument(null)
     // 루틴은 대화로 정한다 (references/features/assistant.md "루틴" > "대화로 만들기")
     if (id === 'routine') return runSafely(send({ provider, text: labels.routineStarter }))
@@ -246,6 +269,23 @@ export default function AssistantChatSection({
   const qualityNotice = qualityIssue
     ? `${t.recording.quality[qualityIssue].title} ${t.recording.quality[qualityIssue].advice}`
     : null
+  // 스킬 목록을 읽기 전에 고르면 스킬 안내가 보였다가 바뀐다
+  const tip =
+    isReady &&
+    status &&
+    settings &&
+    isSkillsLoaded &&
+    !state.turns.length &&
+    !isRecording &&
+    !recordingError
+      ? chatTipOf({
+          tips: CHAT_TIPS,
+          seed: tipSeed,
+          skillNames: skills.map(({ name }) => name),
+          shortcuts: settings,
+          isOrganizeEnabled: status.isAutoOrganizeEnabled
+        })
+      : null
 
   // 열린 문서에 대해 묻는 것이라 에이전트에게 어느 문서인지 알린다. 말풍선에도 그대로 보인다
   const handleSend = async (text: string) => {
@@ -325,6 +365,12 @@ export default function AssistantChatSection({
         ) : isRecording ? (
           <p className={qualityNotice ? styles.qualityNotice : styles.recordingHint} role="status">
             {qualityNotice ?? recordingHint}
+          </p>
+        ) : null}
+        {tip ? (
+          <p className={styles.tip}>
+            <span className={styles.tipLabel}>{t.chatTip.label}</span>{' '}
+            {tipTextOf({ tip, labels: t.chatTip })}
           </p>
         ) : null}
       </div>
