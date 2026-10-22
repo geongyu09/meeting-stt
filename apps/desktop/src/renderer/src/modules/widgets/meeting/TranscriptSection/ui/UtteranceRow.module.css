@@ -1,6 +1,7 @@
 .row {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) 30px;
+  /* 시각은 늘 HH:MM:SS 고정폭이라 열을 글자 폭에 맞춰야 화자 칸과 겹치지 않는다 */
+  grid-template-columns: max-content minmax(0, 1fr) 30px;
   gap: 10px;
   padding: var(--space-2) 10px;
   border-radius: var(--radius-md);
