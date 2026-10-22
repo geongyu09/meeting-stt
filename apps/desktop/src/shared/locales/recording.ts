@@ -13,7 +13,7 @@ export const recordingKo = {
   speakerCount: {
     label: '참석자 수',
     short: '참석자',
-    unknown: '모름',
+    unknown: '자동',
     invalid: ({ min, max }: { min: number; max: number }) =>
       `${min}~${max} 사이의 정수만 쓸 수 있습니다`
   },
@@ -132,7 +132,7 @@ export const recordingEn: typeof recordingKo = {
   speakerCount: {
     label: 'Participants',
     short: 'Participants',
-    unknown: 'Unknown',
+    unknown: 'Auto',
     invalid: ({ min, max }) => `Enter a whole number between ${min} and ${max}`
   },
   recorder: {

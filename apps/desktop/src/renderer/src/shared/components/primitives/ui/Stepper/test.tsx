@@ -18,7 +18,7 @@ const renderStepper = (value: string) => {
       min={MIN}
       max={MAX}
       label={LABEL}
-      placeholder="모름"
+      placeholder="자동"
     />
   )
   return { onChange }

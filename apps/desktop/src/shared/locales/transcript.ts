@@ -83,7 +83,7 @@ export const transcriptKo = {
     speakerCountInvalid: ({ min, max }: { min: number; max: number }) =>
       `${min}~${max} 사이의 정수만 쓸 수 있습니다`,
     speakerCountLabel: '참석자 수',
-    speakerCountPlaceholder: '모름',
+    speakerCountPlaceholder: '자동',
     cancel: '취소',
     reprocess: '다시 인식',
     exported: '저장했습니다',
@@ -209,7 +209,7 @@ export const transcriptEn: typeof transcriptKo = {
     speakerCountHint: 'Number of participants (leave blank for automatic)',
     speakerCountInvalid: ({ min, max }) => `Enter an integer between ${min} and ${max}`,
     speakerCountLabel: 'Number of participants',
-    speakerCountPlaceholder: 'Unknown',
+    speakerCountPlaceholder: 'Auto',
     cancel: 'Cancel',
     reprocess: 'Re-transcribe',
     exported: 'Saved',
