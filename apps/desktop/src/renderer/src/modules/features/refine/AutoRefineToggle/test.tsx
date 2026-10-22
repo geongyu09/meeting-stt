@@ -44,7 +44,7 @@ describe('AutoRefineToggle', () => {
 
     const toggle = await screen.findByRole('switch', { name: TOGGLE_NAME })
     expect(toggle.getAttribute('aria-checked')).toBe('false')
-    expect(screen.getByText(/회의록이 선택한 공급자 서버로 전송됩니다/)).toBeTruthy()
+    expect(screen.getByText(/회의록이 선택한 공급자 서버로 전송되고/)).toBeTruthy()
   })
 
   it('켜면 main의 최신 설정에 합쳐 저장한다', async () => {

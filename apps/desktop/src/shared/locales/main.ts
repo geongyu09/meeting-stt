@@ -62,7 +62,8 @@ export const mainKo = {
     note: '노트'
   },
   recording: {
-    defaultTitle: ({ date }: { date: string }) => `${date} 회의`,
+    defaultTitle: ({ date }: { date: string }) => `${date} 녹음`,
+    legacyDefaultTitle: ({ date }: { date: string }) => `${date} 회의`,
     notActive: '진행 중인 녹음이 아닙니다',
     alreadyActive: '이미 녹음이 진행 중입니다',
     sampleRateUnsupported: ({ expected, actual }: { expected: number; actual: number }) =>
@@ -237,7 +238,8 @@ export const mainEn: typeof mainKo = {
     note: 'Note'
   },
   recording: {
-    defaultTitle: ({ date }) => `Meeting ${date}`,
+    defaultTitle: ({ date }) => `Recording ${date}`,
+    legacyDefaultTitle: ({ date }) => `Meeting ${date}`,
     notActive: 'This recording is not in progress',
     alreadyActive: 'A recording is already in progress',
     sampleRateUnsupported: ({ expected, actual }) =>

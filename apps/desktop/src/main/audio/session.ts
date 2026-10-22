@@ -84,7 +84,7 @@ export const recordingsDir = () => path.join(app.getPath('userData'), 'recording
 
 const pad2 = (value: number) => String(value).padStart(2, '0')
 
-/** 기본 제목은 "2026-08-26 회의" (references/data-model.md) */
+/** 기본 제목은 전사 전 임시 이름 "2026-08-26 녹음" (references/features/transcript.md "회의록 자동 제목") */
 export const defaultTitle = (createdAt: number) => {
   const date = new Date(createdAt)
 

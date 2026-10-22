@@ -8,7 +8,7 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS meetings (
   id            TEXT PRIMARY KEY,           -- uuid
-  title         TEXT NOT NULL,              -- 기본값: "2026-08-25 회의". 처리 뒤 기본값 그대로면 자동 제목 "2026-08-25 <주제>"로 바뀐다 (2026-10-21, 컬럼 추가 없음)
+  title         TEXT NOT NULL,              -- 기본값(전사 전 임시 이름): "2026-08-25 녹음" (v0.3.2까지 "… 회의"). 처리 뒤 기본값 그대로면 자동 제목 "2026-08-25 <주제>"로 바뀐다 (2026-10-21, 컬럼 추가 없음)
   created_at    INTEGER NOT NULL,           -- epoch ms
   duration_sec  REAL NOT NULL DEFAULT 0,
   status        TEXT NOT NULL,              -- 'recording' | 'processing' | 'done' | 'error'

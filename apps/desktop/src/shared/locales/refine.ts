@@ -32,7 +32,7 @@ export const refineKo = {
   autoToggle: {
     title: '회의록을 만들면 자동으로 교정',
     description:
-      '회의록이 만들어질 때마다 문장 뜻을 보고 잘못 받아 적은 말을 고칩니다. 켜면 회의가 끝날 때마다 회의록이 선택한 공급자 서버로 전송됩니다. 꺼 두어도 회의 상세의 "다시 교정"으로 직접 교정할 수 있습니다'
+      '회의록이 만들어질 때마다 문장 뜻을 보고 잘못 받아 적은 말을 고칩니다. 켜면 회의가 끝날 때마다 회의록이 선택한 공급자 서버로 전송되고, 제목도 내용으로 만듭니다. 꺼 두어도 회의 상세의 "다시 교정"으로 직접 교정할 수 있습니다'
   },
   errors: {
     request: '교정을 시작하지 못했습니다'
@@ -69,7 +69,7 @@ export const refineEn: typeof refineKo = {
   autoToggle: {
     title: 'Correct transcripts automatically',
     description:
-      'Fixes misheard words by reading each sentence whenever a transcript is created. When on, every transcript is sent to the selected provider after each meeting. You can still correct a meeting yourself with "Correct again" when this is off'
+      'Fixes misheard words by reading each sentence whenever a transcript is created. When on, every transcript is sent to the selected provider after each meeting, and the title is also generated from its contents. You can still correct a meeting yourself with "Correct again" when this is off'
   },
   errors: {
     request: 'Could not start the correction'

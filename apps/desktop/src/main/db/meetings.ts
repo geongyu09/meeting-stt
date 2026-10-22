@@ -212,6 +212,23 @@ export const renameMeeting = ({ meetingId, title }: { meetingId: string; title: 
     title
   }).changes
 
+/**
+ * 자동 제목을 쓴다. 잡 시작 때 읽은 기본 제목 그대로일 때만 바뀌고, 그사이 사용자가 고쳤으면 0을 돌려준다
+ * (references/data-model.md "자동 제목 저장")
+ */
+export const updateAutoTitle = ({
+  meetingId,
+  title,
+  defaultTitle
+}: {
+  meetingId: string
+  title: string
+  defaultTitle: string
+}) =>
+  getDb()
+    .prepare('UPDATE meetings SET title = @title WHERE id = @meetingId AND title = @defaultTitle')
+    .run({ meetingId, title, defaultTitle }).changes
+
 /** 녹음 노트를 쓴다. 대상 회의가 없으면 0을 돌려준다 (references/data-model.md "녹음 노트 저장") */
 export const updateMeetingNote = ({ meetingId, note }: { meetingId: string; note: string }) =>
   getDb().prepare('UPDATE meetings SET note = @note WHERE id = @meetingId').run({ meetingId, note })

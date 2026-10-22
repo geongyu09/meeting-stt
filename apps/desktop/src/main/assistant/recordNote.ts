@@ -6,7 +6,7 @@ import {
   type DefaultSpeakerNames
 } from '@meeting-stt/core/format'
 import type { MergedUtterance } from '@meeting-stt/core/types'
-import { LOCALES, MESSAGES } from '@shared/i18n'
+import { isDefaultTitle } from '@shared/autoTitle'
 import { toSafeFileName } from '../audio/exportFileName'
 
 /**
@@ -36,10 +36,6 @@ const dateTextOf = (date: Date) =>
 
 const timeTextOf = (date: Date) => `${pad2(date.getHours())}${pad2(date.getMinutes())}`
 
-/** "2026-10-21 회의" / "Meeting 2026-10-21"처럼 앱이 붙인 기본 제목인지 — 어느 UI 언어로 만들었든 */
-const isDefaultTitle = ({ title, date }: { title: string; date: string }) =>
-  LOCALES.some((locale) => MESSAGES[locale].main.recording.defaultTitle({ date }) === title)
-
 /**
  * @description 원문 파일 이름(확장자 없이). `YYYY-MM-DD-HHmm`에 제목에서 날짜를 뗀 주제를 붙이고, 기본 제목이면 시각만.
  * @example
@@ -52,7 +48,7 @@ export const recordNoteBaseName = ({
   const date = new Date(createdAt)
   const dateText = dateTextOf(date)
   const stamp = `${dateText}-${timeTextOf(date)}`
-  if (isDefaultTitle({ title, date: dateText })) return stamp
+  if (isDefaultTitle({ title, createdAt })) return stamp
 
   const topic = toSafeFileName(title.replace(dateText, '')).slice(0, NOTE_TOPIC_MAX_CHARS).trim()
   return topic ? `${stamp} ${topic}` : stamp

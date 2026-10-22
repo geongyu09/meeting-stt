@@ -20,10 +20,10 @@ describe('recordNoteBaseName', () => {
   })
 
   it('기본 제목이면 어느 언어든 시각만 쓴다', () => {
-    expect(recordNoteBaseName({ title: '2026-10-21 회의', createdAt: CREATED_AT })).toBe(
+    expect(recordNoteBaseName({ title: '2026-10-21 녹음', createdAt: CREATED_AT })).toBe(
       '2026-10-21-1430'
     )
-    expect(recordNoteBaseName({ title: 'Meeting 2026-10-21', createdAt: CREATED_AT })).toBe(
+    expect(recordNoteBaseName({ title: 'Recording 2026-10-21', createdAt: CREATED_AT })).toBe(
       '2026-10-21-1430'
     )
   })

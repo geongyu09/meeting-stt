@@ -116,7 +116,7 @@ export const assistantKo = {
     autoOrganize: {
       title: '녹음 기록 자동 정리',
       description:
-        '녹음이 끝나면 전사 원문을 작업 폴더의 raw/recordings/에 저장하고 에이전트가 정리합니다. 켜져 있으면 녹음 내용이 Anthropic·OpenAI 서버로 전송됩니다. 꺼도 원문은 저장합니다.',
+        '녹음이 끝나면 전사 원문을 작업 폴더의 raw/recordings/에 저장하고 에이전트가 정리합니다. 켜져 있으면 녹음 내용이 Anthropic·OpenAI 서버로 전송되고, 제목도 내용으로 만듭니다. 꺼도 원문은 저장합니다.',
       error: '자동 정리 설정을 바꾸지 못했습니다'
     }
   },
@@ -280,7 +280,7 @@ export const assistantEn: typeof assistantKo = {
     autoOrganize: {
       title: 'Auto-organize recordings',
       description:
-        'When a recording finishes, the transcript is saved to raw/recordings/ in the work folder and the agent organizes it. While on, recording contents are sent to Anthropic or OpenAI servers. The transcript is saved even when off.',
+        'When a recording finishes, the transcript is saved to raw/recordings/ in the work folder and the agent organizes it. While on, recording contents are sent to Anthropic or OpenAI servers, and the title is also generated from its contents. The transcript is saved even when off.',
       error: 'Could not change the auto-organize setting'
     }
   },

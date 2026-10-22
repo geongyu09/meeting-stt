@@ -32,6 +32,7 @@ import { runRefine } from '../refine/run'
 import { runSentenceRefine } from '../refine/sentence'
 import { runSummary } from '../summary/run'
 import { buildTranscriptText } from '../summary/transcript'
+import { autoTitleSkipReason, runAutoTitle } from '../title/run'
 import { runPipeline } from './run'
 import { t } from '../locale'
 
@@ -39,10 +40,12 @@ const DONE_PERCENT = 100
 
 /** templateId는 요약 잡만 쓴다. 없으면 기본 템플릿 (references/architecture.md "요약 템플릿") */
 type MeetingJob = {
-  kind: 'pipeline' | 'summary' | 'refine'
+  kind: 'pipeline' | 'summary' | 'refine' | 'title'
   meetingId: string
   templateId?: string
-  /** 자동 교정 잡만 — 끝나면(실패해도) 뇌 정리 잡을 넣는다 (references/features/assistant.md "녹음 기록 자동 정리") */
+  /** 자동 교정 잡만 — 끝나면(실패해도) 자동 제목을 본다 (references/features/transcript.md "회의록 자동 제목") */
+  isThenTitle?: boolean
+  /** 자동 제목 잡만 — 끝나면(실패해도) 뇌 정리 잡을 넣는다 (references/features/assistant.md "녹음 기록 자동 정리") */
   isThenOrganize?: boolean
 }
 
@@ -136,8 +139,8 @@ const processMeeting = async (meetingId: string) => {
   info(`회의 ${meetingId} 처리 완료 (발화 ${utterances.length}개)`)
 
   await applyAudioRetention({ meetingId })
-  // 교정된 본문이 뇌에 들어가야 하므로 교정이 돌면 그 뒤에, 아니면 바로 정리한다
-  if (!(await scheduleAutoRefine({ meetingId }))) scheduleOrganize({ meetingId })
+  // 교정된 본문으로 제목을 짓고 그 제목이 뇌에 들어가야 하므로 교정 → 제목 → 정리 순서다
+  if (!(await scheduleAutoRefine({ meetingId }))) await scheduleAutoTitle({ meetingId })
 }
 
 /** 처음 처리할 때만 자동으로 보낸다 — 다시 인식한 회의의 원문을 두 번 만들지 않는다 */
@@ -252,8 +255,23 @@ const scheduleAutoRefine = async ({ meetingId }: { meetingId: string }) => {
     return false
   }
 
-  enqueue({ kind: 'refine', meetingId, isThenOrganize: true })
+  enqueue({ kind: 'refine', meetingId, isThenTitle: true })
   return true
+}
+
+/** 제목 잡을 넣으면 그 끝에서, 건너뛰면 바로 정리 잡을 넣는다. 건너뛰는 것은 로그만 남긴다 */
+const scheduleAutoTitle = async ({ meetingId }: { meetingId: string }) => {
+  try {
+    const reason = await autoTitleSkipReason({ meetingId })
+    if (!reason) {
+      enqueue({ kind: 'title', meetingId, isThenOrganize: true })
+      return
+    }
+    info(`회의 ${meetingId} 자동 제목 건너뜀: ${reason}`)
+  } catch (caught) {
+    warn(`회의 ${meetingId} 자동 제목 건너뜀: 상태 확인 실패 (${messageOf(caught)})`)
+  }
+  scheduleOrganize({ meetingId })
 }
 
 /**
@@ -271,6 +289,11 @@ const failJob = ({ kind, meetingId }: MeetingJob, message: string) => {
     reportRefine({ meetingId, stage: 'error', percent: 0, errorMessage: message })
     return
   }
+  // 제목 실패는 기본 제목을 둔다. 고치려면 인라인 편집이 있다
+  if (kind === 'title') {
+    warn(`회의 ${meetingId} 자동 제목 실패: ${message}`)
+    return
+  }
 
   logError(`회의 ${meetingId} 처리 실패: ${message}`)
   updateMeetingStatus({ meetingId, status: 'error', errorMessage: message })
@@ -282,6 +305,7 @@ const runMeetingJob = (job: MeetingJob) => {
   const { kind, meetingId } = job
   if (kind === 'summary') return summarizeMeeting(job)
   if (kind === 'refine') return refineMeeting(meetingId)
+  if (kind === 'title') return runAutoTitle({ meetingId })
 
   return processMeeting(meetingId)
 }
@@ -304,6 +328,7 @@ const drain = async () => {
     } catch (caught) {
       failJob(job, messageOf(caught))
     }
+    if (job.isThenTitle) await scheduleAutoTitle({ meetingId: job.meetingId })
     if (job.isThenOrganize) scheduleOrganize({ meetingId: job.meetingId })
   }
 

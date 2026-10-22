@@ -733,13 +733,16 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 
 녹음 중에 제목을 입력하는 대신, 처리가 끝나면 `YYYY-MM-DD <주제>`로 제목을 붙인다. 외부 공급자는 이미 자동 전송에 동의한 경우에만 쓴다 (2026-10-21 사용자 결정, `features/transcript.md` "회의록 자동 제목").
 문서를 먼저 고쳤다 (`SKILL.md` 1절 표, `features/transcript.md` 새 절, `features/assistant.md` 흐름·원문 파일 이름·알림·스위치 설명, `data-model.md` `meetings.title`·자동 제목 저장 쿼리). 스키마·IPC 변경은 없다.
+2026-10-22 사용자 지시("만들어")로 코드를 붙였다. 같은 날 사용자 결정으로 입력에 녹음 노트를 더하고("녹음 중에 기록한 것들이랑 전사된 내용 기반으로") 프롬프트는 회의·메모 대신 "녹음"으로 부른다("회의 아니고 녹음이야").
 
-- [ ] 사전: 메모 기본 제목(`main.recording`, `ko`·`en`), 외부 자동 교정·녹음 기록 자동 정리 스위치 설명에 제목 전송 한 줄
-- [ ] 순수 함수 `src/shared/autoTitle.ts` + vitest — 입력 자르기(처음·가운데·끝), `cleanTitleTopic`(따옴표·`#`·`제목:`·마침표·여러 줄·30자·빈 답), `isDefaultTitle`(회의·메모 × `ko`·`en`, 다른 날짜), 최종 제목 조립
-- [ ] 잡: GPU 큐 `{ kind: 'title' }`, `autoTitleSkipReason`(기본 제목 아님·발화 없음·LLM 미준비·외부인데 동의 없음), 자동 교정 끝 → 제목 → 정리 잡 연결, 조건부 UPDATE + `meetings:changed`, 실패는 경고 로그만
-- [ ] 로컬 한 줄 GBNF·`TITLE_MAX_TOKENS`, 외부는 첫 줄만
+- [x] 사전: 외부 자동 교정·녹음 기록 자동 정리 스위치 설명에 제목 전송 한 줄 (2026-10-22)
+- [x] 사전: 기본 제목을 전사 전 임시 이름 `YYYY-MM-DD 녹음`(`Recording YYYY-MM-DD`)으로, 예전 `회의`·`Meeting`은 `legacyDefaultTitle`로 남겨 `isDefaultTitle`이 함께 본다 (2026-10-22 사용자: "stt 하기 전에는 임시 이름으로만")
+- [ ] 사전(남음): 메모 기본 제목(`main.recording`, `ko`·`en`) — 녹음 종류(메모)가 아직 없어 그 작업과 함께 넣는다. `isDefaultTitle`은 `main.recording`의 기본 제목을 모두 보므로 메모 제목 함수를 더하면 판정에도 넣는다
+- [x] 순수 함수 `src/shared/autoTitle.ts` + vitest — 입력 자르기(처음·가운데·끝), 노트 앞붙이기(`clipNote`), `cleanTitleTopic`(따옴표·`#`·`제목:`·날짜·마침표·여러 줄·30자·빈 답), `isDefaultTitle`(회의 × `ko`·`en`, 다른 날짜), 최종 제목 조립. `recordNote.ts`도 같은 `isDefaultTitle`을 쓴다 (2026-10-22)
+- [x] 잡 `src/main/title/run.ts`: GPU 큐 `{ kind: 'title' }`, `autoTitleSkipReason`(기본 제목 아님·발화 없음·LLM 미준비·외부인데 동의 없음), 자동 교정 끝 → 제목 → 정리 잡 연결, 조건부 UPDATE(`updateAutoTitle`) + `meetings:changed`, 실패는 경고 로그만 (2026-10-22)
+- [x] 로컬 한 줄 GBNF(`[^\n]{1,60}`)·`TITLE_MAX_TOKENS`(48), 외부는 첫 줄만 (2026-10-22). 동봉 `llama-cli` + Qwen3-4B로 노트·전사 예시 한 번 돌려 문법이 읽히고 "이사 후보지와 전세 대출 확인"을 낸 것을 확인했다
 - [ ] 측정 — 실제 회의·메모 녹음 몇 개(71분 회의, 짧은 메모)로 로컬 4B와 외부 공급자의 제목을 보고 `TITLE_INPUT_MAX_CHARS`(잠정 4,000)를 확정
-- [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과
+- [x] desktop `test`·`typecheck`, 바꾼 파일 `eslint`, `electron-vite build` 통과 (2026-10-22)
 - [ ] 완료 기준: `pnpm dev`에서 로컬 요약 모델이 있는 상태로 메모를 녹음하면 처리 뒤 사이드바 제목이 `오늘 날짜 + 주제`로 바뀌고, 처리 중에 제목을 고쳐 두면 바뀌지 않는다. 외부 공급자에서 두 동의가 모두 꺼져 있으면 기본 제목이 그대로다. 작업 폴더가 있으면 `raw/recordings/<시각> <주제>.md`와 머리말 제목이 같은 제목으로 생긴다
 
 ### 루틴 (2026-10-22)
