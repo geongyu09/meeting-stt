@@ -1,6 +1,6 @@
 // 데이터셋마다 고정 입력을 한 번 만든다: 정규화 → STT → CLI 화자 분리(참석자 수 / 12) → 재임베딩 캐시.
 // 있는 산출물은 건너뛰고, 단계별 시간을 output/exp/<id>.times.json에 남긴다 (docs/diarization-experiments.md 3-4절).
-// 사용: nice -n 15 pnpm --filter meeting-stt exec tsx scripts/diarExpPrepare.ts [--dataset=D3s,D5]
+// 사용: nice -n 15 pnpm --filter meeting-stt exec tsx scripts/diarExpPrepare.ts [--dataset=D3s,D5] [--path=unknown]
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -97,7 +97,13 @@ const ensureCli = async ({
   info(`  CLI(${countPath}) ${sec.toFixed(1)}초`)
 }
 
-const prepare = async (dataset: DiarDataset) => {
+const prepare = async ({
+  dataset,
+  countPaths
+}: {
+  dataset: DiarDataset
+  countPaths: SpeakerCountPath[]
+}) => {
   info(`[${dataset.id}]`)
   const timesPath = path.join(EXP_DIR, `${dataset.id}.times.json`)
   const times: StageTimes = existsSync(timesPath)
@@ -106,7 +112,7 @@ const prepare = async (dataset: DiarDataset) => {
 
   await ensureNormalized(dataset)
   await ensureStt({ dataset, times })
-  for (const countPath of COUNT_PATHS) {
+  for (const countPath of countPaths) {
     await ensureCli({ dataset, countPath, times })
     const { embedSec, chunks } = await loadReclusterInputs({ dataset, countPath })
     if (embedSec) times[`embedSec.${countPath}`] = embedSec
@@ -117,8 +123,13 @@ const prepare = async (dataset: DiarDataset) => {
 
 const main = async () => {
   const selector = process.argv.find((arg) => arg.startsWith('--dataset='))?.slice(10)
+  const countPaths =
+    (process.argv
+      .find((arg) => arg.startsWith('--path='))
+      ?.slice(7)
+      .split(',') as SpeakerCountPath[] | undefined) ?? COUNT_PATHS
   await mkdir(EXP_DIR, { recursive: true })
-  for (const dataset of selectDatasets(selector)) await prepare(dataset)
+  for (const dataset of selectDatasets(selector)) await prepare({ dataset, countPaths })
 }
 
 main().catch((error) => fail(error instanceof Error ? error.message : String(error)))

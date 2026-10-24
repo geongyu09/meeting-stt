@@ -34,7 +34,7 @@ export const EXP_DIR = path.join(OUTPUT_DIR, 'exp')
 export const EXPERIMENT_THREADS = 3
 const MS_PER_SEC = 1000
 
-export type DatasetGroup = 'D1' | 'D2' | 'D3s' | 'D4s' | 'D5'
+export type DatasetGroup = 'D1' | 'D2' | 'D3s' | 'D4s' | 'D5' | 'D6'
 /** known = 참석자 수 입력(CLI·K 모두 정답 화자 수), unknown = 참석자 수 없음(둘 다 12) */
 export type SpeakerCountPath = 'known' | 'unknown'
 
@@ -147,7 +147,21 @@ export const DATASETS: DiarDataset[] = [
   simDataset({ id: 'onl-3h', speakerCount: 3, isOnline: true }),
   simDataset({ id: 'onl-3s', speakerCount: 3, isOnline: true }),
   simDataset({ id: 'onl-4s', speakerCount: 4, isOnline: true }),
-  ...amiDatasets
+  ...amiDatasets,
+  // D6: 채팅창 리뉴얼 뒤 참석자 수 없이 처리된 실제 녹음. 정답본 없이 화자 수만 사용자에게 받았다 (E11)
+  ...[
+    { id: 'D6-mentoring', speakerCount: 6 },
+    { id: 'D6-promo', speakerCount: 5 },
+    { id: 'D6-retro', speakerCount: 5 }
+  ].map<DiarDataset>(({ id, speakerCount }) =>
+    withDefaultPaths({
+      id,
+      group: 'D6',
+      language: 'ko',
+      speakerCount,
+      sourcePath: path.join(AUDIO_DIR, `real-1023-${id.slice('D6-'.length)}.wav`)
+    })
+  )
 ]
 
 /** `D5`처럼 묶음 이름을 주면 그 묶음 전체, `all`이면 전부, 아니면 쉼표로 나눈 ID 목록 */
