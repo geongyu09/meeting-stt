@@ -18,6 +18,12 @@ const NEAREST_SPEAKER_TOLERANCE_SEC = 1
  */
 const MINOR_SPEAKER_TOTAL_SEC = 10
 
+/**
+ * 긴 녹음에서는 10초로는 모자라다. 과분할(K=12) 뒤 병합 보호로 돌아오지 못한 여분 클러스터는 실제 녹음에서 16~50초(전체의 3.1% 이하),
+ * 실제 화자는 4% 이상이었다. 대신 발화가 전체의 2%도 안 되는 실제 참석자는 이웃에 합쳐진다 (docs/diarization-experiments.md E11)
+ */
+const MINOR_SPEAKER_TOTAL_SHARE = 0.02
+
 /** 다음 단어까지 이만큼 쉬면 문장부호가 없어도 문장이 끝난 것으로 본다 */
 const SENTENCE_GAP_SEC = 1
 
@@ -125,13 +131,15 @@ const nearestMajorSpeaker = ({
   ).speaker
 
 /**
- * 총 발화 시간이 MINOR_SPEAKER_TOTAL_SEC 미만인 군소 화자의 구간을 가장 가까운 주요 화자에게 넘긴다.
+ * 총 발화 시간이 MINOR_SPEAKER_TOTAL_SEC와 전체의 MINOR_SPEAKER_TOTAL_SHARE 중 큰 값 미만인 군소 화자의 구간을 가장 가까운 주요 화자에게 넘긴다.
  * 주요 화자가 한 명도 없으면(아주 짧은 녹음) 그대로 둔다.
  */
 export const absorbMinorSpeakers = (speakerSegments: SpeakerSegment[]) => {
   const totals = totalDurationBySpeaker(speakerSegments)
+  const overallSec = [...totals.values()].reduce((sum, total) => sum + total, 0)
+  const minTotalSec = Math.max(MINOR_SPEAKER_TOTAL_SEC, overallSec * MINOR_SPEAKER_TOTAL_SHARE)
   const majorLabels = new Set(
-    [...totals].filter(([, total]) => total >= MINOR_SPEAKER_TOTAL_SEC).map(([label]) => label)
+    [...totals].filter(([, total]) => total >= minTotalSec).map(([label]) => label)
   )
   if (majorLabels.size === 0 || majorLabels.size === totals.size) return speakerSegments
 

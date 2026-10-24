@@ -306,6 +306,21 @@ describe('absorbMinorSpeakers', () => {
     ])
   })
 
+  it('긴 녹음에서는 10초를 넘어도 전체의 2% 미만인 화자를 흡수한다', () => {
+    const longMeeting: SpeakerSegment[] = [
+      { start: 0, end: 600, speaker: 'speaker_00' },
+      { start: 600, end: 1200, speaker: 'speaker_01' },
+      { start: 1200, end: 1230, speaker: 'speaker_02' },
+      { start: 1230, end: 1290, speaker: 'speaker_03' }
+    ]
+
+    // 전체 1,290초의 2%는 25.8초: 30초는 남고, 60초(4.7%)도 남는다
+    expect(absorbMinorSpeakers(longMeeting)).toEqual(longMeeting)
+
+    const withFragment = [...longMeeting, { start: 1290, end: 1310, speaker: 'speaker_04' }]
+    expect(absorbMinorSpeakers(withFragment).at(-1)?.speaker).toBe('speaker_03')
+  })
+
   it('주요 화자가 한 명도 없으면 그대로 둔다', () => {
     const shortOnly: SpeakerSegment[] = [
       { start: 0, end: 3, speaker: 'speaker_00' },
