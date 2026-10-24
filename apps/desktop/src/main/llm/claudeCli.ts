@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { buildClaudeCliArgs, parseClaudeCliOutput } from '@shared/llm'
+import { buildClaudeCliArgs, claudeCliErrorReason, parseClaudeCliOutput } from '@shared/llm'
 import { t } from '../locale'
 import { runBinary } from '../bin/spawn'
 
@@ -46,13 +46,20 @@ export const completeWithClaudeCli = async ({
   const cwd = cliWorkDir()
   await mkdir(cwd, { recursive: true })
 
+  const stdoutLines: string[] = []
+  const errors = t().llm.errors
+
   const { stdout } = await runBinary({
     command: cliPath,
     args: buildClaudeCliArgs({ system }),
     input: prompt,
     cwd,
-    env: await spawnEnv()
+    env: await spawnEnv(),
+    onStdoutLine: (line) => stdoutLines.push(line)
+  }).catch((caught: unknown) => {
+    const reason = claudeCliErrorReason(stdoutLines.join('\n'))
+    throw reason ? new Error(errors.cliFailed({ reason })) : caught
   })
 
-  return parseClaudeCliOutput(stdout, t().llm.errors)
+  return parseClaudeCliOutput(stdout, errors)
 }

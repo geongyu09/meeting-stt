@@ -195,6 +195,22 @@ export const parseClaudeCliOutput = (stdout: string, errors: LlmErrorMessages = 
   return result
 }
 
+/**
+ * @description 비정상 종료한 `claude -p`의 stdout에서 실패 사유를 꺼냅니다.
+ * 사용량 한도·로그인 만료는 사유를 결과 JSON에 담고 코드 1로 끝나며 stderr는 비어 있다.
+ * @param stdout - CLI 표준 출력 전체
+ * @returns 사유. 오류 결과 JSON이 없으면 null
+ * @example
+ * claudeCliErrorReason('{"type":"result","is_error":true,"result":"Not logged in"}') // 'Not logged in'
+ */
+export const claudeCliErrorReason = (stdout: string) => {
+  const parsed = extractJson(stdout)
+  if (!isRecord(parsed) || parsed.is_error !== true || typeof parsed.result !== 'string')
+    return null
+
+  return parsed.result || null
+}
+
 interface BuildCodexCliArgsParams {
   system: string
   /** null이면 `-m`을 넘기지 않아 CLI 기본 모델을 쓴다 */

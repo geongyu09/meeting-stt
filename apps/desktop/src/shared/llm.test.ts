@@ -5,6 +5,7 @@ import {
   apiVendorOf,
   buildClaudeCliArgs,
   buildCodexCliArgs,
+  claudeCliErrorReason,
   codexErrorReason,
   isCodexModelId,
   isLlmProvider,
@@ -171,6 +172,17 @@ describe('parseClaudeCliOutput', () => {
 
   it('JSON이 아니면 형식 오류로 던진다', () => {
     expect(() => parseClaudeCliOutput('Segmentation fault')).toThrow(/출력 형식/)
+  })
+})
+
+describe('claudeCliErrorReason', () => {
+  it('오류 결과 JSON이면 사유를 꺼낸다', () => {
+    expect(claudeCliErrorReason(CLI_NOT_LOGGED_IN)).toBe('Not logged in · Please run /login')
+  })
+
+  it('성공 결과나 JSON이 아닌 출력이면 null', () => {
+    expect(claudeCliErrorReason(CLI_SUCCESS)).toBeNull()
+    expect(claudeCliErrorReason('')).toBeNull()
   })
 })
 
