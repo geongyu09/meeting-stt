@@ -49,7 +49,9 @@ export default function DoneCard({
   const summary = useRecordSummary({
     meetingId: meeting.id,
     initialSummary: meeting.summary,
-    hasTranscript: utterances.length > 0
+    hasTranscript: utterances.length > 0,
+    notePath: organizeStatus?.notePath ?? null,
+    organizeStage: organizeStatus?.stage ?? null
   })
 
   // 번호는 발화 등장 순서로 매긴다 (@meeting-stt/core/format). 발화가 없는 화자는 뒤에 붙는다

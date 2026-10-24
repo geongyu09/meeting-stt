@@ -62,7 +62,7 @@ import {
 } from '@meeting-stt/core/speakerCount'
 import { exportRecording } from '../audio/exportRecording'
 import { registerAssistantHandlers } from './assistant'
-import { getOrganizeStatus } from '../assistant/organize'
+import { getOrganizeStatus, syncRecordNote } from '../assistant/organize'
 import { importRecording } from '../audio/importRecording'
 import { deleteAudioFiles, deleteMeetingWithRecording, listAudioFiles } from '../audio/recordings'
 import {
@@ -420,6 +420,12 @@ const requireMeetingDetail = ({ meetingId }: GetMeetingRequest): MutateMeetingRe
   return detail
 }
 
+/** 회의록을 고친 편집 채널의 응답. 원문을 저장한 회의면 원문도 다시 쓴다 (references/features/assistant.md "원문 동기화와 요약 파일") */
+const editedMeetingDetail = ({ meetingId }: GetMeetingRequest) => {
+  syncRecordNote({ meetingId })
+  return requireMeetingDetail({ meetingId })
+}
+
 const requireSpeaker = ({ meetingId, label }: { meetingId: string; label: string }) => {
   if (!hasSpeaker({ meetingId, label })) throw new Error(t().main.errors.speakerNotInMeeting)
 }
@@ -436,7 +442,7 @@ const handleRenameMeeting = (payload: unknown) => {
   if (!renameMeeting({ meetingId, title })) throw new Error(t().main.errors.meetingNotFound)
   notifyMeetingsChanged()
 
-  return requireMeetingDetail({ meetingId })
+  return editedMeetingDetail({ meetingId })
 }
 
 /** 녹음 중인 회의는 세션이 노트의 단일 출처라 여기서 쓰지 않는다 (references/features/recording.md "녹음 노트") */
@@ -449,7 +455,7 @@ const handleUpdateMeetingNote = (payload: unknown) => {
 
   updateMeetingNote({ meetingId, note })
 
-  return requireMeetingDetail({ meetingId })
+  return editedMeetingDetail({ meetingId })
 }
 
 const handleDeleteMeeting = async (payload: unknown) => {
@@ -496,7 +502,7 @@ const handleUpdateUtteranceText = (payload: unknown) => {
 
   recordCorrection({ before, after: text })
 
-  return requireMeetingDetail({ meetingId })
+  return editedMeetingDetail({ meetingId })
 }
 
 const handleReassignUtterance = (payload: unknown) => {
@@ -511,7 +517,7 @@ const handleReassignUtterance = (payload: unknown) => {
   })
   if (!changed) throw new Error(t().main.errors.utteranceNotFound)
 
-  return requireMeetingDetail({ meetingId })
+  return editedMeetingDetail({ meetingId })
 }
 
 /** 원문이 보관되지 않은 발화(교정된 적 없음)는 되돌릴 것이 없으므로 발화를 못 찾은 것과 같게 다룬다 */
@@ -520,7 +526,7 @@ const handleRevertUtteranceRefine = (payload: unknown) => {
   const changed = revertUtteranceRefine({ meetingId, utteranceId: readUtteranceId(payload) })
   if (!changed) throw new Error(t().main.errors.utteranceNotFound)
 
-  return requireMeetingDetail({ meetingId })
+  return editedMeetingDetail({ meetingId })
 }
 
 const handleRenameSpeaker = (payload: unknown) => {
@@ -537,7 +543,7 @@ const handleRenameSpeaker = (payload: unknown) => {
   })
   if (!changed) throw new Error(t().main.errors.speakerNotInMeeting)
 
-  return requireMeetingDetail({ meetingId })
+  return editedMeetingDetail({ meetingId })
 }
 
 const handleMergeSpeakers = (payload: unknown) => {
@@ -550,7 +556,7 @@ const handleMergeSpeakers = (payload: unknown) => {
   requireSpeaker({ meetingId, label: intoLabel })
   mergeSpeakers({ meetingId, fromLabel, intoLabel })
 
-  return requireMeetingDetail({ meetingId })
+  return editedMeetingDetail({ meetingId })
 }
 
 /** 회의가 없으면 예약하지 않는다. 결과는 refine:progress 이벤트로 온다 */

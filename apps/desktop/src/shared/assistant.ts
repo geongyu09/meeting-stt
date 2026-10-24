@@ -144,6 +144,16 @@ export const readWorkspaceWritePayload = (
 }
 
 /**
+ * @description 녹음 원문 옆 요약 파일 경로. 원문 경로에서 정해지므로 DB에 따로 두지 않는다
+ * (references/features/assistant.md "원문 동기화와 요약 파일"). 파일 이름의 "요약"은 UI 언어와 무관하다.
+ * @param notePath - 원문 경로(상대·절대 모두)
+ * @returns 요약 파일 경로
+ * @example
+ * recordSummaryPathOf('raw/recordings/2026-10-21-1430 배포.md') // 'raw/recordings/2026-10-21-1430 배포 요약.md'
+ */
+export const recordSummaryPathOf = (notePath: string) => notePath.replace(/\.md$/, ' 요약.md')
+
+/**
  * @description `assistant:setAutoOrganize` payload를 검증합니다.
  * @param payload - renderer가 보낸 값
  * @param errors - 오류 문구 사전. 생략하면 한국어

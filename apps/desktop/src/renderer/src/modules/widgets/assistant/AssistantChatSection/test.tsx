@@ -20,7 +20,9 @@ vi.mock('@renderer/shared/api/assistant', () => ({
   resetAssistantChatApi: vi.fn(),
   listWorkspaceFilesApi: vi.fn(),
   listAssistantSkillsApi: vi.fn(),
-  getOrganizeStatusApi: vi.fn()
+  getOrganizeStatusApi: vi.fn(),
+  readWorkspaceFileApi: vi.fn(),
+  writeWorkspaceFileApi: vi.fn()
 }))
 vi.mock('@renderer/shared/api/llm', () => ({ getLlmStatusApi: vi.fn() }))
 vi.mock('@renderer/shared/api/recording', () => ({
@@ -76,6 +78,7 @@ import {
   getOrganizeStatusApi,
   listAssistantSkillsApi,
   listWorkspaceFilesApi,
+  readWorkspaceFileApi,
   resetAssistantChatApi,
   sendAssistantMessageApi
 } from '@renderer/shared/api/assistant'
@@ -233,6 +236,8 @@ beforeEach(() => {
   vi.mocked(controlRecordingApi).mockResolvedValue(undefined)
   vi.mocked(getRoutinesApi).mockResolvedValue(NO_ROUTINES)
   vi.mocked(getOrganizeStatusApi).mockResolvedValue(null)
+  // 기록 카드는 원문 옆 요약 파일을 읽는다. 없는 것이 기본이다
+  vi.mocked(readWorkspaceFileApi).mockRejectedValue(new Error('ENOENT'))
 })
 
 afterEach(() => {

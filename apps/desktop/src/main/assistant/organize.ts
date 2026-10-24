@@ -1,4 +1,5 @@
-import { stat } from 'node:fs/promises'
+import { readFile, stat, writeFile } from 'node:fs/promises'
+import { recordSummaryPathOf } from '@shared/assistant'
 import type { AssistantOpenFileEvent, OrganizeProgressEvent } from '@shared/ipc'
 import { extractNoteLinks } from '@shared/note'
 import type { OrganizeStatus } from '@shared/types'
@@ -11,7 +12,13 @@ import { info, messageOf, warn } from '../log'
 import { showNotification } from '../windows/notify'
 
 import { requireWorkspaceFolder } from './folder'
-import { buildRecordNote, recordNoteBaseName, writeRecordNote } from './recordNote'
+import {
+  buildRecordNote,
+  extractLegacySummary,
+  recordNoteBaseName,
+  writeFileIfAbsent,
+  writeRecordNote
+} from './recordNote'
 import { runUnattendedTurn } from './unattendedTurn'
 import { isMarkdownPath, toWorkspaceRelative } from './workspacePath'
 
@@ -24,13 +31,14 @@ const ORGANIZE_TIMEOUT_MS = 10 * 60_000
 
 /** UI 문구가 아니라 프롬프트라 UI 언어와 무관하게 한국어다 (루틴의 ROUTINE_PREAMBLE과 같은 방식) */
 const instructionOf = ({ relativePath }: { relativePath: string }) =>
-  `방금 끝난 회의의 전사 원문을 \`${relativePath}\`에 저장했다. 이 작업 폴더의 규칙(CLAUDE.md·AGENTS.md·스킬)에 ` +
-  '녹음 기록을 정리하는 방법이 있으면 그대로 따르라.\n' +
-  '규칙이 없으면 원문 파일의 머리말 바로 아래에 `## 요약` 섹션을 만들고 핵심 요약·결정 사항·할 일을 적어라. ' +
-  '원문 본문은 지우거나 고치지 마라.\n' +
+  `방금 끝난 회의의 전사 원문을 \`${relativePath}\`에 저장했다. ` +
+  '원문 파일은 앱이 관리하므로 읽기만 하고 고치거나 옮기지 마라.\n' +
+  `이 녹음의 요약은 \`${recordSummaryPathOf(relativePath)}\`에 새 파일로 써라. ` +
+  '머리말이나 맨 위 제목 없이 핵심 요약·결정 사항·할 일을 적어라.\n' +
+  '이 작업 폴더의 규칙(CLAUDE.md·AGENTS.md·스킬)에 녹음 기록을 정리하는 방법이 있으면 요약 위치 말고는 그대로 따르라.\n' +
   '요약만 쓰고 끝내지 마라. 녹음에서 나온 할 일·일정·프로젝트 결정·나중에 볼 지식은 이 폴더에서 그것을 두는 문서' +
-  '(할 일 목록·일정·프로젝트 노트·위키 등)에 그 문서의 규칙과 형식대로 저장하고, 저장한 곳을 `## 요약` 안 `### 반영한 곳`에 적어라. ' +
-  '사용자에 대한 새 사실은 프로필을 고치지 말고 `### 확인 필요`에 후보로만 적어라.\n' +
+  '(할 일 목록·일정·프로젝트 노트·위키 등)에 그 문서의 규칙과 형식대로 저장하고, 저장한 곳을 요약 파일의 `### 반영한 곳`에 적어라. ' +
+  '사용자에 대한 새 사실은 프로필을 고치지 말고 요약 파일의 `### 확인 필요`에 후보로만 적어라.\n' +
   '사용자에게 질문하지 말고 끝까지 처리하라.'
 
 const NOTE_INSTRUCTION =
@@ -83,7 +91,8 @@ const webFetchToolsOf = (note: string) => [
   ...new Set(extractNoteLinks(note).map((link) => `WebFetch(domain:${new URL(link).hostname})`))
 ]
 
-const saveRecordNote = async ({ meetingId, folder }: { meetingId: string; folder: string }) => {
+/** 처음 저장과 동기화가 같은 내용을 만든다 — DB의 지금 회의록이 원문이다 */
+const recordNoteOf = (meetingId: string) => {
   const meeting = findMeeting({ meetingId })
   if (!meeting) throw new Error(t().main.recording.meetingInfoNotFound)
 
@@ -96,6 +105,12 @@ const saveRecordNote = async ({ meetingId, folder }: { meetingId: string; folder
     utterances: listUtterances({ meetingId }),
     displayNames
   })
+
+  return { meeting, note, content }
+}
+
+const saveRecordNote = async ({ meetingId, folder }: { meetingId: string; folder: string }) => {
+  const { meeting, note, content } = recordNoteOf(meetingId)
   const filePath = await writeRecordNote({
     folder,
     baseName: recordNoteBaseName(meeting),
@@ -117,7 +132,7 @@ const isPresent = (target: string) =>
     () => false
   )
 
-/** 알림을 누르면 열 문서 — 원문이 아직 있으면 원문, 에이전트가 옮겼으면 바꾼 파일 중 첫 .md */
+/** 알림을 누르면 열 문서 — 요약 파일, 없으면 원문, 원문도 없으면 바꾼 파일 중 첫 .md */
 const notifyDone = async ({
   title,
   folder,
@@ -130,9 +145,12 @@ const notifyDone = async ({
   changedFiles: string[]
 }) => {
   const labels = t().assistant.organize.notification
-  const path = (await isPresent(`${folder}/${relativePath}`))
-    ? relativePath
-    : (changedFiles.find(isMarkdownPath) ?? relativePath)
+  const candidates = [recordSummaryPathOf(relativePath), relativePath]
+  const presences = await Promise.all(
+    candidates.map((candidate) => isPresent(`${folder}/${candidate}`))
+  )
+  const path =
+    candidates[presences.indexOf(true)] ?? changedFiles.find(isMarkdownPath) ?? relativePath
 
   showNotification({
     title: labels.doneTitle,
@@ -197,6 +215,62 @@ const organizeMeeting = async (meetingId: string) => {
   }
 }
 
+let syncChain = Promise.resolve()
+
+const isMissing = (caught: unknown) =>
+  typeof caught === 'object' && caught !== null && 'code' in caught && caught.code === 'ENOENT'
+
+const rewriteRecordNote = async (meetingId: string) => {
+  const brainPath = findBrainPath({ meetingId })
+  if (!brainPath) return
+
+  const current = await readFile(brainPath, 'utf8').catch((caught: unknown) => {
+    if (isMissing(caught)) return null
+    throw caught
+  })
+  // 사용자가 지웠거나 옮긴 원문은 다시 만들지 않는다
+  if (current === null) {
+    info(`회의 ${meetingId} 원문 갱신 건너뜀: 파일 없음 (${brainPath})`)
+    return
+  }
+
+  // 옛 원문은 에이전트가 쓴 요약을 품고 있다. 다시 쓰기 전에 요약 파일로 옮겨 잃지 않는다
+  const legacySummary = extractLegacySummary(current)
+  if (legacySummary) {
+    await writeFileIfAbsent({ filePath: recordSummaryPathOf(brainPath), content: legacySummary })
+  }
+
+  const { content } = recordNoteOf(meetingId)
+  if (content === current) return
+  await writeFile(brainPath, content, 'utf8')
+  info(`회의 ${meetingId} 원문 갱신: ${brainPath}`)
+}
+
+/**
+ * 앱에서 회의록이 바뀌면 원문을 다시 쓴다 (references/features/assistant.md "원문 동기화와 요약 파일").
+ * 한 줄로 이어서 쓴다 — 내용은 쓰는 순간 DB에서 조립하므로 편집이 겹쳐도 마지막 상태가 남는다.
+ * 실패해도 편집은 DB에 저장돼 있어 로그만 남긴다.
+ */
+export const syncRecordNote = ({ meetingId }: { meetingId: string }) => {
+  syncChain = syncChain
+    .then(() => (isStopped ? undefined : rewriteRecordNote(meetingId)))
+    .catch((caught: unknown) => warn(`회의 ${meetingId} 원문 갱신 실패: ${messageOf(caught)}`))
+}
+
+/** "요약 만들기" 결과를 원문을 저장한 회의의 요약 파일에도 쓴다 — 기록 카드는 요약 파일을 보여 준다 */
+export const writeRecordSummary = async ({
+  meetingId,
+  summary
+}: {
+  meetingId: string
+  summary: string
+}) => {
+  const brainPath = findBrainPath({ meetingId })
+  if (!brainPath || !(await isPresent(brainPath))) return
+
+  await writeFile(recordSummaryPathOf(brainPath), `${summary.trim()}\n`, 'utf8')
+}
+
 const drainQueue = async () => {
   if (running || isStopped) return
 
@@ -222,7 +296,7 @@ export const enqueueOrganize = ({ meetingId }: { meetingId: string }) => {
   drainQueue().catch((caught: unknown) => warn(`정리 큐 처리 실패: ${messageOf(caught)}`))
 }
 
-/** 앱 종료(`will-quit`). 남은 정리 잡은 버린다 — 상세의 "다시 보내기"로 다시 돌린다 */
+/** 앱 종료(`will-quit`). 남은 정리 잡은 버린다 — 원문은 이미 저장돼 있다 */
 export const stopOrganize = () => {
   isStopped = true
   queuedIds = []

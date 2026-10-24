@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { writeClipboardTextApi } from '@renderer/shared/api/clipboard'
+import InlineEditableText from '@renderer/shared/components/composites/InlineEditableText'
 import Icon from '@renderer/shared/components/primitives/ui/Icon'
 import ProgressBar from '@renderer/shared/components/primitives/ui/ProgressBar'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
@@ -15,7 +16,10 @@ interface SummaryBlockProps {
   summary: ReturnType<typeof useRecordSummary>
 }
 
-/** "요약 · 공급자" 줄과 본문. 본문은 진행률 → 요약 → 안내 순서로 회의 상세의 요약 카드와 같은 규칙이다 */
+/**
+ * "요약 · 공급자" 줄과 본문. 본문은 진행률 → 요약 → 안내 순서로 회의 상세의 요약 카드와 같은 규칙이다.
+ * 작업 폴더에 요약 파일이 있으면 그 내용을 그 자리에서 고쳐 파일에 저장한다
+ */
 export default function SummaryBlock({ summary }: SummaryBlockProps) {
   const { t } = useLocale()
   const [copyError, setCopyError] = useState<string | null>(null)
@@ -38,6 +42,18 @@ export default function SummaryBlock({ summary }: SummaryBlockProps) {
           </span>
           <ProgressBar percent={summary.percent} label={t.summary.progressLabel} />
         </div>
+      )
+    }
+    if (summary.isFileSummary) {
+      return (
+        <InlineEditableText
+          // 확정 값은 앞뒤 공백을 자른 것이라, 비교도 자른 값과 해야 고치지 않은 blur에 저장하지 않는다
+          value={summary.summary.trim()}
+          onCommit={summary.saveFileSummary}
+          ariaLabel={t.transcript.card.summaryEditLabel}
+          isMultiline
+          className={styles.text}
+        />
       )
     }
     if (summary.summary) return <p className={styles.text}>{summary.summary}</p>
@@ -66,7 +82,9 @@ export default function SummaryBlock({ summary }: SummaryBlockProps) {
   return (
     <div className={styles.block}>
       <div className={styles.labelRow}>
-        {t.transcript.card.summaryLabel({ provider: summary.providerLabel })}
+        {summary.isFileSummary
+          ? t.transcript.card.summaryFileLabel
+          : t.transcript.card.summaryLabel({ provider: summary.providerLabel })}
         {summary.summary && !summary.isRunning ? (
           <button
             type="button"

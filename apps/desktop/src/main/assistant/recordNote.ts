@@ -103,8 +103,53 @@ export const buildRecordNote = ({
   return [...header, '', ...sections, ''].join('\n')
 }
 
+const LEGACY_SUMMARY_HEADING = '## 요약'
+/** 앱이 만든 본문의 첫 줄 — 노트·전사 제목, 또는 마크다운 회의록의 발화 줄 `[00:00:12] **이름**:` */
+const BODY_START_LINE = /^(## 노트|## 전사|\[\d{2}:\d{2}:\d{2}\] \*\*)/
+
+/**
+ * @description 2026-10-24 이전 원문에서 정리 에이전트가 머리말 아래에 쓴 `## 요약`을 떼어 낸다.
+ * 앱이 만든 본문(노트·전사·발화 줄) 앞에 있는 것만 보므로 사용자 노트 안의 같은 제목은 건드리지 않는다.
+ * @returns 제목 줄을 뺀 요약. 없거나 비었으면 null
+ * @example
+ * extractLegacySummary('---\n…\n---\n\n## 요약\n\n요약\n\n[00:00:12] **김OO**: …') // '요약\n'
+ */
+export const extractLegacySummary = (content: string) => {
+  const lines = content.split('\n')
+  const bodyStart = lines.findIndex((line) => BODY_START_LINE.test(line))
+  const head = bodyStart === -1 ? lines : lines.slice(0, bodyStart)
+  const start = head.findIndex((line) => line.trim() === LEGACY_SUMMARY_HEADING)
+  if (start === -1) return null
+
+  const summary = head
+    .slice(start + 1)
+    .join('\n')
+    .trim()
+  return summary ? `${summary}\n` : null
+}
+
 const isExists = (caught: unknown) =>
   typeof caught === 'object' && caught !== null && 'code' in caught && caught.code === 'EEXIST'
+
+/**
+ * @description 파일이 없을 때만 쓴다 — 옛 원문의 요약을 옮길 때 이미 있는 요약 파일을 덮지 않는다.
+ * @returns 썼으면 true, 이미 있었으면 false
+ */
+export const writeFileIfAbsent = async ({
+  filePath,
+  content
+}: {
+  filePath: string
+  content: string
+}) => {
+  try {
+    await writeFile(filePath, content, { flag: 'wx' })
+    return true
+  } catch (caught) {
+    if (isExists(caught)) return false
+    throw caught
+  }
+}
 
 /**
  * @description `<작업 폴더>/raw/recordings/<baseName>.md`에 `wx`로 쓴다. 같은 이름이 있으면 `-2`, `-3`…을 붙인다.

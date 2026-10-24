@@ -10,7 +10,7 @@ import type {
   SummaryStage
 } from '@shared/types'
 import { discardRecording } from '../audio/recordings'
-import { enqueueOrganize } from '../assistant/organize'
+import { enqueueOrganize, syncRecordNote, writeRecordSummary } from '../assistant/organize'
 import {
   findAudioPath,
   findBrainPath,
@@ -143,10 +143,14 @@ const processMeeting = async (meetingId: string) => {
   if (!(await scheduleAutoRefine({ meetingId }))) await scheduleAutoTitle({ meetingId })
 }
 
-/** 처음 처리할 때만 자동으로 보낸다 — 다시 인식한 회의의 원문을 두 번 만들지 않는다 */
+/**
+ * 처음 처리할 때만 정리 잡을 넣는다 — 다시 인식한 회의의 원문을 두 번 만들지 않고,
+ * 다시 인식·자동 제목의 결과를 원문에만 반영한다 (references/features/assistant.md "원문 동기화와 요약 파일")
+ */
 const scheduleOrganize = ({ meetingId }: { meetingId: string }) => {
   if (findBrainPath({ meetingId })) {
-    info(`회의 ${meetingId} 뇌 저장 건너뜀: 이미 보낸 회의`)
+    info(`회의 ${meetingId} 정리 건너뜀: 이미 보낸 회의라 원문만 다시 쓴다`)
+    syncRecordNote({ meetingId })
     return
   }
 
@@ -165,6 +169,12 @@ const summarizeMeeting = async ({ meetingId, templateId }: MeetingJob) => {
   })
 
   updateMeetingSummary({ meetingId, summary })
+  // done 이벤트 전에 쓴다 — 기록 카드가 done을 받고 요약 파일을 다시 읽는다. 실패해도 요약은 DB에 있다
+  try {
+    await writeRecordSummary({ meetingId, summary })
+  } catch (caught) {
+    warn(`회의 ${meetingId} 요약 파일 쓰기 실패: ${messageOf(caught)}`)
+  }
   reportSummary({ meetingId, stage: 'done', percent: DONE_PERCENT, summary })
   info(`회의 ${meetingId} 요약 완료 (${summary.length}자)`)
 }
@@ -223,6 +233,7 @@ const refineMeeting = async (meetingId: string) => {
         })
 
   applyRefineResult({ meetingId, texts, appliedPairs: pairs, refinedAt: Date.now() })
+  syncRecordNote({ meetingId })
   reportRefine({ meetingId, stage: 'done', percent: DONE_PERCENT })
   info(`회의 ${meetingId} 교정 완료 (발화 ${texts.length}개, 쌍 ${pairs.length}개 반영)`)
 }

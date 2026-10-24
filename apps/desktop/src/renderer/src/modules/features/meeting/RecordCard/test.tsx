@@ -26,16 +26,25 @@ vi.mock('@renderer/shared/api/summary', () => ({ createSummaryApi: vi.fn() }))
 vi.mock('@renderer/shared/api/summaryTemplate', () => ({ getSummaryTemplatesApi: vi.fn() }))
 vi.mock('@renderer/shared/api/llm', () => ({ getLlmStatusApi: vi.fn() }))
 vi.mock('@renderer/shared/api/clipboard', () => ({ writeClipboardTextApi: vi.fn() }))
-vi.mock('@renderer/shared/api/assistant', () => ({ getOrganizeStatusApi: vi.fn() }))
+vi.mock('@renderer/shared/api/assistant', () => ({
+  getOrganizeStatusApi: vi.fn(),
+  readWorkspaceFileApi: vi.fn(),
+  writeWorkspaceFileApi: vi.fn()
+}))
 vi.mock('@renderer/shared/api/events', () => ({
   onPipelineProgress: vi.fn(),
   onRefineProgress: vi.fn(() => () => {}),
   onSummaryProgress: vi.fn(() => () => {}),
   onMeetingsChanged: vi.fn(() => () => {}),
-  onOrganizeProgress: vi.fn()
+  onOrganizeProgress: vi.fn(),
+  onWorkspaceFilesChanged: vi.fn(() => () => {})
 }))
 
-import { getOrganizeStatusApi } from '@renderer/shared/api/assistant'
+import {
+  getOrganizeStatusApi,
+  readWorkspaceFileApi,
+  writeWorkspaceFileApi
+} from '@renderer/shared/api/assistant'
 import { writeClipboardTextApi } from '@renderer/shared/api/clipboard'
 import { onOrganizeProgress, onPipelineProgress } from '@renderer/shared/api/events'
 import { getLlmStatusApi } from '@renderer/shared/api/llm'
@@ -132,6 +141,9 @@ beforeEach(() => {
     return () => {}
   })
   vi.mocked(getOrganizeStatusApi).mockResolvedValue(null)
+  // 요약 파일이 없는 것이 기본이다 (정리 전·자동 정리 꺼짐)
+  vi.mocked(readWorkspaceFileApi).mockRejectedValue(new Error('ENOENT'))
+  vi.mocked(writeWorkspaceFileApi).mockResolvedValue(undefined)
   vi.mocked(getMeetingApi).mockResolvedValue(detailOf(DONE_MEETING))
   vi.mocked(getLlmStatusApi).mockResolvedValue(READY_LLM)
   vi.mocked(getSummaryTemplatesApi).mockResolvedValue([
@@ -260,6 +272,55 @@ describe('RecordCard', () => {
       '작업 폴더 · 정리 실패 · 10분 안에 끝나지 않아 중지했습니다'
     )
     expect(screen.getByRole('button', { name: 'tasks.md 열어서 고치기' })).toBeTruthy()
+  })
+
+  it('작업 폴더에 요약 파일이 있으면 DB 요약 대신 보여 주고, 고치면 그 파일에 저장한다', async () => {
+    const summaryPath = 'raw/recordings/2026-10-21-1400 주간 제품 회의 요약.md'
+    vi.mocked(getOrganizeStatusApi).mockResolvedValue({
+      meetingId: MEETING_ID,
+      stage: 'done',
+      notePath: NOTE_PATH,
+      changedFiles: [],
+      errorMessage: null
+    })
+    vi.mocked(readWorkspaceFileApi).mockResolvedValue({
+      path: summaryPath,
+      content: '비서가 쓴 요약\n'
+    })
+    renderCard()
+
+    expect(await screen.findByText('요약 · 작업 폴더')).toBeTruthy()
+    expect(readWorkspaceFileApi).toHaveBeenCalledWith({ path: summaryPath })
+    expect(screen.queryByText(/화면에 보이는 이름만 Gyeot으로 바꾼다/)).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: '요약 수정' }))
+    const editor = screen.getByLabelText('요약')
+    await userEvent.clear(editor)
+    await userEvent.type(editor, '고친 요약{Meta>}{Enter}{/Meta}')
+
+    expect(writeWorkspaceFileApi).toHaveBeenCalledWith({
+      path: summaryPath,
+      content: '고친 요약\n'
+    })
+    expect(await screen.findByText('고친 요약')).toBeTruthy()
+  })
+
+  it('요약 파일을 저장하지 못하면 이유를 보인다', async () => {
+    vi.mocked(getOrganizeStatusApi).mockResolvedValue({
+      meetingId: MEETING_ID,
+      stage: 'done',
+      notePath: NOTE_PATH,
+      changedFiles: [],
+      errorMessage: null
+    })
+    vi.mocked(readWorkspaceFileApi).mockResolvedValue({ path: 'x.md', content: '비서가 쓴 요약' })
+    vi.mocked(writeWorkspaceFileApi).mockRejectedValue(new Error('작업 폴더 밖의 파일입니다'))
+    renderCard()
+
+    await userEvent.click(await screen.findByRole('button', { name: '요약 수정' }))
+    await userEvent.type(screen.getByLabelText('요약'), ' 더{Meta>}{Enter}{/Meta}')
+
+    expect((await screen.findByRole('alert')).textContent).toBe('작업 폴더 밖의 파일입니다')
   })
 
   it('처리 중이면 단계·퍼센트·진행 막대를 보여 준다', async () => {

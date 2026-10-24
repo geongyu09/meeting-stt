@@ -3,7 +3,12 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { buildRecordNote, recordNoteBaseName, writeRecordNote } from './recordNote'
+import {
+  buildRecordNote,
+  extractLegacySummary,
+  recordNoteBaseName,
+  writeRecordNote
+} from './recordNote'
 
 const CREATED_AT = new Date(2026, 9, 21, 14, 30).getTime()
 
@@ -59,6 +64,58 @@ describe('buildRecordNote', () => {
 
     expect(content.indexOf('## 노트')).toBeLessThan(content.indexOf('## 전사'))
     expect(content).toContain('안건 https://a.b/c')
+  })
+})
+
+describe('extractLegacySummary', () => {
+  const LEGACY_SUMMARY = '## 요약\n\n녹음 요약입니다.\n\n### 할 일\n\n- 표 확인하기'
+
+  /** 2026-10-24 이전 정리 에이전트처럼 머리말 바로 아래에 `## 요약`을 끼운 원문 */
+  const legacyNoteOf = (note: string) =>
+    buildRecordNote({
+      meeting: { title: 't', createdAt: CREATED_AT, durationSec: 5, note },
+      utterances: utterancesOf(),
+      displayNames: {}
+    }).replace('---\n\n', `---\n\n${LEGACY_SUMMARY}\n\n`)
+
+  it('머리말 아래 요약을 제목 줄 없이 첫 발화 줄 앞까지 떼어 낸다', () => {
+    expect(extractLegacySummary(legacyNoteOf(''))).toBe(
+      '녹음 요약입니다.\n\n### 할 일\n\n- 표 확인하기\n'
+    )
+  })
+
+  it('노트가 있으면 노트 제목 앞에서 멈춘다', () => {
+    expect(extractLegacySummary(legacyNoteOf('안건'))).toBe(
+      '녹음 요약입니다.\n\n### 할 일\n\n- 표 확인하기\n'
+    )
+  })
+
+  it('요약 안의 다른 ## 제목은 요약에 남긴다', () => {
+    const content = legacyNoteOf('').replace('### 할 일', '## 결정 사항')
+    expect(extractLegacySummary(content)).toContain('## 결정 사항\n\n- 표 확인하기')
+  })
+
+  it('요약이 없는 원문이면 null이다', () => {
+    const content = buildRecordNote({
+      meeting: { title: 't', createdAt: CREATED_AT, durationSec: 5, note: '' },
+      utterances: utterancesOf(),
+      displayNames: {}
+    })
+    expect(extractLegacySummary(content)).toBeNull()
+  })
+
+  it('사용자 노트 안의 ## 요약 줄은 옛 요약으로 보지 않는다', () => {
+    const content = buildRecordNote({
+      meeting: { title: 't', createdAt: CREATED_AT, durationSec: 5, note: '## 요약\n\n내 메모' },
+      utterances: utterancesOf(),
+      displayNames: {}
+    })
+    expect(extractLegacySummary(content)).toBeNull()
+  })
+
+  it('제목 줄만 있고 내용이 비면 null이다', () => {
+    const content = legacyNoteOf('').replace(LEGACY_SUMMARY, '## 요약')
+    expect(extractLegacySummary(content)).toBeNull()
   })
 })
 

@@ -54,6 +54,9 @@ export const transcriptKo = {
     copied: '복사했습니다',
     more: '더보기',
     summaryLabel: ({ provider }: { provider: string }) => `요약 · ${provider}`,
+    summaryFileLabel: '요약 · 작업 폴더',
+    summaryEditLabel: '요약',
+    summarySaveFailed: '요약 파일을 저장하지 못했습니다',
     copySummary: '요약 복사',
     refinedCount: ({ count }: { count: number }) => `용어 ${count}곳 교정됨`,
     openFull: '전체 기록 보기'
@@ -180,6 +183,9 @@ export const transcriptEn: typeof transcriptKo = {
     copied: 'Copied',
     more: 'More',
     summaryLabel: ({ provider }) => `Summary · ${provider}`,
+    summaryFileLabel: 'Summary · Workspace',
+    summaryEditLabel: 'summary',
+    summarySaveFailed: 'Could not save the summary file',
     copySummary: 'Copy summary',
     refinedCount: ({ count }) => `${count} ${count === 1 ? 'term' : 'terms'} corrected`,
     openFull: 'Open full record'

@@ -7,8 +7,26 @@ import {
   readAssistantProviderPayload,
   readPermissionModePayload,
   readWorkspacePathPayload,
-  readWorkspaceWritePayload
+  readWorkspaceWritePayload,
+  recordSummaryPathOf
 } from './assistant'
+
+describe('recordSummaryPathOf', () => {
+  it('원문 이름 뒤에 " 요약"을 붙인다 — 상대 경로든 절대 경로든', () => {
+    expect(recordSummaryPathOf('raw/recordings/2026-10-21-1430 배포 일정.md')).toBe(
+      'raw/recordings/2026-10-21-1430 배포 일정 요약.md'
+    )
+    expect(recordSummaryPathOf('/Users/me/brain/raw/recordings/2026-10-21-1430-2.md')).toBe(
+      '/Users/me/brain/raw/recordings/2026-10-21-1430-2 요약.md'
+    )
+  })
+
+  it('이름 가운데의 .md는 건드리지 않는다', () => {
+    expect(recordSummaryPathOf('raw/recordings/a.md 정리.md')).toBe(
+      'raw/recordings/a.md 정리 요약.md'
+    )
+  })
+})
 
 describe('readAssistantMessagePayload', () => {
   it('공급자와 앞뒤 공백을 자른 질문을 돌려준다', () => {
