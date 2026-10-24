@@ -4,6 +4,7 @@ import type {
   DictationCommandEvent,
   DictationStateEvent,
   ModelDownloadProgressEvent,
+  OrganizeProgressEvent,
   PipelineProgressEvent,
   RecordingCommandEvent,
   RecordingStateEvent,
@@ -173,3 +174,13 @@ export const onRoutinesChanged = (listener: (event: RoutinesChangedEvent) => voi
  */
 export const onAssistantOpenFile = (listener: (event: AssistantOpenFileEvent) => void) =>
   window.api.events.onAssistantOpenFile(listener)
+
+/**
+ * @description 녹음 기록 정리 상태(대기·저장·정리 중·완료·실패와 바꾼 파일) 변경을 구독합니다.
+ * @param listener - 정리 상태 콜백
+ * @returns 구독 해제 함수
+ * @example
+ * useEffect(() => onOrganizeProgress(setStatus), [])
+ */
+export const onOrganizeProgress = (listener: (event: OrganizeProgressEvent) => void) =>
+  window.api.events.onOrganizeProgress(listener)

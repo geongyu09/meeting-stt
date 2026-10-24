@@ -13,6 +13,7 @@ import type {
   LlmProvider,
   LlmStatus,
   OpenaiModelId,
+  OrganizeStatus,
   Meeting,
   MeetingAudioFile,
   MeetingDetail,
@@ -119,6 +120,8 @@ export const IPC = {
     listSkills: 'assistant:listSkills',
     installHarness: 'assistant:installHarness'
   },
+  // 녹음 기록 자동 정리 (references/features/assistant.md "녹음 기록 자동 정리" > "IPC")
+  organize: { status: 'organize:status' },
   // 루틴 (references/features/assistant.md "루틴")
   routines: {
     list: 'routines:list',
@@ -146,6 +149,7 @@ export const IPC = {
     assistantFilesChanged: 'assistant:filesChanged',
     // 정리 알림을 누르면 비서 화면이 그 원문을 연다 (references/features/assistant.md "녹음 기록 자동 정리" > "알림")
     assistantOpenFile: 'assistant:openFile',
+    organize: 'organize:progress',
     routinesChanged: 'routines:changed'
   }
 } as const
@@ -656,6 +660,14 @@ export interface SetAssistantAutoOrganizeRequest {
 export interface AssistantOpenFileEvent {
   path: string
 }
+
+/** 기록 카드의 "비서의 뇌" 줄. 보낸 적 없으면 null */
+export interface GetOrganizeStatusRequest {
+  meetingId: string
+}
+export type GetOrganizeStatusResponse = OrganizeStatus | null
+
+export type OrganizeProgressEvent = OrganizeStatus
 
 /** 설정 "기본 설정 추가하기" (references/features/assistant.md "기본 하네스") */
 export interface InstallHarnessResponse {

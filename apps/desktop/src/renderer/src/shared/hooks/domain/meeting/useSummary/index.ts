@@ -18,7 +18,7 @@ const useSummary = ({ meetingId, initialSummary }: UseSummaryParams) => {
   const [error, setError] = useState<string | null>(null)
 
   // 이번에 만든 요약이 있으면 그것을, 없으면 DB에 저장돼 있던 값을 보여준다.
-  // 회의를 옮길 때의 초기화는 SummarySection의 key(meetingId) 재마운트가 담당한다
+  // 회의를 옮길 때의 초기화는 호출하는 쪽의 key(meetingId) 재마운트가 담당한다 (RecentRecordStrip의 RecordCard)
   const summary = generatedSummary ?? initialSummary ?? ''
 
   useEffect(

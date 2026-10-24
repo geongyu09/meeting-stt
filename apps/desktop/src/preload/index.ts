@@ -19,6 +19,9 @@ import {
   type SetAssistantPermissionModeRequest,
   type SetAssistantProviderRequest,
   type AssistantOpenFileEvent,
+  type GetOrganizeStatusRequest,
+  type GetOrganizeStatusResponse,
+  type OrganizeProgressEvent,
   type WorkspaceFilesChangedEvent,
   type WriteWorkspaceFileRequest,
   type CheckLlmResponse,
@@ -232,6 +235,10 @@ const api = {
     installHarness: (): Promise<InstallHarnessResponse> =>
       ipcRenderer.invoke(IPC.assistant.installHarness)
   },
+  organize: {
+    status: (payload: GetOrganizeStatusRequest): Promise<GetOrganizeStatusResponse> =>
+      ipcRenderer.invoke(IPC.organize.status, payload)
+  },
   routines: {
     list: (): Promise<GetRoutinesResponse> => ipcRenderer.invoke(IPC.routines.list),
     save: (payload: SaveRoutineRequest): Promise<GetRoutinesResponse> =>
@@ -423,6 +430,14 @@ const api = {
 
       return () => {
         ipcRenderer.removeListener(IPC.events.assistantOpenFile, handler)
+      }
+    },
+    onOrganizeProgress: (listener: (event: OrganizeProgressEvent) => void) => {
+      const handler = (_: IpcRendererEvent, payload: OrganizeProgressEvent) => listener(payload)
+      ipcRenderer.on(IPC.events.organize, handler)
+
+      return () => {
+        ipcRenderer.removeListener(IPC.events.organize, handler)
       }
     }
   }

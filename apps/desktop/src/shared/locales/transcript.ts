@@ -63,6 +63,7 @@ export const transcriptKo = {
     copyAll: '전체 복사',
     copyMarkdown: '마크다운으로 복사',
     more: '회의 더보기',
+    editTitle: '제목 수정',
     deleteMeeting: '회의 삭제',
     deleteConfirm: '이 회의와 회의록, 원본 녹음이 모두 사라집니다. 되돌릴 수 없습니다.',
     cancel: '취소',
@@ -188,6 +189,7 @@ export const transcriptEn: typeof transcriptKo = {
     copyAll: 'Copy all',
     copyMarkdown: 'Copy as Markdown',
     more: 'More meeting actions',
+    editTitle: 'Edit title',
     deleteMeeting: 'Delete meeting',
     deleteConfirm:
       'This meeting, its transcript, and the original recording will be deleted. This cannot be undone.',

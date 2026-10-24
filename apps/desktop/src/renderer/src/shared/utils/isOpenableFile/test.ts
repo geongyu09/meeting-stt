@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { isOpenableFile } from './isOpenableFile'
+import { isOpenableFile } from './index'
 
 describe('isOpenableFile', () => {
   it('작업 폴더 안의 마크다운만 연다', () => {

@@ -4,6 +4,7 @@ import type { AssistantChatState } from '@shared/types'
 import type {
   AssistantOpenFileEvent,
   DictationStateEvent,
+  OrganizeProgressEvent,
   PipelineProgressEvent,
   RecordingStateEvent,
   RefineProgressEvent,
@@ -21,7 +22,11 @@ import {
 } from './audio/session'
 import { handleMeetingAudioProtocol, registerMeetingAudioScheme } from './audio/playback'
 import { setWorkspaceFilesListener, stopWatchingWorkspace } from './assistant/files'
-import { setAssistantOpenFileListener, stopOrganize } from './assistant/organize'
+import {
+  setAssistantOpenFileListener,
+  setOrganizeProgressListener,
+  stopOrganize
+} from './assistant/organize'
 import { setRoutinesListener, startRoutineScheduler, stopRoutines } from './assistant/routines'
 import { cancelAssistant, setAssistantStateListener } from './assistant/session'
 import { closeDb } from './db/connection'
@@ -162,6 +167,9 @@ app.whenReady().then(async () => {
   )
   setAssistantOpenFileListener((event: AssistantOpenFileEvent) =>
     broadcast({ channel: IPC.events.assistantOpenFile, event })
+  )
+  setOrganizeProgressListener((event: OrganizeProgressEvent) =>
+    broadcast({ channel: IPC.events.organize, event })
   )
   setMeetingsChangedListener(() => broadcast({ channel: IPC.events.meetingsChanged, event: null }))
   // 온보딩에서 고른 모델을 런타임 선택값으로 넣는다. 이후 파일명은 models/paths.ts만 정한다

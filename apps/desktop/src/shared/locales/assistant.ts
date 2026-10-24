@@ -129,6 +129,19 @@ export const assistantKo = {
       failed: ({ title, reason }: { title: string; reason: string }) =>
         `${title} · ${reason} (원문은 저장했습니다)`
     },
+    // 기록 카드의 "비서의 뇌" 줄 — 저장 위치와 바뀐 파일, 눌러서 고치기
+    card: {
+      title: '작업 폴더',
+      stages: {
+        queued: '정리 대기 중',
+        saving: '원문 저장 중',
+        running: '비서가 정리하는 중'
+      },
+      done: ({ count }: { count: number }) => (count ? `파일 ${count}개 정리됨` : '원문 저장됨'),
+      failed: ({ reason }: { reason: string }) => `정리 실패 · ${reason}`,
+      noteTag: '원문',
+      editFile: ({ name }: { name: string }) => `${name} 열어서 고치기`
+    },
     errors: {
       timeout: '10분 안에 끝나지 않아 중지했습니다'
     }
@@ -290,6 +303,18 @@ export const assistantEn: typeof assistantKo = {
       failedTitle: 'Organizing failed',
       done: ({ title, count }) => `${title} · ${count} file(s) changed`,
       failed: ({ title, reason }) => `${title} · ${reason} (transcript was saved)`
+    },
+    card: {
+      title: 'Work folder',
+      stages: {
+        queued: 'Waiting to organize',
+        saving: 'Saving transcript',
+        running: 'Assistant is organizing'
+      },
+      done: ({ count }) => (count ? `${count} file(s) organized` : 'Transcript saved'),
+      failed: ({ reason }) => `Organizing failed · ${reason}`,
+      noteTag: 'Transcript',
+      editFile: ({ name }) => `Open ${name} to edit`
     },
     errors: {
       timeout: 'Stopped because it did not finish within 10 minutes'

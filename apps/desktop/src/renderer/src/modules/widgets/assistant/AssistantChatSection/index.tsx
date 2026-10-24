@@ -341,6 +341,7 @@ export default function AssistantChatSection({
             meetings={meetings}
             stoppedMeetingId={stoppedMeetingId}
             onOpenRecord={onOpenRecord}
+            onOpenDocument={onOpenDocument}
           />
         )}
         <Composer

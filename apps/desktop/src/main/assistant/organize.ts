@@ -1,7 +1,8 @@
 import { stat } from 'node:fs/promises'
-import type { AssistantOpenFileEvent } from '@shared/ipc'
+import type { AssistantOpenFileEvent, OrganizeProgressEvent } from '@shared/ipc'
 import { extractNoteLinks } from '@shared/note'
-import { findMeeting, findMeetingNote, updateMeetingBrainPath } from '../db/meetings'
+import type { OrganizeStatus } from '@shared/types'
+import { findBrainPath, findMeeting, findMeetingNote, updateMeetingBrainPath } from '../db/meetings'
 import { getAssistantAutoOrganize, getAssistantFolder } from '../db/settings'
 import { listSpeakers } from '../db/speakers'
 import { listUtterances } from '../db/utterances'
@@ -42,9 +43,39 @@ let running: { meetingId: string; controller: AbortController } | null = null
 /** 앱 종료 뒤에는 닫힌 DB를 건드리지 않는다 */
 let isStopped = false
 let openFileListener: ((event: AssistantOpenFileEvent) => void) | null = null
+/** DB에 두지 않는다 — 앱을 다시 켜면 원문 경로(`brain_path`)만 남는다 */
+const statuses = new Map<string, OrganizeStatus>()
+let progressListener: ((event: OrganizeProgressEvent) => void) | null = null
 
 export const setAssistantOpenFileListener = (listener: (event: AssistantOpenFileEvent) => void) => {
   openFileListener = listener
+}
+
+export const setOrganizeProgressListener = (listener: (event: OrganizeProgressEvent) => void) => {
+  progressListener = listener
+}
+
+const setStatus = (status: OrganizeStatus) => {
+  statuses.set(status.meetingId, status)
+  progressListener?.(status)
+}
+
+/** 기록 카드의 "비서의 뇌" 줄. 앱을 다시 켜 메모리 상태가 없으면 원문 경로만 돌려준다 */
+export const getOrganizeStatus = ({ meetingId }: { meetingId: string }) => {
+  const status = statuses.get(meetingId)
+  if (status) return status
+
+  const brainPath = findBrainPath({ meetingId })
+  if (!brainPath) return null
+
+  const folder = getAssistantFolder()
+  return {
+    meetingId,
+    stage: 'done' as const,
+    notePath: folder ? toWorkspaceRelative({ roots: [folder], filePath: brainPath }) : brainPath,
+    changedFiles: [],
+    errorMessage: null
+  }
 }
 
 /** 노트 링크의 호스트만 WebFetch를 허용한다 — 아무 도메인이나 열면 읽은 페이지의 지시가 폴더 내용을 밖으로 보낼 수 있다 */
@@ -117,21 +148,22 @@ const notifyFailed = ({ title, reason }: { title: string; reason: string }) => {
 }
 
 const organizeMeeting = async (meetingId: string) => {
-  // 작업 폴더를 고르지 않았으면 비서를 쓰지 않는 사용자다. 알리지 않는다
-  if (!getAssistantFolder()) {
-    info(`회의 ${meetingId} 뇌 저장 건너뜀: 작업 폴더 없음`)
-    return
-  }
   const title = findMeeting({ meetingId })?.title ?? meetingId
+  const base = { meetingId, notePath: null, changedFiles: [], errorMessage: null }
+  let notePath: string | null = null
+  setStatus({ ...base, stage: 'saving' })
 
   try {
     const folder = await requireWorkspaceFolder()
     const saved = await saveRecordNote({ meetingId, folder })
+    notePath = saved.relativePath
     if (!getAssistantAutoOrganize()) {
       info(`회의 ${meetingId} 자동 정리 꺼짐: 원문만 저장`)
+      setStatus({ ...base, notePath, stage: 'done' })
       return
     }
 
+    setStatus({ ...base, notePath, stage: 'running' })
     const controller = new AbortController()
     running = { meetingId, controller }
     const instruction = instructionOf({ relativePath: saved.relativePath })
@@ -144,11 +176,22 @@ const organizeMeeting = async (meetingId: string) => {
       extraAllowedTools: webFetchToolsOf(saved.note)
     })
 
-    if (result.error) notifyFailed({ title: saved.title, reason: result.error })
-    else await notifyDone({ ...saved, folder, changedFiles: result.changedFiles })
+    // 실패해도 그때까지 바꾼 파일은 보여 준다 — 사용자가 열어 고칠 수 있게
+    const { changedFiles, error } = result
+    setStatus({
+      ...base,
+      notePath,
+      changedFiles,
+      stage: error ? 'error' : 'done',
+      errorMessage: error
+    })
+    if (error) notifyFailed({ title: saved.title, reason: error })
+    else await notifyDone({ ...saved, folder, changedFiles })
   } catch (caught) {
     if (isStopped) return
-    notifyFailed({ title, reason: messageOf(caught) })
+    const reason = messageOf(caught)
+    setStatus({ ...base, notePath, stage: 'error', errorMessage: reason })
+    notifyFailed({ title, reason })
   } finally {
     running = null
   }
@@ -168,8 +211,14 @@ const drainQueue = async () => {
 /** 파이프라인(교정까지)이 끝난 회의를 뇌에 저장하고 정리한다. 이미 줄 서 있으면 두 번 넣지 않는다 */
 export const enqueueOrganize = ({ meetingId }: { meetingId: string }) => {
   if (isStopped || running?.meetingId === meetingId || queuedIds.includes(meetingId)) return
+  // 작업 폴더를 고르지 않았으면 비서를 쓰지 않는 사용자다. 알리지 않는다
+  if (!getAssistantFolder()) {
+    info(`회의 ${meetingId} 뇌 저장 건너뜀: 작업 폴더 없음`)
+    return
+  }
 
   queuedIds = [...queuedIds, meetingId]
+  setStatus({ meetingId, stage: 'queued', notePath: null, changedFiles: [], errorMessage: null })
   drainQueue().catch((caught: unknown) => warn(`정리 큐 처리 실패: ${messageOf(caught)}`))
 }
 

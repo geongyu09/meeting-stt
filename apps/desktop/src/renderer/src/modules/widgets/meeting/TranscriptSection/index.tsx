@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import PipelineProgress from '@renderer/modules/features/pipeline/PipelineProgress'
 import RefinePanel from '@renderer/modules/features/refine/RefinePanel'
 import Button from '@renderer/shared/components/primitives/ui/Button'
@@ -64,6 +65,7 @@ export default function TranscriptSection({ meetingId, onClose }: TranscriptSect
     speakerNames
   })
   const { audioRef, seekTo } = useAudioSeek()
+  const titleRef = useRef<HTMLButtonElement>(null)
   const panelLabel = t.transcript.panel.label
 
   if (isLoading && !meeting) {
@@ -147,6 +149,7 @@ export default function TranscriptSection({ meetingId, onClose }: TranscriptSect
       <TranscriptHeader
         meeting={meeting}
         speakerCount={speakerOptions.length}
+        titleRef={titleRef}
         onRenameTitle={(title) => renameMeeting({ title })}
         actions={
           <>
@@ -155,7 +158,10 @@ export default function TranscriptSection({ meetingId, onClose }: TranscriptSect
               copiedKey={copiedKey}
               onCopy={copyAll}
             />
-            <TranscriptActions onDelete={handleDelete} />
+            <TranscriptActions
+              onEditTitle={() => titleRef.current?.click()}
+              onDelete={handleDelete}
+            />
             <button
               type="button"
               className={styles.closeButton}

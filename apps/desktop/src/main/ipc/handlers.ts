@@ -11,6 +11,7 @@ import {
   type GetMeetingRequest,
   type GetMeetingResponse,
   type GetMeetingsResponse,
+  type GetOrganizeStatusResponse,
   type DeleteSummaryTemplateResponse,
   type DraftGlossaryResponse,
   type GetGlossaryResponse,
@@ -61,6 +62,7 @@ import {
 } from '@meeting-stt/core/speakerCount'
 import { exportRecording } from '../audio/exportRecording'
 import { registerAssistantHandlers } from './assistant'
+import { getOrganizeStatus } from '../assistant/organize'
 import { importRecording } from '../audio/importRecording'
 import { deleteAudioFiles, deleteMeetingWithRecording, listAudioFiles } from '../audio/recordings'
 import {
@@ -839,6 +841,11 @@ export const registerIpcHandlers = () => {
       meetingId: readMeetingId(payload),
       templateId: readOptionalTemplateId(payload)
     })
+  )
+
+  // 회의 id 검증(readMeetingId)이 이 파일에 있어 비서 채널(assistant.ts)이 아니라 여기 둔다
+  ipcMain.handle(IPC.organize.status, (_event, payload): GetOrganizeStatusResponse =>
+    getOrganizeStatus({ meetingId: readMeetingId(payload) })
   )
 
   ipcMain.handle(IPC.summaryTemplates.list, (): ListSummaryTemplatesResponse =>

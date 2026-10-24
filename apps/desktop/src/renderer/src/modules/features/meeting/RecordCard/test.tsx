@@ -4,7 +4,7 @@ import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { DEFAULT_SUMMARY_TEMPLATE } from '@shared/summaryTemplate'
-import type { PipelineProgressEvent } from '@shared/ipc'
+import type { OrganizeProgressEvent, PipelineProgressEvent } from '@shared/ipc'
 import type { LlmStatus, Meeting, MeetingDetail } from '@shared/types'
 
 vi.mock('@renderer/shared/api/meetings', () => ({
@@ -26,17 +26,25 @@ vi.mock('@renderer/shared/api/summary', () => ({ createSummaryApi: vi.fn() }))
 vi.mock('@renderer/shared/api/summaryTemplate', () => ({ getSummaryTemplatesApi: vi.fn() }))
 vi.mock('@renderer/shared/api/llm', () => ({ getLlmStatusApi: vi.fn() }))
 vi.mock('@renderer/shared/api/clipboard', () => ({ writeClipboardTextApi: vi.fn() }))
+vi.mock('@renderer/shared/api/assistant', () => ({ getOrganizeStatusApi: vi.fn() }))
 vi.mock('@renderer/shared/api/events', () => ({
   onPipelineProgress: vi.fn(),
   onRefineProgress: vi.fn(() => () => {}),
   onSummaryProgress: vi.fn(() => () => {}),
-  onMeetingsChanged: vi.fn(() => () => {})
+  onMeetingsChanged: vi.fn(() => () => {}),
+  onOrganizeProgress: vi.fn()
 }))
 
+import { getOrganizeStatusApi } from '@renderer/shared/api/assistant'
 import { writeClipboardTextApi } from '@renderer/shared/api/clipboard'
-import { onPipelineProgress } from '@renderer/shared/api/events'
+import { onOrganizeProgress, onPipelineProgress } from '@renderer/shared/api/events'
 import { getLlmStatusApi } from '@renderer/shared/api/llm'
-import { deleteMeetingApi, getMeetingApi, reprocessMeetingApi } from '@renderer/shared/api/meetings'
+import {
+  deleteMeetingApi,
+  getMeetingApi,
+  renameMeetingApi,
+  reprocessMeetingApi
+} from '@renderer/shared/api/meetings'
 import { createSummaryApi } from '@renderer/shared/api/summary'
 import { getSummaryTemplatesApi } from '@renderer/shared/api/summaryTemplate'
 import RecordCard from './index'
@@ -96,16 +104,20 @@ const detailOf = (meeting: Meeting): MeetingDetail => ({
 const READY_LLM = { provider: 'claude-cli', claudeCliPath: '/usr/local/bin/claude' } as LlmStatus
 
 let pushProgress: (event: PipelineProgressEvent) => void = () => {}
+let pushOrganize: (event: OrganizeProgressEvent) => void = () => {}
+
+const NOTE_PATH = 'raw/recordings/2026-10-21-1400 주간 제품 회의.md'
 
 const renderCard = () => {
   const onOpenFull = vi.fn()
+  const onOpenFile = vi.fn()
   const rendered = render(
     <MemoryRouter>
-      <RecordCard meetingId={MEETING_ID} onOpenFull={onOpenFull} />
+      <RecordCard meetingId={MEETING_ID} onOpenFull={onOpenFull} onOpenFile={onOpenFile} />
     </MemoryRouter>
   )
 
-  return { ...rendered, onOpenFull }
+  return { ...rendered, onOpenFull, onOpenFile }
 }
 
 beforeEach(() => {
@@ -114,6 +126,12 @@ beforeEach(() => {
 
     return () => {}
   })
+  vi.mocked(onOrganizeProgress).mockImplementation((listener) => {
+    pushOrganize = listener
+
+    return () => {}
+  })
+  vi.mocked(getOrganizeStatusApi).mockResolvedValue(null)
   vi.mocked(getMeetingApi).mockResolvedValue(detailOf(DONE_MEETING))
   vi.mocked(getLlmStatusApi).mockResolvedValue(READY_LLM)
   vi.mocked(getSummaryTemplatesApi).mockResolvedValue([
@@ -184,6 +202,64 @@ describe('RecordCard', () => {
     await userEvent.click(screen.getByRole('button', { name: '삭제' }))
 
     expect(deleteMeetingApi).toHaveBeenCalledWith({ meetingId: MEETING_ID })
+  })
+
+  it('더보기 → 제목 수정으로 제목을 고쳐 저장한다', async () => {
+    vi.mocked(renameMeetingApi).mockResolvedValue(detailOf({ ...DONE_MEETING, title: '배포 회고' }))
+    renderCard()
+    await screen.findByRole('article')
+
+    await userEvent.click(screen.getByRole('button', { name: '더보기' }))
+    await userEvent.click(screen.getByRole('button', { name: '제목 수정' }))
+    const editor = screen.getByLabelText('회의 제목')
+    await userEvent.clear(editor)
+    await userEvent.type(editor, '배포 회고{Enter}')
+
+    expect(renameMeetingApi).toHaveBeenCalledWith({ meetingId: MEETING_ID, title: '배포 회고' })
+    expect(await screen.findByText('배포 회고')).toBeTruthy()
+  })
+
+  it('작업 폴더에 저장·정리된 파일을 보여 주고, 누르면 그 파일을 열어 고치게 한다', async () => {
+    vi.mocked(getOrganizeStatusApi).mockResolvedValue({
+      meetingId: MEETING_ID,
+      stage: 'done',
+      notePath: NOTE_PATH,
+      changedFiles: [NOTE_PATH, 'tasks.md', '/Users/me/elsewhere/log.md'],
+      errorMessage: null
+    })
+    const { onOpenFile } = renderCard()
+
+    expect(await screen.findByText('작업 폴더 · 파일 3개 정리됨')).toBeTruthy()
+    // 원문은 바뀐 파일에도 들어 있지만 한 번만, "원문" 표시와 함께 보인다
+    const noteChip = screen.getByRole('button', { name: `${NOTE_PATH} 열어서 고치기` })
+    expect(noteChip.textContent).toContain('원문')
+    expect(screen.getAllByRole('button', { name: /열어서 고치기/ })).toHaveLength(2)
+    // 작업 폴더 밖 파일은 열 수 없어 글자로만 보인다
+    expect(screen.getByText('/Users/me/elsewhere/log.md').closest('button')).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: 'tasks.md 열어서 고치기' }))
+    expect(onOpenFile).toHaveBeenCalledWith('tasks.md')
+  })
+
+  it('정리가 실패해도 그때까지 바꾼 파일은 남겨 고칠 수 있게 하고, 보낸 적 없으면 줄을 그리지 않는다', async () => {
+    renderCard()
+    await screen.findByRole('article')
+    expect(screen.queryByText(/작업 폴더 ·/)).toBeNull()
+
+    act(() =>
+      pushOrganize({
+        meetingId: MEETING_ID,
+        stage: 'error',
+        notePath: NOTE_PATH,
+        changedFiles: ['tasks.md'],
+        errorMessage: '10분 안에 끝나지 않아 중지했습니다'
+      })
+    )
+
+    expect(screen.getByRole('alert').textContent).toBe(
+      '작업 폴더 · 정리 실패 · 10분 안에 끝나지 않아 중지했습니다'
+    )
+    expect(screen.getByRole('button', { name: 'tasks.md 열어서 고치기' })).toBeTruthy()
   })
 
   it('처리 중이면 단계·퍼센트·진행 막대를 보여 준다', async () => {

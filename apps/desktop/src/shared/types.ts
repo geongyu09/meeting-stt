@@ -197,6 +197,21 @@ export type PipelineStage = 'stt' | 'diarize' | 'merge' | 'save' | 'done' | 'err
  */
 export type SummaryStage = 'summarize' | 'reduce' | 'done' | 'error'
 
+/** 녹음 기록 정리 단계 (references/features/assistant.md "녹음 기록 자동 정리" > "정리 에이전트") */
+export type OrganizeStage = 'queued' | 'saving' | 'running' | 'done' | 'error'
+
+/** 한 회의의 뇌 저장·정리 상태. main 메모리에만 있고, 앱을 다시 켜면 원문 경로만 남는다 */
+export interface OrganizeStatus {
+  meetingId: string
+  stage: OrganizeStage
+  /** 뇌에 저장한 원문. 작업 폴더 안이면 상대 경로, 밖이면 절대 경로. 저장 전·저장 실패면 null */
+  notePath: string | null
+  /** 에이전트가 쓰거나 고친 파일 (작업 폴더 기준 상대 경로). 실패해도 그때까지 바꾼 파일은 담는다 */
+  changedFiles: string[]
+  /** 한국어 사유. error일 때만 */
+  errorMessage: string | null
+}
+
 /** 요약 템플릿에 쌓는 블록 종류. 순서는 블록 모음에 보이는 순서다 (references/architecture.md "요약 템플릿") */
 export type SummaryBlockKind =
   | 'oneLine'

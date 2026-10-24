@@ -6,13 +6,14 @@ import { useLocale } from '@renderer/shared/provider/context/localeContext'
 import styles from './TranscriptActions.module.css'
 
 interface TranscriptActionsProps {
+  onEditTitle: () => void
   onDelete: () => void
 }
 
 type MenuStage = 'closed' | 'open' | 'confirming'
 
-/** 제목 줄 복사 버튼 옆의 더보기. 회의 삭제는 더보기 안에서 2단계 인라인 확인을 거친다 */
-export default function TranscriptActions({ onDelete }: TranscriptActionsProps) {
+/** 제목 줄 복사 버튼 옆의 더보기. 제목 수정과, 2단계 인라인 확인을 거치는 회의 삭제 */
+export default function TranscriptActions({ onEditTitle, onDelete }: TranscriptActionsProps) {
   const { t } = useLocale()
   const [menuStage, setMenuStage] = useState<MenuStage>('closed')
 
@@ -41,6 +42,16 @@ export default function TranscriptActions({ onDelete }: TranscriptActionsProps) 
           <button
             type="button"
             className={styles.menuItem}
+            onClick={() => {
+              setMenuStage('closed')
+              onEditTitle()
+            }}
+          >
+            {t.transcript.actions.editTitle}
+          </button>
+          <button
+            type="button"
+            className={[styles.menuItem, styles.dangerItem].join(' ')}
             onClick={() => setMenuStage('confirming')}
           >
             {t.transcript.actions.deleteMeeting}

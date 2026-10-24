@@ -22,6 +22,8 @@ interface RecentRecordStripProps {
   /** 막 멈춘 녹음. 그 기록 카드를 펼친 채로 시작한다 */
   stoppedMeetingId: string | null
   onOpenRecord: (meetingId: string) => void
+  /** 기록 카드의 저장·정리된 파일 칩 */
+  onOpenDocument: (path: string) => void
 }
 
 /**
@@ -31,7 +33,8 @@ interface RecentRecordStripProps {
 export default function RecentRecordStrip({
   meetings,
   stoppedMeetingId,
-  onOpenRecord
+  onOpenRecord,
+  onOpenDocument
 }: RecentRecordStripProps) {
   const { t, locale } = useLocale()
   const { now } = useNow({ intervalMs: NOW_REFRESH_MS })
@@ -60,7 +63,13 @@ export default function RecentRecordStrip({
     <div className={styles.dock}>
       {selectedMeeting ? (
         <div className={styles.card}>
-          <RecordCard meetingId={selectedMeeting.id} onOpenFull={onOpenRecord} />
+          {/* 회의를 바꾸면 요약·편집 상태가 따라오지 않게 다시 마운트한다 */}
+          <RecordCard
+            key={selectedMeeting.id}
+            meetingId={selectedMeeting.id}
+            onOpenFull={onOpenRecord}
+            onOpenFile={onOpenDocument}
+          />
         </div>
       ) : null}
       <ul className={styles.list} aria-label={t.recording.recorder.recentLabel}>

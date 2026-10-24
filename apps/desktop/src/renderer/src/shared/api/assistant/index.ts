@@ -1,4 +1,5 @@
 import type {
+  GetOrganizeStatusRequest,
   ReadWorkspaceFileRequest,
   SendAssistantMessageRequest,
   SetAssistantAutoOrganizeRequest,
@@ -145,3 +146,13 @@ export const listAssistantSkillsApi = async () => window.api.assistant.listSkill
  * const { isInstalled } = await installHarnessApi()
  */
 export const installHarnessApi = async () => window.api.assistant.installHarness()
+
+/**
+ * @description 녹음 기록이 비서의 뇌(작업 폴더)에 어디 저장됐고 정리 에이전트가 어떤 파일을 바꿨는지 조회합니다.
+ * @param meetingId - 회의 ID
+ * @returns 정리 상태. 뇌에 보낸 적 없으면 null. 앱을 다시 켠 뒤에는 원문 경로만 담긴다
+ * @example
+ * const status = await getOrganizeStatusApi({ meetingId })
+ */
+export const getOrganizeStatusApi = async ({ meetingId }: GetOrganizeStatusRequest) =>
+  window.api.organize.status({ meetingId })

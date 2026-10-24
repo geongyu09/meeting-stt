@@ -1,4 +1,4 @@
-import type { MouseEvent } from 'react'
+import type { MouseEvent, Ref } from 'react'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
 
 import useInlineEdit from './model/useInlineEdit'
@@ -12,6 +12,8 @@ interface InlineEditableTextProps {
   ariaLabel: string
   isMultiline?: boolean
   className?: string
+  /** 표시 상태 버튼. 더보기의 "제목 수정"처럼 밖에서 편집을 시작할 때 `click()`한다 (커서는 끝) */
+  ref?: Ref<HTMLButtonElement>
 }
 
 /**
@@ -23,7 +25,8 @@ export default function InlineEditableText({
   onCommit,
   ariaLabel,
   isMultiline = false,
-  className
+  className,
+  ref
 }: InlineEditableTextProps) {
   const { t } = useLocale()
   const { isEditing, draft, setDraft, startEditing, commit, handleFocus, handleKeyDown } =
@@ -42,6 +45,7 @@ export default function InlineEditableText({
   if (!isEditing) {
     return (
       <button
+        ref={ref}
         type="button"
         className={[styles.display, className].filter(Boolean).join(' ')}
         aria-label={t.common.inlineEdit.editLabel({ label: ariaLabel })}

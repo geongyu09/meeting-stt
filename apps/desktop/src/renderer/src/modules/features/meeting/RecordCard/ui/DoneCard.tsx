@@ -2,11 +2,13 @@ import type { CSSProperties } from 'react'
 import { formatTranscript, resolveSpeakerNames } from '@meeting-stt/core/format'
 import type { Meeting, RefineResult, Speaker, Utterance } from '@shared/types'
 import useNow from '@renderer/shared/hooks/common/useNow'
+import useOrganizeStatus from '@renderer/shared/hooks/domain/assistant/useOrganizeStatus'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
 import { formatDurationShort } from '@renderer/shared/utils/formatDuration'
 import { formatMeetingDay, formatMeetingTime } from '@renderer/shared/utils/formatMeetingDate'
 
 import useRecordSummary from '../model/useRecordSummary'
+import BrainFiles from './BrainFiles'
 import CardFooter from './CardFooter'
 import CardHeader from './CardHeader'
 import SummaryBlock from './SummaryBlock'
@@ -23,22 +25,27 @@ interface DoneCardProps {
   speakers: Speaker[]
   refineResult: RefineResult | null
   saveError: Error | null
+  onRename: (title: string) => void
   onDelete: () => Promise<boolean>
   onOpenFull: () => void
+  onOpenFile: (path: string) => void
 }
 
-/** 회의록이 만들어진 카드: 헤더 · 요약 · 화자 범례와 교정 수 · 푸터 */
+/** 회의록이 만들어진 카드: 헤더 · 요약 · 화자 범례와 교정 수 · 작업 폴더에 저장한 파일 · 푸터 */
 export default function DoneCard({
   meeting,
   utterances,
   speakers,
   refineResult,
   saveError,
+  onRename,
   onDelete,
-  onOpenFull
+  onOpenFull,
+  onOpenFile
 }: DoneCardProps) {
   const { t, locale } = useLocale()
   const { now } = useNow({ intervalMs: NOW_REFRESH_MS })
+  const { status: organizeStatus } = useOrganizeStatus({ meetingId: meeting.id })
   const summary = useRecordSummary({
     meetingId: meeting.id,
     initialSummary: meeting.summary,
@@ -73,6 +80,7 @@ export default function DoneCard({
         meta={meta}
         copyText={formatTranscript({ utterances, displayNames: names, format: 'plain' })}
         saveError={saveError}
+        onRename={onRename}
         onDelete={onDelete}
       />
       <SummaryBlock summary={summary} />
@@ -97,6 +105,7 @@ export default function DoneCard({
           </span>
         ) : null}
       </div>
+      {organizeStatus ? <BrainFiles status={organizeStatus} onOpenFile={onOpenFile} /> : null}
       <CardFooter summary={summary} onOpenFull={onOpenFull} />
     </>
   )

@@ -19,7 +19,8 @@ vi.mock('@renderer/shared/api/assistant', () => ({
   cancelAssistantApi: vi.fn(),
   resetAssistantChatApi: vi.fn(),
   listWorkspaceFilesApi: vi.fn(),
-  listAssistantSkillsApi: vi.fn()
+  listAssistantSkillsApi: vi.fn(),
+  getOrganizeStatusApi: vi.fn()
 }))
 vi.mock('@renderer/shared/api/llm', () => ({ getLlmStatusApi: vi.fn() }))
 vi.mock('@renderer/shared/api/recording', () => ({
@@ -64,13 +65,15 @@ vi.mock('@renderer/shared/api/events', () => ({
   onRefineProgress: vi.fn(() => () => {}),
   onSummaryProgress: vi.fn(() => () => {}),
   onSettingsChanged: vi.fn(() => () => {}),
-  onRoutinesChanged: vi.fn(() => () => {})
+  onRoutinesChanged: vi.fn(() => () => {}),
+  onOrganizeProgress: vi.fn(() => () => {})
 }))
 
 import {
   cancelAssistantApi,
   getAssistantStateApi,
   getAssistantStatusApi,
+  getOrganizeStatusApi,
   listAssistantSkillsApi,
   listWorkspaceFilesApi,
   resetAssistantChatApi,
@@ -229,6 +232,7 @@ beforeEach(() => {
   vi.mocked(cancelAssistantApi).mockResolvedValue(undefined)
   vi.mocked(controlRecordingApi).mockResolvedValue(undefined)
   vi.mocked(getRoutinesApi).mockResolvedValue(NO_ROUTINES)
+  vi.mocked(getOrganizeStatusApi).mockResolvedValue(null)
 })
 
 afterEach(() => {
@@ -575,6 +579,37 @@ describe('AssistantChatSection', () => {
     await userEvent.click(olderButton)
 
     expect(screen.queryByRole('article')).toBeNull()
+  })
+
+  it('막 멈춘 녹음 카드에서 작업 폴더에 정리된 파일을 누르면 문서 패널로 연다', async () => {
+    const meeting = {
+      id: 'meeting-1',
+      title: '주간 제품 회의',
+      createdAt: Date.now(),
+      durationSec: 60,
+      status: 'done' as const,
+      hasAudio: false
+    }
+    vi.mocked(getMeetingsApi).mockResolvedValue([meeting])
+    vi.mocked(getMeetingApi).mockResolvedValue({
+      meeting,
+      utterances: [],
+      speakers: [],
+      refineResult: null,
+      note: ''
+    })
+    vi.mocked(getOrganizeStatusApi).mockResolvedValue({
+      meetingId: meeting.id,
+      stage: 'done',
+      notePath: 'raw/recordings/2026-10-24-0900 주간 제품 회의.md',
+      changedFiles: ['tasks.md'],
+      errorMessage: null
+    })
+    const { onOpenDocument } = renderChat({ stoppedMeetingId: meeting.id })
+
+    await userEvent.click(await screen.findByRole('button', { name: 'tasks.md 열어서 고치기' }))
+
+    expect(onOpenDocument).toHaveBeenCalledWith('tasks.md')
   })
 
   it('x는 기록을 지우지 않고 최근 녹음 줄에서만 빼며, 다시 열어도 빠져 있다', async () => {

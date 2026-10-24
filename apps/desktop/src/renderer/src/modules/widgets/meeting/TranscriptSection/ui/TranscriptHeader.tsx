@@ -1,5 +1,5 @@
 import { formatTimestamp } from '@meeting-stt/core/format'
-import type { ReactNode } from 'react'
+import type { ReactNode, Ref } from 'react'
 import type { Meeting } from '@shared/types'
 import InlineEditableText from '@renderer/shared/components/composites/InlineEditableText'
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
@@ -10,6 +10,8 @@ import styles from './TranscriptHeader.module.css'
 interface TranscriptHeaderProps {
   meeting: Meeting
   speakerCount: number
+  /** 제목 표시 버튼. 더보기의 "제목 수정"이 이것을 눌러 편집을 시작한다 */
+  titleRef: Ref<HTMLButtonElement>
   onRenameTitle: (title: string) => void
   /** 제목 오른쪽에 둘 버튼(복사·더보기·닫기) */
   actions?: ReactNode
@@ -19,6 +21,7 @@ interface TranscriptHeaderProps {
 export default function TranscriptHeader({
   meeting,
   speakerCount,
+  titleRef,
   onRenameTitle,
   actions
 }: TranscriptHeaderProps) {
@@ -29,6 +32,7 @@ export default function TranscriptHeader({
       <div className={styles.titles}>
         <h2 className={styles.heading}>
           <InlineEditableText
+            ref={titleRef}
             className={styles.title}
             value={meeting.title}
             ariaLabel={t.transcript.header.titleLabel}

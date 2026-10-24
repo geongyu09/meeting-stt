@@ -430,6 +430,17 @@ describe('TranscriptSection 편집', () => {
     expect(await screen.findByText('배포 회고')).toBeTruthy()
   })
 
+  it('더보기의 제목 수정은 제목을 편집 상태로 바꾼다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getMeetingApi).mockResolvedValue(detailOf())
+    renderSection()
+
+    await user.click(await screen.findByRole('button', { name: '회의 더보기' }))
+    await user.click(screen.getByRole('button', { name: '제목 수정' }))
+
+    expect(document.activeElement).toBe(screen.getByLabelText('회의 제목'))
+  })
+
   it('저장에 실패하면 안내를 보여준다', async () => {
     const user = userEvent.setup()
     vi.mocked(getMeetingApi).mockResolvedValue(detailOf())
