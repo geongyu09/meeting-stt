@@ -68,6 +68,11 @@ describe('isDefaultTitle', () => {
     expect(isDefaultTitle({ title: 'Recording 2026-10-21', createdAt: CREATED_AT })).toBe(true)
   })
 
+  it('메모 기본 제목도 참이다', () => {
+    expect(isDefaultTitle({ title: '2026-10-21 메모', createdAt: CREATED_AT })).toBe(true)
+    expect(isDefaultTitle({ title: 'Memo 2026-10-21', createdAt: CREATED_AT })).toBe(true)
+  })
+
   it('v0.3.2까지의 기본 제목도 참이다', () => {
     expect(isDefaultTitle({ title: '2026-10-21 회의', createdAt: CREATED_AT })).toBe(true)
     expect(isDefaultTitle({ title: 'Meeting 2026-10-21', createdAt: CREATED_AT })).toBe(true)

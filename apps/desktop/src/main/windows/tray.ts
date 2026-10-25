@@ -1,7 +1,8 @@
 import { join } from 'node:path'
-import { app, Menu, nativeImage, Tray } from 'electron'
+import { app, Menu, nativeImage, Tray, type MenuItemConstructorOptions } from 'electron'
+import type { RecordingType } from '@shared/types'
 import { is } from '@electron-toolkit/utils'
-import { getRecordingState } from '../audio/session'
+import { getRecordingState, setRecordingType } from '../audio/session'
 import { controlDictation, copyLastDictation, getDictationState } from '../dictation/session'
 import { getLocale, t } from '../locale'
 import { messageOf, warn } from '../log'
@@ -55,16 +56,24 @@ const formatElapsed = (elapsedMs: number) => {
   return `${Math.floor(minutes / MINUTES_PER_HOUR)}:${pad2(minutes % MINUTES_PER_HOUR)}:${pad2(seconds)}`
 }
 
+const startAs = (type: RecordingType) => () => {
+  setRecordingType(type)
+  requestRecordingCommand({ kind: 'start' })
+}
+
 const buildMenu = ({ isRecording, isDictating, hasLastDictation }: MenuState) => {
   const { tray: labels } = t().main
 
+  // 받아쓰기 중에는 녹음을 시작할 수 없다. 메뉴를 비활성으로 두어 안내 문구만 뜨는 일을 줄인다
+  const recordingItems: MenuItemConstructorOptions[] = isRecording
+    ? [{ label: labels.stopRecording, click: () => requestRecordingCommand({ kind: 'stop' }) }]
+    : [
+        { label: labels.startMeetingRecording, enabled: !isDictating, click: startAs('meeting') },
+        { label: labels.startMemoRecording, enabled: !isDictating, click: startAs('memo') }
+      ]
+
   return Menu.buildFromTemplate([
-    {
-      label: isRecording ? labels.stopRecording : labels.startRecording,
-      // 받아쓰기 중에는 녹음을 시작할 수 없다. 메뉴를 비활성으로 두어 안내 문구만 뜨는 일을 줄인다
-      enabled: !isDictating,
-      click: () => requestRecordingCommand({ kind: isRecording ? 'stop' : 'start' })
-    },
+    ...recordingItems,
     {
       label: isDictating ? labels.stopDictation : labels.startDictation,
       enabled: !isRecording,

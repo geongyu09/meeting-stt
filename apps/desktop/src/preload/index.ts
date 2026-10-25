@@ -88,6 +88,7 @@ import {
   type SendRecordingChunkRequest,
   type SetLiveTranscriptRequest,
   type SetRecordingNoteRequest,
+  type SetRecordingTypeRequest,
   type SetRecordingPausedRequest,
   type SetSystemAudioRequest,
   type SetSpeakerCountRequest,
@@ -136,7 +137,9 @@ const api = {
     setPaused: (payload: SetRecordingPausedRequest): Promise<GetRecordingStateResponse> =>
       ipcRenderer.invoke(IPC.recording.setPaused, payload),
     setNote: (payload: SetRecordingNoteRequest): Promise<GetRecordingStateResponse> =>
-      ipcRenderer.invoke(IPC.recording.setNote, payload)
+      ipcRenderer.invoke(IPC.recording.setNote, payload),
+    setType: (payload: SetRecordingTypeRequest): Promise<GetRecordingStateResponse> =>
+      ipcRenderer.invoke(IPC.recording.setType, payload)
   },
   // 받아쓰기(음성 입력). 그래프 소유자인 위젯만 start·chunk·stop을 부른다 (references/architecture.md "받아쓰기")
   dictation: {

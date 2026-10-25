@@ -1,6 +1,7 @@
+import { isRecordingType } from '@shared/audio'
 import { audioQualityIssueOf, type AudioQualityMetrics } from '@shared/audioQuality'
 import type { MeetingSearchResult } from '@shared/ipc'
-import type { Meeting, MeetingAudioFile, MeetingStatus } from '@shared/types'
+import type { Meeting, MeetingAudioFile, MeetingStatus, RecordingType } from '@shared/types'
 import { SEARCH_RESULT_LIMIT, toLikePattern } from '../searchQuery'
 import { getDb } from './connection'
 import { t } from '../locale'
@@ -16,6 +17,7 @@ interface MeetingRow {
   summary: string | null
   speaker_count: number | null
   audio_quality: string | null
+  record_type: string
 }
 
 const toMeeting = (row: MeetingRow): Meeting => {
@@ -31,6 +33,7 @@ const toMeeting = (row: MeetingRow): Meeting => {
     ...(row.error_message ? { errorMessage: row.error_message } : {}),
     ...(row.summary ? { summary: row.summary } : {}),
     ...(row.speaker_count ? { speakerCount: row.speaker_count } : {}),
+    recordType: isRecordingType(row.record_type) ? row.record_type : 'meeting',
     hasAudio: row.audio_path !== null,
     ...(audioQualityIssue ? { audioQualityIssue } : {})
   }
@@ -183,6 +186,19 @@ export const updateMeetingSpeakerCount = ({
   getDb()
     .prepare('UPDATE meetings SET speaker_count = @speakerCount WHERE id = @meetingId')
     .run({ meetingId, speakerCount })
+}
+
+/** 정지하는 순간의 녹음 종류 (references/features/assistant.md "녹음 종류 (회의 / 메모)") */
+export const updateMeetingRecordType = ({
+  meetingId,
+  recordType
+}: {
+  meetingId: string
+  recordType: RecordingType
+}) => {
+  getDb()
+    .prepare('UPDATE meetings SET record_type = @recordType WHERE id = @meetingId')
+    .run({ meetingId, recordType })
 }
 
 /**

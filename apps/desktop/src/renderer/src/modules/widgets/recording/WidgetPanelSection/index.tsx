@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { MAX_SPEAKER_COUNT, MIN_SPEAKER_COUNT } from '@meeting-stt/core/speakerCount'
 import PauseRecordingButton from '@renderer/modules/features/recording/PauseRecordingButton'
+import RecordingTypeToggle from '@renderer/modules/features/recording/RecordingTypeToggle'
 import { setWidgetVisibleApi } from '@renderer/shared/api/widget'
 import Button from '@renderer/shared/components/primitives/ui/Button'
 import Icon from '@renderer/shared/components/primitives/ui/Icon'
@@ -28,12 +29,19 @@ export default function WidgetPanelSection() {
   const { t: messages } = useLocale()
   const t = messages.recording
   const { status } = useModelStatus()
-  const { isRecording, isPaused, elapsedSec, speakerCount, errorMessage, qualityIssue } =
-    useRecordingState()
+  const {
+    isRecording,
+    isPaused,
+    elapsedSec,
+    speakerCount,
+    recordingType,
+    errorMessage,
+    qualityIssue
+  } = useRecordingState()
   const isModelReady = status?.isReady ?? false
   const { isBusy, start, stop } = useRecorder({ isReady: isModelReady })
   const { text, isValid, changeText } = useSpeakerCount({ speakerCount })
-  const [pauseError, setPauseError] = useState<string | null>(null)
+  const [controlError, setControlError] = useState<string | null>(null)
   const dictation = useDictation()
   // 명령 구독은 보기와 무관하게 살아 있어야 한다. 받아쓰기 시작 지시는 녹음 보기에서 온다
   const dictationRecorder = useDictationRecorder()
@@ -61,7 +69,7 @@ export default function WidgetPanelSection() {
 
   const renderFooter = () => {
     // 받아쓰기 시작 거절·자동 종료 안내는 idle 상태로 실려 온다. 녹음 안내보다 새 것이라 먼저 보인다
-    const error = dictation.errorMessage ?? errorMessage ?? pauseError
+    const error = dictation.errorMessage ?? errorMessage ?? controlError
     if (error) {
       return (
         <p className={styles.error} role="alert">
@@ -98,7 +106,7 @@ export default function WidgetPanelSection() {
           <PauseRecordingButton
             isPaused={isPaused}
             className={styles.iconButton}
-            onError={setPauseError}
+            onError={setControlError}
           />
         ) : null}
         <button
@@ -115,17 +123,23 @@ export default function WidgetPanelSection() {
           {formatClock({ sec: elapsedSec })}
         </p>
       </div>
-      <div className={styles.speakerCount}>
-        <span className={styles.speakerCountLabel}>{t.speakerCount.label}</span>
-        <Stepper
-          value={text}
-          onChange={changeText}
-          min={MIN_SPEAKER_COUNT}
-          max={MAX_SPEAKER_COUNT}
-          label={t.speakerCount.label}
-          placeholder={t.speakerCount.unknown}
-          isInvalid={!isValid}
-        />
+      <div className={styles.options}>
+        <RecordingTypeToggle recordingType={recordingType} onError={setControlError} />
+        {/* 메모는 화자 분리를 하지 않아 참석자 수를 묻지 않는다. 창 높이가 고정이라 종류와 한 줄에 둔다 */}
+        {recordingType === 'memo' ? null : (
+          <div className={styles.speakerCount}>
+            <span className={styles.speakerCountLabel}>{t.speakerCount.short}</span>
+            <Stepper
+              value={text}
+              onChange={changeText}
+              min={MIN_SPEAKER_COUNT}
+              max={MAX_SPEAKER_COUNT}
+              label={t.speakerCount.label}
+              placeholder={t.speakerCount.unknown}
+              isInvalid={!isValid}
+            />
+          </div>
+        )}
       </div>
       {isRecording ? (
         <Button variant="secondary" className={styles.stopButton} onClick={stop} disabled={isBusy}>

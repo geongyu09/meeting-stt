@@ -4,6 +4,7 @@ import type {
   SendRecordingChunkRequest,
   SetLiveTranscriptRequest,
   SetRecordingNoteRequest,
+  SetRecordingTypeRequest,
   SetRecordingPausedRequest,
   SetSpeakerCountRequest,
   SetSystemAudioRequest,
@@ -107,6 +108,16 @@ export const setSpeakerCountApi = async ({ speakerCount }: SetSpeakerCountReques
  */
 export const setRecordingNoteApi = async ({ note }: SetRecordingNoteRequest) =>
   invokeRecording(() => window.api.recording.setNote({ note }))
+
+/**
+ * @description 녹음 종류(회의 / 메모)를 main 세션에 저장합니다. 녹음 중에도 바꿀 수 있고 정지하는 순간의 값이 쓰입니다.
+ * @param type - 'meeting'(화자 분리) 또는 'memo'(화자 분리 없음)
+ * @returns 저장 직후의 녹음 상태
+ * @example
+ * await setRecordingTypeApi({ type: 'memo' })
+ */
+export const setRecordingTypeApi = async ({ type }: SetRecordingTypeRequest) =>
+  invokeRecording(() => window.api.recording.setType({ type }))
 
 /**
  * @description 위젯에서만 알 수 있는 녹음 실패(마이크 권한 등)를 main에 알립니다. 메인 창도 같은 안내를 봅니다.

@@ -19,6 +19,7 @@ import type {
   MeetingDetail,
   ModelKey,
   PipelineStage,
+  RecordingType,
   RefineStage,
   SummaryBlock,
   SummaryStage,
@@ -43,7 +44,8 @@ export const IPC = {
     setLiveTranscript: 'recording:setLiveTranscript',
     setSystemAudio: 'recording:setSystemAudio',
     setPaused: 'recording:setPaused',
-    setNote: 'recording:setNote'
+    setNote: 'recording:setNote',
+    setType: 'recording:setType'
   },
   widget: { setVisible: 'widget:setVisible' },
   shortcuts: { setSuspended: 'shortcuts:setSuspended' },
@@ -199,6 +201,11 @@ export interface RecordingStateEvent {
   /** 세션에 보관 중인 참석자 수. 두 창의 입력란을 같은 값으로 맞춘다 */
   speakerCount?: number
   /**
+   * 녹음 종류. 참석자 수처럼 세션 밖 값이지만 DB(`recording.type`)에 남아 앱을 다시 켜도 이어진다.
+   * 녹음 중에도 바뀌고 정지하는 순간의 값이 그 회의의 종류다 (references/features/assistant.md "녹음 종류 (회의 / 메모)")
+   */
+  recordingType: RecordingType
+  /**
    * 녹음 노트. 녹음 전에는 다음 녹음의 초안, 녹음 중에는 그 회의의 노트다. 정지하면 빈 문자열로 돌아간다
    * (references/features/recording.md "녹음 노트")
    */
@@ -267,6 +274,11 @@ export type RecordingCommandEvent = ControlRecordingRequest
 /** 비우면(undefined) 임계값 폴백으로 돌아간다 */
 export interface SetSpeakerCountRequest {
   speakerCount?: number
+}
+
+/** 녹음 종류 바꾸기. 응답은 바뀐 녹음 상태다 */
+export interface SetRecordingTypeRequest {
+  type: RecordingType
 }
 
 /** 녹음 노트 바꾸기. 녹음 중이면 main이 그 회의 행에 바로 쓴다. 응답은 바뀐 녹음 상태다 */

@@ -59,6 +59,7 @@ const meetingOf = (overrides: Partial<Meeting> = {}): Meeting => ({
   durationSec: 125,
   status: 'done',
   hasAudio: false,
+  recordType: 'meeting',
   ...overrides
 })
 

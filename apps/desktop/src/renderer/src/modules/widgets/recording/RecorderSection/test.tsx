@@ -10,7 +10,8 @@ vi.mock('@renderer/shared/api/recording', () => ({
   setSpeakerCountApi: vi.fn(),
   setLiveTranscriptApi: vi.fn(),
   setRecordingPausedApi: vi.fn(),
-  setRecordingNoteApi: vi.fn()
+  setRecordingNoteApi: vi.fn(),
+  setRecordingTypeApi: vi.fn()
 }))
 vi.mock('@renderer/shared/api/events', () => ({ onRecordingState: vi.fn() }))
 
@@ -21,6 +22,7 @@ import {
   setLiveTranscriptApi,
   setRecordingNoteApi,
   setRecordingPausedApi,
+  setRecordingTypeApi,
   setSpeakerCountApi
 } from '@renderer/shared/api/recording'
 import RecorderSection from './index'
@@ -31,6 +33,7 @@ const IDLE_STATE: RecordingStateEvent = {
   startedAt: null,
   pausedAt: null,
   level: 0,
+  recordingType: 'meeting',
   note: '',
   liveTranscript: { isEnabled: false, lines: [], partial: '' },
   systemAudio: { isEnabled: false }
@@ -67,6 +70,7 @@ beforeEach(() => {
   vi.mocked(setLiveTranscriptApi).mockResolvedValue(RECORDING_STATE)
   vi.mocked(setRecordingPausedApi).mockResolvedValue(RECORDING_STATE)
   vi.mocked(setRecordingNoteApi).mockResolvedValue(RECORDING_STATE)
+  vi.mocked(setRecordingTypeApi).mockResolvedValue(RECORDING_STATE)
 })
 
 afterEach(() => {
@@ -91,6 +95,32 @@ describe('RecorderSection', () => {
     await userEvent.click(screen.getByRole('button', { name: '정지하고 기록 만들기' }))
 
     expect(controlRecordingApi).toHaveBeenCalledWith({ kind: 'stop' })
+  })
+
+  it('녹음 중에 메모로 바꾸면 main에 종류를 보내고, 메모 상태에서는 참석자 수를 묻지 않는다', async () => {
+    await renderRecording()
+
+    expect(screen.getByRole('button', { name: '회의' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText('참석자')).toBeTruthy()
+
+    await userEvent.click(screen.getByRole('button', { name: '메모' }))
+    expect(setRecordingTypeApi).toHaveBeenCalledWith({ type: 'memo' })
+
+    pushState({ ...RECORDING_STATE, recordingType: 'memo' })
+
+    expect(screen.getByRole('button', { name: '메모' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.queryByText('참석자')).toBeNull()
+  })
+
+  it('종류를 바꾸지 못하면 카드 안에 안내를 보여 준다', async () => {
+    vi.mocked(setRecordingTypeApi).mockRejectedValue(new Error('ipc'))
+    await renderRecording()
+
+    await userEvent.click(screen.getByRole('button', { name: '메모' }))
+
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      '녹음 종류를 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요'
+    )
   })
 
   it('일시정지 아이콘 버튼으로 main에 일시정지를 요청하고, 일시정지 중에는 멈춘 시간과 재개 버튼을 보여 준다', async () => {

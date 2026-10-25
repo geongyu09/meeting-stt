@@ -75,7 +75,9 @@ const MIGRATIONS = [
   // 8: 녹음 노트 (2026-10-21). 빈 문자열이 "없음"이라 NULL을 쓰지 않는다 (references/data-model.md "녹음 노트 저장")
   "ALTER TABLE meetings ADD COLUMN note TEXT NOT NULL DEFAULT '';",
   // 9: 비서의 뇌에 저장한 전사 원문의 절대 경로 (2026-10-22, 녹음 기록 자동 정리). NULL이면 보낸 적 없음
-  'ALTER TABLE meetings ADD COLUMN brain_path TEXT;'
+  'ALTER TABLE meetings ADD COLUMN brain_path TEXT;',
+  // 10: 녹음 종류 (2026-10-26). 이전 회의는 모두 화자 분리를 거쳤으므로 'meeting'이다 (references/data-model.md)
+  "ALTER TABLE meetings ADD COLUMN record_type TEXT NOT NULL DEFAULT 'meeting';"
 ]
 
 export const migrate = (db: Database) => {

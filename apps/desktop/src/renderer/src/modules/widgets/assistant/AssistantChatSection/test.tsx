@@ -225,6 +225,7 @@ beforeEach(() => {
   vi.mocked(getRecordingStateApi).mockResolvedValue(IDLE_RECORDING)
   vi.mocked(getSettingsApi).mockResolvedValue({
     recordingShortcut: 'Alt+Command+R',
+    memoShortcut: 'Alt+Command+M',
     newChatShortcut: 'Command+N'
   } as AppSettings)
   vi.mocked(listWorkspaceFilesApi).mockResolvedValue(['a.md', 'notes/b.md'])
@@ -541,7 +542,8 @@ describe('AssistantChatSection', () => {
       createdAt: new Date(2026, 9, 20, 11, 0).getTime(),
       durationSec: 32 * 60,
       status: 'done' as const,
-      hasAudio: false
+      hasAudio: false,
+      recordType: 'meeting' as const
     }
     vi.mocked(searchMeetingsApi).mockResolvedValue([
       {
@@ -589,7 +591,8 @@ describe('AssistantChatSection', () => {
       createdAt: new Date(2026, 9, 21, 14, 0).getTime(),
       durationSec: 48 * 60,
       status: 'done' as const,
-      hasAudio: false
+      hasAudio: false,
+      recordType: 'meeting' as const
     }
     const older = {
       ...meeting,
@@ -631,7 +634,8 @@ describe('AssistantChatSection', () => {
       createdAt: Date.now(),
       durationSec: 60,
       status: 'done' as const,
-      hasAudio: false
+      hasAudio: false,
+      recordType: 'meeting' as const
     }
     vi.mocked(getMeetingsApi).mockResolvedValue([meeting])
     vi.mocked(getMeetingApi).mockResolvedValue({
@@ -662,7 +666,8 @@ describe('AssistantChatSection', () => {
       createdAt: Date.now(),
       durationSec: 60,
       status: 'processing' as const,
-      hasAudio: true
+      hasAudio: true,
+      recordType: 'meeting' as const
     }
     vi.mocked(getMeetingsApi).mockResolvedValue([
       meeting,

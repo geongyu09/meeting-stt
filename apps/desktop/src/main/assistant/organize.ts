@@ -2,7 +2,7 @@ import { readFile, stat, writeFile } from 'node:fs/promises'
 import { recordSummaryPathOf } from '@shared/assistant'
 import type { AssistantOpenFileEvent, OrganizeProgressEvent } from '@shared/ipc'
 import { extractNoteLinks } from '@shared/note'
-import type { OrganizeStatus } from '@shared/types'
+import type { OrganizeStatus, RecordingType } from '@shared/types'
 import { findBrainPath, findMeeting, findMeetingNote, updateMeetingBrainPath } from '../db/meetings'
 import { getAssistantAutoOrganize, getAssistantFolder } from '../db/settings'
 import { listSpeakers } from '../db/speakers'
@@ -15,6 +15,7 @@ import { requireWorkspaceFolder } from './folder'
 import {
   buildRecordNote,
   extractLegacySummary,
+  RECORD_TYPE_WORDS,
   recordNoteBaseName,
   writeFileIfAbsent,
   writeRecordNote
@@ -30,8 +31,14 @@ import { isMarkdownPath, toWorkspaceRelative } from './workspacePath'
 const ORGANIZE_TIMEOUT_MS = 10 * 60_000
 
 /** UI 문구가 아니라 프롬프트라 UI 언어와 무관하게 한국어다 (루틴의 ROUTINE_PREAMBLE과 같은 방식) */
-const instructionOf = ({ relativePath }: { relativePath: string }) =>
-  `방금 끝난 회의의 전사 원문을 \`${relativePath}\`에 저장했다. ` +
+const instructionOf = ({
+  relativePath,
+  recordType
+}: {
+  relativePath: string
+  recordType: RecordingType
+}) =>
+  `방금 끝난 ${RECORD_TYPE_WORDS[recordType]}의 전사 원문을 \`${relativePath}\`에 저장했다. ` +
   '원문 파일은 앱이 관리하므로 읽기만 하고 고치거나 옮기지 마라.\n' +
   `이 녹음의 요약은 \`${recordSummaryPathOf(relativePath)}\`에 새 파일로 써라. ` +
   '머리말이나 맨 위 제목 없이 핵심 요약·결정 사항·할 일을 적어라.\n' +
@@ -121,6 +128,7 @@ const saveRecordNote = async ({ meetingId, folder }: { meetingId: string; folder
 
   return {
     title: meeting.title,
+    recordType: meeting.recordType,
     note,
     relativePath: toWorkspaceRelative({ roots: [folder], filePath })
   }
@@ -184,7 +192,10 @@ const organizeMeeting = async (meetingId: string) => {
     setStatus({ ...base, notePath, stage: 'running' })
     const controller = new AbortController()
     running = { meetingId, controller }
-    const instruction = instructionOf({ relativePath: saved.relativePath })
+    const instruction = instructionOf({
+      relativePath: saved.relativePath,
+      recordType: saved.recordType
+    })
     const result = await runUnattendedTurn({
       folder,
       text: saved.note.trim() ? `${instruction}\n\n${NOTE_INSTRUCTION}` : instruction,

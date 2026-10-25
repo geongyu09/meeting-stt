@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { DEFAULT_RECORDING_TYPE } from '@shared/audio'
 import type { RecordingStateEvent } from '@shared/ipc'
 import { onRecordingState } from '@renderer/shared/api/events'
 import { getRecordingStateApi } from '@renderer/shared/api/recording'
@@ -12,6 +13,7 @@ const IDLE_STATE: RecordingStateEvent = {
   startedAt: null,
   pausedAt: null,
   level: 0,
+  recordingType: DEFAULT_RECORDING_TYPE,
   liveTranscript: { isEnabled: false, lines: [], partial: '' },
   systemAudio: { isEnabled: false },
   note: ''
@@ -84,6 +86,7 @@ const useRecordingState = () => {
     startedAt: state.startedAt,
     level: state.level,
     speakerCount: state.speakerCount,
+    recordingType: state.recordingType,
     errorMessage: state.errorMessage,
     liveTranscript: state.liveTranscript,
     systemAudio: state.systemAudio,

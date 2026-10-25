@@ -21,6 +21,7 @@ const SETTINGS: AppSettings = {
   isWidgetFadeEnabled: true,
   widgetFadeOpacity: 0.55,
   recordingShortcut: 'Alt+Command+R',
+  memoShortcut: 'Alt+Command+M',
   widgetShortcut: 'Alt+Command+W',
   dictationShortcut: 'Alt+Command+D',
   newChatShortcut: 'Command+N',

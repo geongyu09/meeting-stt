@@ -17,7 +17,8 @@ export const getSettingsApi = async () => window.api.settings.get()
  * @param isWidgetEnabled - 녹음 위젯 패널을 띄울지 여부 (기본 켜짐)
  * @param isWidgetFadeEnabled - 위젯이 포커스를 잃으면 반투명하게 할지 여부 (기본 켜짐)
  * @param widgetFadeOpacity - 포커스가 없을 때의 위젯 불투명도 (0.2~0.95)
- * @param recordingShortcut - 녹음 토글 전역 단축키 (Electron accelerator)
+ * @param recordingShortcut - 회의 녹음 토글 전역 단축키 (Electron accelerator)
+ * @param memoShortcut - 메모 녹음 토글 전역 단축키 (Electron accelerator)
  * @param widgetShortcut - 위젯 표시/숨김 전역 단축키 (Electron accelerator)
  * @param dictationShortcut - 받아쓰기(음성 입력) 토글 전역 단축키 (Electron accelerator)
  * @param newChatShortcut - 채팅 창의 새 대화 단축키 (Electron accelerator, 메인 창 안에서만 듣습니다)
@@ -36,6 +37,7 @@ export const getSettingsApi = async () => window.api.settings.get()
  *   isWidgetFadeEnabled: true,
  *   widgetFadeOpacity: 0.55,
  *   recordingShortcut: 'Alt+Command+R',
+ *   memoShortcut: 'Alt+Command+M',
  *   widgetShortcut: 'Alt+Command+W',
  *   dictationShortcut: 'Alt+Command+D',
  *   newChatShortcut: 'Command+N',
@@ -54,6 +56,7 @@ export const updateSettingsApi = async ({
   isWidgetFadeEnabled,
   widgetFadeOpacity,
   recordingShortcut,
+  memoShortcut,
   widgetShortcut,
   dictationShortcut,
   newChatShortcut,
@@ -71,6 +74,7 @@ export const updateSettingsApi = async ({
     isWidgetFadeEnabled,
     widgetFadeOpacity,
     recordingShortcut,
+    memoShortcut,
     widgetShortcut,
     dictationShortcut,
     newChatShortcut,

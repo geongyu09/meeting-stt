@@ -4,7 +4,8 @@
  */
 export const mainKo = {
   tray: {
-    startRecording: '녹음 시작',
+    startMeetingRecording: '회의 녹음 시작',
+    startMemoRecording: '메모 녹음 시작',
     stopRecording: '녹음 정지',
     startDictation: '받아쓰기 시작',
     stopDictation: '받아쓰기 정지',
@@ -60,10 +61,12 @@ export const mainKo = {
     settingValue: '설정 값',
     searchQuery: '검색어',
     templateId: '요약 템플릿 ID',
-    note: '노트'
+    note: '노트',
+    recordingType: '녹음 종류'
   },
   recording: {
     defaultTitle: ({ date }: { date: string }) => `${date} 녹음`,
+    memoDefaultTitle: ({ date }: { date: string }) => `${date} 메모`,
     legacyDefaultTitle: ({ date }: { date: string }) => `${date} 회의`,
     notActive: '진행 중인 녹음이 아닙니다',
     alreadyActive: '이미 녹음이 진행 중입니다',
@@ -182,7 +185,8 @@ export const mainKo = {
 
 export const mainEn: typeof mainKo = {
   tray: {
-    startRecording: 'Start recording',
+    startMeetingRecording: 'Start meeting recording',
+    startMemoRecording: 'Start memo recording',
     stopRecording: 'Stop recording',
     startDictation: 'Start dictation',
     stopDictation: 'Stop dictation',
@@ -237,10 +241,12 @@ export const mainEn: typeof mainKo = {
     settingValue: 'setting value',
     searchQuery: 'search query',
     templateId: 'summary template ID',
-    note: 'Note'
+    note: 'Note',
+    recordingType: 'recording type'
   },
   recording: {
     defaultTitle: ({ date }) => `Recording ${date}`,
+    memoDefaultTitle: ({ date }) => `Memo ${date}`,
     legacyDefaultTitle: ({ date }) => `Meeting ${date}`,
     notActive: 'This recording is not in progress',
     alreadyActive: 'A recording is already in progress',

@@ -97,8 +97,12 @@ export const cleanTitleTopic = (answer: string) => {
 
 const pad2 = (value: number) => String(value).padStart(2, '0')
 
-/** 로컬 시각 기준 `YYYY-MM-DD`. UI 언어와 무관하다 */
-const dateTextOf = (createdAt: number) => {
+/**
+ * @description 로컬 시각 기준 `YYYY-MM-DD`. UI 언어와 무관하다. 기본 제목·자동 제목이 같은 날짜를 쓴다
+ * @example
+ * dateTextOf(Date.parse('2026-10-21T14:30')) // '2026-10-21'
+ */
+export const dateTextOf = (createdAt: number) => {
   const date = new Date(createdAt)
 
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
@@ -106,7 +110,7 @@ const dateTextOf = (createdAt: number) => {
 
 /**
  * @description 앱이 붙인 기본 제목인지 판정합니다. 녹음한 뒤 UI 언어를 바꿔도 맞도록 모든 언어의 기본 제목과 비교하고,
- * v0.3.2까지 만든 녹음도 자동 제목을 받도록 예전 기본 제목("… 회의")도 봅니다.
+ * 메모 기본 제목("… 메모")과 v0.3.2까지 만든 녹음의 예전 기본 제목("… 회의")도 봅니다.
  * @param title - 지금 제목
  * @param createdAt - 녹음 시작 시각(epoch ms)
  * @example
@@ -116,8 +120,10 @@ export const isDefaultTitle = ({ title, createdAt }: { title: string; createdAt:
   const date = dateTextOf(createdAt)
 
   return LOCALES.some((locale) => {
-    const { defaultTitle, legacyDefaultTitle } = MESSAGES[locale].main.recording
-    return defaultTitle({ date }) === title || legacyDefaultTitle({ date }) === title
+    const { defaultTitle, memoDefaultTitle, legacyDefaultTitle } = MESSAGES[locale].main.recording
+    return [defaultTitle, memoDefaultTitle, legacyDefaultTitle].some(
+      (titleOf) => titleOf({ date }) === title
+    )
   })
 }
 

@@ -21,6 +21,9 @@ export type { ModelKey, WhisperModelId } from '@meeting-stt/models/desktop'
 
 export type MeetingStatus = 'recording' | 'processing' | 'done' | 'error'
 
+/** 녹음 종류. 메모는 화자 분리를 건너뛴다 (references/features/assistant.md "녹음 종류 (회의 / 메모)") */
+export type RecordingType = 'meeting' | 'memo'
+
 /** 녹음 파일 관리 화면의 한 행 (references/features/recording.md "녹음 파일 관리") */
 export interface MeetingAudioFile {
   meetingId: string
@@ -42,6 +45,8 @@ export interface Meeting {
   summary?: string
   /** 녹음 정지 시 입력한 참석자 수. 없으면 임계값 폴백으로 화자를 나눈 회의다 (references/data-model.md) */
   speakerCount?: number
+  /** 정지하는 순간의 녹음 종류. 가져온 파일과 마이그레이션 10 이전 회의는 'meeting'이다 */
+  recordType: RecordingType
   /** 원본 WAV가 남아 있는지. 재생·내보내기·다시 인식은 이 값이 true일 때만 할 수 있다 (references/architecture.md) */
   hasAudio: boolean
   /**
@@ -90,8 +95,10 @@ export interface AppSettings {
   isWidgetFadeEnabled: boolean
   /** 포커스가 없을 때의 위젯 불투명도 (0.2~0.95) */
   widgetFadeOpacity: number
-  /** 녹음 토글 전역 단축키 (Electron accelerator, `src/shared/shortcut.ts`) */
+  /** 회의 녹음 토글 전역 단축키 (Electron accelerator, `src/shared/shortcut.ts`) */
   recordingShortcut: string
+  /** 메모 녹음 토글 전역 단축키. 다른 단축키와 같을 수 없다 (references/features/assistant.md "녹음 종류 (회의 / 메모)") */
+  memoShortcut: string
   /** 위젯 표시/숨김 전역 단축키. 다른 단축키와 같을 수 없다 */
   widgetShortcut: string
   /** 받아쓰기(음성 입력) 토글 전역 단축키. 다른 단축키와 같을 수 없다 (references/architecture.md "받아쓰기") */

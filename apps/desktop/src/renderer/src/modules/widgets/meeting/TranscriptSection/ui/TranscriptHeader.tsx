@@ -43,7 +43,12 @@ export default function TranscriptHeader({
           <span>{formatMeetingDate({ epochMs: meeting.createdAt, locale })}</span>
           <span aria-hidden="true">·</span>
           <span className={styles.duration}>{formatTimestamp({ sec: meeting.durationSec })}</span>
-          {speakerCount ? (
+          {meeting.recordType === 'memo' ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <span>{t.recording.type.memo}</span>
+            </>
+          ) : speakerCount ? (
             <>
               <span aria-hidden="true">·</span>
               <span>{t.transcript.header.speakerCount({ count: speakerCount })}</span>

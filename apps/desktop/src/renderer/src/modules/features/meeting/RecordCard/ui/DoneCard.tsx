@@ -69,10 +69,17 @@ export default function DoneCard({
     }
   })
   const refinedCount = refineResult?.appliedPairs.length ?? 0
+  // 메모는 화자 분리를 하지 않아 화자가 하나뿐이다 — 화자 수·범례 대신 종류를 보인다
+  const isMemo = meeting.recordType === 'memo'
+  const kindMeta = isMemo
+    ? [t.recording.type.memo]
+    : labels.length
+      ? [t.transcript.header.speakerCount({ count: labels.length })]
+      : []
   const meta = [
     `${formatMeetingDay({ epochMs: meeting.createdAt, now, locale })} ${formatMeetingTime({ epochMs: meeting.createdAt, locale })}`,
     formatDurationShort({ sec: meeting.durationSec, locale }),
-    ...(labels.length ? [t.transcript.header.speakerCount({ count: labels.length })] : [])
+    ...kindMeta
   ].join(' · ')
 
   return (
@@ -87,7 +94,7 @@ export default function DoneCard({
       />
       <SummaryBlock summary={summary} />
       <div className={styles.speakers}>
-        {labels.map((label, index) => (
+        {(isMemo ? [] : labels).map((label, index) => (
           <span key={label} className={styles.speaker}>
             <span
               className={styles.dot}

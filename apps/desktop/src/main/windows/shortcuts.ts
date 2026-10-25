@@ -1,5 +1,7 @@
 import { globalShortcut } from 'electron'
 import { SHORTCUT_OFF, formatAccelerator } from '@shared/shortcut'
+import type { RecordingType } from '@shared/types'
+import { isRecording, setRecordingType } from '../audio/session'
 import { getAppSettings } from '../db/settings'
 import { warn } from '../log'
 import { controlDictation } from '../dictation/session'
@@ -8,21 +10,30 @@ import { t } from '../locale'
 
 interface ShortcutAccelerators {
   recordingShortcut: string
+  memoShortcut: string
   widgetShortcut: string
   dictationShortcut: string
   /** 창 안 keydown이라 등록하지 않지만, 전역 단축키가 먼저 가로채므로 겹치면 거절한다 */
   newChatShortcut: string
 }
 
+/**
+ * 녹음 중이 아니면 그 종류로 바꾼 뒤 시작하고, 녹음 중이면 어느 쪽 단축키든 정지한다(종류는 그대로)
+ * (references/features/assistant.md "녹음 종류 (회의 / 메모)")
+ */
+const toggleRecordingAs = (type: RecordingType) => () => {
+  if (!isRecording()) setRecordingType(type)
+  requestRecordingCommand({ kind: 'toggle' })
+}
+
 const bindings = ({
   recordingShortcut,
+  memoShortcut,
   widgetShortcut,
   dictationShortcut
 }: ShortcutAccelerators) => [
-  {
-    accelerator: recordingShortcut,
-    action: () => requestRecordingCommand({ kind: 'toggle' })
-  },
+  { accelerator: recordingShortcut, action: toggleRecordingAs('meeting') },
+  { accelerator: memoShortcut, action: toggleRecordingAs('memo') },
   { accelerator: widgetShortcut, action: toggleWidgetVisible },
   // 받아쓰기는 main 세션이 상태를 알고 있어 토글을 여기서 시작/정지로 푼다 (references/architecture.md "받아쓰기")
   { accelerator: dictationShortcut, action: () => controlDictation({ kind: 'toggle' }) }
@@ -69,6 +80,7 @@ export const replaceGlobalShortcuts = ({
 }) => {
   const accelerators = [
     next.recordingShortcut,
+    next.memoShortcut,
     next.widgetShortcut,
     next.dictationShortcut,
     next.newChatShortcut

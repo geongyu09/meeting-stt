@@ -69,7 +69,8 @@ const DONE_MEETING: Meeting = {
   status: 'done',
   summary: '결정\n- 화면에 보이는 이름만 Gyeot으로 바꾼다',
   speakerCount: 2,
-  hasAudio: true
+  hasAudio: true,
+  recordType: 'meeting'
 }
 
 const detailOf = (meeting: Meeting): MeetingDetail => ({

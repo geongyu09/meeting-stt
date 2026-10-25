@@ -3,6 +3,7 @@ import FeedbackButton from '@renderer/modules/features/feedback/FeedbackButton'
 import UpdateCheck from '@renderer/modules/features/update/UpdateCheck'
 import {
   DEFAULT_DICTATION_SHORTCUT,
+  DEFAULT_MEMO_SHORTCUT,
   DEFAULT_NEW_CHAT_SHORTCUT,
   DEFAULT_RECORDING_SHORTCUT,
   DEFAULT_WIDGET_SHORTCUT
@@ -164,6 +165,14 @@ export default function SettingsSection({ category }: SettingsSectionProps) {
             onChange={(recordingShortcut) => updateSettings({ recordingShortcut })}
           >
             {t.settings.recordingShortcut.description}
+          </ShortcutField>
+          <ShortcutField
+            title={t.settings.memoShortcut.title}
+            accelerator={settings.memoShortcut}
+            defaultAccelerator={DEFAULT_MEMO_SHORTCUT}
+            onChange={(memoShortcut) => updateSettings({ memoShortcut })}
+          >
+            {t.settings.memoShortcut.description}
           </ShortcutField>
           <ShortcutField
             title={t.settings.widgetShortcut.title}

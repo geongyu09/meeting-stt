@@ -12,7 +12,8 @@ vi.mock('@renderer/shared/api/recording', () => ({
   getRecordingStateApi: vi.fn(),
   setSpeakerCountApi: vi.fn(),
   reportRecordingErrorApi: vi.fn(),
-  setRecordingPausedApi: vi.fn()
+  setRecordingPausedApi: vi.fn(),
+  setRecordingTypeApi: vi.fn()
 }))
 
 vi.mock('@renderer/shared/api/events', () => ({
@@ -62,6 +63,7 @@ import {
   reportRecordingErrorApi,
   requestMicrophonePermissionApi,
   setRecordingPausedApi,
+  setRecordingTypeApi,
   startRecordingApi,
   stopRecordingApi
 } from '@renderer/shared/api/recording'
@@ -74,6 +76,7 @@ const IDLE_STATE: RecordingStateEvent = {
   startedAt: null,
   pausedAt: null,
   level: 0,
+  recordingType: 'meeting',
   liveTranscript: { isEnabled: false, lines: [], partial: '' },
   systemAudio: { isEnabled: false },
   note: ''
@@ -163,6 +166,7 @@ beforeEach(() => {
   vi.mocked(startRecordingApi).mockResolvedValue(MEETING_ID)
   vi.mocked(setWidgetVisibleApi).mockResolvedValue(undefined)
   vi.mocked(reportRecordingErrorApi).mockResolvedValue(undefined)
+  vi.mocked(setRecordingTypeApi).mockResolvedValue(IDLE_STATE)
 })
 
 afterEach(() => {
@@ -189,6 +193,20 @@ describe('WidgetPanelSection', () => {
 
     expect(screen.queryByText('음성 인식 모델을 받으면 녹음할 수 있습니다')).toBeNull()
     expect(screen.getByRole('button', { name: '녹음 시작' }).hasAttribute('disabled')).toBe(false)
+  })
+
+  it('대기 중에 메모를 고르면 main에 종류를 보내고, 메모 상태에서는 참석자 수를 숨긴다', async () => {
+    const user = userEvent.setup()
+    render(<WidgetPanelSection />)
+
+    await user.click(await screen.findByRole('button', { name: '메모' }))
+    expect(setRecordingTypeApi).toHaveBeenCalledWith({ type: 'memo' })
+    expect(screen.getByText('참석자')).toBeTruthy()
+
+    act(() => pushState({ ...IDLE_STATE, recordingType: 'memo' }))
+
+    expect(screen.getByRole('button', { name: '메모' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.queryByText('참석자')).toBeNull()
   })
 
   it('녹음 시작을 누르면 마이크 권한을 받고 녹음을 시작한다', async () => {

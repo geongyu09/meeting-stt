@@ -3,7 +3,7 @@
  * `@meeting-stt/core/audio`에 있고, 기존 import 경로를 유지하려고 여기서 재노출한다.
  */
 
-import type { AudioInputDevice } from './types'
+import type { AudioInputDevice, RecordingType } from './types'
 
 export { BITS_PER_SAMPLE, CHANNELS, SAMPLE_RATE_HZ } from '@meeting-stt/core/audio'
 
@@ -48,3 +48,10 @@ export const SPEECH_VOICE_MAX_LENGTH = 200
 /** 설정 `speech.voice`의 형식 검증. main의 읽기와 저장 검증이 함께 쓴다 */
 export const isSpeechVoice = (value: unknown): value is string =>
   typeof value === 'string' && value.length > 0 && value.length <= SPEECH_VOICE_MAX_LENGTH
+
+/** 처음 녹음의 종류. 피벗 방향(빠른 기록)에 맞춰 메모다 (references/features/assistant.md "녹음 종류 (회의 / 메모)") */
+export const DEFAULT_RECORDING_TYPE: RecordingType = 'memo'
+
+/** 녹음 종류 검증. main의 설정 읽기·`recording:setType`·DB 행 읽기가 함께 쓴다 */
+export const isRecordingType = (value: unknown): value is RecordingType =>
+  value === 'meeting' || value === 'memo'

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { MAX_SPEAKER_COUNT, MIN_SPEAKER_COUNT } from '@meeting-stt/core/speakerCount'
 import PauseRecordingButton from '@renderer/modules/features/recording/PauseRecordingButton'
+import RecordingTypeToggle from '@renderer/modules/features/recording/RecordingTypeToggle'
 import { controlRecordingApi, setLiveTranscriptApi } from '@renderer/shared/api/recording'
 import Button from '@renderer/shared/components/primitives/ui/Button'
 import Icon from '@renderer/shared/components/primitives/ui/Icon'
@@ -34,6 +35,7 @@ export default function RecorderSection() {
     level,
     elapsedSec,
     speakerCount,
+    recordingType,
     liveTranscript,
     systemAudio,
     note
@@ -67,11 +69,15 @@ export default function RecorderSection() {
     }
   }
 
+  // 메모는 화자 분리를 하지 않아 참석자 수를 묻지 않는다
+  const isMemo = recordingType === 'memo'
   const error =
     controlError ??
     noteField.saveError ??
     liveTranscript.errorMessage ??
-    (isValid ? null : t.speakerCount.invalid({ min: MIN_SPEAKER_COUNT, max: MAX_SPEAKER_COUNT }))
+    (isValid || isMemo
+      ? null
+      : t.speakerCount.invalid({ min: MIN_SPEAKER_COUNT, max: MAX_SPEAKER_COUNT }))
 
   return (
     <section className={styles.card} aria-label={t.recorder.sectionLabel}>
@@ -82,7 +88,8 @@ export default function RecorderSection() {
           {formatClock({ sec: elapsedSec })}
         </span>
         {systemAudio.isEnabled ? <span className={styles.chip}>{t.systemAudio.badge}</span> : null}
-        <div className={styles.viewToggle}>
+        <div className={styles.headerControls}>
+          <RecordingTypeToggle recordingType={recordingType} onError={setControlError} />
           <ViewModeToggle isLive={liveTranscript.isEnabled} onChange={handleViewChange} />
         </div>
       </div>
@@ -94,16 +101,20 @@ export default function RecorderSection() {
         )}
       </div>
       <div className={styles.footer}>
-        <span className={styles.speakerLabel}>{t.speakerCount.short}</span>
-        <Stepper
-          value={text}
-          onChange={changeText}
-          min={MIN_SPEAKER_COUNT}
-          max={MAX_SPEAKER_COUNT}
-          label={t.speakerCount.label}
-          placeholder={t.speakerCount.unknown}
-          isInvalid={!isValid}
-        />
+        {isMemo ? null : (
+          <>
+            <span className={styles.speakerLabel}>{t.speakerCount.short}</span>
+            <Stepper
+              value={text}
+              onChange={changeText}
+              min={MIN_SPEAKER_COUNT}
+              max={MAX_SPEAKER_COUNT}
+              label={t.speakerCount.label}
+              placeholder={t.speakerCount.unknown}
+              isInvalid={!isValid}
+            />
+          </>
+        )}
         <Button
           variant="secondary"
           size="sm"

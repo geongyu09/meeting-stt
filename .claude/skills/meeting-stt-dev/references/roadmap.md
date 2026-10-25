@@ -713,11 +713,13 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 1차(2026-10-22, 사용자 지시 "다 자동이야")는 원문 저장 → 정리 → 알림 사슬과 설정 스위치만 붙였고, 녹음 종류·자동 제목·상세 줄은 남겼다 (`features/assistant.md` 같은 절 "구현 상태").
 
 - [x] 계약(1차): `AssistantStatus.isAutoOrganizeEnabled`, IPC `assistant.setAutoOrganize`·`events.assistantOpenFile`
-- [ ] 계약(남음): `RecordingType`·`RecordingStateEvent.recordingType`·`OrganizeStatus`·`AppSettings.memoShortcut`, IPC `recording.setType`·`organize.status`·`organize.send`·`events.organize`
+- [x] 계약(녹음 종류, 2026-10-26): `RecordingType`·`Meeting.recordType`·`RecordingStateEvent.recordingType`·`AppSettings.memoShortcut`, IPC `recording.setType`. `OrganizeStatus`·`organize.status`·`events.organize`는 2026-10-24 기록 카드 줄과 함께 붙었다
+- [ ] 계약(남음): IPC `organize.send`
 - [x] DB(1차): 마이그레이션 9(`brain_path`), 설정 키 `assistant.autoOrganize`
-- [ ] DB(남음): 마이그레이션 10(`record_type`), 설정 키 `recording.type`·`shortcut.memo`
-- [ ] 녹음 종류: 세션의 종류 값·`recording:setType`, 정지 시 `record_type`·메모 기본 제목·참석자 수 미저장, 메모 단축키(녹음 중이면 정지)와 네 단축키 중복 검사, Tray "회의 녹음 시작"·"메모 녹음 시작"
-- [ ] 파이프라인: 메모는 화자 분리를 spawn하지 않고 화자 구간 하나로 병합, `diarize` 진행률 100% 한 번
+- [x] DB(2026-10-26): 마이그레이션 10(`record_type`), 설정 키 `recording.type`·`shortcut.memo`
+- [x] 녹음 종류 (2026-10-26): 세션의 종류 값·`recording:setType`, 정지 시 `record_type`·메모 기본 제목·참석자 수 미저장, 메모 단축키(녹음 중이면 정지)와 다섯 단축키(새 대화 포함) 중복 검사, Tray "회의 녹음 시작"·"메모 녹음 시작"
+- [x] 파이프라인 (2026-10-26): 메모는 화자 분리를 spawn하지 않고 화자 구간 하나(`speakerLabelOf(0)`)로 병합(군소 화자 흡수 끔), `diarize` 진행률 100% 한 번. 다시 인식도 저장된 종류를 따른다
+- [x] 원문·정리 지시 (2026-10-26): 메모 원문은 머리말 `종류: 메모`·참석자 줄 없음·발화를 문단으로(vitest), 정리 지시의 "방금 끝난 {회의|메모}"
 - [x] 원문 파일 `assistant/recordNote.ts` — 경로(`raw/recordings/YYYY-MM-DD-HHmm[ 주제][-n].md`, `wx`, 주제는 제목에서 날짜를 뗀 것)·머리말·본문 조립(순수 함수 + vitest: 회의·이름 충돌·화자 이름·노트). 메모 본문 형식은 녹음 종류와 함께
 - [x] 정리 `assistant/organize.ts` — 정리 큐(동시성 1, GPU 큐와 별개), 자동 교정 잡 뒤 트리거·처음 처리만 자동(`brain_path`), 설치된 첫 CLI·고정 지시·새 세션·10분 제한·앱 종료 시 중단. 상태 Map + `organize:progress`는 2026-10-24 기록 카드 줄과 함께 붙였다
 - [x] 녹음 노트 잇기: 원문의 `## 노트`·`## 전사`(노트가 있을 때만), 정리 지시의 노트 두 문단, Claude 정리 턴에 노트 링크 호스트만 `WebFetch(domain:…)` 허용
@@ -731,9 +733,10 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
   - [x] "요약 만들기" 결과를 원문이 있는 회의의 요약 파일에도 쓴다
   - [x] 기록 카드 요약 칸: 요약 파일이 있으면 그 내용 + 인라인 편집(`assistant:writeFile`), 다시 읽기(마운트·정리 상태·요약 완료·파일 변경), 없으면 예전대로. 사전(`ko`·`en`), 통합 테스트(파일 요약 표시·고쳐서 저장)
   - [ ] 완료 기준: 앱에서 발화를 고치면 원문 파일의 그 줄이 바뀌고, 요약 파일은 그대로다. 기록 카드에서 요약을 고치면 요약 파일이 바뀐다. 옛 원문은 처음 동기화 때 `## 요약`이 요약 파일로 옮겨지고 원문에서 빠진다
-- [ ] 화면(남음): 위젯·녹음 화면 회의/메모 선택(메모면 참석자 수 숨김), 목록·상세의 메모 표시, "비서의 뇌" 줄의 보내기/다시 정리(`organize:send` — 2026-10-24부터 원문을 덮지 않고 정리만 다시)·전체 기록 패널의 같은 줄, 설정 "단축키" 메모 행
+- [x] 화면(녹음 종류, 2026-10-26): `features/recording/RecordingTypeToggle`(두 칸 세그먼트) — 위젯은 참석자 수와 한 줄(창 높이 고정), 녹음 카드는 헤더(보기 토글 왼쪽), 메모면 참석자 수 숨김. 기록 카드·전체 기록 패널·최근 녹음 줄 메타에 "메모"(메모는 화자 수·범례 대신). 설정 "단축키" 메모 행, Tray 두 시작 항목. 통합 테스트(녹음 카드·위젯 종류 선택·설정 메모 단축키)
+- [ ] 화면(남음): "비서의 뇌" 줄의 보내기/다시 정리(`organize:send` — 2026-10-24부터 원문을 덮지 않고 정리만 다시)·전체 기록 패널의 같은 줄
 - [x] 사전(`ko`·`en`) 문구(1차: 스위치·알림·오류), 통합 테스트(설정 스위치)
-- [ ] 통합 테스트(남음): 보내기/다시 정리, 위젯 종류 선택
+- [ ] 통합 테스트(남음): 보내기/다시 정리
 - [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과
 - [ ] 완료 기준: `pnpm dev`에서 작업 폴더를 고른 상태로 `⌥⌘M` → 말하고 → `⌥⌘M`으로 정지하면 화자 분리 없이 처리되고, `raw/recordings/<시각> <주제>.md`가 생긴 뒤 에이전트가 폴더 규칙대로 정리하고 요약은 원문 옆 `<시각> <주제> 요약.md`에 쓴 뒤 macOS 알림이 뜬다. 알림을 누르면 비서 화면에 원문이 열린다. `⌥⌘R` 회의는 화자 분리가 돈다. 자동 정리를 끄면 원문만 생기고 알림이 없다. CLI가 없거나 폴더가 사라지면 실패 알림이 뜨고 회의록은 앱에 남는다
 
@@ -745,7 +748,7 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 
 - [x] 사전: 외부 자동 교정·녹음 기록 자동 정리 스위치 설명에 제목 전송 한 줄 (2026-10-22)
 - [x] 사전: 기본 제목을 전사 전 임시 이름 `YYYY-MM-DD 녹음`(`Recording YYYY-MM-DD`)으로, 예전 `회의`·`Meeting`은 `legacyDefaultTitle`로 남겨 `isDefaultTitle`이 함께 본다 (2026-10-22 사용자: "stt 하기 전에는 임시 이름으로만")
-- [ ] 사전(남음): 메모 기본 제목(`main.recording`, `ko`·`en`) — 녹음 종류(메모)가 아직 없어 그 작업과 함께 넣는다. `isDefaultTitle`은 `main.recording`의 기본 제목을 모두 보므로 메모 제목 함수를 더하면 판정에도 넣는다
+- [x] 사전 (2026-10-26): 메모 기본 제목(`main.recording.memoDefaultTitle`, `ko`·`en`)을 녹음 종류와 함께 넣고 `isDefaultTitle` 판정에도 넣었다(vitest)
 - [x] 순수 함수 `src/shared/autoTitle.ts` + vitest — 입력 자르기(처음·가운데·끝), 노트 앞붙이기(`clipNote`), `cleanTitleTopic`(따옴표·`#`·`제목:`·날짜·마침표·여러 줄·30자·빈 답), `isDefaultTitle`(회의 × `ko`·`en`, 다른 날짜), 최종 제목 조립. `recordNote.ts`도 같은 `isDefaultTitle`을 쓴다 (2026-10-22)
 - [x] 잡 `src/main/title/run.ts`: GPU 큐 `{ kind: 'title' }`, `autoTitleSkipReason`(기본 제목 아님·발화 없음·LLM 미준비·외부인데 동의 없음), 자동 교정 끝 → 제목 → 정리 잡 연결, 조건부 UPDATE(`updateAutoTitle`) + `meetings:changed`, 실패는 경고 로그만 (2026-10-22)
 - [x] 로컬 한 줄 GBNF(`[^\n]{1,60}`)·`TITLE_MAX_TOKENS`(48), 외부는 첫 줄만 (2026-10-22). 동봉 `llama-cli` + Qwen3-4B로 노트·전사 예시 한 번 돌려 문법이 읽히고 "이사 후보지와 전세 대출 확인"을 낸 것을 확인했다
@@ -804,7 +807,7 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 측정부터 했고, 사용자가 미리 정한 조건("차이가 없으면 메모 녹음부터")을 채웠다 (`docs/stt-tuning-results.md` "녹음 중 STT"). 문서를 먼저 고쳤다 (`SKILL.md` 1절 표·2절 파이프라인·3절·4절 범위 절제, `features/recording.md` 새 절, `architecture.md` 목차). 스키마 변경·새 모델·새 IPC는 없다.
 
 - [x] 측정: 102분·71분을 20초 뒤 첫 쉼 / 25초 강제로 잘라 조각마다 whisper, 전체 정규화·조각별 정규화 — CER 19.12% → 18.64%(둘 다), 조각 처리 녹음 길이의 15% 안, GPU 합 1.8~1.9배 (`scripts/sttBench.ts --chunked`, `scripts/sttChunks.ts`, 2026-10-25)
-- [ ] 선행: 녹음 종류(메모) — 위 "녹음 기록 자동 정리"의 같은 항목
+- [x] 선행: 녹음 종류(메모) — 위 "녹음 기록 자동 정리"의 같은 항목 (2026-10-26 코드 완료, `pnpm dev` 확인 전)
 - [ ] `audio/sttChunks.ts` 조각 나누기(순수 함수 + vitest: 20초 전 쉼은 넘김·20초 뒤 첫 쉼·25초 강제·꼬리) — `scripts/sttChunks.ts`의 규칙을 옮기고 스크립트가 그것을 쓰게 한다
 - [ ] `audio/recordingStt.ts` 조각 인식(조각별 정규화·파이프라인 인자·시각 밀기·한 번에 하나·실패 시 멈춤) + 녹음 세션 연결(메모일 때만, 일시정지 청크 제외, 정지 때 꼬리 조각)
 - [ ] `runPipeline`이 녹음 중 STT 결과를 받으면 정규화 파일·whisper를 건너뛰고 품질 지표만 원본에서 잰다. 결과가 없으면 파일 전체 경로

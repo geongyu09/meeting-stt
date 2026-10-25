@@ -121,9 +121,11 @@ const processMeeting = async (meetingId: string) => {
 
   updateMeetingStatus({ meetingId, status: 'processing' })
   notifyMeetingsChanged()
+  const meeting = findMeeting({ meetingId })
   const { utterances, audioQuality } = await runPipeline({
     audioPath,
-    speakerCount: findMeeting({ meetingId })?.speakerCount,
+    speakerCount: meeting?.speakerCount,
+    isMemo: meeting?.recordType === 'memo',
     // 잡이 시작할 때 한 번 읽는다. 진행 중인 잡의 스레드는 바꿀 수 없다
     isQuiet: getAppSettings().isQuietProcessing,
     glossaryTerms: globalGlossary(),

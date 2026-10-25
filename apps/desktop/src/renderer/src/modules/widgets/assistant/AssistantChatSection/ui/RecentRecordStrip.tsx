@@ -56,7 +56,11 @@ export default function RecentRecordStrip({
 
   const metaOf = (meeting: Meeting) =>
     meeting.status === 'done'
-      ? `${formatMeetingDay({ epochMs: meeting.createdAt, now, locale })} · ${formatDurationShort({ sec: meeting.durationSec, locale })}`
+      ? [
+          formatMeetingDay({ epochMs: meeting.createdAt, now, locale }),
+          formatDurationShort({ sec: meeting.durationSec, locale }),
+          ...(meeting.recordType === 'memo' ? [t.recording.type.memo] : [])
+        ].join(' · ')
       : t.recording.files.status[meeting.status]
 
   return (

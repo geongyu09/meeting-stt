@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS meetings (
   audio_quality TEXT,                       -- 원본 녹음의 품질 지표 ({ speechDb, noiseDb } JSON). NULL이면 재지 않은 회의. 마이그레이션 7
   note          TEXT NOT NULL DEFAULT '',   -- 녹음 노트 (사용자가 녹음하며 적은 장문, 마크다운 그대로). 빈 문자열이면 노트 없음. 마이그레이션 8
   brain_path    TEXT,                       -- 비서의 뇌(작업 폴더)에 저장한 전사 원문의 절대 경로. NULL이면 보낸 적 없음. 마이그레이션 9
-  record_type   TEXT NOT NULL DEFAULT 'meeting' -- 'meeting' | 'memo'. 메모는 화자 분리를 건너뛴다. 마이그레이션 10 (예정, 녹음 종류 구현 때)
+  record_type   TEXT NOT NULL DEFAULT 'meeting' -- 'meeting' | 'memo'. 메모는 화자 분리를 건너뛴다. 마이그레이션 10
 );
 
 CREATE TABLE IF NOT EXISTS utterances (
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS summary_templates (  -- 마이그레이션 6 (2026-09
     7: `ALTER TABLE meetings ADD COLUMN audio_quality TEXT` (2026-10-02, 녹음 품질 안내. 아래 "녹음 품질 지표 저장" 절).
     8: `ALTER TABLE meetings ADD COLUMN note TEXT NOT NULL DEFAULT ''` (2026-10-21, 녹음 노트. 아래 "녹음 노트 저장" 절. 자동 정리보다 먼저 구현해 8을 가져갔다).
     9: `ALTER TABLE meetings ADD COLUMN brain_path TEXT` (2026-10-22, 녹음 기록 자동 정리 1차. 뇌에 보낸 적 없으므로 `NULL`이다. `features/assistant.md` "녹음 기록 자동 정리" 절).
-    10 (예정): `ALTER TABLE meetings ADD COLUMN record_type TEXT NOT NULL DEFAULT 'meeting'` (녹음 종류 구현 때. 이전 회의는 모두 화자 분리를 거쳤으므로 `'meeting'`이다). 2026-10-21 문서는 둘을 9에 함께 두었지만 자동 정리 1차가 `brain_path`만 먼저 붙였다.
+    10: `ALTER TABLE meetings ADD COLUMN record_type TEXT NOT NULL DEFAULT 'meeting'` (2026-10-26, 녹음 종류. 이전 회의는 모두 화자 분리를 거쳤으므로 `'meeting'`이다). 2026-10-21 문서는 둘을 9에 함께 두었지만 자동 정리 1차가 `brain_path`만 먼저 붙였다.
 
 ## 편집 동작 (Phase 3)
 

@@ -37,7 +37,7 @@ import {
   type UpdateGlossaryResponse,
   type UpdateSettingsResponse
 } from '@shared/ipc'
-import { isAudioInputDevice, isSpeechVoice } from '@shared/audio'
+import { isAudioInputDevice, isRecordingType, isSpeechVoice } from '@shared/audio'
 import { readGlossarySettings, readTeamDescription } from '@shared/glossary'
 import {
   isLlmProvider,
@@ -74,6 +74,7 @@ import {
   setRecordingPaused,
   setRecordingSpeakerCount,
   setRecordingSystemAudio,
+  setRecordingType,
   startRecording,
   stopRecording
 } from '../audio/session'
@@ -329,6 +330,7 @@ const readSettings = (payload: unknown) => ({
   isWidgetFadeEnabled: readBoolean({ payload, key: 'isWidgetFadeEnabled' }),
   widgetFadeOpacity: readFadeOpacity(payload),
   recordingShortcut: readShortcut({ payload, key: 'recordingShortcut' }),
+  memoShortcut: readShortcut({ payload, key: 'memoShortcut' }),
   widgetShortcut: readShortcut({ payload, key: 'widgetShortcut' }),
   dictationShortcut: readShortcut({ payload, key: 'dictationShortcut' }),
   newChatShortcut: readShortcut({ payload, key: 'newChatShortcut' }),
@@ -348,6 +350,15 @@ const readRecordingCommandKind = (payload: unknown) => {
   }
 
   return kind as RecordingCommandEvent['kind']
+}
+
+const readRecordingType = (payload: unknown) => {
+  const type = isRecord(payload) ? payload.type : undefined
+  if (!isRecordingType(type)) {
+    throw new Error(t().main.errors.invalidRequest({ what: t().main.fields.recordingType }))
+  }
+
+  return type
 }
 
 const DICTATION_COMMAND_KINDS: ControlDictationRequest['kind'][] = ['start', 'stop', 'toggle']
@@ -669,6 +680,10 @@ export const registerIpcHandlers = () => {
     setRecordingNote(readNote(payload))
   )
 
+  ipcMain.handle(IPC.recording.setType, (_event, payload): GetRecordingStateResponse =>
+    setRecordingType(readRecordingType(payload))
+  )
+
   ipcMain.handle(
     IPC.recording.setSystemAudio,
     (_event, payload): Promise<GetRecordingStateResponse> =>
@@ -792,6 +807,7 @@ export const registerIpcHandlers = () => {
 
     const isShortcutChanged =
       next.recordingShortcut !== previous.recordingShortcut ||
+      next.memoShortcut !== previous.memoShortcut ||
       next.widgetShortcut !== previous.widgetShortcut ||
       next.dictationShortcut !== previous.dictationShortcut ||
       next.newChatShortcut !== previous.newChatShortcut

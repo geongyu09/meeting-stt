@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { readdir, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { speakerLabelOf } from '@meeting-stt/core/cluster'
 import { assignSpeakers, mergeUtterances } from '@meeting-stt/core/merge'
 import { termNameOf } from '@shared/glossary'
 import type { PipelineStage, SpeakerSegment, SttSegment } from '@shared/types'
@@ -39,6 +40,8 @@ interface RunPipelineParams {
   speakerCount?: number
   /** 조용히 처리. 화자 분리 스레드를 줄이고 STT와 순차로 돌린다 (references/architecture.md) */
   isQuiet: boolean
+  /** 메모는 화자 분리를 spawn하지 않는다 (references/features/assistant.md "녹음 종류 (회의 / 메모)") */
+  isMemo: boolean
   /** 전역 용어 사전 줄. 인식 단계 프롬프트로 쓴다 (references/architecture.md "인식 단계 용어 프롬프트") */
   glossaryTerms: string[]
   onProgress: (progress: ProgressParams) => void
@@ -196,6 +199,24 @@ const transcribeAndDiarize = async ({
       ] as const)
 
 /**
+ * 메모는 혼자 하는 기록이라 화자 분리 대신 녹음 전체를 덮는 화자 구간 하나를 병합에 넘긴다 — 병합 코드는 그대로다.
+ * 진행률 단계 구성을 바꾸지 않도록 화자 분리 단계는 100%로 한 번 알린다
+ */
+const transcribeMemo = async ({
+  audioPath,
+  outputPath,
+  glossaryTerms,
+  onProgress
+}: Omit<TranscribeParams, 'speakerCount' | 'isQuiet'>) => {
+  const segments = await runStt({ audioPath, outputPath, glossaryTerms, onProgress })
+  onProgress({ stage: 'diarize', percent: FULL_PERCENT })
+  const end = segments.reduce((latest, segment) => Math.max(latest, segment.end), 0)
+  const speakerSegments: SpeakerSegment[] = [{ start: 0, end, speaker: speakerLabelOf(0) }]
+
+  return [segments, speakerSegments] as const
+}
+
+/**
  * WAV 한 개를 회의록 발화 목록과 원본의 품질 지표로 바꾼다. Phase 1 검증 스크립트(scripts/pipeline.ts)와 같은 흐름이며,
  * 파라미터는 docs/phase1-results.md에서 확정한 기본값(정규화 + turbo-q5 + VAD 켬 + DTW 끔)을 쓴다.
  */
@@ -203,6 +224,7 @@ export const runPipeline = async ({
   audioPath,
   speakerCount,
   isQuiet,
+  isMemo,
   glossaryTerms,
   onProgress
 }: RunPipelineParams) => {
@@ -224,25 +246,33 @@ export const runPipeline = async ({
 
   try {
     info(
-      speakerCount
-        ? `화자 분리: 참석자 ${speakerCount}명`
-        : '화자 분리: 참석자 수 없음, 과분할 뒤 병합으로 추정'
+      isMemo
+        ? '화자 분리: 메모라 건너뜀'
+        : speakerCount
+          ? `화자 분리: 참석자 ${speakerCount}명`
+          : '화자 분리: 참석자 수 없음, 과분할 뒤 병합으로 추정'
     )
-    if (isQuiet) info('조용히 처리: 화자 분리 스레드를 줄이고 순차 실행')
-    const [segments, speakerSegments] = await transcribeAndDiarize({
-      audioPath: normalizedPath,
-      outputPath,
-      speakerCount,
-      isQuiet,
-      glossaryTerms,
-      onProgress
-    })
+    if (isQuiet && !isMemo) info('조용히 처리: 화자 분리 스레드를 줄이고 순차 실행')
+    const [segments, speakerSegments] = isMemo
+      ? await transcribeMemo({ audioPath: normalizedPath, outputPath, glossaryTerms, onProgress })
+      : await transcribeAndDiarize({
+          audioPath: normalizedPath,
+          outputPath,
+          speakerCount,
+          isQuiet,
+          glossaryTerms,
+          onProgress
+        })
 
     onProgress({ stage: 'merge', percent: 0 })
 
     // 참석자 수로 자른 클러스터는 전부 실제 화자다. 흡수하면 짧게 말한 참석자가 사라진다
     const utterances = mergeUtterances(
-      assignSpeakers({ segments, speakerSegments, isMinorSpeakerAbsorbed: !speakerCount })
+      assignSpeakers({
+        segments,
+        speakerSegments,
+        isMinorSpeakerAbsorbed: !isMemo && !speakerCount
+      })
     )
 
     return { utterances, audioQuality }

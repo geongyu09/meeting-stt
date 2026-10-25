@@ -10,6 +10,13 @@ export const recordingKo = {
     resume: '녹음 재개',
     error: '일시정지·재개하지 못했습니다. 잠시 후 다시 시도해 주세요'
   },
+  // 녹음 종류 (references/features/assistant.md "녹음 종류 (회의 / 메모)")
+  type: {
+    label: '녹음 종류',
+    meeting: '회의',
+    memo: '메모',
+    error: '녹음 종류를 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요'
+  },
   speakerCount: {
     label: '참석자 수',
     short: '참석자',
@@ -129,6 +136,12 @@ export const recordingEn: typeof recordingKo = {
     pause: 'Pause recording',
     resume: 'Resume recording',
     error: 'Could not pause or resume. Please try again shortly'
+  },
+  type: {
+    label: 'Recording type',
+    meeting: 'Meeting',
+    memo: 'Memo',
+    error: 'Could not change the recording type. Please try again shortly'
   },
   speakerCount: {
     label: 'Participants',

@@ -2,6 +2,8 @@
 
 export const DEFAULT_RECORDING_SHORTCUT = 'Alt+Command+R'
 export const DEFAULT_WIDGET_SHORTCUT = 'Alt+Command+W'
+/** 메모 녹음 토글 (references/features/assistant.md "녹음 종류 (회의 / 메모)") */
+export const DEFAULT_MEMO_SHORTCUT = 'Alt+Command+M'
 /** 받아쓰기(음성 입력) 토글 (references/architecture.md "받아쓰기") */
 export const DEFAULT_DICTATION_SHORTCUT = 'Alt+Command+D'
 /** 채팅 창의 새 대화. 전역 단축키가 아니라 메인 창 안에서만 듣는다 (references/features/ui.md "채팅창 리뉴얼") */

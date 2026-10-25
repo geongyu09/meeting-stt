@@ -43,7 +43,13 @@ describe('recordNoteBaseName', () => {
 describe('buildRecordNote', () => {
   it('머리말·참석자·마크다운 회의록을 만들고 지정한 화자 이름을 쓴다', () => {
     const content = buildRecordNote({
-      meeting: { title: '2026-10-21 배포', createdAt: CREATED_AT, durationSec: 723, note: '' },
+      meeting: {
+        title: '2026-10-21 배포',
+        createdAt: CREATED_AT,
+        durationSec: 723,
+        note: '',
+        recordType: 'meeting'
+      },
       utterances: utterancesOf(),
       displayNames: { SPEAKER_00: '김OO' }
     })
@@ -57,13 +63,32 @@ describe('buildRecordNote', () => {
 
   it('노트가 있으면 머리말 아래 노트와 전사 제목을 둔다', () => {
     const content = buildRecordNote({
-      meeting: { title: 't', createdAt: CREATED_AT, durationSec: 5, note: '안건 https://a.b/c' },
+      meeting: {
+        title: 't',
+        createdAt: CREATED_AT,
+        durationSec: 5,
+        note: '안건 https://a.b/c',
+        recordType: 'meeting'
+      },
       utterances: utterancesOf(),
       displayNames: {}
     })
 
     expect(content.indexOf('## 노트')).toBeLessThan(content.indexOf('## 전사'))
     expect(content).toContain('안건 https://a.b/c')
+  })
+
+  it('메모는 참석자 줄 없이 발화를 화자·시각 없는 문단으로 잇는다', () => {
+    const content = buildRecordNote({
+      meeting: { title: 't', createdAt: CREATED_AT, durationSec: 5, note: '', recordType: 'memo' },
+      utterances: utterancesOf(),
+      displayNames: {}
+    })
+
+    expect(content).toContain('종류: 메모\n')
+    expect(content).not.toContain('참석자:')
+    expect(content).toContain('---\n\n지난주 배포 일정부터\n\n네 그렇게 하죠\n')
+    expect(content).not.toContain('[00:00:12]')
   })
 })
 
@@ -73,7 +98,7 @@ describe('extractLegacySummary', () => {
   /** 2026-10-24 이전 정리 에이전트처럼 머리말 바로 아래에 `## 요약`을 끼운 원문 */
   const legacyNoteOf = (note: string) =>
     buildRecordNote({
-      meeting: { title: 't', createdAt: CREATED_AT, durationSec: 5, note },
+      meeting: { title: 't', createdAt: CREATED_AT, durationSec: 5, note, recordType: 'meeting' },
       utterances: utterancesOf(),
       displayNames: {}
     }).replace('---\n\n', `---\n\n${LEGACY_SUMMARY}\n\n`)
@@ -97,7 +122,13 @@ describe('extractLegacySummary', () => {
 
   it('요약이 없는 원문이면 null이다', () => {
     const content = buildRecordNote({
-      meeting: { title: 't', createdAt: CREATED_AT, durationSec: 5, note: '' },
+      meeting: {
+        title: 't',
+        createdAt: CREATED_AT,
+        durationSec: 5,
+        note: '',
+        recordType: 'meeting'
+      },
       utterances: utterancesOf(),
       displayNames: {}
     })
@@ -106,7 +137,13 @@ describe('extractLegacySummary', () => {
 
   it('사용자 노트 안의 ## 요약 줄은 옛 요약으로 보지 않는다', () => {
     const content = buildRecordNote({
-      meeting: { title: 't', createdAt: CREATED_AT, durationSec: 5, note: '## 요약\n\n내 메모' },
+      meeting: {
+        title: 't',
+        createdAt: CREATED_AT,
+        durationSec: 5,
+        note: '## 요약\n\n내 메모',
+        recordType: 'meeting'
+      },
       utterances: utterancesOf(),
       displayNames: {}
     })

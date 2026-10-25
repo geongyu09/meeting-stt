@@ -77,8 +77,14 @@ export const settingsKo = {
     label: '포커스가 없을 때 불투명도'
   },
   recordingShortcut: {
-    title: '녹음 시작·정지',
-    description: '다른 앱을 쓰는 중에도 이 키로 녹음을 시작하고 정지합니다.'
+    title: '회의 녹음 시작·정지',
+    description:
+      '다른 앱을 쓰는 중에도 이 키로 회의 녹음을 시작하고 정지합니다. 회의 녹음은 말한 사람을 나눕니다.'
+  },
+  memoShortcut: {
+    title: '메모 녹음 시작·정지',
+    description:
+      '혼자 말로 남기는 기록입니다. 말한 사람을 나누지 않아 더 빨리 끝납니다. 녹음 중이면 어느 키로든 정지합니다.'
   },
   widgetShortcut: {
     title: '위젯 표시·숨김',
@@ -209,8 +215,14 @@ export const settingsEn: typeof settingsKo = {
     label: 'Opacity when unfocused'
   },
   recordingShortcut: {
-    title: 'Start/stop recording',
-    description: 'Start and stop recording with this key even while using other apps.'
+    title: 'Start/stop meeting recording',
+    description:
+      'Start and stop a meeting recording with this key even while using other apps. Meeting recordings separate speakers.'
+  },
+  memoShortcut: {
+    title: 'Start/stop memo recording',
+    description:
+      'For notes you speak on your own. Speakers are not separated, so it finishes faster. While recording, either key stops it.'
   },
   widgetShortcut: {
     title: 'Show/hide widget',

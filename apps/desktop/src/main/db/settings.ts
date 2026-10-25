@@ -6,11 +6,17 @@ import type {
   LlmApiVendor,
   LlmProvider,
   OpenaiModelId,
+  RecordingType,
   Routine,
   WhisperModelId
 } from '@shared/types'
 import { DEFAULT_WHISPER_MODEL_ID, isWhisperModelId } from '@meeting-stt/models/desktop'
-import { isAudioInputDevice, isSpeechVoice } from '@shared/audio'
+import {
+  DEFAULT_RECORDING_TYPE,
+  isAudioInputDevice,
+  isRecordingType,
+  isSpeechVoice
+} from '@shared/audio'
 import {
   DEFAULT_ASSISTANT_PERMISSION_MODE,
   isAssistantPermissionMode,
@@ -26,6 +32,7 @@ import {
 } from '@shared/llm'
 import {
   DEFAULT_DICTATION_SHORTCUT,
+  DEFAULT_MEMO_SHORTCUT,
   DEFAULT_NEW_CHAT_SHORTCUT,
   DEFAULT_RECORDING_SHORTCUT,
   DEFAULT_WIDGET_SHORTCUT,
@@ -51,6 +58,8 @@ const WIDGET_BOUNDS_KEY = 'widget.bounds'
 const WIDGET_FADE_KEY = 'widget.fade'
 const WIDGET_FADE_OPACITY_KEY = 'widget.fadeOpacity'
 const RECORDING_SHORTCUT_KEY = 'shortcut.recording'
+const MEMO_SHORTCUT_KEY = 'shortcut.memo'
+const RECORDING_TYPE_KEY = 'recording.type'
 const WIDGET_SHORTCUT_KEY = 'shortcut.widget'
 const DICTATION_SHORTCUT_KEY = 'shortcut.dictation'
 const NEW_CHAT_SHORTCUT_KEY = 'shortcut.newChat'
@@ -80,6 +89,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   isWidgetFadeEnabled: true,
   widgetFadeOpacity: DEFAULT_WIDGET_FADE_OPACITY,
   recordingShortcut: DEFAULT_RECORDING_SHORTCUT,
+  memoShortcut: DEFAULT_MEMO_SHORTCUT,
   widgetShortcut: DEFAULT_WIDGET_SHORTCUT,
   dictationShortcut: DEFAULT_DICTATION_SHORTCUT,
   newChatShortcut: DEFAULT_NEW_CHAT_SHORTCUT,
@@ -188,6 +198,10 @@ export const getAppSettings = (): AppSettings => ({
     key: RECORDING_SHORTCUT_KEY,
     fallback: DEFAULT_SETTINGS.recordingShortcut
   }),
+  memoShortcut: readShortcut({
+    key: MEMO_SHORTCUT_KEY,
+    fallback: DEFAULT_SETTINGS.memoShortcut
+  }),
   widgetShortcut: readShortcut({
     key: WIDGET_SHORTCUT_KEY,
     fallback: DEFAULT_SETTINGS.widgetShortcut
@@ -218,6 +232,7 @@ export const updateAppSettings = ({
   isWidgetFadeEnabled,
   widgetFadeOpacity,
   recordingShortcut,
+  memoShortcut,
   widgetShortcut,
   dictationShortcut,
   newChatShortcut,
@@ -234,6 +249,7 @@ export const updateAppSettings = ({
   writeValue({ key: WIDGET_FADE_KEY, value: isWidgetFadeEnabled })
   writeValue({ key: WIDGET_FADE_OPACITY_KEY, value: widgetFadeOpacity })
   writeValue({ key: RECORDING_SHORTCUT_KEY, value: recordingShortcut })
+  writeValue({ key: MEMO_SHORTCUT_KEY, value: memoShortcut })
   writeValue({ key: WIDGET_SHORTCUT_KEY, value: widgetShortcut })
   writeValue({ key: DICTATION_SHORTCUT_KEY, value: dictationShortcut })
   writeValue({ key: NEW_CHAT_SHORTCUT_KEY, value: newChatShortcut })
@@ -255,6 +271,19 @@ export const getSystemAudioEnabled = () =>
 
 export const setSystemAudioEnabled = ({ isEnabled }: { isEnabled: boolean }) =>
   writeValue({ key: AUDIO_SYSTEM_CAPTURE_KEY, value: isEnabled })
+
+/**
+ * 마지막으로 고른 녹음 종류. `AppSettings`에 넣지 않는다 — 녹음 상태로 두 창에 push되는 값이라
+ * `recording:setType`만 쓴다 (references/data-model.md). 모르는 값은 메모로 읽는다
+ */
+export const getRecordingType = () => {
+  const value = readValue(RECORDING_TYPE_KEY)
+
+  return isRecordingType(value) ? value : DEFAULT_RECORDING_TYPE
+}
+
+export const setRecordingTypeSetting = ({ type }: { type: RecordingType }) =>
+  writeValue({ key: RECORDING_TYPE_KEY, value: type })
 
 /**
  * 온보딩·설정에서 고른 음성 인식 모델. `AppSettings`에 넣지 않는다 — 바꾸는 행위가 다운로드를 동반하므로

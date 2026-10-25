@@ -7,6 +7,7 @@ import {
 } from '@meeting-stt/core/format'
 import type { MergedUtterance } from '@meeting-stt/core/types'
 import { isDefaultTitle } from '@shared/autoTitle'
+import type { RecordingType } from '@shared/types'
 import { toSafeFileName } from '../audio/exportFileName'
 
 /**
@@ -27,7 +28,11 @@ export interface RecordNoteMeeting {
   createdAt: number
   durationSec: number
   note: string
+  recordType: RecordingType
 }
+
+/** 머리말 `종류`와 정리 지시의 낱말. UI 언어와 무관하게 한국어다 */
+export const RECORD_TYPE_WORDS: Record<RecordingType, string> = { meeting: '회의', memo: '메모' }
 
 const pad2 = (value: number) => String(value).padStart(2, '0')
 
@@ -72,6 +77,7 @@ interface BuildRecordNoteParams {
 
 /**
  * @description YAML 머리말 + (노트가 있으면 `## 노트`·`## 전사`) + 마크다운 회의록. 머리말 항목은 UI 언어와 무관하게 한국어다.
+ * 메모는 화자가 하나라 참석자 줄 없이 발화를 화자·시각 없는 문단으로 잇는다.
  * @example
  * buildRecordNote({ meeting, utterances, displayNames: {} })
  */
@@ -87,16 +93,19 @@ export const buildRecordNote = ({
     defaultNames
   })
   const started = new Date(meeting.createdAt)
+  const isMemo = meeting.recordType === 'memo'
   const header = [
     '---',
-    '종류: 회의',
+    `종류: ${RECORD_TYPE_WORDS[meeting.recordType]}`,
     `제목: ${meeting.title}`,
     `시작: ${dateTextOf(started)} ${pad2(started.getHours())}:${pad2(started.getMinutes())}`,
     `길이: ${durationTextOf(meeting.durationSec)}`,
-    `참석자: ${[...new Set(Object.values(names))].join(', ')}`,
+    ...(isMemo ? [] : [`참석자: ${[...new Set(Object.values(names))].join(', ')}`]),
     '---'
   ]
-  const body = formatTranscript({ utterances, displayNames, defaultNames, format: 'markdown' })
+  const body = isMemo
+    ? utterances.map((utterance) => utterance.text.trim()).join('\n\n')
+    : formatTranscript({ utterances, displayNames, defaultNames, format: 'markdown' })
   const note = meeting.note.trim()
   const sections = note ? ['## 노트', '', note, '', '## 전사', '', body] : [body]
 

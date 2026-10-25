@@ -4,16 +4,25 @@ import path from 'node:path'
 import { app } from 'electron'
 import { CHUNK_SAMPLES, rmsOf, SAMPLE_RATE_HZ } from '@shared/audio'
 import type { AudioQualityIssue } from '@shared/audioQuality'
+import { dateTextOf } from '@shared/autoTitle'
 import type { RecordingStateEvent } from '@shared/ipc'
+import type { RecordingType } from '@shared/types'
 import {
   findMeeting,
   insertMeeting,
+  updateAutoTitle,
   updateMeetingDuration,
   updateMeetingNote,
+  updateMeetingRecordType,
   updateMeetingSpeakerCount,
   updateMeetingStatus
 } from '../db/meetings'
-import { getSystemAudioEnabled, setSystemAudioEnabled } from '../db/settings'
+import {
+  getRecordingType,
+  getSystemAudioEnabled,
+  setRecordingTypeSetting,
+  setSystemAudioEnabled
+} from '../db/settings'
 import { info, messageOf, warn } from '../log'
 import { notifyMeetingsChanged } from '../meetingsChanged'
 import { enqueuePipelineJob } from '../pipeline/queue'
@@ -78,20 +87,25 @@ const systemAudioEnabled = () => {
   return isSystemAudioEnabled
 }
 
+/**
+ * 녹음 종류도 세션 밖에 둔다. 녹음 중에도 바뀌고 정지하는 순간의 값이 그 회의의 종류다.
+ * 참석자 수와 달리 DB(`recording.type`)에 남아 앱을 다시 켜도 이어진다 (references/features/assistant.md "녹음 종류 (회의 / 메모)")
+ */
+let recordingType: RecordingType | undefined
+
+const currentRecordingType = () => {
+  if (recordingType === undefined) recordingType = getRecordingType()
+
+  return recordingType
+}
+
 let notifyState: (event: RecordingStateEvent) => void = () => {}
 
 export const recordingsDir = () => path.join(app.getPath('userData'), 'recordings')
 
-const pad2 = (value: number) => String(value).padStart(2, '0')
-
 /** 기본 제목은 전사 전 임시 이름 "2026-08-26 녹음" (references/features/transcript.md "회의록 자동 제목") */
-export const defaultTitle = (createdAt: number) => {
-  const date = new Date(createdAt)
-
-  return t().main.recording.defaultTitle({
-    date: `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
-  })
-}
+export const defaultTitle = (createdAt: number) =>
+  t().main.recording.defaultTitle({ date: dateTextOf(createdAt) })
 
 /** main이 창을 만든 뒤 한 번 등록한다. 창이 없을 때 보내면 무시된다 */
 export const setRecordingStateListener = (listener: (event: RecordingStateEvent) => void) => {
@@ -104,6 +118,7 @@ export const getRecordingState = (): RecordingStateEvent => ({
   pausedAt: session?.pausedAt ?? null,
   level: session?.level ?? 0,
   speakerCount,
+  recordingType: currentRecordingType(),
   note,
   liveTranscript: getLiveTranscriptState(),
   systemAudio: {
@@ -244,9 +259,12 @@ export const stopRecording = async ({ meetingId }: { meetingId: string }) => {
   note = ''
   resetLiveTranscript()
   updateMeetingDuration({ meetingId, durationSec })
-  if (speakerCount) updateMeetingSpeakerCount({ meetingId, speakerCount })
+  const isMemo = currentRecordingType() === 'memo'
+  if (isMemo) markMemo({ meetingId })
+  // 메모는 화자 분리를 하지 않으므로 참석자 수를 남기지 않는다. 세션의 값은 다음 회의 녹음을 위해 둔다
+  else if (speakerCount) updateMeetingSpeakerCount({ meetingId, speakerCount })
   info(
-    `녹음 종료 ${meetingId} (${durationSec.toFixed(1)}초${speakerCount ? `, 참석자 ${speakerCount}명` : ''})`
+    `녹음 종료 ${meetingId} (${durationSec.toFixed(1)}초${isMemo ? ', 메모' : speakerCount ? `, 참석자 ${speakerCount}명` : ''})`
   )
 
   if (durationSec < MIN_RECORDING_SEC) {
@@ -266,6 +284,28 @@ export const stopRecording = async ({ meetingId }: { meetingId: string }) => {
   if (!meeting) throw new Error(t().main.recording.meetingInfoNotFound)
 
   return meeting
+}
+
+/** 제목은 시작할 때 "녹음"으로 만들어지므로 정지할 때 메모 기본 제목으로 바꾼다. 그사이 고친 제목은 그대로 둔다 */
+const markMemo = ({ meetingId }: { meetingId: string }) => {
+  updateMeetingRecordType({ meetingId, recordType: 'memo' })
+  const meeting = findMeeting({ meetingId })
+  if (!meeting) return
+
+  updateAutoTitle({
+    meetingId,
+    title: t().main.recording.memoDefaultTitle({ date: dateTextOf(meeting.createdAt) }),
+    defaultTitle: defaultTitle(meeting.createdAt)
+  })
+}
+
+/** 녹음 중에도 바꿀 수 있다 — 정지하는 순간의 값을 쓴다. 검증은 핸들러가 끝냈다 */
+export const setRecordingType = (next: RecordingType) => {
+  recordingType = next
+  setRecordingTypeSetting({ type: next })
+  publish()
+
+  return getRecordingState()
 }
 
 /** 값이 바뀌면 두 창의 입력란이 같은 값을 보도록 바로 알린다. 검증은 핸들러가 끝냈다 */

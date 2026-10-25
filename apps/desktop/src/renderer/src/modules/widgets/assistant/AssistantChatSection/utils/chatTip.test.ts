@@ -5,6 +5,7 @@ import { chatTipOf } from './chatTip'
 
 const SHORTCUTS = {
   recordingShortcut: 'Alt+Command+R',
+  memoShortcut: 'Alt+Command+M',
   widgetShortcut: 'Alt+Command+W',
   dictationShortcut: 'Alt+Command+D',
   newChatShortcut: 'Command+N'

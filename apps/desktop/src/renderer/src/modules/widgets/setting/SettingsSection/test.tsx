@@ -39,7 +39,7 @@ const UPDATE_LABEL = '시작할 때 업데이트 확인'
 const QUIET_LABEL = '조용히 처리'
 const FADE_LABEL = '위젯 반투명'
 const OPACITY_LABEL = /포커스가 없을 때 불투명도/
-const RECORDING_SHORTCUT_BUTTON = '녹음 시작·정지 변경'
+const RECORDING_SHORTCUT_BUTTON = '회의 녹음 시작·정지 변경'
 const LOCALE_LABEL = 'UI 언어'
 const THEME_LABEL = '화면 테마'
 
@@ -57,6 +57,7 @@ const IDLE_STATE: RecordingStateEvent = {
   startedAt: null,
   pausedAt: null,
   level: 0,
+  recordingType: 'meeting',
   liveTranscript: { isEnabled: false, lines: [], partial: '' },
   systemAudio: { isEnabled: false },
   note: ''
@@ -70,6 +71,7 @@ const DEFAULT_SETTINGS = {
   isWidgetFadeEnabled: true,
   widgetFadeOpacity: 0.55,
   recordingShortcut: 'Alt+Command+R',
+  memoShortcut: 'Alt+Command+M',
   widgetShortcut: 'Alt+Command+W',
   dictationShortcut: 'Alt+Command+D',
   newChatShortcut: 'Command+N',
@@ -290,6 +292,33 @@ describe('SettingsSection', () => {
     )
     expect(await screen.findByText('⌃⇧F5')).toBeTruthy()
     expect(setShortcutsSuspendedApi).toHaveBeenLastCalledWith({ isSuspended: false })
+  })
+
+  it('메모 녹음 단축키를 바꾸면 memoShortcut으로 저장한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getSettingsApi).mockResolvedValue(DEFAULT_SETTINGS)
+    vi.mocked(updateSettingsApi).mockResolvedValue({
+      ...DEFAULT_SETTINGS,
+      memoShortcut: 'Alt+Command+K'
+    })
+    render(
+      <MemoryRouter>
+        <SettingsSection category="shortcut" />
+      </MemoryRouter>
+    )
+
+    const button = await screen.findByRole('button', { name: '메모 녹음 시작·정지 변경' })
+    expect(button.textContent).toBe('⌥⌘M')
+
+    await user.click(button)
+    fireEvent.keyDown(button, { code: 'KeyK', key: 'k', altKey: true, metaKey: true })
+
+    await waitFor(() =>
+      expect(updateSettingsApi).toHaveBeenCalledWith({
+        ...DEFAULT_SETTINGS,
+        memoShortcut: 'Alt+Command+K'
+      })
+    )
   })
 
   it('끄기를 누르면 빈 단축키를 저장하고 꺼짐으로 보여준다', async () => {
