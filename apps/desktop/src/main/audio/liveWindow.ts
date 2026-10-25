@@ -49,6 +49,21 @@ const chunksSecOf = (chunks: LiveChunk[]) =>
 export const noiseFloorOf = (recentRms: number[]) =>
   Math.max(LIVE_MIN_NOISE_FLOOR_RMS, recentRms.length ? Math.min(...recentRms) : 0)
 
+interface JudgeSpeechParams {
+  recentRms: number[]
+  rms: number
+}
+
+/** 소음 바닥 기록에 청크 RMS를 더하고 말소리인지 판정한다. 녹음 중 STT 조각 나누기(`sttChunks.ts`)도 같은 판정을 쓴다 */
+export const judgeSpeech = ({ recentRms, rms }: JudgeSpeechParams) => {
+  const nextRms = [...recentRms, rms].slice(-LIVE_NOISE_HISTORY_CHUNKS)
+
+  return {
+    recentRms: nextRms,
+    isSpeech: rms >= LIVE_LOUD_RMS || rms > noiseFloorOf(nextRms) * LIVE_SPEECH_RATIO
+  }
+}
+
 interface PushLiveChunkParams {
   window: LiveWindow
   samples: Float32Array
@@ -60,8 +75,7 @@ interface PushLiveChunkParams {
  * 조용한 동안 구간이 자라지도, whisper를 부르지도 않게 한다.
  */
 export const pushLiveChunk = ({ window, samples, rms }: PushLiveChunkParams) => {
-  const recentRms = [...window.recentRms, rms].slice(-LIVE_NOISE_HISTORY_CHUNKS)
-  const isSpeech = rms >= LIVE_LOUD_RMS || rms > noiseFloorOf(recentRms) * LIVE_SPEECH_RATIO
+  const { recentRms, isSpeech } = judgeSpeech({ recentRms: window.recentRms, rms })
   const chunks = [...window.chunks, { samples, rms, isSpeech }]
   const hasSpeech = chunks.some((chunk) => chunk.isSpeech)
 

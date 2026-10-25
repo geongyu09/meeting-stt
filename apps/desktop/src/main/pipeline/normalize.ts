@@ -146,3 +146,10 @@ export const normalizeWavFile = async ({ inputPath, outputPath }: NormalizeWavFi
   await writeFile(outputPath, buffer)
   return result
 }
+
+/** 정규화본 없이 원본 품질 지표만 잰다. 녹음 중 STT가 끝난 메모는 whisper에 넣을 정규화본이 필요 없다 */
+export const measureWavFileQuality = async ({ inputPath }: { inputPath: string }) => {
+  const { pcm, sampleRate } = readWavPcm(await readFile(inputPath))
+
+  return measureAudioQuality({ frameRms: frameRmsOf({ pcm, sampleRate }) })
+}

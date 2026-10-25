@@ -2,15 +2,21 @@
 // 사용: pnpm --filter meeting-stt exec tsx scripts/sttBench.ts <audio.wav> [--tag=이름] [--model=경로]
 //       [--bin=whisper-cli 경로] [--ref=정답.txt] [--extra="-mc 0 -sns"] [--no-vad]
 //       [--prompt-file=용어.txt] (공백이 든 프롬프트는 --extra로 못 넘겨 파일로 받는다)
-//       [--chunked=global|each] (녹음 중 STT 흉내: 20~25초 조각마다 whisper-cli를 따로 돌린다, sttChunks.ts)
+//       [--chunked=global|each] (녹음 중 STT 흉내: 20~25초 조각마다 whisper-cli를 따로 돌린다, src/main/audio/sttChunks.ts)
 // 정답은 기본으로 scripts/fixtures/reference/<오디오 이름>.txt 를 쓴다.
 import { existsSync } from 'node:fs'
 import { appendFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-import { CHUNK_SAMPLES, SAMPLE_RATE_HZ } from '@shared/audio'
+import { CHUNK_SAMPLES, rmsOf, SAMPLE_RATE_HZ } from '@shared/audio'
 import type { SttSegment } from '@shared/types'
 
+import {
+  EMPTY_STT_CHUNKER,
+  flushSttChunker,
+  pushSttChunk,
+  type SttPiece
+} from '../src/main/audio/sttChunks'
 import { threadPlan } from '../src/main/bin/threads'
 import { normalizeWavBuffer, normalizeWavFile, readWavPcm } from '../src/main/pipeline/normalize'
 import {
@@ -22,7 +28,6 @@ import { computeCer, normalizeForCer } from './cer'
 import { fail, info } from './log'
 import { FIXTURES_DIR, OUTPUT_DIR, VAD_MODEL, WHISPER_BIN, WHISPER_MODEL } from './paths'
 import { run } from './shell'
-import { planChunkCuts, speechFlagsOf } from './sttChunks'
 import { buildWavHeader } from './wav'
 
 const REFERENCE_DIR = path.join(FIXTURES_DIR, 'reference')
@@ -30,6 +35,7 @@ const RESULTS_PATH = path.join(OUTPUT_DIR, 'sttBench.tsv')
 const PROGRESS_STEP_PERCENT = 10
 const MS_PER_SEC = 1000
 const PERCENT = 100
+const INT16_SCALE = 32768
 const REPEAT_WINDOW_SEGMENTS = 4
 /**
  * global: 파일 전체로 정규화한 뒤 자른다(게인이 지금 파이프라인과 같아 자르기 효과만 본다).
@@ -172,6 +178,34 @@ interface RunChunkedParams {
   outputPath: string
 }
 
+interface ChunkCut {
+  startSample: number
+  sampleCount: number
+  isForced: boolean
+}
+
+/** 녹음기가 보는 원본 음량으로 앱과 같은 조각 나누기를 돌린다. 샘플은 버리고 위치만 남긴다 */
+const cutsOf = (pcm: Int16Array) => {
+  const cuts: ChunkCut[] = []
+  const keep = ({ startSample, samples, isForced }: SttPiece) =>
+    cuts.push({ startSample, sampleCount: samples.length, isForced })
+  let chunker = EMPTY_STT_CHUNKER
+
+  for (let start = 0; start < pcm.length; start += CHUNK_SAMPLES) {
+    const samples = Float32Array.from(
+      pcm.subarray(start, start + CHUNK_SAMPLES),
+      (sample) => sample / INT16_SCALE
+    )
+    const next = pushSttChunk({ chunker, samples, rms: rmsOf(samples) })
+    chunker = next.chunker
+    if (next.piece) keep(next.piece)
+  }
+  const tail = flushSttChunker(chunker).piece
+  if (tail) keep(tail)
+
+  return cuts
+}
+
 /**
  * 녹음 중 STT를 흉내 낸다. 쉼은 녹음기가 보는 원본 음량으로 찾고, 조각마다 whisper-cli를 새로 띄운다.
  * 시간을 조각마다 재는 이유는 녹음보다 빨리 처리되는지와 정지 뒤 남는 마지막 조각 시간을 보기 위해서다.
@@ -179,14 +213,14 @@ interface RunChunkedParams {
 const runChunked = async ({ options, mode, normalizedPath, outputPath }: RunChunkedParams) => {
   const raw = readWavPcm(await readFile(options.audioPath)).pcm
   const source = mode === 'global' ? readWavPcm(await readFile(normalizedPath)).pcm : raw
-  const cuts = planChunkCuts(speechFlagsOf(raw))
+  const cuts = cutsOf(raw)
   const chunkDir = `${outputPath}.chunks`
   await mkdir(chunkDir, { recursive: true })
 
   const chunks: ChunkResult[] = []
   for (const [index, cut] of cuts.entries()) {
-    const startSample = (cuts[index - 1]?.end ?? 0) * CHUNK_SAMPLES
-    const pcm = source.subarray(startSample, Math.min(source.length, cut.end * CHUNK_SAMPLES))
+    const startSample = cut.startSample
+    const pcm = source.subarray(startSample, startSample + cut.sampleCount)
     const body = Buffer.from(pcm.buffer, pcm.byteOffset, pcm.byteLength)
     const wav = Buffer.concat([buildWavHeader({ dataBytes: body.length }), body])
     const wavPath = path.join(chunkDir, `${index}.wav`)

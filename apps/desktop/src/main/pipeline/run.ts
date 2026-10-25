@@ -12,7 +12,7 @@ import { threadPlan } from '../bin/threads'
 import { info } from '../log'
 import { missingModelLabels, modelPath } from '../models/paths'
 import { buildDiarizeArgs, parseDiarizeOutput, parseDiarizeProgress } from './diarize'
-import { normalizeWavFile } from './normalize'
+import { measureWavFileQuality, normalizeWavFile } from './normalize'
 import { reclusterSpeakers } from './recluster'
 import { buildWhisperArgs, parseWhisperOutput, parseWhisperProgress } from './whisper'
 import { resolveTermPrompt } from './whisperPrompt'
@@ -44,6 +44,8 @@ interface RunPipelineParams {
   isMemo: boolean
   /** 전역 용어 사전 줄. 인식 단계 프롬프트로 쓴다 (references/architecture.md "인식 단계 용어 프롬프트") */
   glossaryTerms: string[]
+  /** 메모 녹음의 녹음 중 STT 결과. null이거나 비었으면 파일 전체로 인식한다 (references/features/recording.md "녹음 중 STT (메모)") */
+  recordingStt?: Promise<SttSegment[] | null>
   onProgress: (progress: ProgressParams) => void
 }
 
@@ -202,18 +204,44 @@ const transcribeAndDiarize = async ({
  * 메모는 혼자 하는 기록이라 화자 분리 대신 녹음 전체를 덮는 화자 구간 하나를 병합에 넘긴다 — 병합 코드는 그대로다.
  * 진행률 단계 구성을 바꾸지 않도록 화자 분리 단계는 100%로 한 번 알린다
  */
-const transcribeMemo = async ({
-  audioPath,
-  outputPath,
-  glossaryTerms,
+const memoSpeakersOf = ({
+  segments,
   onProgress
-}: Omit<TranscribeParams, 'speakerCount' | 'isQuiet'>) => {
-  const segments = await runStt({ audioPath, outputPath, glossaryTerms, onProgress })
+}: Pick<RunPipelineParams, 'onProgress'> & { segments: SttSegment[] }) => {
   onProgress({ stage: 'diarize', percent: FULL_PERCENT })
   const end = segments.reduce((latest, segment) => Math.max(latest, segment.end), 0)
   const speakerSegments: SpeakerSegment[] = [{ start: 0, end, speaker: speakerLabelOf(0) }]
 
   return [segments, speakerSegments] as const
+}
+
+const transcribeMemo = async ({
+  audioPath,
+  outputPath,
+  glossaryTerms,
+  onProgress
+}: Omit<TranscribeParams, 'speakerCount' | 'isQuiet'>) =>
+  memoSpeakersOf({
+    segments: await runStt({ audioPath, outputPath, glossaryTerms, onProgress }),
+    onProgress
+  })
+
+/** 녹음 중 STT가 끝난 메모는 정규화본·whisper 없이 원본에서 품질 지표만 잰다 */
+const mergeRecognizedMemo = async ({
+  audioPath,
+  segments,
+  onProgress
+}: Pick<RunPipelineParams, 'audioPath' | 'onProgress'> & { segments: SttSegment[] }) => {
+  info(`녹음 중 STT 결과로 처리: 세그먼트 ${segments.length}개`)
+  onProgress({ stage: 'stt', percent: FULL_PERCENT })
+  const audioQuality = await measureWavFileQuality({ inputPath: audioPath })
+  const [, speakerSegments] = memoSpeakersOf({ segments, onProgress })
+  onProgress({ stage: 'merge', percent: 0 })
+  const utterances = mergeUtterances(
+    assignSpeakers({ segments, speakerSegments, isMinorSpeakerAbsorbed: false })
+  )
+
+  return { utterances, audioQuality }
 }
 
 /**
@@ -226,6 +254,7 @@ export const runPipeline = async ({
   isQuiet,
   isMemo,
   glossaryTerms,
+  recordingStt,
   onProgress
 }: RunPipelineParams) => {
   ensureReady()
@@ -234,6 +263,11 @@ export const runPipeline = async ({
   const normalizedPath = `${audioPath}${NORMALIZED_SUFFIX}`
 
   onProgress({ stage: 'stt', percent: 0 })
+  // 정지 직후면 꼬리 조각이 끝나기를 기다린다
+  const recognized = isMemo ? await recordingStt : undefined
+  if (recognized?.length)
+    return mergeRecognizedMemo({ audioPath, segments: recognized, onProgress })
+  if (recordingStt) info('녹음 중 STT 결과 없음: 파일 전체로 인식')
 
   // whisper는 입력 음량을 정규화하지 않아 작게 녹음된 발화를 통째로 놓친다 (docs/phase1-results.md)
   const { speechRmsDb, gainDb, audioQuality } = await normalizeWavFile({

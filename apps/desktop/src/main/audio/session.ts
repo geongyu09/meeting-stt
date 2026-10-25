@@ -33,6 +33,7 @@ import {
   setLiveTranscriptEnabled
 } from './liveTranscript'
 import { createQualityMonitor, type QualityMonitor } from './qualityMonitor'
+import { createRecordingStt, type RecordingStt } from './recordingStt'
 import { probeSystemAudio, startSystemAudioCapture, type SystemAudioCapture } from './systemAudio'
 import { mixSamples } from './systemAudioMix'
 import { createWavWriter, type WavWriter } from './wavWriter'
@@ -54,6 +55,8 @@ interface RecordingSession {
   /** 들어오는 소리의 품질 판정. WAV에 쓰는 샘플을 그대로 넣는다 (references/architecture.md "녹음 품질 안내") */
   quality: QualityMonitor
   qualityIssue: AudioQualityIssue | null
+  /** 메모 녹음의 녹음 중 STT. 시작할 때 메모가 아니었거나 도중에 메모가 아니게 되면 null (references/features/recording.md "녹음 중 STT (메모)") */
+  stt: RecordingStt | null
 }
 
 /**
@@ -165,7 +168,8 @@ export const startRecording = async ({ sampleRate }: { sampleRate: number }) => 
     level: 0,
     systemAudio: null,
     quality: createQualityMonitor(),
-    qualityIssue: null
+    qualityIssue: null,
+    stt: currentRecordingType() === 'memo' ? createRecordingStt({ meetingId }) : null
   }
   if (systemAudioEnabled()) session.systemAudio = openSystemAudio({ meetingId })
   resetLiveTranscript()
@@ -206,7 +210,10 @@ const closeSystemAudio = async (active: RecordingSession) => {
 
   active.systemAudio = null
   const rest = capture.drain(CHUNK_SAMPLES)
-  if (rest.length > 0) await active.writer.appendChunk(rest)
+  if (rest.length > 0) {
+    await active.writer.appendChunk(rest)
+    active.stt?.push({ samples: rest, rms: rmsOf(rest) })
+  }
   await capture.stop()
 }
 
@@ -246,6 +253,7 @@ export const appendRecordingChunk = async ({
   active.qualityIssue = active.quality.push(samples)
   // 인식 결과는 따로 publish하지 않고 다음 청크 이벤트에 실린다 — 0.5초 안에 실려 가는 값이라 이벤트를 늘릴 이유가 없다
   feedLiveTranscript({ samples, rms: active.level })
+  active.stt?.push({ samples, rms: active.level })
   publish()
 }
 
@@ -266,6 +274,10 @@ export const stopRecording = async ({ meetingId }: { meetingId: string }) => {
   info(
     `녹음 종료 ${meetingId} (${durationSec.toFixed(1)}초${isMemo ? ', 메모' : speakerCount ? `, 참석자 ${speakerCount}명` : ''})`
   )
+
+  // 꼬리 조각은 큐에 넣기 전에 넘긴다 — 파이프라인 잡이 그 결과를 기다린다
+  if (isMemo && durationSec >= MIN_RECORDING_SEC) active.stt?.finish()
+  else active.stt?.stop()
 
   if (durationSec < MIN_RECORDING_SEC) {
     updateMeetingStatus({
@@ -302,6 +314,11 @@ const markMemo = ({ meetingId }: { meetingId: string }) => {
 /** 녹음 중에도 바꿀 수 있다 — 정지하는 순간의 값을 쓴다. 검증은 핸들러가 끝냈다 */
 export const setRecordingType = (next: RecordingType) => {
   recordingType = next
+  // 회의는 화자 분리가 파일 전체로 돌아야 해서 다시 메모로 돌아와도 녹음 중 STT를 잇지 않는다
+  if (session?.stt && next !== 'memo') {
+    session.stt.stop()
+    session.stt = null
+  }
   setRecordingTypeSetting({ type: next })
   publish()
 
