@@ -30,6 +30,7 @@ export const mainKo = {
     shortcutRegisterFailed: ({ shortcuts }: { shortcuts: string }) =>
       `단축키 ${shortcuts}를 등록하지 못했습니다. 다른 앱이 쓰는 중일 수 있습니다`,
     inputDeviceInvalid: '입력 장치 정보가 올바르지 않습니다',
+    speechVoiceInvalid: '목소리 정보가 올바르지 않습니다',
     unknownRecordingCommand: '알 수 없는 녹음 명령입니다',
     unknownDictationCommand: '알 수 없는 받아쓰기 명령입니다',
     unknownLlmProvider: '알 수 없는 LLM 공급자입니다',
@@ -205,6 +206,7 @@ export const mainEn: typeof mainKo = {
     shortcutRegisterFailed: ({ shortcuts }) =>
       `Could not register the shortcut ${shortcuts}. Another app may be using it`,
     inputDeviceInvalid: 'The input device information is invalid',
+    speechVoiceInvalid: 'The voice information is invalid',
     unknownRecordingCommand: 'Unknown recording command',
     unknownDictationCommand: 'Unknown dictation command',
     unknownLlmProvider: 'Unknown LLM provider',

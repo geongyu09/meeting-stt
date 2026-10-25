@@ -15,8 +15,15 @@ export const settingsKo = {
     sttModel: '음성 인식 모델',
     update: '업데이트',
     appearance: '화면',
+    speech: '답변 읽기',
     language: '언어',
     feedback: '피드백'
+  },
+  speechVoice: {
+    title: '목소리',
+    description:
+      '비서 답변 아래 읽어주기 버튼이 쓸 목소리입니다. macOS에 설치된 목소리 중에서 고릅니다.',
+    systemDefault: '기본 목소리 (한국어)'
   },
   inputDevice: {
     title: '입력 장치',
@@ -138,8 +145,15 @@ export const settingsEn: typeof settingsKo = {
     sttModel: 'Speech recognition model',
     update: 'Updates',
     appearance: 'Appearance',
+    speech: 'Read aloud',
     language: 'Language',
     feedback: 'Feedback'
+  },
+  speechVoice: {
+    title: 'Voice',
+    description:
+      'The voice used by the read-aloud button under assistant answers. Choose from the voices installed on macOS.',
+    systemDefault: 'Default voice (Korean)'
   },
   inputDevice: {
     title: 'Input device',

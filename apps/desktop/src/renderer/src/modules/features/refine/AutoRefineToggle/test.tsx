@@ -25,6 +25,7 @@ const SETTINGS: AppSettings = {
   dictationShortcut: 'Alt+Command+D',
   newChatShortcut: 'Command+N',
   inputDevice: null,
+  speechVoice: null,
   locale: 'ko',
   theme: 'system',
   isAutoRefineExternal: false

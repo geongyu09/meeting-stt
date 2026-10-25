@@ -12,6 +12,7 @@ export type SettingsCategory =
 
 export const SETTINGS_CATEGORIES: SettingsCategory[] = [
   'assistant',
+  'speech',
   'appearance',
   'microphone',
   'recording',

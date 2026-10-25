@@ -100,6 +100,11 @@ export interface AppSettings {
   newChatShortcut: string
   /** 녹음에 쓸 마이크. null이면 시스템 기본 마이크. 장치가 빠져 있으면 녹음은 기본 마이크로 폴백한다 */
   inputDevice: AudioInputDevice | null
+  /**
+   * 비서 답변을 읽어줄 목소리의 `SpeechSynthesisVoice.voiceURI`. null이면 한국어 기본 목소리 —
+   * 그 목소리가 지워졌을 때도 기본 목소리로 읽는다 (references/features/ui.md "답변 읽어주기")
+   */
+  speechVoice: string | null
   /** UI 언어 (기본 'ko'). 인식·요약 언어가 아니라 화면·메뉴바·오류 문구의 언어다 (`src/shared/i18n.ts`) */
   locale: Locale
   /** 화면 테마 (기본 'system'). main이 `nativeTheme.themeSource`로 모든 창에 적용한다 (`src/shared/theme.ts`) */

@@ -785,3 +785,15 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 - [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과 — 2026-10-22 하네스·설정 섹션 테스트, main 타입 검사, 바뀐 파일 lint·prettier, `electron-vite build`의 main 번들(템플릿 포함 확인)까지 통과. 전체 `typecheck:web`·renderer 빌드·전체 test는 다른 세션이 작업 중인 화면 파일(`pages/Recordings` 없음, `RecordCard`·`TranscriptSection`·`AssistantChatSection` 테스트)에서 막혀 다시 확인한다
 - [ ] 완료 기준: 빈 폴더를 작업 폴더로 고르고 설정의 "기본 설정 추가하기"를 누르면 구조와 스킬이 생기고 `/` 메뉴에 스킬 8개가 보인다. Claude Code로 "할 일 추가해줘: 보고서 제출, 금요일까지"를 보내면 `tasks.md`에 형식대로 한 줄이 생기고, "앞으로 답할 때 반말로 해"를 보내면 `profile/communication/style.md`의 `## 답변`에 기록된다. Codex가 설치된 환경에서 같은 두 질문이 같은 결과를 낸다. 폴더를 고르기만 하면 아무 파일도 생기지 않고, `CLAUDE.md`가 있는 폴더에서 누르면 "이미 규칙 파일이 있다"는 안내만 뜬다
   — 2026-10-22 템플릿을 그대로 재현한 임시 폴더에서 Claude Code 2.1.306(`-p --permission-mode acceptEdits`, 앱과 같은 인자)으로 확인: "할 일 추가해줘: 보고서 제출, 금요일까지" → `tasks.md`에 `- [ ] 보고서 제출 — 마감 2026-10-23 (금)`, "앞으로 나한테 답할 때는 반말로 짧게 해줘" → `style.md` `## 답변`에 두 줄 + `_history/communication-style.md`, 새 세션의 "할 일 뭐 남았어?"가 반말로 답함. 남은 것: 앱에서 버튼을 눌러 보는 확인(`pnpm dev`)과 Codex(이 맥에 설치돼 있지 않음)
+
+### 답변 읽어주기 (2026-10-25)
+
+비서 답변 아래 복사 버튼 옆의 버튼으로 답변을 소리 내어 읽고, 목소리는 설정 "답변 읽기"에서 고른다 (2026-10-25 사용자 요청). 엔진은 renderer `speechSynthesis`(macOS 시스템 목소리)라 모델·바이너리·IPC 채널이 늘지 않는다.
+문서를 먼저 고쳤다 (`SKILL.md` 1절 표, `features/ui.md` "대화"·"설정 모달", `data-model.md` `speech.voice`). 스키마 변경은 없다.
+
+- [x] 계약: `AppSettings.speechVoice`(기본 `null`), `speech.voice` 읽기·검증(`db/settings.ts`, `ipc/handlers.ts`), `updateSettingsApi` 필드 추가
+- [x] `utils/speechText.ts`(마크다운 → 읽을 글) + vitest
+- [x] 채팅 `ui/SpeakAnswerButton`(복사 버튼 옆, 읽기·멈추기, 한 번에 하나) + 통합 테스트, 설정 "답변 읽기" 카테고리의 목소리 `<select>`, 사전 `ko`·`en`
+- [x] desktop `test`·`typecheck`, 바꾼 파일 `eslint`·prettier 통과 (2026-10-25)
+- [x] Electron 39 실측 (2026-10-25, 이 맥): 첫 `getVoices()`는 빈 배열이고 `voiceschanged` 뒤 180개(한국어 9개 — Yuna 외 Eddy·Flo 등, 모두 `localService`). `voiceURI`는 목소리 이름 그대로(`Yuna`)다. 읽기를 `cancel()`하면 `error`(`interrupted`)가 오고 `end`는 오지 않는다 — 버튼은 둘 다 받는다
+- [ ] 완료 기준: `pnpm dev`에서 설정 "답변 읽기"에 macOS 목소리 목록이 보이고, 고른 목소리로 답변 읽어주기 버튼이 읽으며, 다시 누르면 멈춘다. 다른 답변 버튼을 누르면 앞의 것이 멈춘다

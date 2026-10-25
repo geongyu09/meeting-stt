@@ -22,6 +22,7 @@ export const getSettingsApi = async () => window.api.settings.get()
  * @param dictationShortcut - 받아쓰기(음성 입력) 토글 전역 단축키 (Electron accelerator)
  * @param newChatShortcut - 채팅 창의 새 대화 단축키 (Electron accelerator, 메인 창 안에서만 듣습니다)
  * @param inputDevice - 녹음에 쓸 마이크 (`{ deviceId, label }`). null이면 시스템 기본 마이크
+ * @param speechVoice - 답변을 읽어줄 목소리의 `voiceURI`. null이면 한국어 기본 목소리
  * @param locale - UI 언어 (`'ko'` | `'en'`). 인식·요약 언어는 바뀌지 않습니다
  * @param theme - 화면 테마 (`'system'` | `'light'` | `'dark'`). main이 모든 창에 바로 적용합니다
  * @param isAutoRefineExternal - 외부 LLM 공급자일 때 회의록이 만들어지면 자동으로 교정할지 여부 (기본 꺼짐)
@@ -39,6 +40,7 @@ export const getSettingsApi = async () => window.api.settings.get()
  *   dictationShortcut: 'Alt+Command+D',
  *   newChatShortcut: 'Command+N',
  *   inputDevice: null,
+ *   speechVoice: null,
  *   locale: 'ko',
  *   theme: 'system',
  *   isAutoRefineExternal: false
@@ -56,6 +58,7 @@ export const updateSettingsApi = async ({
   dictationShortcut,
   newChatShortcut,
   inputDevice,
+  speechVoice,
   locale,
   theme,
   isAutoRefineExternal
@@ -72,6 +75,7 @@ export const updateSettingsApi = async ({
     dictationShortcut,
     newChatShortcut,
     inputDevice,
+    speechVoice,
     locale,
     theme,
     isAutoRefineExternal

@@ -45,6 +45,12 @@
   font-family: var(--font-mono);
 }
 
+.answerActions {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
 .files {
   display: flex;
   flex-wrap: wrap;

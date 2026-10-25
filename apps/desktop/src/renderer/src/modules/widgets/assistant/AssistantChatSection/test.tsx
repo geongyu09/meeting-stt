@@ -243,6 +243,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  vi.unstubAllGlobals()
   localStorage.clear()
 })
 
@@ -412,6 +413,43 @@ describe('AssistantChatSection', () => {
 
     expect(writeClipboardTextApi).toHaveBeenCalledWith({ text: '만들었습니다.' })
     expect(screen.getByRole('button', { name: '복사했습니다' })).toBeTruthy()
+  })
+
+  it('답변 읽어주기는 설정의 목소리로 읽고, 끝나거나 다시 누르면 멈춤 상태에서 돌아온다', async () => {
+    class FakeUtterance {
+      voice: unknown = null
+      lang = ''
+      onend: (() => void) | null = null
+      onerror: (() => void) | null = null
+      constructor(public text: string) {}
+    }
+    const yuna = { voiceURI: 'com.apple.voice.compact.ko-KR.Yuna', lang: 'ko-KR', name: 'Yuna' }
+    const speak = vi.fn<(utterance: FakeUtterance) => void>()
+    const cancel = vi.fn()
+    vi.stubGlobal('SpeechSynthesisUtterance', FakeUtterance)
+    vi.stubGlobal('speechSynthesis', { speak, cancel, getVoices: () => [yuna] })
+    vi.mocked(getSettingsApi).mockResolvedValue({ speechVoice: yuna.voiceURI } as AppSettings)
+    renderChat()
+    await readyInput()
+    pushState({ ...answeringChat, isRunning: false })
+
+    await userEvent.click(screen.getByRole('button', { name: '답변 읽어주기' }))
+
+    const utterance = speak.mock.calls[0][0]
+    expect(utterance.text).toBe('만들었습니다.')
+    expect(utterance.voice).toBe(yuna)
+    expect(screen.getByRole('button', { name: '읽기 멈추기' }).getAttribute('aria-pressed')).toBe(
+      'true'
+    )
+
+    act(() => utterance.onend?.())
+    expect(screen.getByRole('button', { name: '답변 읽어주기' })).toBeTruthy()
+
+    await userEvent.click(screen.getByRole('button', { name: '답변 읽어주기' }))
+    cancel.mockClear()
+    await userEvent.click(screen.getByRole('button', { name: '읽기 멈추기' }))
+    expect(cancel).toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: '답변 읽어주기' })).toBeTruthy()
   })
 
   it('열린 문서의 칩은 열림으로 보이고, 보낼 글 앞에 그 문서를 붙인다', async () => {

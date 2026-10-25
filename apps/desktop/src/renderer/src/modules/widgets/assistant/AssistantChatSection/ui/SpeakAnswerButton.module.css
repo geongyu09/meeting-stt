@@ -1,0 +1,22 @@
+.speak {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.speak:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.speak[aria-pressed='true'] {
+  color: var(--color-accent);
+}

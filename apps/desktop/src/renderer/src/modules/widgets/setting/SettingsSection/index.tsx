@@ -29,10 +29,12 @@ import SettingToggle from './ui/SettingToggle'
 import ShortcutField from './ui/ShortcutField'
 import SystemAudioToggle from './ui/SystemAudioToggle'
 import ThemeSelect from './ui/ThemeSelect'
+import VoiceSelect from './ui/VoiceSelect'
 import styles from './index.module.css'
 
 /** `AppSettings`로 움직이는 설정 카테고리. 나머지 카테고리는 각자 위젯이다 (references/features/ui.md "설정 모달") */
 export type SettingsSectionCategory =
+  | 'speech'
   | 'appearance'
   | 'microphone'
   | 'recording'
@@ -70,6 +72,14 @@ export default function SettingsSection({ category }: SettingsSectionProps) {
           {error.message}
         </p>
       ) : null}
+      {category === 'speech' && (
+        <SettingGroup title={t.settings.groups.speech}>
+          <VoiceSelect
+            value={settings.speechVoice}
+            onChange={(speechVoice) => updateSettings({ speechVoice })}
+          />
+        </SettingGroup>
+      )}
       {category === 'appearance' && (
         <SettingGroup title={t.settings.groups.appearance}>
           <ThemeSelect value={settings.theme} onChange={(theme) => updateSettings({ theme })} />

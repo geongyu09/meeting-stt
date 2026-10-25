@@ -13,6 +13,7 @@ export default function CategoryNav({ value, onChange }: CategoryNavProps) {
   const { t } = useLocale()
   const labels: Record<SettingsCategory, string> = {
     assistant: t.assistant.settings.title,
+    speech: t.settings.groups.speech,
     appearance: t.settings.groups.appearance,
     microphone: t.settings.groups.microphone,
     recording: t.settings.groups.recording,

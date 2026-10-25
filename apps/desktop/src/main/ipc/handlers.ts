@@ -37,7 +37,7 @@ import {
   type UpdateGlossaryResponse,
   type UpdateSettingsResponse
 } from '@shared/ipc'
-import { isAudioInputDevice } from '@shared/audio'
+import { isAudioInputDevice, isSpeechVoice } from '@shared/audio'
 import { readGlossarySettings, readTeamDescription } from '@shared/glossary'
 import {
   isLlmProvider,
@@ -297,6 +297,15 @@ const readInputDevice = (payload: unknown) => {
   return { deviceId: value.deviceId, label: value.label }
 }
 
+/** null은 한국어 기본 목소리 */
+const readSpeechVoice = (payload: unknown) => {
+  const value = isRecord(payload) ? payload.speechVoice : undefined
+  if (value === null) return null
+  if (!isSpeechVoice(value)) throw new Error(t().main.errors.speechVoiceInvalid)
+
+  return value
+}
+
 /** 모르는 언어는 조용히 기본값으로 바꾸지 않고 거절한다 — 저장 요청은 설정 화면이 고른 값이어야 한다 */
 const readLocale = (payload: unknown) => {
   const value = isRecord(payload) ? payload.locale : undefined
@@ -324,6 +333,7 @@ const readSettings = (payload: unknown) => ({
   dictationShortcut: readShortcut({ payload, key: 'dictationShortcut' }),
   newChatShortcut: readShortcut({ payload, key: 'newChatShortcut' }),
   inputDevice: readInputDevice(payload),
+  speechVoice: readSpeechVoice(payload),
   locale: readLocale(payload),
   theme: readTheme(payload),
   isAutoRefineExternal: readBoolean({ payload, key: 'isAutoRefineExternal' })

@@ -74,6 +74,7 @@ const DEFAULT_SETTINGS = {
   dictationShortcut: 'Alt+Command+D',
   newChatShortcut: 'Command+N',
   inputDevice: null,
+  speechVoice: null,
   locale: 'ko' as const,
   theme: 'system' as const,
   isAutoRefineExternal: false

@@ -22,6 +22,8 @@ export const assistantKo = {
     working: '작업하는 중',
     copyAnswer: '답변 복사',
     copied: '복사했습니다',
+    speakAnswer: '답변 읽어주기',
+    stopSpeaking: '읽기 멈추기',
     openFile: ({ name }: { name: string }) => `${name} 열기`,
     openedFile: ({ name }: { name: string }) => `${name} 열림`,
     tools: {
@@ -191,6 +193,8 @@ export const assistantEn: typeof assistantKo = {
     working: 'Working',
     copyAnswer: 'Copy answer',
     copied: 'Copied',
+    speakAnswer: 'Read answer aloud',
+    stopSpeaking: 'Stop reading',
     openFile: ({ name }) => `Open ${name}`,
     openedFile: ({ name }) => `${name} is open`,
     tools: {

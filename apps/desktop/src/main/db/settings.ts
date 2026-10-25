@@ -10,7 +10,7 @@ import type {
   WhisperModelId
 } from '@shared/types'
 import { DEFAULT_WHISPER_MODEL_ID, isWhisperModelId } from '@meeting-stt/models/desktop'
-import { isAudioInputDevice } from '@shared/audio'
+import { isAudioInputDevice, isSpeechVoice } from '@shared/audio'
 import {
   DEFAULT_ASSISTANT_PERMISSION_MODE,
   isAssistantPermissionMode,
@@ -40,6 +40,7 @@ import { getDb } from './connection'
 const AUDIO_KEEP_KEY = 'audio.keep'
 const AUDIO_INPUT_DEVICE_KEY = 'audio.inputDevice'
 const AUDIO_SYSTEM_CAPTURE_KEY = 'audio.systemCapture'
+const SPEECH_VOICE_KEY = 'speech.voice'
 const UI_LOCALE_KEY = 'ui.locale'
 const UI_THEME_KEY = 'ui.theme'
 const UPDATE_CHECK_KEY = 'update.check'
@@ -83,6 +84,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   dictationShortcut: DEFAULT_DICTATION_SHORTCUT,
   newChatShortcut: DEFAULT_NEW_CHAT_SHORTCUT,
   inputDevice: null,
+  speechVoice: null,
   locale: DEFAULT_LOCALE,
   theme: DEFAULT_THEME,
   isAutoRefineExternal: false
@@ -153,6 +155,13 @@ const readInputDevice = ({ key }: { key: string }) => {
   return isAudioInputDevice(value) ? value : null
 }
 
+/** 형식이 틀린 값은 기본 목소리(null)로 읽는다 */
+const readSpeechVoice = ({ key }: { key: string }) => {
+  const value = readValue(key)
+
+  return isSpeechVoice(value) ? value : null
+}
+
 export const getAppSettings = (): AppSettings => ({
   isAudioKept: readBoolean({ key: AUDIO_KEEP_KEY, fallback: DEFAULT_SETTINGS.isAudioKept }),
   isUpdateCheckEnabled: readBoolean({
@@ -192,6 +201,7 @@ export const getAppSettings = (): AppSettings => ({
     fallback: DEFAULT_SETTINGS.newChatShortcut
   }),
   inputDevice: readInputDevice({ key: AUDIO_INPUT_DEVICE_KEY }),
+  speechVoice: readSpeechVoice({ key: SPEECH_VOICE_KEY }),
   locale: readLocale({ key: UI_LOCALE_KEY }),
   theme: readTheme({ key: UI_THEME_KEY }),
   isAutoRefineExternal: readBoolean({
@@ -212,6 +222,7 @@ export const updateAppSettings = ({
   dictationShortcut,
   newChatShortcut,
   inputDevice,
+  speechVoice,
   locale,
   theme,
   isAutoRefineExternal
@@ -227,6 +238,7 @@ export const updateAppSettings = ({
   writeValue({ key: DICTATION_SHORTCUT_KEY, value: dictationShortcut })
   writeValue({ key: NEW_CHAT_SHORTCUT_KEY, value: newChatShortcut })
   writeValue({ key: AUDIO_INPUT_DEVICE_KEY, value: inputDevice })
+  writeValue({ key: SPEECH_VOICE_KEY, value: speechVoice })
   writeValue({ key: UI_LOCALE_KEY, value: locale })
   writeValue({ key: UI_THEME_KEY, value: theme })
   writeValue({ key: REFINE_AUTO_EXTERNAL_KEY, value: isAutoRefineExternal })

@@ -41,3 +41,10 @@ export const isAudioInputDevice = (value: unknown): value is AudioInputDevice =>
     label.length <= INPUT_DEVICE_LABEL_MAX_LENGTH
   )
 }
+
+/** 답변 읽어주기 목소리(`voiceURI`) 길이 상한. 저장·검증이 같은 값을 쓴다 (references/data-model.md `speech.voice`) */
+export const SPEECH_VOICE_MAX_LENGTH = 200
+
+/** 설정 `speech.voice`의 형식 검증. main의 읽기와 저장 검증이 함께 쓴다 */
+export const isSpeechVoice = (value: unknown): value is string =>
+  typeof value === 'string' && value.length > 0 && value.length <= SPEECH_VOICE_MAX_LENGTH

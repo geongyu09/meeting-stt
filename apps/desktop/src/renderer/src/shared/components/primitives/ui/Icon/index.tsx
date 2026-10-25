@@ -24,6 +24,7 @@ export type IconName =
   | 'bolt'
   | 'plus'
   | 'minus'
+  | 'speaker'
 
 interface IconProps {
   name: IconName
@@ -108,7 +109,13 @@ const PATHS: Record<IconName, ReactNode> = {
   upload: <path d="M12 20V8M6 14l6-6 6 6M5 4h14" />,
   bolt: <path d="M13 2L4 14h7l-1 8 9-12h-7z" />,
   plus: <path d="M12 5v14M5 12h14" />,
-  minus: <path d="M5 12h14" />
+  minus: <path d="M5 12h14" />,
+  speaker: (
+    <>
+      <path d="M11 5 6 9H3v6h3l5 4z" />
+      <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
+    </>
+  )
 }
 
 /** 장식용이다. 아이콘만 있는 버튼은 버튼 쪽에 aria-label을 붙인다 */

@@ -8,6 +8,7 @@ import { isOpenableFile } from '@renderer/shared/utils/isOpenableFile'
 import { toolLabelOf, type ToolLabel } from '../utils/toolLabel'
 import CopyAnswerButton from './CopyAnswerButton'
 import RoutineProposalCard from './RoutineProposalCard'
+import SpeakAnswerButton from './SpeakAnswerButton'
 import styles from './TurnList.module.css'
 
 const TOOL_ICONS: Record<ToolLabel, IconName> = {
@@ -97,7 +98,10 @@ export default function TurnList({ turns, isRunning, openPath, onOpenFile }: Tur
               </p>
             ) : null}
             {text && !(isRunning && turn.id === lastTurnId) ? (
-              <CopyAnswerButton text={text} />
+              <div className={styles.answerActions}>
+                <CopyAnswerButton text={text} />
+                <SpeakAnswerButton text={text} />
+              </div>
             ) : null}
             {isRunning && turn.id === lastTurnId ? (
               <p className={styles.working} role="status">
