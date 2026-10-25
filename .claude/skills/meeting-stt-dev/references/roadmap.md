@@ -797,3 +797,17 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 - [x] desktop `test`·`typecheck`, 바꾼 파일 `eslint`·prettier 통과 (2026-10-25)
 - [x] Electron 39 실측 (2026-10-25, 이 맥): 첫 `getVoices()`는 빈 배열이고 `voiceschanged` 뒤 180개(한국어 9개 — Yuna 외 Eddy·Flo 등, 모두 `localService`). `voiceURI`는 목소리 이름 그대로(`Yuna`)다. 읽기를 `cancel()`하면 `error`(`interrupted`)가 오고 `end`는 오지 않는다 — 버튼은 둘 다 받는다
 - [ ] 완료 기준: `pnpm dev`에서 설정 "답변 읽기"에 macOS 목소리 목록이 보이고, 고른 목소리로 답변 읽어주기 버튼이 읽으며, 다시 누르면 멈춘다. 다른 답변 버튼을 누르면 앞의 것이 멈춘다
+
+### 녹음 중 STT (메모, 2026-10-25)
+
+메모 녹음은 녹음하는 동안 STT를 미리 돌려 정지 뒤 대기를 줄인다 (2026-10-25 사용자 요청 "녹음 중에 STT를 미리 돌려서 정지 후 기다리는 시간을 줄이고 싶어").
+측정부터 했고, 사용자가 미리 정한 조건("차이가 없으면 메모 녹음부터")을 채웠다 (`docs/stt-tuning-results.md` "녹음 중 STT"). 문서를 먼저 고쳤다 (`SKILL.md` 1절 표·2절 파이프라인·3절·4절 범위 절제, `features/recording.md` 새 절, `architecture.md` 목차). 스키마 변경·새 모델·새 IPC는 없다.
+
+- [x] 측정: 102분·71분을 20초 뒤 첫 쉼 / 25초 강제로 잘라 조각마다 whisper, 전체 정규화·조각별 정규화 — CER 19.12% → 18.64%(둘 다), 조각 처리 녹음 길이의 15% 안, GPU 합 1.8~1.9배 (`scripts/sttBench.ts --chunked`, `scripts/sttChunks.ts`, 2026-10-25)
+- [ ] 선행: 녹음 종류(메모) — 위 "녹음 기록 자동 정리"의 같은 항목
+- [ ] `audio/sttChunks.ts` 조각 나누기(순수 함수 + vitest: 20초 전 쉼은 넘김·20초 뒤 첫 쉼·25초 강제·꼬리) — `scripts/sttChunks.ts`의 규칙을 옮기고 스크립트가 그것을 쓰게 한다
+- [ ] `audio/recordingStt.ts` 조각 인식(조각별 정규화·파이프라인 인자·시각 밀기·한 번에 하나·실패 시 멈춤) + 녹음 세션 연결(메모일 때만, 일시정지 청크 제외, 정지 때 꼬리 조각)
+- [ ] `runPipeline`이 녹음 중 STT 결과를 받으면 정규화 파일·whisper를 건너뛰고 품질 지표만 원본에서 잰다. 결과가 없으면 파일 전체 경로
+- [ ] 고품질 모델(`large-v3`)의 조각 시간 측정
+- [ ] `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm build` 통과
+- [ ] 완료 기준: `pnpm dev`에서 메모를 1분 넘게 녹음하고 정지하면 STT 대기 없이 몇 초 안에 기록이 끝나고, 같은 WAV를 "다시 인식"한 결과와 내용이 비슷하다. 녹음 중 whisper를 한 번 실패시키면(모델 경로를 잠깐 바꾸는 등) 정지 뒤 파일 전체 STT로 기록이 만들어진다

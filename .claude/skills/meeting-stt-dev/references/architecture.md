@@ -21,6 +21,7 @@
 | `features/recording.md` | 시스템 오디오 캡처 (Phase 5-2, 2026-09-26) | 방식: Core Audio Taps + 동봉 Swift 도구 · 도구 규약 (`systemAudioTap`) · main: 섞기는 세션 안에서, 파이프라인은 그대로 · 화면 |
 | `features/recording.md` | 녹음 품질 안내 (2026-10-02) | 지표와 판정 (`src/shared/audioQuality.ts`, 순수 함수 + vitest) · 녹음 중 안내 (`src/main/audio/qualityMonitor.ts`) · 사후 표시 |
 | `features/recording.md` | 녹음 노트 (2026-10-21) | 저장과 단일 출처 · 쓰이는 곳 · 화면 · IPC |
+| `features/recording.md` | 녹음 중 STT (메모, 2026-10-25) | 범위 · 조각 나누기 (`src/main/audio/sttChunks.ts`, 순수 함수 + vitest) · 인식 (`src/main/audio/recordingStt.ts`) · 정지와 이어지는 처리 · 실패와 폴백 · 자원 · 화면과 IPC |
 | `features/dictation.md` | 라이브 받아쓰기 (2026-09-26) | 엔진: 기존 whisper-cli를 짧은 구간마다 다시 돌린다 · 구간 나누기 (`src/main/audio/liveWindow.ts`, 순수 함수 + vitest) · 인식 한 번 (`src/main/audio/liveTranscript.ts`) · 상태와 IPC · 화면 |
 | `features/dictation.md` | 받아쓰기 (2026-10-11) | 문제와 목표 · 네 가지 결정 (2026-10-11 사용자) · 흐름 · 세션과 상태 (`src/main/dictation/session.ts`) · 구간 나누기와 인식 · 다듬기 (`packages/core/src/dictation.ts`, 순수 함수 + vitest) · 끼워 넣기 (`src/main/dictation/insert.ts` + `native/textInsert/main.swift`) · 패널·메뉴바·단축키·설정 · 자원 · 측정 (`docs/dictation-results.md`) |
 | `features/transcript.md` | 화자 재군집 (2026-09-25) |  |
