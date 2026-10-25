@@ -2,15 +2,17 @@
 // 사용: pnpm --filter meeting-stt exec tsx scripts/sttBench.ts <audio.wav> [--tag=이름] [--model=경로]
 //       [--bin=whisper-cli 경로] [--ref=정답.txt] [--extra="-mc 0 -sns"] [--no-vad]
 //       [--prompt-file=용어.txt] (공백이 든 프롬프트는 --extra로 못 넘겨 파일로 받는다)
+//       [--chunked=global|each] (녹음 중 STT 흉내: 20~25초 조각마다 whisper-cli를 따로 돌린다, sttChunks.ts)
 // 정답은 기본으로 scripts/fixtures/reference/<오디오 이름>.txt 를 쓴다.
 import { existsSync } from 'node:fs'
-import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
+import { CHUNK_SAMPLES, SAMPLE_RATE_HZ } from '@shared/audio'
 import type { SttSegment } from '@shared/types'
 
 import { threadPlan } from '../src/main/bin/threads'
-import { normalizeWavFile } from '../src/main/pipeline/normalize'
+import { normalizeWavBuffer, normalizeWavFile, readWavPcm } from '../src/main/pipeline/normalize'
 import {
   buildWhisperArgs,
   parseWhisperOutput,
@@ -20,6 +22,8 @@ import { computeCer, normalizeForCer } from './cer'
 import { fail, info } from './log'
 import { FIXTURES_DIR, OUTPUT_DIR, VAD_MODEL, WHISPER_BIN, WHISPER_MODEL } from './paths'
 import { run } from './shell'
+import { planChunkCuts, speechFlagsOf } from './sttChunks'
+import { buildWavHeader } from './wav'
 
 const REFERENCE_DIR = path.join(FIXTURES_DIR, 'reference')
 const RESULTS_PATH = path.join(OUTPUT_DIR, 'sttBench.tsv')
@@ -27,6 +31,16 @@ const PROGRESS_STEP_PERCENT = 10
 const MS_PER_SEC = 1000
 const PERCENT = 100
 const REPEAT_WINDOW_SEGMENTS = 4
+/**
+ * global: 파일 전체로 정규화한 뒤 자른다(게인이 지금 파이프라인과 같아 자르기 효과만 본다).
+ * each: 원본을 잘라 조각마다 따로 정규화한다(녹음 중에는 전체 음량을 모르므로 실제로 할 수 있는 쪽).
+ */
+const CHUNK_MODES = ['global', 'each'] as const
+
+type ChunkMode = (typeof CHUNK_MODES)[number]
+
+const isChunkMode = (value: string): value is ChunkMode =>
+  CHUNK_MODES.some((mode) => mode === value)
 
 interface BenchOptions {
   audioPath: string
@@ -37,6 +51,7 @@ interface BenchOptions {
   extraArgs: string[]
   promptPath?: string
   useVad: boolean
+  chunkMode?: ChunkMode
 }
 
 const parseOptions = (argv: string[]): BenchOptions => {
@@ -48,6 +63,10 @@ const parseOptions = (argv: string[]): BenchOptions => {
     return argv.find((arg) => arg.startsWith(prefix))?.slice(prefix.length)
   }
   const baseName = path.basename(audioPath, '.wav')
+  const chunked = valueOf('chunked')
+  if (chunked !== undefined && !isChunkMode(chunked)) {
+    return fail(`--chunked는 ${CHUNK_MODES.join(' | ')} 중 하나입니다`)
+  }
 
   return {
     audioPath,
@@ -57,7 +76,8 @@ const parseOptions = (argv: string[]): BenchOptions => {
     referencePath: valueOf('ref') ?? path.join(REFERENCE_DIR, `${baseName}.txt`),
     extraArgs: (valueOf('extra') ?? '').split(' ').filter(Boolean),
     promptPath: valueOf('prompt-file'),
-    useVad: !argv.includes('--no-vad')
+    useVad: !argv.includes('--no-vad'),
+    chunkMode: chunked
   }
 }
 
@@ -92,11 +112,15 @@ const measureRepetition = (segments: SttSegment[]) => {
   )
 }
 
-const runWhisper = async ({ options, audioPath }: { options: BenchOptions; audioPath: string }) => {
-  const outputPath = path.join(
-    OUTPUT_DIR,
-    `${path.basename(options.audioPath, '.wav')}.${options.tag}`
-  )
+interface WhisperOnceParams {
+  options: BenchOptions
+  audioPath: string
+  /** 확장자를 뺀 출력 경로. whisper-cli가 .json을 붙인다 */
+  outputPath: string
+  onProgress?: (percent: number) => void
+}
+
+const whisperOnce = async ({ options, audioPath, outputPath, onProgress }: WhisperOnceParams) => {
   const { stt } = await threadPlan()
   const promptArgs = options.promptPath
     ? ['--prompt', (await readFile(options.promptPath, 'utf-8')).trim()]
@@ -113,27 +137,137 @@ const runWhisper = async ({ options, audioPath }: { options: BenchOptions; audio
     ...options.extraArgs
   ]
 
-  let lastReported = -PROGRESS_STEP_PERCENT
   const startedAt = performance.now()
   const result = await run({
     command: options.binPath,
     args,
     onStderrLine: (line) => {
       const percent = parseWhisperProgress(line)
-      if (percent === null || percent < lastReported + PROGRESS_STEP_PERCENT) return
-      lastReported = percent
-      info(`  STT ${percent}%`)
+      if (percent !== null) onProgress?.(percent)
     }
   })
   if (result.code !== 0) {
     fail(`whisper-cli 비정상 종료 (${result.code})\n${result.stderr.slice(-800)}`)
   }
 
-  const segments = parseWhisperOutput(await readFile(`${outputPath}.json`))
-  const text = segments.map((segment) => segment.text).join('\n')
-  await writeFile(`${outputPath}.txt`, `${text}\n`, 'utf-8')
+  return {
+    segments: parseWhisperOutput(await readFile(`${outputPath}.json`)),
+    elapsedSec: (performance.now() - startedAt) / MS_PER_SEC
+  }
+}
 
-  return { segments, text, outputPath, elapsedSec: (performance.now() - startedAt) / MS_PER_SEC }
+interface ChunkResult {
+  startSec: number
+  durationSec: number
+  /** 모델 로드를 포함한 whisper-cli 한 번의 시간 */
+  elapsedSec: number
+  isForced: boolean
+  segments: SttSegment[]
+}
+
+interface RunChunkedParams {
+  options: BenchOptions
+  mode: ChunkMode
+  normalizedPath: string
+  outputPath: string
+}
+
+/**
+ * 녹음 중 STT를 흉내 낸다. 쉼은 녹음기가 보는 원본 음량으로 찾고, 조각마다 whisper-cli를 새로 띄운다.
+ * 시간을 조각마다 재는 이유는 녹음보다 빨리 처리되는지와 정지 뒤 남는 마지막 조각 시간을 보기 위해서다.
+ */
+const runChunked = async ({ options, mode, normalizedPath, outputPath }: RunChunkedParams) => {
+  const raw = readWavPcm(await readFile(options.audioPath)).pcm
+  const source = mode === 'global' ? readWavPcm(await readFile(normalizedPath)).pcm : raw
+  const cuts = planChunkCuts(speechFlagsOf(raw))
+  const chunkDir = `${outputPath}.chunks`
+  await mkdir(chunkDir, { recursive: true })
+
+  const chunks: ChunkResult[] = []
+  for (const [index, cut] of cuts.entries()) {
+    const startSample = (cuts[index - 1]?.end ?? 0) * CHUNK_SAMPLES
+    const pcm = source.subarray(startSample, Math.min(source.length, cut.end * CHUNK_SAMPLES))
+    const body = Buffer.from(pcm.buffer, pcm.byteOffset, pcm.byteLength)
+    const wav = Buffer.concat([buildWavHeader({ dataBytes: body.length }), body])
+    const wavPath = path.join(chunkDir, `${index}.wav`)
+    await writeFile(wavPath, mode === 'each' ? normalizeWavBuffer(wav).buffer : wav)
+
+    const stt = await whisperOnce({
+      options,
+      audioPath: wavPath,
+      outputPath: path.join(chunkDir, String(index))
+    })
+    await rm(wavPath)
+    const startSec = startSample / SAMPLE_RATE_HZ
+    chunks.push({
+      startSec,
+      durationSec: pcm.length / SAMPLE_RATE_HZ,
+      elapsedSec: stt.elapsedSec,
+      isForced: cut.isForced,
+      segments: stt.segments.map(({ start, end, text }) => ({
+        start: start + startSec,
+        end: end + startSec,
+        text
+      }))
+    })
+    if ((index + 1) % PROGRESS_STEP_PERCENT === 0) info(`  조각 ${index + 1}/${cuts.length}`)
+  }
+
+  return chunks
+}
+
+const sumOf = (values: number[]) => values.reduce((total, value) => total + value, 0)
+
+const reportChunks = (chunks: ChunkResult[]) => {
+  const elapsed = chunks.map((chunk) => chunk.elapsedSec)
+  const realtimeFactors = chunks.map((chunk) => chunk.elapsedSec / chunk.durationSec)
+  const forcedCount = chunks.filter((chunk) => chunk.isForced).length
+  const avgDurationSec = sumOf(chunks.map((chunk) => chunk.durationSec)) / chunks.length
+
+  info(
+    `조각 ${chunks.length}개 · 강제 자름 ${forcedCount}개 · 평균 길이 ${avgDurationSec.toFixed(1)}초`
+  )
+  info(
+    `조각 처리 평균 ${(sumOf(elapsed) / chunks.length).toFixed(2)}초 · 최대 ${Math.max(...elapsed).toFixed(2)}초 · ` +
+      `실시간 대비 최대 ${Math.max(...realtimeFactors).toFixed(3)}배 · 마지막 조각 ${elapsed.at(-1)?.toFixed(2)}초`
+  )
+}
+
+interface TranscribeParams {
+  options: BenchOptions
+  normalizedPath: string
+  outputPath: string
+}
+
+const transcribe = async ({ options, normalizedPath, outputPath }: TranscribeParams) => {
+  if (!options.chunkMode) {
+    let lastReported = -PROGRESS_STEP_PERCENT
+    return whisperOnce({
+      options,
+      audioPath: normalizedPath,
+      outputPath,
+      onProgress: (percent) => {
+        if (percent < lastReported + PROGRESS_STEP_PERCENT) return
+        lastReported = percent
+        info(`  STT ${percent}%`)
+      }
+    })
+  }
+
+  const chunks = await runChunked({ options, mode: options.chunkMode, normalizedPath, outputPath })
+  const stats = chunks.map(({ startSec, durationSec, elapsedSec, isForced }) => ({
+    startSec,
+    durationSec,
+    elapsedSec,
+    isForced
+  }))
+  await writeFile(`${outputPath}.chunks.json`, JSON.stringify(stats, null, 2))
+  reportChunks(chunks)
+
+  return {
+    segments: chunks.flatMap((chunk) => chunk.segments),
+    elapsedSec: sumOf(chunks.map((chunk) => chunk.elapsedSec))
+  }
 }
 
 const main = async () => {
@@ -145,18 +279,25 @@ const main = async () => {
 
   info(`입력 ${options.audioPath} · 태그 ${options.tag} · 모델 ${path.basename(options.modelPath)}`)
   info(`바이너리 ${options.binPath} · 추가 인자 ${options.extraArgs.join(' ') || '없음'}`)
+  info(`조각 모드 ${options.chunkMode ?? '없음 (파일 전체 한 번)'}`)
 
-  const audioPath = await ensureNormalized(options.audioPath)
-  const stt = await runWhisper({ options, audioPath })
+  const normalizedPath = await ensureNormalized(options.audioPath)
+  const outputPath = path.join(
+    OUTPUT_DIR,
+    `${path.basename(options.audioPath, '.wav')}.${options.tag}`
+  )
+  const stt = await transcribe({ options, normalizedPath, outputPath })
+  const text = stt.segments.map((segment) => segment.text).join('\n')
+  await writeFile(`${outputPath}.txt`, `${text}\n`, 'utf-8')
   const repetition = measureRepetition(stt.segments)
   // 정답이 없는 녹음(금토로 등)은 반복 환각·글자 수·시간만 잰다
   const score = existsSync(options.referencePath)
     ? computeCer({
-        hypothesis: stt.text,
+        hypothesis: text,
         reference: await readFile(options.referencePath, 'utf-8')
       })
     : null
-  const hypothesisChars = normalizeForCer(stt.text).length
+  const hypothesisChars = normalizeForCer(text).length
   const cerPercent = score ? (score.cer * PERCENT).toFixed(2) : '-'
 
   info('')
@@ -170,7 +311,7 @@ const main = async () => {
   info(`글자 수 정답 ${score?.referenceChars ?? '-'} · 인식 ${hypothesisChars}`)
   info(`반복 세그먼트 ${repetition.count}개 · ${repetition.seconds.toFixed(0)}초`)
   info(`처리 시간 ${stt.elapsedSec.toFixed(1)}초`)
-  info(`결과 ${stt.outputPath}.txt`)
+  info(`결과 ${outputPath}.txt`)
 
   if (!existsSync(RESULTS_PATH)) {
     await writeFile(
