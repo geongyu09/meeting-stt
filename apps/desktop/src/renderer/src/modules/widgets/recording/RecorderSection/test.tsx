@@ -97,6 +97,21 @@ describe('RecorderSection', () => {
     expect(controlRecordingApi).toHaveBeenCalledWith({ kind: 'stop' })
   })
 
+  it('접으면 헤더만 남기고 본문·정지 버튼을 숨기며, 다시 누르면 펼친다', async () => {
+    await renderRecording()
+
+    await userEvent.click(screen.getByRole('button', { name: '녹음 카드 접기' }))
+
+    expect(screen.getByRole('timer', { name: '경과 시간' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '정지하고 기록 만들기' })).toBeNull()
+    const expandButton = screen.getByRole('button', { name: '녹음 카드 펼치기' })
+    expect(expandButton.getAttribute('aria-expanded')).toBe('false')
+
+    await userEvent.click(expandButton)
+
+    expect(screen.getByRole('button', { name: '정지하고 기록 만들기' })).toBeTruthy()
+  })
+
   it('녹음 중에 메모로 바꾸면 main에 종류를 보내고, 메모 상태에서는 참석자 수를 묻지 않는다', async () => {
     await renderRecording()
 

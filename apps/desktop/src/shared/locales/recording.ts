@@ -36,7 +36,9 @@ export const recordingKo = {
     startedLine: ({ time }: { time: string }) =>
       `${time} · 녹음을 시작했어요. 멈추면 기록으로 정리할게요`,
     recentLabel: '최근 녹음',
-    dismissRecent: ({ title }: { title: string }) => `${title} 목록에서 빼기`
+    dismissRecent: ({ title }: { title: string }) => `${title} 목록에서 빼기`,
+    collapse: '녹음 카드 접기',
+    expand: '녹음 카드 펼치기'
   },
   note: {
     toggle: '노트',
@@ -159,7 +161,9 @@ export const recordingEn: typeof recordingKo = {
     keepsRunning: 'Recording continues even if you close this window',
     startedLine: ({ time }) => `${time} · Recording started. Stop to turn it into a record`,
     recentLabel: 'Recent recordings',
-    dismissRecent: ({ title }) => `Remove ${title} from the list`
+    dismissRecent: ({ title }) => `Remove ${title} from the list`,
+    collapse: 'Collapse recording card',
+    expand: 'Expand recording card'
   },
   note: {
     toggle: 'Note',
