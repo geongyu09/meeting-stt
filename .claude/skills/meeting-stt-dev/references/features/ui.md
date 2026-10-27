@@ -395,8 +395,9 @@
   **큐에 넣은 직후 앱이 꺼지므로 처리는 다음 실행에서 이어 간다** (2026-10-27 버그 수정). 그 전에는 시작 정리(`failStaleMeetings`)가
   이 회의를 "앱이 종료되어 처리가 중단되었습니다" 오류로 덮어써, 녹음 중 종료·처리 중 종료가 전부 처리 실패로 남았다
   (실제 DB: 10-26·10-27 실패 2건 모두 이 경로 — 종료 직전에 WAV가 확정되고 몇 초 뒤 앱이 다시 떴다).
-  지금은 시작 정리가 `recording`·`processing`으로 남은 회의 중 **WAV가 확정됐고(`duration_sec` ≥ `MIN_RECORDING_SEC`) 파일이 있는 것**을
-  파이프라인 큐에 다시 넣는다(`resumeStaleMeetings`, 임시 파일 정리 뒤). 나머지(녹음 중 크래시라 헤더가 0인 WAV, 파일 없음)는 전처럼 오류다 —
+  지금은 시작 정리가 `recording`·`processing`으로 남은 회의 중 **WAV 경로가 있고 WAV가 확정된 것**(`audio_path`가 있고 `duration_sec` ≥ `MIN_RECORDING_SEC`)을
+  파이프라인 큐에 다시 넣는다(`db/meetings.ts`의 `listResumableMeetingIds`, 임시 파일 정리 뒤). 파일이 실제로 있는지는 보지 않는다 — 지워졌으면 다시 돈 잡이
+  처리 오류로 끝난다. 나머지(녹음 중 크래시라 헤더가 0인 WAV, 경로 없음)는 `failStaleMeetings`가 전처럼 오류로 둔다 —
   크래시 녹음의 헤더 복구는 `roadmap.md` "품질 점검 후속" 1의 별도 항목이다. 이미 오류로 남은 회의는 기록 카드의 "다시 시도"로 돌린다.
 - 위젯에서 정지하면 메인 창을 앞으로 가져오고 그 회의의 상세로 이동한다 (`stoppedMeetingId`). 녹음을 끝낸 직후에 보고 싶은 것은 결과 화면이다.
 - Phase 2에서 진행률 **막대**는 만들지 않았다. Phase 3에서 `modules/features/pipeline/PipelineProgress`로 추가했다 (`references/architecture.md` "진행률 표시" 절).
