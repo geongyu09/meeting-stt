@@ -36,6 +36,7 @@ import {
 import { createQualityMonitor, type QualityMonitor } from './qualityMonitor'
 import { createRecordingStt, type RecordingStt } from './recordingStt'
 import { probeSystemAudio, startSystemAudioCapture, type SystemAudioCapture } from './systemAudio'
+import { EMPTY_SILENCE_TRACKER, pushSilenceChunk, type SilenceTracker } from './silenceStop'
 import { mixSamples } from './systemAudioMix'
 import { createWavWriter, type WavWriter } from './wavWriter'
 import { t } from '../locale'
@@ -58,6 +59,8 @@ interface RecordingSession {
   qualityIssue: AudioQualityIssue | null
   /** 메모 녹음의 녹음 중 STT. 시작할 때 메모가 아니었거나 도중에 메모가 아니게 되면 null (references/features/recording.md "녹음 중 STT (메모)") */
   stt: RecordingStt | null
+  /** 무음 자동 정지용으로 센 말소리 없는 시간 (references/features/recording.md "무음 자동 정지") */
+  silence: SilenceTracker
 }
 
 /**
@@ -104,6 +107,13 @@ const currentRecordingType = () => {
 }
 
 let notifyState: (event: RecordingStateEvent) => void = () => {}
+
+/** 말소리가 오래 없을 때 부른다. 정지는 그래프 소유자인 위젯이 해야 해서 main이 명령 전달을 등록한다 */
+let notifySilentTooLong: () => void = () => {}
+
+export const setSilenceStopListener = (listener: () => void) => {
+  notifySilentTooLong = listener
+}
 
 export const recordingsDir = () => path.join(app.getPath('userData'), 'recordings')
 
@@ -170,7 +180,8 @@ export const startRecording = async ({ sampleRate }: { sampleRate: number }) => 
     systemAudio: null,
     quality: createQualityMonitor(),
     qualityIssue: null,
-    stt: currentRecordingType() === 'memo' ? createRecordingStt({ meetingId }) : null
+    stt: currentRecordingType() === 'memo' ? createRecordingStt({ meetingId }) : null,
+    silence: EMPTY_SILENCE_TRACKER
   }
   if (systemAudioEnabled()) session.systemAudio = openSystemAudio({ meetingId })
   resetLiveTranscript()
@@ -252,6 +263,17 @@ export const appendRecordingChunk = async ({
   // 레벨 미터는 여기서 계산해 두 창에 같은 값을 보낸다 (renderer마다 따로 재지 않는다)
   active.level = rmsOf(samples)
   active.qualityIssue = active.quality.push(samples)
+  const silence = pushSilenceChunk({
+    tracker: active.silence,
+    rms: active.level,
+    chunkSec: samples.length / SAMPLE_RATE_HZ
+  })
+  // 보낸 뒤 0으로 돌려, 정지가 끝나기 전에 오는 청크가 명령을 다시 보내지 않게 한다
+  active.silence = silence.isSilentTooLong ? EMPTY_SILENCE_TRACKER : silence.tracker
+  if (silence.isSilentTooLong) {
+    info(`말소리가 오래 없어 녹음을 자동으로 정지합니다 ${active.meetingId}`)
+    notifySilentTooLong()
+  }
   // 인식 결과는 따로 publish하지 않고 다음 청크 이벤트에 실린다 — 0.5초 안에 실려 가는 값이라 이벤트를 늘릴 이유가 없다
   feedLiveTranscript({ samples, rms: active.level })
   active.stt?.push({ samples, rms: active.level })
@@ -376,6 +398,8 @@ export const setRecordingPaused = (isPaused: boolean) => {
   } else if (session.pausedAt !== null) {
     session.startedAt += now - session.pausedAt
     session.pausedAt = null
+    // 재개는 사람이 돌아왔다는 뜻이라 무음을 처음부터 센다
+    session.silence = EMPTY_SILENCE_TRACKER
   }
   info(`녹음 ${isPaused ? '일시정지' : '재개'} ${session.meetingId}`)
   publish()

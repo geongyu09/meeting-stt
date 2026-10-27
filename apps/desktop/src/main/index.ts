@@ -19,7 +19,8 @@ import {
   isRecording,
   MIN_RECORDING_SEC,
   recordingsDir,
-  setRecordingStateListener
+  setRecordingStateListener,
+  setSilenceStopListener
 } from './audio/session'
 import { handleMeetingAudioProtocol, registerMeetingAudioScheme } from './audio/playback'
 import { setWorkspaceFilesListener, stopWatchingWorkspace } from './assistant/files'
@@ -34,7 +35,7 @@ import { closeDb } from './db/connection'
 import { failStaleMeetings, listResumableMeetingIds } from './db/meetings'
 import { getAppSettings, getWhisperModelId } from './db/settings'
 import { setDictationCommandSender, setDictationStateListener } from './dictation/session'
-import { setCurrentLocale } from './locale'
+import { setCurrentLocale, t } from './locale'
 import { applyTheme } from './theme'
 import { registerIpcHandlers } from './ipc/handlers'
 import { error as logError, info, messageOf, warn } from './log'
@@ -52,9 +53,11 @@ import { applyAppDisplayName } from './windows/appName'
 import { createMainWindow, showMainWindow } from './windows/main'
 import { registerGlobalShortcuts, unregisterGlobalShortcuts } from './windows/shortcuts'
 import { createTray, destroyTray, refreshTray } from './windows/tray'
+import { showNotification } from './windows/notify'
 import {
   createWidgetWindow,
   requestDictationCommand,
+  requestRecordingCommand,
   setWidgetShownForDictation
 } from './windows/widget'
 
@@ -165,6 +168,14 @@ app.whenReady().then(async () => {
   setSummaryProgressListener(broadcastSummaryProgress)
   setRefineProgressListener(broadcastRefineProgress)
   setRecordingStateListener(broadcastRecordingState)
+  // 자리에 없을 때 멈추므로 알림으로 알린다. 정지는 메뉴바 정지와 같은 경로다 (references/features/recording.md "무음 자동 정지")
+  setSilenceStopListener(() => {
+    requestRecordingCommand({ kind: 'stop' })
+    showNotification({
+      title: t().main.recording.autoStoppedTitle,
+      body: t().main.recording.autoStoppedBody
+    })
+  })
   setDictationStateListener(broadcastDictationState)
   setDictationCommandSender(requestDictationCommand)
   setAssistantStateListener((event: AssistantChatState) =>

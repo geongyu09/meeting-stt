@@ -78,6 +78,9 @@ export const mainKo = {
     noteWhileRecording: '녹음 중인 회의의 노트는 녹음 화면이나 위젯에서 고쳐 주세요',
     audioMissingForReprocess: '원본 녹음이 남아 있지 않아 다시 인식할 수 없습니다',
     alreadyProcessing: '이미 처리 중인 회의입니다',
+    // 무음 자동 정지 알림 (references/features/recording.md "무음 자동 정지")
+    autoStoppedTitle: '녹음을 멈췄어요',
+    autoStoppedBody: '10분 동안 말소리가 없어 녹음을 정지하고 기록을 만들어요',
     exportFailed: '녹음 파일을 저장하지 못했습니다. 원본이 지워졌거나 저장 위치에 쓸 수 없습니다',
     liveUnavailable:
       '라이브 받아쓰기를 하지 못했습니다. 녹음은 계속되고, 회의록은 정지 후 만들어집니다',
@@ -260,6 +263,9 @@ export const mainEn: typeof mainKo = {
     audioMissingForReprocess:
       'The original recording is no longer available, so it cannot be transcribed again',
     alreadyProcessing: 'This meeting is already being processed',
+    autoStoppedTitle: 'Recording stopped',
+    autoStoppedBody:
+      'No speech for 10 minutes, so the recording was stopped and is being turned into a record',
     exportFailed:
       'Could not save the recording. The original may have been deleted or the destination is not writable',
     liveUnavailable:
