@@ -2,13 +2,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { DictationStateEvent, RecordingStateEvent } from '@shared/ipc'
+import type { DictationStateEvent, RecordingCommandEvent, RecordingStateEvent } from '@shared/ipc'
 
 vi.mock('@renderer/shared/api/recording', () => ({
   requestMicrophonePermissionApi: vi.fn(),
   startRecordingApi: vi.fn(),
   sendRecordingChunkApi: vi.fn(),
   stopRecordingApi: vi.fn(),
+  discardRecordingApi: vi.fn(),
   getRecordingStateApi: vi.fn(),
   setSpeakerCountApi: vi.fn(),
   reportRecordingErrorApi: vi.fn(),
@@ -55,10 +56,12 @@ import {
   onDictationCommand,
   onDictationState,
   onModelsChanged,
+  onRecordingCommand,
   onRecordingState
 } from '@renderer/shared/api/events'
 import { getModelStatusApi } from '@renderer/shared/api/models'
 import {
+  discardRecordingApi,
   getRecordingStateApi,
   reportRecordingErrorApi,
   requestMicrophonePermissionApi,
@@ -261,6 +264,27 @@ describe('WidgetPanelSection', () => {
     await user.click(screen.getByRole('button', { name: '녹음 정지' }))
 
     expect(stopRecordingApi).toHaveBeenCalledWith({ meetingId: MEETING_ID })
+  })
+
+  it('메인 창이 버리기를 보내면 그래프를 끊고 그 회의를 저장하지 않고 버린다', async () => {
+    let pushCommand: (event: RecordingCommandEvent) => void = () => {}
+    vi.mocked(onRecordingCommand).mockImplementation((listener) => {
+      pushCommand = listener
+
+      return () => {}
+    })
+    vi.mocked(discardRecordingApi).mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    render(<WidgetPanelSection />)
+
+    await user.click(await screen.findByRole('button', { name: '녹음 시작' }))
+    await vi.waitFor(() => expect(startRecordingApi).toHaveBeenCalled())
+    await act(async () => pushCommand({ kind: 'discard' }))
+
+    await vi.waitFor(() =>
+      expect(discardRecordingApi).toHaveBeenCalledWith({ meetingId: MEETING_ID })
+    )
+    expect(stopRecordingApi).not.toHaveBeenCalled()
   })
 
   it('일시정지 중에는 재개 버튼과 안내를 보여 주고, 누르면 재개를 요청한다', async () => {

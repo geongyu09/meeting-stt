@@ -200,7 +200,8 @@ export const IPC = {
 | 키 | 채널 | 방향 | 용도 |
 | --- | --- | --- | --- |
 | `recording.state` | `recording:state` | invoke | 지금 녹음 중인지 조회. 늦게 열린 창이 현재 상태를 안다 |
-| `recording.control` | `recording:control` | invoke | 메인 창이 보내는 시작/정지 요청. main이 위젯에 `recording:command`로 넘긴다 |
+| `recording.control` | `recording:control` | invoke | 메인 창이 보내는 시작/정지/버리기(`discard`, 2026-10-27) 요청. main이 위젯에 `recording:command`로 넘긴다 |
+| `recording.discard` | `recording:discard` | invoke | 위젯이 그래프를 끊은 뒤 보내는 버리기. main이 회의 행과 WAV를 지우고 잡을 넣지 않는다 (`features/recording.md` "녹음 카드" > "버리기") |
 | `recording.setSpeakerCount` | `recording:setSpeakerCount` | invoke | 두 창의 참석자 수 입력을 main 세션에 모은다 |
 | `recording.reportError` | `recording:reportError` | invoke | 위젯에서만 알 수 있는 실패(마이크 권한·그래프 생성)를 세션에 기록 |
 | `widget.setVisible` | `widget:setVisible` | invoke | 패널의 숨기기 버튼 |

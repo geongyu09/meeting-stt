@@ -1,5 +1,6 @@
 import type {
   ControlRecordingRequest,
+  DiscardRecordingRequest,
   ReportRecordingErrorRequest,
   SendRecordingChunkRequest,
   SetLiveTranscriptRequest,
@@ -69,6 +70,17 @@ export const sendRecordingChunkApi = async ({ meetingId, pcm }: SendRecordingChu
  */
 export const stopRecordingApi = async ({ meetingId }: StopRecordingRequest) =>
   invokeRecording(() => window.api.recording.stop({ meetingId }))
+
+/**
+ * @description 녹음을 저장하지 않고 버립니다. main이 회의 행과 WAV를 지우고 파이프라인 잡을 넣지 않습니다.
+ * 그래프 소유자인 위젯 창만 부릅니다 — 메인 창은 `controlRecordingApi({ kind: 'discard' })`로 요청합니다.
+ * @param meetingId - 회의 ID
+ * @returns 없음
+ * @example
+ * await discardRecordingApi({ meetingId })
+ */
+export const discardRecordingApi = async ({ meetingId }: DiscardRecordingRequest) =>
+  invokeRecording(() => window.api.recording.discard({ meetingId }))
 
 /**
  * @description 지금 녹음 중인지 조회합니다. 창이 늦게 열려 상태 이벤트를 놓쳤을 때 씁니다.

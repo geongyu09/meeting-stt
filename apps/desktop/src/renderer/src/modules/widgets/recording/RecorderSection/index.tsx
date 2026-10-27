@@ -13,6 +13,7 @@ import useSpeakerCount from '@renderer/shared/hooks/domain/recording/useSpeakerC
 import { useLocale } from '@renderer/shared/provider/context/localeContext'
 import { formatClock } from '@renderer/shared/utils/formatClock'
 
+import DiscardDialog from './ui/DiscardDialog'
 import LiveTranscriptView from './ui/LiveTranscriptView'
 import ViewModeToggle from './ui/ViewModeToggle'
 import styles from './index.module.css'
@@ -21,6 +22,7 @@ const WAVEFORM_BAR_COUNT = 40
 const STOP_ICON_SIZE = 16
 const NOTE_ICON_SIZE = 14
 const CHEVRON_ICON_SIZE = 16
+const DISCARD_ICON_SIZE = 16
 const NOTE_ROWS = 4
 
 /**
@@ -47,6 +49,7 @@ export default function RecorderSection() {
   const [isStopping, setIsStopping] = useState(false)
   const [isNoteOpen, setIsNoteOpen] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isDiscardOpen, setIsDiscardOpen] = useState(false)
 
   if (!isRecording) return null
 
@@ -68,6 +71,16 @@ export default function RecorderSection() {
       setControlError(t.recorder.controlError)
     } finally {
       setIsStopping(false)
+    }
+  }
+
+  const handleDiscard = async () => {
+    setIsDiscardOpen(false)
+    try {
+      await controlRecordingApi({ kind: 'discard' })
+      setControlError(null)
+    } catch {
+      setControlError(t.recorder.controlError)
     }
   }
 
@@ -97,13 +110,24 @@ export default function RecorderSection() {
           <Button
             variant="secondary"
             size="sm"
-            className={styles.collapseButton}
+            className={styles.iconButton}
             aria-expanded={!isCollapsed}
             aria-label={collapseLabel}
             title={collapseLabel}
             onClick={() => setIsCollapsed((isPrev) => !isPrev)}
           >
             <Icon name="chevronDown" size={CHEVRON_ICON_SIZE} />
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            className={styles.iconButton}
+            aria-haspopup="dialog"
+            aria-label={t.recorder.discard}
+            title={t.recorder.discard}
+            onClick={() => setIsDiscardOpen(true)}
+          >
+            <Icon name="close" size={DISCARD_ICON_SIZE} />
           </Button>
         </div>
       </div>
@@ -171,6 +195,9 @@ export default function RecorderSection() {
         </p>
       ) : liveTranscript.isEnabled && !isCollapsed ? (
         <p className={styles.notice}>{t.live.resourceNotice}</p>
+      ) : null}
+      {isDiscardOpen ? (
+        <DiscardDialog onConfirm={handleDiscard} onClose={() => setIsDiscardOpen(false)} />
       ) : null}
     </section>
   )

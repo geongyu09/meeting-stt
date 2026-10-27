@@ -67,6 +67,7 @@ import { importRecording } from '../audio/importRecording'
 import { deleteAudioFiles, deleteMeetingWithRecording, listAudioFiles } from '../audio/recordings'
 import {
   appendRecordingChunk,
+  discardActiveRecording,
   getRecordingState,
   reportRecordingError,
   setRecordingLiveTranscript,
@@ -341,7 +342,12 @@ const readSettings = (payload: unknown) => ({
   isAutoRefineExternal: readBoolean({ payload, key: 'isAutoRefineExternal' })
 })
 
-const RECORDING_COMMAND_KINDS: RecordingCommandEvent['kind'][] = ['start', 'stop', 'toggle']
+const RECORDING_COMMAND_KINDS: RecordingCommandEvent['kind'][] = [
+  'start',
+  'stop',
+  'toggle',
+  'discard'
+]
 
 const readRecordingCommandKind = (payload: unknown) => {
   const kind = isRecord(payload) ? payload.kind : undefined
@@ -657,6 +663,10 @@ export const registerIpcHandlers = () => {
 
     return meeting
   })
+
+  ipcMain.handle(IPC.recording.discard, (_event, payload) =>
+    discardActiveRecording({ meetingId: readMeetingId(payload) })
+  )
 
   ipcMain.handle(IPC.recording.state, (): GetRecordingStateResponse => getRecordingState())
 

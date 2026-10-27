@@ -38,7 +38,13 @@ export const recordingKo = {
     recentLabel: '최근 녹음',
     dismissRecent: ({ title }: { title: string }) => `${title} 목록에서 빼기`,
     collapse: '녹음 카드 접기',
-    expand: '녹음 카드 펼치기'
+    expand: '녹음 카드 펼치기',
+    discard: '녹음 버리기',
+    discardTitle: '녹음을 버릴까요?',
+    discardDescription:
+      '지금까지 녹음한 소리와 노트가 저장되지 않고 사라집니다. 되돌릴 수 없습니다.',
+    discardCancel: '취소',
+    discardConfirm: '버리기'
   },
   note: {
     toggle: '노트',
@@ -163,7 +169,13 @@ export const recordingEn: typeof recordingKo = {
     recentLabel: 'Recent recordings',
     dismissRecent: ({ title }) => `Remove ${title} from the list`,
     collapse: 'Collapse recording card',
-    expand: 'Expand recording card'
+    expand: 'Expand recording card',
+    discard: 'Discard recording',
+    discardTitle: 'Discard this recording?',
+    discardDescription:
+      'The audio and note recorded so far will not be saved. This cannot be undone.',
+    discardCancel: 'Cancel',
+    discardConfirm: 'Discard'
   },
   note: {
     toggle: 'Note',

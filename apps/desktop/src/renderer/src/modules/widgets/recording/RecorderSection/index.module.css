@@ -59,19 +59,20 @@
   margin-left: auto;
 }
 
-/* 보기 토글(28px) 높이에 맞춘 원형. 접히면 화살표가 위를 보며 "펼치기"를 뜻한다 */
-.collapseButton {
+/* 접기·버리기 아이콘 버튼. 보기 토글(28px) 높이에 맞춘 원형이다 */
+.iconButton {
   width: 28px;
   min-height: 28px;
   height: 28px;
   padding: 0;
 }
 
-.collapseButton svg {
+.iconButton svg {
   transition: transform 0.15s ease;
 }
 
-.collapseButton[aria-expanded='false'] svg {
+/* 접히면 화살표가 위를 보며 "펼치기"를 뜻한다 */
+.iconButton[aria-expanded='false'] svg {
   transform: rotate(180deg);
 }
 

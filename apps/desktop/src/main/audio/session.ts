@@ -25,6 +25,7 @@ import {
 } from '../db/settings'
 import { info, messageOf, warn } from '../log'
 import { notifyMeetingsChanged } from '../meetingsChanged'
+import { deleteMeetingWithRecording } from './recordings'
 import { enqueuePipelineJob } from '../pipeline/queue'
 import {
   feedLiveTranscript,
@@ -296,6 +297,25 @@ export const stopRecording = async ({ meetingId }: { meetingId: string }) => {
   if (!meeting) throw new Error(t().main.recording.meetingInfoNotFound)
 
   return meeting
+}
+
+/**
+ * 저장하지 않고 버린다. 세션을 먼저 비워 늦게 온 청크는 버려지고, 잡을 넣지 않은 채 회의 행과 WAV를 지운다
+ * (references/features/recording.md "녹음 카드" > "버리기").
+ */
+export const discardActiveRecording = async ({ meetingId }: { meetingId: string }) => {
+  const active = sessionOf(meetingId)
+  session = null
+  note = ''
+  resetLiveTranscript()
+  active.stt?.stop()
+  await active.systemAudio?.stop()
+  // 파일 핸들을 닫아야 지운 뒤에 남은 쓰기가 파일을 되살리지 않는다
+  await active.writer.finalize()
+  await deleteMeetingWithRecording({ meetingId })
+  info(`녹음 버림 ${meetingId}`)
+  publish()
+  notifyMeetingsChanged()
 }
 
 /** 제목은 시작할 때 "녹음"으로 만들어지므로 정지할 때 메모 기본 제목으로 바꾼다. 그사이 고친 제목은 그대로 둔다 */

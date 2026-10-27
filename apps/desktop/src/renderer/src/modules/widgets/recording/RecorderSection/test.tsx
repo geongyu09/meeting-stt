@@ -112,6 +112,29 @@ describe('RecorderSection', () => {
     expect(screen.getByRole('button', { name: '정지하고 기록 만들기' })).toBeTruthy()
   })
 
+  it('X를 누르면 확인 모달을 띄우고, 취소하면 녹음을 그대로 둔다', async () => {
+    await renderRecording()
+
+    await userEvent.click(screen.getByRole('button', { name: '녹음 버리기' }))
+
+    expect(screen.getByRole('dialog', { name: '녹음을 버릴까요?' })).toBeTruthy()
+
+    await userEvent.click(screen.getByRole('button', { name: '취소' }))
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(controlRecordingApi).not.toHaveBeenCalled()
+  })
+
+  it('확인 모달에서 버리기를 누르면 main에 버리기를 보낸다', async () => {
+    await renderRecording()
+
+    await userEvent.click(screen.getByRole('button', { name: '녹음 버리기' }))
+    await userEvent.click(screen.getByRole('button', { name: '버리기' }))
+
+    expect(controlRecordingApi).toHaveBeenCalledWith({ kind: 'discard' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
   it('녹음 중에 메모로 바꾸면 main에 종류를 보내고, 메모 상태에서는 참석자 수를 묻지 않는다', async () => {
     await renderRecording()
 

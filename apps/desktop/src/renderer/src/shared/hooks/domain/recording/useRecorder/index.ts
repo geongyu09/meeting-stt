@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AudioInputDevice } from '@shared/types'
 import { onRecordingCommand } from '@renderer/shared/api/events'
 import {
+  discardRecordingApi,
   reportRecordingErrorApi,
   requestMicrophonePermissionApi,
   sendRecordingChunkApi,
@@ -95,22 +96,28 @@ const useRecorder = ({ isReady }: UseRecorderParams) => {
     }
   }, [isReady, report, t])
 
-  const stop = useCallback(async () => {
-    const meetingId = meetingIdRef.current
-    if (!meetingId) return
+  /** 정지와 버리기는 그래프를 먼저 끊고 main에 알리는 순서가 같다 */
+  const finish = useCallback(
+    async (request: (params: { meetingId: string }) => Promise<unknown>) => {
+      const meetingId = meetingIdRef.current
+      if (!meetingId) return
 
-    setIsBusy(true)
-    meetingIdRef.current = null
+      setIsBusy(true)
+      meetingIdRef.current = null
 
-    try {
-      await teardownGraph()
-      await stopRecordingApi({ meetingId })
-    } catch (caught) {
-      report(caught)
-    } finally {
-      setIsBusy(false)
-    }
-  }, [report, teardownGraph])
+      try {
+        await teardownGraph()
+        await request({ meetingId })
+      } catch (caught) {
+        report(caught)
+      } finally {
+        setIsBusy(false)
+      }
+    },
+    [report, teardownGraph]
+  )
+
+  const stop = useCallback(() => finish(stopRecordingApi), [finish])
 
   // 다시 마운트되면 ref만 비워지고 이전 그래프가 마이크를 잡은 채 청크를 계속 보낸다.
   // 그래프를 잃은 녹음은 이어 갈 수 없으므로 여기서 정지까지 마친다 (references/pitfalls.md)
@@ -132,10 +139,11 @@ const useRecorder = ({ isReady }: UseRecorderParams) => {
       onRecordingCommand(({ kind }) => {
         const isActive = meetingIdRef.current !== null
 
-        if (kind === 'stop' || (kind === 'toggle' && isActive)) void stop()
+        if (kind === 'discard') void finish(discardRecordingApi)
+        else if (kind === 'stop' || (kind === 'toggle' && isActive)) void stop()
         else if (kind === 'start' || kind === 'toggle') void start()
       }),
-    [start, stop]
+    [finish, start, stop]
   )
 
   return { isBusy, start, stop }

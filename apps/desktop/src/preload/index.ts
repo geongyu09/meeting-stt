@@ -98,6 +98,7 @@ import {
   type StartRecordingResponse,
   type StopRecordingRequest,
   type StopRecordingResponse,
+  type DiscardRecordingRequest,
   type RefineProgressEvent,
   type RunRefineRequest,
   type SummaryProgressEvent,
@@ -123,6 +124,8 @@ const api = {
       ipcRenderer.invoke(IPC.recording.chunk, payload),
     stop: (payload: StopRecordingRequest): Promise<StopRecordingResponse> =>
       ipcRenderer.invoke(IPC.recording.stop, payload),
+    discard: (payload: DiscardRecordingRequest): Promise<void> =>
+      ipcRenderer.invoke(IPC.recording.discard, payload),
     state: (): Promise<GetRecordingStateResponse> => ipcRenderer.invoke(IPC.recording.state),
     control: (payload: ControlRecordingRequest): Promise<void> =>
       ipcRenderer.invoke(IPC.recording.control, payload),

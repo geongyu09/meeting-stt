@@ -37,6 +37,7 @@ export const IPC = {
     start: 'recording:start',
     chunk: 'recording:chunk',
     stop: 'recording:stop',
+    discard: 'recording:discard',
     state: 'recording:state',
     control: 'recording:control',
     setSpeakerCount: 'recording:setSpeakerCount',
@@ -183,6 +184,11 @@ export interface StopRecordingRequest {
 }
 export type StopRecordingResponse = Meeting
 
+/** 위젯이 그래프를 끊은 뒤 보낸다. main은 회의 행과 WAV를 지우고 잡을 넣지 않는다 */
+export interface DiscardRecordingRequest {
+  meetingId: string
+}
+
 /**
  * 진행 중 녹음의 단일 출처. 위젯 패널과 메인 창이 같은 값을 본다 (references/architecture.md).
  * 조회는 `recording:state`, push는 `recording:stateChanged`로 같은 모양을 쓴다.
@@ -267,7 +273,8 @@ export interface SetRecordingPausedRequest {
 
 /** 메인 창·Tray·전역 단축키가 보내는 요청. main이 위젯에 `recording:command`로 넘긴다 */
 export interface ControlRecordingRequest {
-  kind: 'start' | 'stop' | 'toggle'
+  /** `discard`는 저장하지 않고 버린다 (references/features/recording.md "녹음 카드" > "버리기") */
+  kind: 'start' | 'stop' | 'toggle' | 'discard'
 }
 export type RecordingCommandEvent = ControlRecordingRequest
 
