@@ -299,12 +299,26 @@ export const updateMeetingSummary = ({
     .prepare('UPDATE meetings SET summary = @summary WHERE id = @meetingId')
     .run({ meetingId, summary }).changes > 0
 
-/** 이전 실행이 녹음·처리 중에 죽은 경우 남는 행. 시작 시 한 번 정리한다 */
-export const failStaleMeetings = () =>
+/** 종료 직전(`before-quit`)이나 처리 중에 WAV 헤더가 확정된 행. 크래시로 끊긴 녹음은 길이가 0으로 남는다 */
+const RESUMABLE_CONDITION = 'audio_path IS NOT NULL AND duration_sec >= @minDurationSec'
+
+/** 이전 실행이 종료되며 끊긴 회의 중 다시 처리할 수 있는 것. 시작 시 큐에 다시 넣는다 (references/features/ui.md "화면 라우트") */
+export const listResumableMeetingIds = ({ minDurationSec }: { minDurationSec: number }) =>
+  getDb()
+    .prepare(
+      `SELECT id FROM meetings
+       WHERE status IN ('recording', 'processing') AND ${RESUMABLE_CONDITION}
+       ORDER BY created_at`
+    )
+    .all({ minDurationSec })
+    .map((row) => (row as { id: string }).id)
+
+/** 이전 실행이 녹음·처리 중에 죽어 다시 처리할 수 없는 행. 시작 시 한 번 정리한다 */
+export const failStaleMeetings = ({ minDurationSec }: { minDurationSec: number }) =>
   getDb()
     .prepare(
       `UPDATE meetings
        SET status = 'error', error_message = @errorMessage
-       WHERE status IN ('recording', 'processing')`
+       WHERE status IN ('recording', 'processing') AND NOT (${RESUMABLE_CONDITION})`
     )
-    .run({ errorMessage: t().main.pipeline.interruptedByQuit }).changes
+    .run({ errorMessage: t().main.pipeline.interruptedByQuit, minDurationSec }).changes

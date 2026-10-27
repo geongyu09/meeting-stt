@@ -498,6 +498,7 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 
 - [ ] **디스크 부족(ENOSPC)에서 녹음 세션이 영구히 막히는 문제.** `audio/wavWriter.ts`의 쓰기 체인(`queue = queue.then(...)`)이 한 번 reject되면 이후 append·finalize가 전부 실패하고, `stopRecording`이 finalize 뒤에 `session = null`을 해서 세션이 남아 다음 녹음이 `alreadyActive`가 된다.
       → 실패한 append는 체인을 끊지 않고 오류를 세션에 보고, `stopRecording`은 finalize가 실패해도 세션을 반드시 비운다. 녹음 시작 전 `statfs`로 여유 공간(예: 1시간분 115MB)을 확인해 부족하면 사전(`ko`·`en`) 문구로 막는다
+- [x] **종료로 끊긴 처리 이어 하기** (2026-10-27 사용자 보고 "왜 자꾸 전사가 실패하지"). 녹음 중·처리 중에 앱을 끄면 `before-quit`이 WAV를 확정해 잡을 넣자마자 앱이 꺼지고, 다음 시작 정리가 그 회의를 오류로 덮어썼다. 시작 정리가 WAV가 확정된 회의를 큐에 다시 넣는다 (`features/ui.md` "화면 라우트 (Phase 2)"의 `before-quit` 항목). 이미 오류인 회의는 기록 카드 "다시 시도"
 - [ ] **크래시 중이던 녹음 복구.** WAV 헤더를 정지 시에만 확정해 크래시 후 `dataBytes = 0`으로 남고, `readWavPcm`이 빈 PCM을 읽어 다시 인식해도 결과가 빈다.
       → 앱 시작 시 `status='recording'`으로 남은 회의의 WAV를 파일 크기로 헤더를 고쳐 `duration_sec`을 채우고 `error`(원본 보존)로 바꿔 "다시 시도"가 되게 한다. 헤더 복구 함수는 순수 로직으로 두고 단위 테스트
 - [ ] **처리 중·녹음 중 회의 삭제 방지.** `ipc/handlers.ts`의 삭제 핸들러에 상태 확인이 없어 파이프라인은 끝까지 돌고 마지막 `saveTranscript`만 FK 오류로 실패한다.

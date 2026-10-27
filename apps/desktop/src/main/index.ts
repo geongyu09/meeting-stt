@@ -17,6 +17,7 @@ import { IPC } from '@shared/ipc'
 import {
   finalizeActiveRecording,
   isRecording,
+  MIN_RECORDING_SEC,
   recordingsDir,
   setRecordingStateListener
 } from './audio/session'
@@ -30,7 +31,7 @@ import {
 import { setRoutinesListener, startRoutineScheduler, stopRoutines } from './assistant/routines'
 import { cancelAssistant, setAssistantStateListener } from './assistant/session'
 import { closeDb } from './db/connection'
-import { failStaleMeetings } from './db/meetings'
+import { failStaleMeetings, listResumableMeetingIds } from './db/meetings'
 import { getAppSettings, getWhisperModelId } from './db/settings'
 import { setDictationCommandSender, setDictationStateListener } from './dictation/session'
 import { setCurrentLocale } from './locale'
@@ -40,6 +41,7 @@ import { error as logError, info, messageOf, warn } from './log'
 import { setMeetingsChangedListener } from './meetingsChanged'
 import { setSelectedWhisperModelId } from './models/paths'
 import {
+  enqueuePipelineJob,
   setPipelineProgressListener,
   setRefineProgressListener,
   setSummaryProgressListener
@@ -113,9 +115,13 @@ const notifyUpdateIfAvailable = async () => {
   broadcast({ channel: IPC.events.updateAvailable, event })
 }
 
-/** 이전 실행이 녹음·처리 중에 죽은 흔적을 정리한다. 실패해도 앱은 뜬다 */
+/**
+ * 이전 실행이 녹음·처리 중에 죽은 흔적을 정리한다. 실패해도 앱은 뜬다.
+ * 종료 직전에 WAV가 확정된 회의는 오류로 두지 않고 다시 처리한다 (references/features/ui.md "화면 라우트").
+ */
 const cleanupPreviousRun = async () => {
-  const cleaned = failStaleMeetings()
+  const resumableIds = listResumableMeetingIds({ minDurationSec: MIN_RECORDING_SEC })
+  const cleaned = failStaleMeetings({ minDurationSec: MIN_RECORDING_SEC })
   if (cleaned) info(`비정상 종료로 남은 회의 ${cleaned}건을 오류로 정리했습니다`)
 
   try {
@@ -124,6 +130,11 @@ const cleanupPreviousRun = async () => {
   } catch (caught) {
     warn(`파이프라인 임시 파일 정리 실패: ${messageOf(caught)}`)
   }
+
+  // 임시 파일을 지운 뒤에 넣는다 — 먼저 넣으면 막 시작한 잡의 임시 파일을 지운다
+  // shortcut: 시도 횟수를 세지 않아 처리 중 main이 매번 죽으면 켤 때마다 다시 돈다, 그런 사례가 보이면 횟수 컬럼을 둔다
+  resumableIds.forEach((meetingId) => enqueuePipelineJob({ meetingId }))
+  if (resumableIds.length) info(`종료로 끊긴 회의 ${resumableIds.length}건을 다시 처리합니다`)
 }
 
 // 커스텀 스킴 권한은 ready 전에만 줄 수 있다
