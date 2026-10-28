@@ -145,7 +145,7 @@ export const assistantKo = {
       editFile: ({ name }: { name: string }) => `${name} 열어서 고치기`
     },
     errors: {
-      timeout: '10분 안에 끝나지 않아 중지했습니다'
+      timeout: '20분 안에 끝나지 않아 중지했습니다'
     }
   },
   errors: {
@@ -321,7 +321,7 @@ export const assistantEn: typeof assistantKo = {
       editFile: ({ name }) => `Open ${name} to edit`
     },
     errors: {
-      timeout: 'Stopped because it did not finish within 10 minutes'
+      timeout: 'Stopped because it did not finish within 20 minutes'
     }
   },
   errors: {

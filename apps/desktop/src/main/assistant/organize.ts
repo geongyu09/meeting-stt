@@ -28,7 +28,7 @@ import { isMarkdownPath, toWorkspaceRelative } from './workspacePath'
  * GPU 큐와 따로 둔다 — 에이전트는 몇 분씩 걸려 같은 큐에 넣으면 다음 녹음의 STT를 막는다. 한 번에 하나씩 돈다.
  */
 
-const ORGANIZE_TIMEOUT_MS = 10 * 60_000
+const ORGANIZE_TIMEOUT_MS = 20 * 60_000
 
 /** UI 문구가 아니라 프롬프트라 UI 언어와 무관하게 한국어다 (루틴의 ROUTINE_PREAMBLE과 같은 방식) */
 const instructionOf = ({
@@ -50,8 +50,8 @@ const instructionOf = ({
 
 const NOTE_INSTRUCTION =
   '원문의 `## 노트`는 사용자가 녹음하며 직접 적은 글이다. 전사보다 믿을 만한 단서로 보고(이름·용어 표기, 결정, 할 일) 정리에 반영하라.\n' +
-  '노트의 링크는 열어 읽고 관련 내용을 정리에 반영하라. 링크 자체도 정리한 문서의 관련 자리에 남겨라. ' +
-  '열 수 없는 링크(로그인 필요 등)는 링크만 남기고 읽지 못했다고 적어라.'
+  '요약 파일을 먼저 쓴 다음에 노트의 링크를 열어 읽고 관련 내용을 요약과 정리에 더하라. 링크 자체도 정리한 문서의 관련 자리에 남겨라. ' +
+  '링크마다 한 번만 시도하고, 열리지 않거나(로그인 필요 등) 응답이 없으면 다른 방법으로 다시 시도하지 말고 링크만 남긴 채 읽지 못했다고 적어라.'
 
 let queuedIds: string[] = []
 let running: { meetingId: string; controller: AbortController } | null = null
