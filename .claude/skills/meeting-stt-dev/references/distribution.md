@@ -307,6 +307,14 @@ electron-builder가 두 파일을 동시에 올리면서 드래프트를 둘로 
 - 공증 포함 빌드 약 9분, 동봉 19개 서명·하드닝 확인, `spctl` Notarized Developer ID·`stapler` 통과. 빌드는 푸시 전에 먼저 끝냈다.
   업로드는 `curl -4 --http1.1`로 zip 160MB 13초·dmg 160MB 13초, 재시도 0회. 내려받아 sha512 대조 후 게시했다.
 
+#### v0.3.8 실측 (2026-10-29) — 네트워크 때문에 빌드가 두 번 실패했다
+
+- 1차는 서명 중 `The timestamp service is not available`(v0.2.1과 같음), 2차는 패키징 시작 직후 `getaddrinfo ENOTFOUND github.com`(DNS)로 죽었다. 둘 다 그 시각 네트워크 문제라 `dist/`를 지우고 같은 명령을 다시 돌려 세 번째에 통과했다. 실패한 빌드는 푸시 전이라 태그·`main`에 남은 것이 없다.
+  재시도 전에 `github.com`·`timestamp.apple.com`이 응답하는지 먼저 확인한다.
+- 0.3.7 이후 `native/`·`pnpm-lock.yaml`이 바뀌지 않아 릴리스 워크트리의 바이너리를 그대로 썼다(두 Swift 도구 모두 소스보다 새롭다). 빌드 전에 릴리스 워크트리에서 `pnpm test` 전부 통과를 확인했다.
+- 공증 포함 빌드 약 11분, 동봉 19개 서명·하드닝 확인, `spctl` Notarized Developer ID·`stapler` 통과.
+  업로드는 `curl -4 --http1.1`로 zip 160MB 11초·dmg 160MB 12초, 재시도 0회. 내려받아 sha512 대조 후 게시했다.
+
 ## 7. 자동 업데이트 — 기본은 꺼 둔다
 
 `electron-updater`를 넣되 **기본값은 꺼짐**이고, 설정의 `update.check`(기본 `false`)가 켜져 있을 때만 확인한다.
