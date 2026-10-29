@@ -6,6 +6,8 @@ import { locateClaudeCli } from '../llm/claudeCli'
 import { locateCodexCli } from '../llm/codexCli'
 import { t } from '../locale'
 import { info, messageOf, warn } from '../log'
+import { getMainWindow } from '../windows/main'
+import { notificationSummaryOf, showNotification } from '../windows/notify'
 
 import { runClaudeAgent } from './claudeAgent'
 import { runCodexAgent } from './codexAgent'
@@ -155,6 +157,23 @@ const finishTurn = (caught: unknown, signal: AbortSignal) => {
 
   controller = null
   setState({ ...state, isRunning: false })
+  if (!signal.aborted) notifyAnswer()
+}
+
+/** 창을 보고 있으면 답이 화면에 바로 보이므로 다른 곳에 있을 때만 알린다 */
+const notifyAnswer = () => {
+  if (getMainWindow()?.isFocused()) return
+
+  const [question, answer] = state.turns.slice(-2)
+  if (!question || !answer) return
+
+  const labels = t().assistant.notification
+  showNotification({
+    title: notificationSummaryOf(question.text),
+    body: answer.error
+      ? labels.failed({ reason: answer.error })
+      : notificationSummaryOf(answer.text) || labels.noAnswer
+  })
 }
 
 /**

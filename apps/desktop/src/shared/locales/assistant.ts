@@ -148,6 +148,10 @@ export const assistantKo = {
       timeout: '20분 안에 끝나지 않아 중지했습니다'
     }
   },
+  notification: {
+    failed: ({ reason }: { reason: string }) => `실패: ${reason}`,
+    noAnswer: '답변을 마쳤습니다'
+  },
   errors: {
     invalidAutoOrganize: '자동 정리 값이 올바르지 않습니다',
     invalidProvider: '알 수 없는 에이전트입니다',
@@ -323,6 +327,10 @@ export const assistantEn: typeof assistantKo = {
     errors: {
       timeout: 'Stopped because it did not finish within 20 minutes'
     }
+  },
+  notification: {
+    failed: ({ reason }) => `Failed: ${reason}`,
+    noAnswer: 'Answer finished'
   },
   errors: {
     invalidAutoOrganize: 'Invalid auto-organize value',

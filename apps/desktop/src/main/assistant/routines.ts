@@ -4,7 +4,7 @@ import { isRoutineDue, ROUTINE_RESULT_MAX_CHARS } from '@shared/routine'
 import { getRoutines, setRoutines } from '../db/settings'
 import { t } from '../locale'
 import { info, messageOf, warn } from '../log'
-import { showNotification } from '../windows/notify'
+import { notificationSummaryOf, showNotification } from '../windows/notify'
 
 import { requireWorkspaceFolder } from './folder'
 import { runUnattendedTurn } from './unattendedTurn'
@@ -19,8 +19,6 @@ const ROUTINE_TICK_MS = 30_000
 
 /** 에이전트가 멈춰도 다음 루틴이 막히지 않게 한다 */
 const ROUTINE_TIMEOUT_MS = 10 * 60_000
-
-const NOTIFICATION_BODY_MAX_CHARS = 120
 
 /** 루틴 프롬프트 앞에 붙인다. UI 문구가 아니라 프롬프트라 UI 언어와 무관하게 한국어다 */
 const ROUTINE_PREAMBLE =
@@ -87,7 +85,7 @@ const executeRoutine = async ({
 }
 
 const notifyRun = ({ routine, run }: { routine: Routine; run: RoutineRun }) => {
-  const summary = run.text.replace(/\s+/g, ' ').trim().slice(0, NOTIFICATION_BODY_MAX_CHARS)
+  const summary = notificationSummaryOf(run.text)
   const labels = t().routine.notification
 
   showNotification({
@@ -112,6 +110,7 @@ const drainQueue = async () => {
   updateRoutine({ id, change: (current) => ({ ...current, anchorAt: Date.now() }) })
   pushState()
   info(`루틴 시작: ${routine.name}`)
+  showNotification({ title: routine.name, body: t().routine.notification.started })
 
   const run = await executeRoutine({ routine, controller })
   running = null

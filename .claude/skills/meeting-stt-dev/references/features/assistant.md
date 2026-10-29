@@ -123,6 +123,7 @@ interface AssistantChatState {
 
 - 글 조각마다 상태 전체를 보내면 긴 대화에서 IPC가 커진다. **50ms(`STATE_PUSH_INTERVAL_MS`)에 한 번으로 모아** 보낸다.
 - 대화 중에는 공급자를 바꾸지 않는다(화면이 막는다). 바꾸려면 "새 대화".
+- **답변 알림** (2026-10-29 사용자 요청): 턴이 끝났을 때 **메인 창이 포커스를 갖고 있지 않으면**(다른 앱을 쓰는 중, 창이 가려졌거나 최소화됨) macOS 알림을 보낸다 — 제목은 질문, 본문은 답변 글 앞 120자(`notificationSummaryOf`) / 실패면 "실패: <이유>". 창을 보고 있으면 화면에 바로 보이므로 띄우지 않고, 사용자가 취소한 턴(새 대화 포함)은 알리지 않는다. 누르면 메인 창을 앞으로 가져온다. 알림 자체는 루틴과 같은 `windows/notify.ts`를 쓴다.
 
 ### 문서 에디터 (`src/main/assistant/files.ts`)
 
@@ -530,7 +531,8 @@ type RoutineInput = Pick<Routine, 'name' | 'prompt' | 'schedule' | 'isEnabled'> 
 
 ### 알림 (`src/main/windows/notify.ts`)
 
-- Electron `Notification`(main). 제목은 루틴 이름, 본문은 답변 글 앞 `NOTIFICATION_BODY_MAX_CHARS`(120자) / 실패면 "실패: <이유>". 누르면 메인 창을 앞으로 가져온다(`showMainWindow`). 녹음 기록 자동 정리의 알림도 이 파일을 쓴다.
+- Electron `Notification`(main). 제목은 루틴 이름, 본문은 답변 글 앞 `NOTIFICATION_BODY_MAX_CHARS`(120자, `notificationSummaryOf` — 채팅 답변 알림과 같은 함수) / 실패면 "실패: <이유>". 누르면 메인 창을 앞으로 가져온다(`showMainWindow`). 녹음 기록 자동 정리의 알림도 이 파일을 쓴다.
+- **실행을 시작할 때도 알린다** (2026-10-29 사용자 요청) — 제목은 루틴 이름, 본문 "시작했습니다". 루틴은 백그라운드라 창 포커스와 관계없이 시작·결과 둘 다 늘 알린다.
 - `Notification.isSupported()`가 거짓이면 로그만 남긴다. 알림 권한은 macOS가 처음 보낼 때 묻는다.
 
 ### IPC

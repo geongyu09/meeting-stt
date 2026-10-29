@@ -69,6 +69,7 @@ export const routineKo = {
     saveError: '루틴을 추가하지 못했습니다'
   },
   notification: {
+    started: '시작했습니다',
     failed: ({ reason }: { reason: string }) => `실패: ${reason}`,
     noAnswer: '끝났습니다'
   },
@@ -152,6 +153,7 @@ export const routineEn: typeof routineKo = {
     saveError: 'Could not add the routine'
   },
   notification: {
+    started: 'Started',
     failed: ({ reason }) => `Failed: ${reason}`,
     noAnswer: 'Finished'
   },

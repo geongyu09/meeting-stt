@@ -657,6 +657,7 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 
 ### Claude CLI 에이전트 실행과 채팅 화면
 
+- [ ] 답변 알림 (2026-10-29 사용자 요청, `features/assistant.md` "대화 상태") — 턴이 끝났을 때 메인 창이 포커스가 없으면 macOS 알림(제목 질문, 본문 답변 앞 120자 / 실패 이유), 취소한 턴은 알리지 않음 — 코드 2026-10-29, test·typecheck·lint 통과, `pnpm dev` 확인 남음
 - [x] `bin/spawn.ts` `runBinary`에 취소용 `signal` — abort 뒤 실제 종료까지 기다리고 3초 뒤 SIGKILL + `spawn.test.ts` (2026-10-20)
 - [x] `assistant/claudeStream.ts` — 인자 조립·stream-json 줄 해석(세션 id·글 조각·도구·결과) + vitest(실측 출력 픽스처 `fixtures/claudeStreamV2_1_304.jsonl`) (2026-10-20)
 - [x] `assistant/claudeAgent.ts`·`assistant/session.ts` — spawn·취소·`--resume`, 대화 상태 push(50ms 모음), IPC `assistant.state`·`send`·`cancel`·`reset`, `events.assistantState` (2026-10-20)
@@ -767,6 +768,7 @@ CLI 라벨을 버리고 결과 구간을 5초 조각으로 재임베딩(`sherpa-
 - [x] `db/settings.ts` `assistant.routines` 읽기·쓰기, `buildClaudeAgentArgs`의 `isUnattended` + vitest (2026-10-22)
 - [x] `assistant/routines.ts` — 30초 훑기·시작 직후 한 번, 큐(동시성 1), 채팅과 같은 에이전트·새 세션·머리말·10분 제한, 지우면 끝내기, 앱 종료 시 끝내기, `lastRun` 저장·push (2026-10-22)
 - [x] 알림 `windows/notify.ts` — 완료·실패, 누르면 메인 창 (2026-10-22)
+- [ ] 시작 알림 (2026-10-29 사용자 요청) — 실행을 시작할 때 "시작했습니다" 알림 — 코드 2026-10-29, test·typecheck·lint 통과, `pnpm dev` 확인 남음
 - [x] 화면 `setting/RoutineSection` — 목록(주기 요약·다음 실행·마지막 실행·스위치·지금 실행·고치기·삭제 2단계), 인라인 폼, 마지막 답 펼치기 + 통합 테스트. 설정 모달(채팅창 리뉴얼)의 "개인 비서" 카테고리에 `AssistantSettingSection` 아래로 둔다 (2026-10-22)
 - [x] 사전 `routine.*`(`ko`·`en`) (2026-10-22)
 - [x] 루틴 코드의 test·typecheck·lint·`electron-vite build` 통과 (2026-10-22). 전체 `pnpm typecheck`·`RecorderSection/test.tsx`는 같은 시각 다른 세션이 고치던 녹음 노트·녹음 카드 쪽 오류로 실패 중이었다
